@@ -1,0 +1,15 @@
+# ビルド成果物
+bin/
+obj/
+
+# 発行物
+publish/
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
+
+# その他
+*.log
