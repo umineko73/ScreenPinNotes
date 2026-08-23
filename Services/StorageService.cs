@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text;
 using System.Text.Json;
 using ScreenStickyNotes.Models;
 
@@ -6,36 +7,150 @@ namespace ScreenStickyNotes.Services;
 
 public class StorageService
 {
-    private static readonly string DataDir = Path.Combine(
+    private static readonly string AppRoot = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "ScreenStickyNotes");
-    private static readonly string DataFile = Path.Combine(DataDir, "notes.json");
-    private static readonly string TempFile = DataFile + ".tmp";
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = true
-    };
+    // 新形式: notes/{id}/meta.json + content.md
+    private static readonly string NotesDir = Path.Combine(AppRoot, "notes");
+
+    // 旧形式（移行元）
+    private static readonly string LegacyFile = Path.Combine(AppRoot, "notes.json");
+
+    private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
+
+    // ─── 読み込み ────────────────────────────────────────────────
 
     public List<StickyNote> Load()
     {
-        if (!File.Exists(DataFile)) return [];
-        try
+        MigrateFromLegacy();
+
+        if (!Directory.Exists(NotesDir)) return [];
+
+        var notes = new List<StickyNote>();
+        foreach (var dir in Directory.GetDirectories(NotesDir))
         {
-            var json = File.ReadAllText(DataFile);
-            return JsonSerializer.Deserialize<List<StickyNote>>(json, JsonOptions) ?? [];
+            var metaPath = Path.Combine(dir, "meta.json");
+            if (!File.Exists(metaPath)) continue;
+            try
+            {
+                var note = JsonSerializer.Deserialize<StickyNote>(
+                    File.ReadAllText(metaPath, Encoding.UTF8), JsonOpts);
+                if (note == null) continue;
+
+                var contentPath = Path.Combine(dir, "content.md");
+                note.Content = File.Exists(contentPath)
+                    ? File.ReadAllText(contentPath, Encoding.UTF8)
+                    : "";
+                notes.Add(note);
+            }
+            catch { /* 壊れたノートはスキップ */ }
         }
-        catch
-        {
-            return [];
-        }
+
+        // 作成日時順に並べて返す
+        notes.Sort((a, b) => a.CreatedAt.CompareTo(b.CreatedAt));
+        return notes;
     }
+
+    // ─── 保存（全件） ────────────────────────────────────────────
 
     public void Save(IEnumerable<StickyNote> notes)
     {
-        Directory.CreateDirectory(DataDir);
-        var json = JsonSerializer.Serialize(notes.ToList(), JsonOptions);
-        File.WriteAllText(TempFile, json);
-        File.Move(TempFile, DataFile, overwrite: true);
+        Directory.CreateDirectory(NotesDir);
+
+        var list = notes.ToList();
+        var ids  = list.Select(n => n.Id).ToHashSet();
+
+        // 削除されたノートのフォルダを消す
+        foreach (var dir in Directory.GetDirectories(NotesDir))
+            if (!ids.Contains(Path.GetFileName(dir)))
+                Directory.Delete(dir, recursive: true);
+
+        foreach (var note in list)
+            WriteNote(note);
+    }
+
+    // ─── 保存（1件） ─────────────────────────────────────────────
+
+    public void SaveNote(StickyNote note) => WriteNote(note);
+
+    // ─── 削除（1件） ─────────────────────────────────────────────
+
+    public void DeleteNote(string id)
+    {
+        var dir = Path.Combine(NotesDir, id);
+        if (Directory.Exists(dir))
+            Directory.Delete(dir, recursive: true);
+    }
+
+    // ─── 内部：ファイル書き込み（アトミック） ───────────────────
+
+    private static void WriteNote(StickyNote note)
+    {
+        var dir = Path.Combine(NotesDir, note.Id);
+        Directory.CreateDirectory(dir);
+
+        // meta.json（Content は [JsonIgnore] により除外される）
+        AtomicWrite(Path.Combine(dir, "meta.json"),
+            JsonSerializer.Serialize(note, JsonOpts));
+
+        // content.md
+        AtomicWrite(Path.Combine(dir, "content.md"), note.Content);
+    }
+
+    private static void AtomicWrite(string path, string content)
+    {
+        var tmp = path + ".tmp";
+        File.WriteAllText(tmp, content, Encoding.UTF8);
+        File.Move(tmp, path, overwrite: true);
+    }
+
+    // ─── 旧形式からの移行 ────────────────────────────────────────
+
+    private static void MigrateFromLegacy()
+    {
+        if (!File.Exists(LegacyFile)) return;
+        try
+        {
+            var json   = File.ReadAllText(LegacyFile, Encoding.UTF8);
+            var legacy = JsonSerializer.Deserialize<List<LegacyNote>>(json, JsonOpts);
+            if (legacy != null)
+            {
+                Directory.CreateDirectory(NotesDir);
+                foreach (var old in legacy)
+                    WriteNote(new StickyNote
+                    {
+                        Id         = old.Id,
+                        Content    = old.Content,
+                        X          = old.X,         Y      = old.Y,
+                        Width      = old.Width,      Height = old.Height,
+                        ColorKey   = old.ColorKey,
+                        FontFamily = old.FontFamily, FontSize = old.FontSize,
+                        IsTopmost  = old.IsTopmost,  IsFolded = old.IsFolded,
+                        CreatedAt  = old.CreatedAt,  UpdatedAt = old.UpdatedAt,
+                    });
+            }
+            // 旧ファイルを .bak にリネームして保持
+            File.Move(LegacyFile, LegacyFile + ".bak", overwrite: true);
+        }
+        catch { /* 移行失敗は無視 */ }
+    }
+
+    // 旧 JSON 読み込み用（Content フィールドあり）
+    private sealed class LegacyNote
+    {
+        public string   Id         { get; set; } = Guid.NewGuid().ToString();
+        public string   Content    { get; set; } = "";
+        public double   X          { get; set; } = 100;
+        public double   Y          { get; set; } = 100;
+        public double   Width      { get; set; } = 260;
+        public double   Height     { get; set; } = 220;
+        public string   ColorKey   { get; set; } = "yellow";
+        public string   FontFamily { get; set; } = "Yu Gothic UI";
+        public double   FontSize   { get; set; } = 13;
+        public bool     IsTopmost  { get; set; }
+        public bool     IsFolded   { get; set; }
+        public DateTime CreatedAt  { get; set; } = DateTime.Now;
+        public DateTime UpdatedAt  { get; set; } = DateTime.Now;
     }
 }

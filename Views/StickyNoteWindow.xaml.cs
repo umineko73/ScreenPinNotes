@@ -8,6 +8,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Shell;
 using ScreenStickyNotes.Services;
 using ScreenStickyNotes.ViewModels;
 using WpfBrushes     = System.Windows.Media.Brushes;
@@ -24,8 +25,10 @@ namespace ScreenStickyNotes.Views;
 
 public partial class StickyNoteWindow : Window
 {
-    private const double TitleBarHeight = 28;
-    private const double SnapDistance   = 5;
+    private const double TitleBarHeight   = 28;
+    private const double UnfoldedMinWidth = 280;
+    private const double ResizeBorder     = 5;
+    private const double SnapDistance   = 10;
 
     private static readonly string[] FontList =
     [
@@ -41,6 +44,8 @@ public partial class StickyNoteWindow : Window
     private double     _dragOffsetX, _dragOffsetY;
     private bool       _suppressTextChange;
     private bool       _isEditMode;
+    private bool       _suppressViewMode;
+    private WrapPanel? _colorPanel;
     private Hyperlink? _contextMenuLink;
     private MenuItem   _openLinkItem  = new();
     private MenuItem   _convertLinkItem = new();
@@ -64,6 +69,18 @@ public partial class StickyNoteWindow : Window
         ContentBox.ContextMenu = BuildContentContextMenu();
         System.Windows.DataObject.AddPastingHandler(ContentBox, OnPaste);
 
+        // ポップアップは別HWNDのため開くとウィンドウが非アクティブになる。
+        // 開いている間はビューモードへの移行を抑止する。
+        foreach (var popup in new[] { _colorPopup, _fontPopup })
+        {
+            popup.Opened += (_, _) => _suppressViewMode = true;
+            popup.Closed += (_, _) =>
+            {
+                _suppressViewMode = false;
+                if (_isEditMode) Dispatcher.BeginInvoke(() => ContentBox.Focus());
+            };
+        }
+
         // アプリ切り替え時もビューモードへ
         Deactivated += (_, _) => EnterViewMode();
 
@@ -74,6 +91,7 @@ public partial class StickyNoteWindow : Window
             {
                 ContentBox.Visibility = Visibility.Collapsed;
                 Height = TitleBarHeight;
+                SetResizeEnabled(false);
             }
             // 新規（空）付箋はすぐ編集モードで開始
             if (string.IsNullOrEmpty(vm.Content))
@@ -164,13 +182,13 @@ public partial class StickyNoteWindow : Window
         ContentBox.BorderThickness = new Thickness(2);
         ContentBox.BorderBrush = WpfBrushes.CornflowerBlue;
         ContentBox.ToolTip = null;
-        EditModeLabel.Visibility = Visibility.Visible;
+        UpdateControlsVisibility();
         ContentBox.Focus();
     }
 
     private void EnterViewMode()
     {
-        if (!_isEditMode) return;
+        if (!_isEditMode || _suppressViewMode) return;
         _isEditMode = false;
         // ドキュメントを再構築してリンクを正しく復元する
         LoadContent(ViewModel.Content);
@@ -179,8 +197,52 @@ public partial class StickyNoteWindow : Window
         ContentBox.BorderThickness = new Thickness(0);
         ContentBox.BorderBrush = WpfBrushes.Transparent;
         ContentBox.ToolTip = "クリックして編集";
-        EditModeLabel.Visibility = Visibility.Collapsed;
+        UpdateControlsVisibility();
         Keyboard.ClearFocus();
+    }
+
+    // リサイズ可否を切り替える。
+    //
+    // ResizeMode は XAML で CanResize 固定にしてある。実行時に切り替えると
+    // Window テンプレートが再適用され ResizeGrip が作り直されてしまうため。
+    // （CanResize ではグリップ自体がテンプレートに生成されない）
+    //
+    // 実際のリサイズ抑止は次の2つで行う:
+    //   1. WindowChrome.ResizeBorderThickness = 0 … 当たり判定を消す
+    //   2. Min/Max を現在値で固定           … 寸法変更そのものを封じる
+    private void SetResizeEnabled(bool enabled)
+    {
+        var chrome = WindowChrome.GetWindowChrome(this);
+        if (chrome != null)
+        {
+            if (chrome.IsFrozen)
+            {
+                chrome = (WindowChrome)chrome.Clone();
+                WindowChrome.SetWindowChrome(this, chrome);
+            }
+            chrome.ResizeBorderThickness = new Thickness(enabled ? ResizeBorder : 0);
+        }
+
+        if (enabled)
+        {
+            MinWidth  = UnfoldedMinWidth;
+            MaxWidth  = double.PositiveInfinity;
+            MinHeight = TitleBarHeight;
+            MaxHeight = double.PositiveInfinity;
+        }
+        else
+        {
+            MinWidth  = MaxWidth  = Width;
+            MinHeight = MaxHeight = TitleBarHeight;
+        }
+    }
+
+    // 折りたたみ状態と編集モードの両方を考慮してステータスバーの表示を更新
+    private void UpdateControlsVisibility()
+    {
+        StatusBar.Visibility = (_isEditMode && !ViewModel.IsFolded)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
     // View モード: クリックでリンクを直接開く / 非リンクならEdit モードへ
@@ -214,7 +276,24 @@ public partial class StickyNoteWindow : Window
         ContentBox.Cursor = target != null ? WpfCursors.Hand : WpfCursors.Arrow;
     }
 
-    private void ContentBox_LostFocus(object sender, RoutedEventArgs e) => EnterViewMode();
+    private void ContentBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        // ステータスバー内への移動は編集モードを維持する。
+        // ここで Focus() を呼び戻すとボタンのマウスキャプチャを奪い Click が発火しなくなる。
+        if (_suppressViewMode) return;
+        if (IsDescendantOf(e.NewFocus as DependencyObject, StatusBar)) return;
+        EnterViewMode();
+    }
+
+    private static bool IsDescendantOf(DependencyObject? child, DependencyObject? ancestor)
+    {
+        while (child != null)
+        {
+            if (child == ancestor) return true;
+            child = VisualTreeHelper.GetParent(child);
+        }
+        return false;
+    }
 
     private void ContentBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
@@ -486,32 +565,39 @@ public partial class StickyNoteWindow : Window
         if (ViewModel.IsFolded)
         {
             ContentBox.Visibility = Visibility.Visible;
-            AnimateHeight(TitleBarHeight, _unfoldedHeight);
             ViewModel.IsFolded = false;
+            SetResizeEnabled(true);
+            AnimateHeight(TitleBarHeight, _unfoldedHeight);
         }
         else
         {
             if (_isEditMode) EnterViewMode(); // 折りたたみ時は閲覧モードに戻す
             _unfoldedHeight = Height;
-            var anim = AnimateHeight(Height, TitleBarHeight);
-            anim.Completed += (_, _) =>
+            // アニメーション中の SizeChanged で Model.Height が
+            // 途中の値に上書きされないよう先にフラグを立てる
+            ViewModel.IsFolded = true;
+            AnimateHeight(Height, TitleBarHeight, () =>
             {
                 ContentBox.Visibility = Visibility.Collapsed;
                 ViewModel.Model.Height = _unfoldedHeight;
-            };
-            ViewModel.IsFolded = true;
+                SetResizeEnabled(false); // タイトルバーのみの時はリサイズ不可
+            });
         }
         RequestSave();
     }
 
-    private DoubleAnimation AnimateHeight(double from, double to)
+    // Completed は BeginAnimation の前に購読しないと発火しない。
+    // BeginAnimation の時点で Timeline が凍結され AnimationClock が
+    // 生成されるため、後から足したハンドラは呼ばれない。
+    private void AnimateHeight(double from, double to, Action? completed = null)
     {
         var anim = new DoubleAnimation(from, to, TimeSpan.FromMilliseconds(150))
         {
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
         };
+        if (completed != null)
+            anim.Completed += (_, _) => completed();
         BeginAnimation(HeightProperty, anim);
-        return anim;
     }
 
     // ─── タイトルバーボタン ──────────────────────────────────────
@@ -541,7 +627,19 @@ public partial class StickyNoteWindow : Window
 
     private void Color_Click(object sender, RoutedEventArgs e)
     {
-        if (_colorPopup != null) { _colorPopup.PlacementTarget = (UIElement)sender; _colorPopup.IsOpen = true; }
+        if (_colorPopup == null) return;
+        UpdateColorSelection();
+        _colorPopup.PlacementTarget = (UIElement)sender;
+        _colorPopup.IsOpen = true;
+    }
+
+    // 現在の色にだけチェックを表示する
+    private void UpdateColorSelection()
+    {
+        if (_colorPanel == null) return;
+        foreach (var child in _colorPanel.Children)
+            if (child is WpfButton b)
+                b.Content = (b.Tag as string) == ViewModel.ColorKey ? "✓" : null;
     }
 
     private void Close_Click(object sender, RoutedEventArgs e)
@@ -593,17 +691,29 @@ public partial class StickyNoteWindow : Window
 
     private Popup BuildColorPopup()
     {
-        var panel = new WrapPanel { Width = 132 };
-        foreach (var key in StickyNoteViewModel.ColorPresets.Keys)
+        const double Swatch  = 28;
+        const double Gap     = 3;
+        const int    Columns = 6;
+
+        // 端数で列が折り返さないよう僅かに余裕を持たせる
+        var panel = new WrapPanel { Width = Columns * (Swatch + Gap * 2) + 2 };
+        _colorPanel = panel;
+
+        foreach (var (key, preset) in StickyNoteViewModel.ColorPresets)
         {
-            var (bg, _) = StickyNoteViewModel.ColorPresets[key];
+            var header = new WpfSolidBrush((WpfColor)WpfColorConverter.ConvertFromString(preset.Header));
             var btn = new WpfButton
             {
-                Width = 36, Height = 36, Margin = new Thickness(3),
-                Background      = new WpfSolidBrush((WpfColor)WpfColorConverter.ConvertFromString(bg)),
+                Width = Swatch, Height = Swatch, Margin = new Thickness(Gap),
+                Padding         = new Thickness(0),
+                Background      = new WpfSolidBrush((WpfColor)WpfColorConverter.ConvertFromString(preset.Bg)),
                 BorderThickness = new Thickness(1),
-                BorderBrush     = WpfBrushes.Gray,
+                BorderBrush     = header,   // 枠線でヘッダー色も判るようにする
+                Foreground      = header,   // 選択中のチェック記号の色
+                FontWeight      = FontWeights.Bold,
+                FontSize        = 13,
                 Tag             = key,
+                ToolTip         = key,
                 Cursor          = WpfCursors.Hand,
             };
             btn.Click += (s, _) =>

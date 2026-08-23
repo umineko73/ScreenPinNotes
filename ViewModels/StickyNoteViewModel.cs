@@ -13,14 +13,38 @@ namespace ScreenStickyNotes.ViewModels;
 
 public class StickyNoteViewModel : INotifyPropertyChanged
 {
+    // 背景（淡色）とヘッダー（濃色）の組。暖色→寒色→無彩色の順に並べる。
+    // 既存ノートの互換のため yellow/blue/green/pink/purple/gray のキーは変更しない。
     public static readonly Dictionary<string, (string Bg, string Header)> ColorPresets = new()
     {
-        ["yellow"] = ("#FFFDE7", "#F9A825"),
-        ["blue"]   = ("#DBEAFE", "#1D4ED8"),
-        ["green"]  = ("#DCFCE7", "#15803D"),
-        ["pink"]   = ("#FCE7F3", "#BE185D"),
-        ["purple"] = ("#EDE9FE", "#6D28D9"),
-        ["gray"]   = ("#F3F4F6", "#4B5563"),
+        // 暖色
+        ["yellow"]  = ("#FFFDE7", "#F9A825"),
+        ["amber"]   = ("#FEF3C7", "#B45309"),
+        ["orange"]  = ("#FFEDD5", "#C2410C"),
+        ["red"]     = ("#FEE2E2", "#B91C1C"),
+        ["rose"]    = ("#FFE4E6", "#BE123C"),
+        ["pink"]    = ("#FCE7F3", "#BE185D"),
+        // 紫〜青
+        ["fuchsia"] = ("#FAE8FF", "#A21CAF"),
+        ["purple"]  = ("#EDE9FE", "#6D28D9"),
+        ["violet"]  = ("#DDD6FE", "#5B21B6"),
+        ["indigo"]  = ("#E0E7FF", "#4338CA"),
+        ["blue"]    = ("#DBEAFE", "#1D4ED8"),
+        ["sky"]     = ("#E0F2FE", "#0369A1"),
+        // 寒色〜緑
+        ["cyan"]    = ("#CFFAFE", "#0E7490"),
+        ["teal"]    = ("#CCFBF1", "#0F766E"),
+        ["emerald"] = ("#D1FAE5", "#047857"),
+        ["green"]   = ("#DCFCE7", "#15803D"),
+        ["lime"]    = ("#ECFCCB", "#4D7C0F"),
+        ["olive"]   = ("#F7F7DC", "#827717"),
+        // 無彩色・その他
+        ["brown"]   = ("#EFEBE9", "#6D4C41"),
+        ["stone"]   = ("#F5F5F4", "#57534E"),
+        ["gray"]    = ("#F3F4F6", "#4B5563"),
+        ["slate"]   = ("#F1F5F9", "#334155"),
+        ["white"]   = ("#FFFFFF", "#9CA3AF"),
+        ["dark"]    = ("#E5E7EB", "#111827"),
     };
 
     private readonly StickyNote _model;

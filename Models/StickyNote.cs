@@ -1,8 +1,12 @@
+using System.Text.Json.Serialization;
+
 namespace ScreenStickyNotes.Models;
 
 public class StickyNote
 {
     public string Id { get; set; } = Guid.NewGuid().ToString();
+
+    [JsonIgnore] // content.md に別途保存
     public string Content { get; set; } = "";
     public double X { get; set; } = 100;
     public double Y { get; set; } = 100;
