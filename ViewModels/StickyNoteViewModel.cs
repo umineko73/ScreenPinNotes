@@ -77,6 +77,21 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         set { _model.ColorKey = value; UpdateBrushes(); OnPropertyChanged(); }
     }
 
+    /// <summary>タイトルバーに表示する絵文字。空文字ならアイコンなし。</summary>
+    public string Icon
+    {
+        get => _model.Icon;
+        set
+        {
+            _model.Icon = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IconVisibility));
+        }
+    }
+
+    public Visibility IconVisibility =>
+        string.IsNullOrEmpty(_model.Icon) ? Visibility.Collapsed : Visibility.Visible;
+
     public bool IsTopmost
     {
         get => _model.IsTopmost;
@@ -91,15 +106,10 @@ public class StickyNoteViewModel : INotifyPropertyChanged
             _model.IsFolded = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(FoldIcon));
-            OnPropertyChanged(nameof(ControlsVisibility));
-            OnPropertyChanged(nameof(TitleVisibility));
         }
     }
 
     public string FoldIcon => IsFolded ? "▼" : "▲";
-
-    public Visibility ControlsVisibility => IsFolded ? Visibility.Collapsed : Visibility.Visible;
-    public Visibility TitleVisibility    => IsFolded ? Visibility.Visible   : Visibility.Collapsed;
 
     public string FontFamily
     {
@@ -112,6 +122,25 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         get => _model.FontSize;
         set { _model.FontSize = value; OnPropertyChanged(); }
     }
+
+    /// <summary>タイトルバーに表示する文字のサイズ。</summary>
+    public double TitleFontSize
+    {
+        get => _model.TitleFontSize;
+        set
+        {
+            _model.TitleFontSize = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TitleBarHeight));
+        }
+    }
+
+    /// <summary>
+    /// タイトルバーの高さ。文字を大きくしても切れないよう追従させる。
+    /// 折りたたみ時のウィンドウ高さもこの値になる。
+    /// </summary>
+    public double TitleBarHeight =>
+        Math.Max(28, Math.Ceiling(_model.TitleFontSize * 1.9));
 
     private WpfBrush _backgroundBrush = WpfBrushes.White;
     public WpfBrush BackgroundBrush

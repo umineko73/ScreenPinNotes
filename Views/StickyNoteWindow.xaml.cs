@@ -1,4 +1,5 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
@@ -25,10 +26,17 @@ namespace ScreenStickyNotes.Views;
 
 public partial class StickyNoteWindow : Window
 {
-    private const double TitleBarHeight   = 28;
-    private const double UnfoldedMinWidth = 280;
+    private const double UnfoldedMinWidth = 140;
     private const double ResizeBorder     = 5;
-    private const double SnapDistance   = 10;
+    private const double SnapDistance     = 10;
+
+    // RootBorder の枠線（上下 1px ずつ）。折りたたみ時のウィンドウ高さに
+    // この分を足さないとタイトルバーの下端が切り取られ、
+    // 文字が上下中央からずれて見える。
+    private const double RootBorderThickness = 1;
+
+    /// <summary>折りたたんだときのウィンドウ高さ（枠線込み）。</summary>
+    private double FoldedHeight => ViewModel.TitleBarHeight + RootBorderThickness * 2;
 
     private static readonly string[] FontList =
     [
@@ -46,6 +54,22 @@ public partial class StickyNoteWindow : Window
     private bool       _isEditMode;
     private bool       _suppressViewMode;
     private WrapPanel? _colorPanel;
+
+    private readonly System.Windows.Threading.DispatcherTimer _overlayTimer =
+        new() { Interval = TimeSpan.FromMilliseconds(900) };
+    private WrapPanel? _iconPanel;
+    private Popup?     _iconPopup;
+
+    // タイトルバーに付けられるアイコン。先頭の "" は「アイコンなし」。
+    private static readonly string[] IconList =
+    [
+        "",
+        "📌", "⭐", "❗", "❓", "✅", "🔥", "💡", "📝",
+        "📋", "📅", "⏰", "🔔", "🎯", "🚀", "💼", "🏠",
+        "🛒", "🍽", "☕", "🎵", "📚", "✏", "🔧", "🐛",
+        "💰", "📞", "✉", "🔑", "🔒", "❤", "👍", "🎉",
+        "🎁", "🌟", "⚠", "🚨", "📦", "🗓", "🧪", "🌱",
+    ];
     private Hyperlink? _contextMenuLink;
     private MenuItem   _openLinkItem  = new();
     private MenuItem   _convertLinkItem = new();
@@ -66,12 +90,13 @@ public partial class StickyNoteWindow : Window
 
         _colorPopup = BuildColorPopup();
         _fontPopup  = BuildFontPopup();
+        _iconPopup  = BuildIconPopup();
         ContentBox.ContextMenu = BuildContentContextMenu();
         System.Windows.DataObject.AddPastingHandler(ContentBox, OnPaste);
 
         // ポップアップは別HWNDのため開くとウィンドウが非アクティブになる。
         // 開いている間はビューモードへの移行を抑止する。
-        foreach (var popup in new[] { _colorPopup, _fontPopup })
+        foreach (var popup in new[] { _colorPopup, _fontPopup, _iconPopup })
         {
             popup.Opened += (_, _) => _suppressViewMode = true;
             popup.Closed += (_, _) =>
@@ -80,6 +105,8 @@ public partial class StickyNoteWindow : Window
                 if (_isEditMode) Dispatcher.BeginInvoke(() => ContentBox.Focus());
             };
         }
+
+        _overlayTimer.Tick += (_, _) => FadeOutSizeOverlay();
 
         // アプリ切り替え時もビューモードへ
         Deactivated += (_, _) => EnterViewMode();
@@ -90,7 +117,7 @@ public partial class StickyNoteWindow : Window
             if (vm.IsFolded)
             {
                 ContentBox.Visibility = Visibility.Collapsed;
-                Height = TitleBarHeight;
+                Height = FoldedHeight;
                 SetResizeEnabled(false);
             }
             // 新規（空）付箋はすぐ編集モードで開始
@@ -227,22 +254,72 @@ public partial class StickyNoteWindow : Window
         {
             MinWidth  = UnfoldedMinWidth;
             MaxWidth  = double.PositiveInfinity;
-            MinHeight = TitleBarHeight;
+            MinHeight = FoldedHeight;
             MaxHeight = double.PositiveInfinity;
         }
         else
         {
             MinWidth  = MaxWidth  = Width;
-            MinHeight = MaxHeight = TitleBarHeight;
+            MinHeight = MaxHeight = FoldedHeight;
         }
     }
 
     // 折りたたみ状態と編集モードの両方を考慮してステータスバーの表示を更新
     private void UpdateControlsVisibility()
     {
-        StatusBar.Visibility = (_isEditMode && !ViewModel.IsFolded)
-            ? Visibility.Visible
-            : Visibility.Collapsed;
+        bool show = _isEditMode && !ViewModel.IsFolded;
+        StatusBar.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+
+        if (show) GrowForStatusBar();
+        else      ShrinkAfterStatusBar();
+    }
+
+    // ─── ステータスバーぶんウィンドウを伸縮させる ────────────────
+    //
+    // ステータスバーを本文と同じ領域に押し込むと、背の低い付箋では
+    // 本文が隠れてしまう。編集モードの間だけウィンドウを下に伸ばし、
+    // 本文の表示領域を変えないようにする。
+
+    private double _statusBarDelta;
+
+    private void GrowForStatusBar()
+    {
+        if (_statusBarDelta > 0) return;          // すでに伸ばしてある
+
+        UpdateLayout();                           // 実際の高さを確定させる
+        double barHeight = StatusBar.ActualHeight;
+        if (barHeight <= 0) return;
+
+        _statusBarDelta = barHeight;
+
+        // 伸ばす前に上下の制限を緩めておく（折りたたみ用の固定が残っていることがある）
+        MaxHeight = double.PositiveInfinity;
+        Height += barHeight;
+
+        KeepInsideWorkArea();
+    }
+
+    private void ShrinkAfterStatusBar()
+    {
+        if (_statusBarDelta <= 0) return;
+
+        // Height を変えると SizeChanged が走る。そこで差分を引く処理と
+        // 二重に引かないよう、先にクリアしておく。
+        double delta = _statusBarDelta;
+        _statusBarDelta = 0;
+        Height = Math.Max(MinHeight, Height - delta);
+    }
+
+    // 下に伸ばした結果、画面外にはみ出すなら上へずらす
+    private void KeepInsideWorkArea()
+    {
+        var screen = System.Windows.Forms.Screen.FromHandle(new WindowInteropHelper(this).Handle);
+        var (dpiX, dpiY) = GetDpi();
+        double workBottom = screen.WorkingArea.Bottom / dpiY;
+        double workTop    = screen.WorkingArea.Top    / dpiY;
+
+        if (Top + Height > workBottom)
+            Top = Math.Max(workTop, workBottom - Height);
     }
 
     // View モード: クリックでリンクを直接開く / 非リンクならEdit モードへ
@@ -556,6 +633,153 @@ public partial class StickyNoteWindow : Window
         if (d < bestDist) { bestDist = d; best = snapTo; }
     }
 
+    // ─── リサイズ中のスナップ（WM_SIZING フック） ────────────────
+
+    private const int WM_SIZING          = 0x0214;
+    private const int WMSZ_LEFT          = 1;
+    private const int WMSZ_RIGHT         = 2;
+    private const int WMSZ_TOP           = 3;
+    private const int WMSZ_TOPLEFT       = 4;
+    private const int WMSZ_TOPRIGHT      = 5;
+    private const int WMSZ_BOTTOM        = 6;
+    private const int WMSZ_BOTTOMLEFT    = 7;
+    private const int WMSZ_BOTTOMRIGHT   = 8;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RECT { public int Left, Top, Right, Bottom; }
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        if (PresentationSource.FromVisual(this) is HwndSource src)
+            src.AddHook(WndProc);
+        ApplyRoundedCorners();
+    }
+
+    // ─── 角丸（Windows 11 の DWM に任せる） ──────────────────────
+    //
+    // AllowsTransparency + Border.CornerRadius でも実現できるが、
+    // WindowChrome のリサイズ処理と相性が悪く描画も重くなる。
+    // DWM に角を落としてもらえば OS 側の合成で切り抜かれる。
+
+    private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+    private const int DWMWCP_ROUNDSMALL              = 3;   // 小さめの角丸
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+
+    private void ApplyRoundedCorners()
+    {
+        try
+        {
+            var hwnd = new WindowInteropHelper(this).Handle;
+            if (hwnd == IntPtr.Zero) return;
+
+            int preference = DWMWCP_ROUNDSMALL;
+            DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE,
+                ref preference, sizeof(int));
+        }
+        catch
+        {
+            // Windows 10 以前では未対応。角丸にならないだけで動作に支障はない
+        }
+    }
+
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg != WM_SIZING || ViewModel.IsFolded) return IntPtr.Zero;
+
+        var rect = Marshal.PtrToStructure<RECT>(lParam);
+        if (SnapSizingRect(ref rect, wParam.ToInt32()))
+        {
+            Marshal.StructureToPtr(rect, lParam, false);
+            handled = true;
+            return (IntPtr)1;
+        }
+        return IntPtr.Zero;
+    }
+
+    // ドラッグ中の矩形（デバイスpx）を論理pxに直してスナップ先を探し、書き戻す
+    private bool SnapSizingRect(ref RECT r, int edge)
+    {
+        var (dpiX, dpiY) = GetDpi();
+
+        double left   = r.Left   / dpiX;
+        double top    = r.Top    / dpiY;
+        double right  = r.Right  / dpiX;
+        double bottom = r.Bottom / dpiY;
+
+        bool movingLeft   = edge is WMSZ_LEFT   or WMSZ_TOPLEFT    or WMSZ_BOTTOMLEFT;
+        bool movingRight  = edge is WMSZ_RIGHT  or WMSZ_TOPRIGHT   or WMSZ_BOTTOMRIGHT;
+        bool movingTop    = edge is WMSZ_TOP    or WMSZ_TOPLEFT    or WMSZ_TOPRIGHT;
+        bool movingBottom = edge is WMSZ_BOTTOM or WMSZ_BOTTOMLEFT or WMSZ_BOTTOMRIGHT;
+
+        var xTargets = new List<double>();
+        var yTargets = new List<double>();
+
+        // 画面の作業領域
+        var wa = System.Windows.Forms.Screen.FromHandle(new WindowInteropHelper(this).Handle).WorkingArea;
+        double waL = wa.Left / dpiX, waR = wa.Right  / dpiX;
+        double waT = wa.Top  / dpiY, waB = wa.Bottom / dpiY;
+
+        if (movingLeft)   xTargets.Add(waL);
+        if (movingRight)  xTargets.Add(waR);
+        if (movingTop)    yTargets.Add(waT);
+        if (movingBottom) yTargets.Add(waB);
+
+        foreach (var other in App.Current.NoteWindows)
+        {
+            if (other == this || !other.IsVisible) continue;
+
+            double oL = other.Left, oT = other.Top;
+            double oR = oL + other.ActualWidth, oB = oT + other.ActualHeight;
+
+            // 辺を他の付箋の辺に合わせる
+            if (movingLeft)   { xTargets.Add(oL); xTargets.Add(oR); }
+            if (movingRight)  { xTargets.Add(oL); xTargets.Add(oR); }
+            if (movingTop)    { yTargets.Add(oT); yTargets.Add(oB); }
+            if (movingBottom) { yTargets.Add(oT); yTargets.Add(oB); }
+
+            // 幅・高さを他の付箋と揃える（サイズスナップ）
+            if (other.ViewModel.IsFolded) continue;
+            if (movingRight)  xTargets.Add(left   + other.ActualWidth);
+            if (movingLeft)   xTargets.Add(right  - other.ActualWidth);
+            if (movingBottom) yTargets.Add(top    + other.ActualHeight);
+            if (movingTop)    yTargets.Add(bottom - other.ActualHeight);
+        }
+
+        bool changed = false;
+
+        if (movingLeft   && TryNearest(left,   xTargets, out var nl)) { left   = nl; changed = true; }
+        if (movingRight  && TryNearest(right,  xTargets, out var nr)) { right  = nr; changed = true; }
+        if (movingTop    && TryNearest(top,    yTargets, out var nt)) { top    = nt; changed = true; }
+        if (movingBottom && TryNearest(bottom, yTargets, out var nb)) { bottom = nb; changed = true; }
+
+        if (!changed) return false;
+
+        // 最小サイズを割り込むスナップは破棄する
+        if (right - left < MinWidth || bottom - top < MinHeight) return false;
+
+        r.Left   = (int)Math.Round(left   * dpiX);
+        r.Right  = (int)Math.Round(right  * dpiX);
+        r.Top    = (int)Math.Round(top    * dpiY);
+        r.Bottom = (int)Math.Round(bottom * dpiY);
+        return true;
+    }
+
+    private static bool TryNearest(double value, List<double> targets, out double snapped)
+    {
+        snapped = value;
+        double best = SnapDistance;
+        bool found = false;
+        foreach (var t in targets)
+        {
+            var d = Math.Abs(value - t);
+            if (d < best) { best = d; snapped = t; found = true; }
+        }
+        return found;
+    }
+
     // ─── 折りたたみ ──────────────────────────────────────────────
 
     private void Fold_Click(object sender, RoutedEventArgs e) => ToggleFold();
@@ -567,7 +791,7 @@ public partial class StickyNoteWindow : Window
             ContentBox.Visibility = Visibility.Visible;
             ViewModel.IsFolded = false;
             SetResizeEnabled(true);
-            AnimateHeight(TitleBarHeight, _unfoldedHeight);
+            AnimateHeight(FoldedHeight, _unfoldedHeight);
         }
         else
         {
@@ -576,7 +800,7 @@ public partial class StickyNoteWindow : Window
             // アニメーション中の SizeChanged で Model.Height が
             // 途中の値に上書きされないよう先にフラグを立てる
             ViewModel.IsFolded = true;
-            AnimateHeight(Height, TitleBarHeight, () =>
+            AnimateHeight(Height, FoldedHeight, () =>
             {
                 ContentBox.Visibility = Visibility.Collapsed;
                 ViewModel.Model.Height = _unfoldedHeight;
@@ -613,11 +837,62 @@ public partial class StickyNoteWindow : Window
     private void FontSmaller_Click(object sender, RoutedEventArgs e)
     {
         if (ViewModel.FontSize > 8) { ViewModel.FontSize -= 1; RequestSave(); }
+        ShowSizeOverlay($"本文 {ViewModel.FontSize:0}pt");
     }
 
     private void FontLarger_Click(object sender, RoutedEventArgs e)
     {
         if (ViewModel.FontSize < 48) { ViewModel.FontSize += 1; RequestSave(); }
+        ShowSizeOverlay($"本文 {ViewModel.FontSize:0}pt");
+    }
+
+    private void TitleSmaller_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.TitleFontSize > 8) SetTitleFontSize(ViewModel.TitleFontSize - 1);
+        ShowSizeOverlay($"タイトル {ViewModel.TitleFontSize:0}pt");
+    }
+
+    private void TitleLarger_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.TitleFontSize < 28) SetTitleFontSize(ViewModel.TitleFontSize + 1);
+        ShowSizeOverlay($"タイトル {ViewModel.TitleFontSize:0}pt");
+    }
+
+    private void SetTitleFontSize(double size)
+    {
+        ViewModel.TitleFontSize = size;
+
+        // 折りたたみ中はウィンドウ高さ＝タイトルバー高さなので追従させる
+        if (ViewModel.IsFolded)
+        {
+            BeginAnimation(HeightProperty, null);   // 折りたたみアニメの保持を解除
+            SetResizeEnabled(false);                // Min/Max を新しい高さで固定し直す
+            Height = FoldedHeight;
+        }
+        RequestSave();
+    }
+
+    // ─── サイズ表示オーバーレイ ──────────────────────────────────
+    //
+    // ツールチップはクリックで閉じてしまい連打中に読めないため、
+    // 音量 OSD のように一時表示してフェードアウトさせる。
+
+    private void ShowSizeOverlay(string text)
+    {
+        SizeOverlayText.Text = text;
+
+        SizeOverlay.BeginAnimation(OpacityProperty, null);   // 実行中のフェードを解除
+        SizeOverlay.Opacity = 1;
+
+        _overlayTimer.Stop();
+        _overlayTimer.Start();                               // 連打のたびに表示時間を延長
+    }
+
+    private void FadeOutSizeOverlay()
+    {
+        _overlayTimer.Stop();
+        SizeOverlay.BeginAnimation(OpacityProperty,
+            new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(350)));
     }
 
     private void Font_Click(object sender, RoutedEventArgs e)
@@ -631,6 +906,14 @@ public partial class StickyNoteWindow : Window
         UpdateColorSelection();
         _colorPopup.PlacementTarget = (UIElement)sender;
         _colorPopup.IsOpen = true;
+    }
+
+    private void Icon_Click(object sender, RoutedEventArgs e)
+    {
+        if (_iconPopup == null) return;
+        UpdateIconSelection();
+        _iconPopup.PlacementTarget = (UIElement)sender;
+        _iconPopup.IsOpen = true;
     }
 
     // 現在の色にだけチェックを表示する
@@ -659,8 +942,9 @@ public partial class StickyNoteWindow : Window
     {
         if (!ViewModel.IsFolded)
         {
-            ViewModel.Model.Width  = Width;
-            ViewModel.Model.Height = Height;
+            ViewModel.Model.Width = Width;
+            // 編集モードで一時的に伸ばしたぶんは保存しない
+            ViewModel.Model.Height = Height - _statusBarDelta;
             RequestSave();
         }
     }
@@ -673,18 +957,40 @@ public partial class StickyNoteWindow : Window
         RequestSave();
     }
 
-    private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e) { }
+    private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+        => FlushPendingSave();
 
     // ─── 自動保存（デバウンス） ──────────────────────────────────
 
     private System.Threading.Timer? _saveTimer;
+    private bool _savePending;
+
     private void RequestSave()
     {
+        _savePending = true;
         _saveTimer?.Dispose();
         _saveTimer = new System.Threading.Timer(_ =>
         {
-            Dispatcher.Invoke(() => App.Current.SaveAll());
+            Dispatcher.Invoke(() =>
+            {
+                _savePending = false;
+                App.Current.SaveAll();
+            });
         }, null, 800, System.Threading.Timeout.Infinite);
+    }
+
+    /// <summary>
+    /// 保留中の保存をただちに実行する。
+    /// 終了・ログオフ・ウィンドウを閉じたときに、デバウンス待ちの
+    /// 変更が失われないようにするために呼ぶ。
+    /// </summary>
+    public void FlushPendingSave()
+    {
+        if (!_savePending) return;
+        _savePending = false;
+        _saveTimer?.Dispose();
+        _saveTimer = null;
+        App.Current.SaveAll();
     }
 
     // ─── カラーピッカー ──────────────────────────────────────────
@@ -736,6 +1042,67 @@ public partial class StickyNoteWindow : Window
             },
             Placement = PlacementMode.Bottom, StaysOpen = false,
         };
+    }
+
+    // ─── アイコンピッカー ────────────────────────────────────────
+
+    private Popup BuildIconPopup()
+    {
+        const double Cell    = 28;
+        const double Gap     = 3;
+        const int    Columns = 8;
+
+        var panel = new WrapPanel { Width = Columns * (Cell + Gap * 2) + 2 };
+        _iconPanel = panel;
+
+        foreach (var icon in IconList)
+        {
+            bool isNone = icon.Length == 0;
+            var btn = new WpfButton
+            {
+                Width = Cell, Height = Cell, Margin = new Thickness(Gap),
+                Padding    = new Thickness(0),
+                Content    = isNone ? "✕" : icon,
+                FontSize   = isNone ? 11 : 15,
+                Foreground = isNone ? WpfBrushes.Gray : WpfBrushes.Black,
+                Tag        = icon,
+                ToolTip    = isNone ? "アイコンなし" : null,
+                Cursor     = WpfCursors.Hand,
+            };
+            btn.Click += (s, _) =>
+            {
+                if (s is WpfButton b && b.Tag is string k)
+                {
+                    ViewModel.Icon = k;
+                    if (_iconPopup != null) _iconPopup.IsOpen = false;
+                    RequestSave();
+                }
+            };
+            panel.Children.Add(btn);
+        }
+
+        return new Popup
+        {
+            Child = new Border
+            {
+                Background = WpfBrushes.White, BorderBrush = WpfBrushes.LightGray,
+                BorderThickness = new Thickness(1), Padding = new Thickness(4), Child = panel,
+            },
+            Placement = PlacementMode.Bottom, StaysOpen = false,
+        };
+    }
+
+    // 選択中のアイコンだけ枠線を付けて示す
+    private void UpdateIconSelection()
+    {
+        if (_iconPanel == null) return;
+        foreach (var child in _iconPanel.Children)
+        {
+            if (child is not WpfButton b) continue;
+            bool selected = (b.Tag as string) == ViewModel.Icon;
+            b.BorderThickness = new Thickness(selected ? 2 : 1);
+            b.BorderBrush     = selected ? WpfBrushes.CornflowerBlue : WpfBrushes.LightGray;
+        }
     }
 
     // ─── フォントピッカー ────────────────────────────────────────

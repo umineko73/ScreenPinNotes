@@ -19,9 +19,48 @@ public partial class App : System.Windows.Application
 
     public IReadOnlyList<StickyNoteWindow> NoteWindows => _windows;
 
+    // ─── 二重起動防止 ────────────────────────────────────────────
+    // 複数インスタンスが同じ notes フォルダを読み書きすると、
+    // 一方の保存が他方のノートを壊すため 1 プロセスに制限する。
+
+    // 名前はデータフォルダごとに分ける。別フォルダを使うインスタンス
+    // （テスト用など）は互いに独立して動いてよいため。
+    private static readonly string InstanceKey =
+        StorageService.DataRoot.ToLowerInvariant().Replace('\\', '_').Replace(':', '_');
+
+    private static readonly string MutexName = "ScreenStickyNotes.SingleInstance." + InstanceKey;
+    private static readonly int ShowAllMessage =
+        RegisterWindowMessage("ScreenStickyNotes.ShowAll." + InstanceKey);
+    private const int HWND_BROADCAST = 0xFFFF;
+
+    private Mutex? _instanceMutex;
+    private System.Windows.Interop.HwndSource? _ipcWindow;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    private static extern int RegisterWindowMessage(string message);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool PostMessage(nint hWnd, int msg, nint wParam, nint lParam);
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        _instanceMutex = new Mutex(initiallyOwned: true, MutexName, out bool isFirstInstance);
+        if (!isFirstInstance)
+        {
+            // 既に起動済み。既存インスタンスに全表示を依頼して自分は終了する
+            PostMessage(HWND_BROADCAST, ShowAllMessage, 0, 0);
+            _instanceMutex.Dispose();
+            _instanceMutex = null;
+            Shutdown();
+            return;
+        }
+
+        // ログオフ・シャットダウン時にデバウンス待ちの変更を取りこぼさない
+        SessionEnding += (_, _) => FlushAndSave();
+
+        InitIpcWindow();
         InitTrayIcon();
 
         var notes = _storage.Load();
@@ -30,6 +69,29 @@ public partial class App : System.Windows.Application
 
         foreach (var note in notes)
             OpenNoteWindow(note);
+    }
+
+    // 2つ目のインスタンスからのブロードキャストを受け取るための隠しウィンドウ。
+    // ブロードキャストはトップレベルウィンドウにしか届かないため
+    // メッセージ専用ウィンドウ（HWND_MESSAGE）は使えない。
+    private void InitIpcWindow()
+    {
+        var parameters = new System.Windows.Interop.HwndSourceParameters("ScreenStickyNotesIpc")
+        {
+            Width = 0,
+            Height = 0,
+            WindowStyle = 0,   // WS_VISIBLE を立てない = 表示されない
+        };
+        _ipcWindow = new System.Windows.Interop.HwndSource(parameters);
+        _ipcWindow.AddHook((nint hwnd, int msg, nint w, nint l, ref bool handled) =>
+        {
+            if (msg == ShowAllMessage)
+            {
+                Dispatcher.BeginInvoke(ShowAllNotes);
+                handled = true;
+            }
+            return 0;
+        });
     }
 
     private void InitTrayIcon()
@@ -166,6 +228,7 @@ public partial class App : System.Windows.Application
     public void RemoveNote(string id)
     {
         _windows.RemoveAll(w => w.ViewModel.Model.Id == id);
+        _storage.DeleteNote(id);   // 削除はここだけで行う
         SaveAll();
     }
 
@@ -175,16 +238,37 @@ public partial class App : System.Windows.Application
         _storage.Save(notes);
     }
 
+    /// 保留中の保存をすべて確定させてからディスクに書き出す
+    public void FlushAndSave()
+    {
+        foreach (var win in _windows)
+            win.FlushPendingSave();
+        SaveAll();
+    }
+
     private void ExitApp()
     {
-        SaveAll();
+        FlushAndSave();
         _trayIcon?.Dispose();
         Shutdown();
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
+        // Mutex を持つ本来のインスタンスのときだけ保存する。
+        // 二重起動をブロックされた側は _instanceMutex が null で、
+        // 空の _windows で上書きしてしまわないようにする。
+        if (_instanceMutex != null)
+            FlushAndSave();
+
         _trayIcon?.Dispose();
+        _ipcWindow?.Dispose();
+        if (_instanceMutex != null)
+        {
+            try { _instanceMutex.ReleaseMutex(); } catch (ApplicationException) { /* 未所有 */ }
+            _instanceMutex.Dispose();
+            _instanceMutex = null;
+        }
         base.OnExit(e);
     }
 }

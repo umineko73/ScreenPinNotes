@@ -13,8 +13,10 @@ public class StickyNote
     public double Width { get; set; } = 260;
     public double Height { get; set; } = 220;
     public string ColorKey { get; set; } = "yellow";
+    public string Icon { get; set; } = "";   // タイトルバーに表示する絵文字。空 = なし
     public string FontFamily { get; set; } = "Yu Gothic UI";
     public double FontSize { get; set; } = 13;
+    public double TitleFontSize { get; set; } = 12;
     public bool IsTopmost { get; set; } = false;
     public bool IsFolded { get; set; } = false;
     public DateTime CreatedAt { get; set; } = DateTime.Now;

@@ -4,7 +4,7 @@
         WindowStyle="None"
         ResizeMode="CanResize"
         ShowInTaskbar="False"
-        MinWidth="280" MinHeight="28"
+        MinWidth="140" MinHeight="28"
         SizeChanged="Window_SizeChanged"
         LocationChanged="Window_LocationChanged"
         Closing="Window_Closing">
@@ -34,30 +34,41 @@
             </Grid.RowDefinitions>
 
             <!-- タイトルバー：折りたたみボタン + 折りたたみ時タイトル -->
-            <Grid Grid.Row="0" Height="28" Background="{Binding HeaderBrush}"
+            <Grid Grid.Row="0" Height="{Binding TitleBarHeight}" Background="{Binding HeaderBrush}"
                   MouseLeftButtonDown="TitleBar_MouseLeftButtonDown"
                   MouseMove="TitleBar_MouseMove"
                   MouseLeftButtonUp="TitleBar_MouseLeftButtonUp">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <Button Grid.Column="0" Content="{Binding FoldIcon}"
-                        Margin="2,0,0,0"
+                <!-- アイコン（未設定なら非表示）。
+                     WPF はカラーフォントを描画しないため白抜きのシルエットになる -->
+                <TextBlock Grid.Column="0"
+                           Text="{Binding Icon}"
+                           Visibility="{Binding IconVisibility}"
+                           Foreground="White"
+                           FontSize="13"
+                           VerticalAlignment="Center"
+                           Margin="6,0,0,0"/>
+
+                <!-- タイトル（1行目）は折りたたみ状態にかかわらず常に表示 -->
+                <TextBlock Grid.Column="1"
+                           Text="{Binding FirstLine}"
+                           Foreground="White"
+                           FontWeight="SemiBold"
+                           FontSize="{Binding TitleFontSize}"
+                           VerticalAlignment="Center"
+                           Margin="8,0,4,0"
+                           TextTrimming="CharacterEllipsis"/>
+
+                <Button Grid.Column="2" Content="{Binding FoldIcon}"
+                        Margin="0,0,2,0"
                         Style="{StaticResource TitleBarButton}"
                         ToolTip="折りたたみ / 展開"
                         Click="Fold_Click"/>
-
-                <TextBlock Grid.Column="1"
-                           Text="{Binding FirstLine}"
-                           Visibility="{Binding TitleVisibility}"
-                           Foreground="White"
-                           FontWeight="SemiBold"
-                           FontSize="12"
-                           VerticalAlignment="Center"
-                           Margin="4,0,8,0"
-                           TextTrimming="CharacterEllipsis"/>
             </Grid>
 
             <!-- コンテンツエリア -->
@@ -86,6 +97,23 @@
                 </RichTextBox.Resources>
             </RichTextBox>
 
+            <!-- フォントサイズ変更時だけ現れて消える表示。
+                 ContentBox より後に置いて手前に重ねる -->
+            <Border x:Name="SizeOverlay"
+                    Grid.Row="1"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Background="#D0000000"
+                    CornerRadius="6"
+                    Padding="14,8"
+                    IsHitTestVisible="False"
+                    Opacity="0">
+                <TextBlock x:Name="SizeOverlayText"
+                           Foreground="White"
+                           FontSize="15"
+                           FontWeight="SemiBold"/>
+            </Border>
+
             <!-- ステータスバー（編集モード時のみ表示） -->
             <Border x:Name="StatusBar"
                     Grid.Row="2"
@@ -96,8 +124,8 @@
                     <Button DockPanel.Dock="Right"
                             Content="✕" Style="{StaticResource TitleBarCloseButton}"
                             ToolTip="削除" Click="Close_Click"/>
-                    <!-- 左側：操作ボタン群 -->
-                    <StackPanel Orientation="Horizontal">
+                    <!-- 左側：操作ボタン群（幅が狭いときは折り返す） -->
+                    <WrapPanel>
                         <Button Content="＋" Style="{StaticResource TitleBarButton}"
                                 ToolTip="新しい付箋を追加" Click="AddNote_Click"/>
                         <ToggleButton IsChecked="{Binding IsTopmost, Mode=TwoWay}"
@@ -106,16 +134,27 @@
                                       Content="📌"
                                       Checked="Pin_Changed" Unchecked="Pin_Changed"/>
                         <Button Content="A-" Style="{StaticResource TitleBarButton}"
-                                ToolTip="フォントを小さく" Click="FontSmaller_Click"/>
+                                ToolTip="{Binding FontSize, StringFormat=本文のフォントを小さく (現在 {0}pt)}"
+                                Click="FontSmaller_Click"/>
                         <Button Content="A+" Style="{StaticResource TitleBarButton}"
-                                ToolTip="フォントを大きく" Click="FontLarger_Click"/>
+                                ToolTip="{Binding FontSize, StringFormat=本文のフォントを大きく (現在 {0}pt)}"
+                                Click="FontLarger_Click"/>
+                        <Button Content="T-" Style="{StaticResource TitleBarButton}"
+                                ToolTip="{Binding TitleFontSize, StringFormat=タイトルのフォントを小さく (現在 {0}pt)}"
+                                Click="TitleSmaller_Click"/>
+                        <Button Content="T+" Style="{StaticResource TitleBarButton}"
+                                ToolTip="{Binding TitleFontSize, StringFormat=タイトルのフォントを大きく (現在 {0}pt)}"
+                                Click="TitleLarger_Click"/>
                         <Button x:Name="FontButton" Content="Aa"
                                 Style="{StaticResource TitleBarButton}"
                                 ToolTip="フォントを変更" Click="Font_Click"/>
+                        <Button x:Name="IconButton" Content="😀"
+                                Style="{StaticResource TitleBarButton}"
+                                ToolTip="アイコンを変更" Click="Icon_Click"/>
                         <Button x:Name="ColorButton" Content="🎨"
                                 Style="{StaticResource TitleBarButton}"
                                 ToolTip="色を変更" Click="Color_Click"/>
-                    </StackPanel>
+                    </WrapPanel>
                 </DockPanel>
             </Border>
         </Grid>

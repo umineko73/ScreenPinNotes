@@ -7,9 +7,25 @@ namespace ScreenStickyNotes.Services;
 
 public class StorageService
 {
-    private static readonly string AppRoot = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "ScreenStickyNotes");
+    // 環境変数 SCREENSTICKYNOTES_DATA でデータ保存先を差し替えられる。
+    // テストを実ユーザーのデータから隔離するために使う。
+    public const string DataDirEnvVar = "SCREENSTICKYNOTES_DATA";
+
+    private static readonly string AppRoot = ResolveAppRoot();
+
+    /// <summary>実際に使用しているデータフォルダ。</summary>
+    public static string DataRoot => AppRoot;
+
+    private static string ResolveAppRoot()
+    {
+        var custom = Environment.GetEnvironmentVariable(DataDirEnvVar);
+        if (!string.IsNullOrWhiteSpace(custom))
+            return Path.GetFullPath(custom);
+
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "ScreenStickyNotes");
+    }
 
     // 新形式: notes/{id}/meta.json + content.md
     private static readonly string NotesDir = Path.Combine(AppRoot, "notes");
@@ -54,19 +70,14 @@ public class StorageService
 
     // ─── 保存（全件） ────────────────────────────────────────────
 
+    // Save は書き込みのみを行い、フォルダの削除は一切しない。
+    // 以前は「リストに無いフォルダを消す」実装だったが、アプリが二重起動すると
+    // 古いインスタンスの保存で他方のノートが消える事故が起きた。
+    // 削除はユーザーが明示的に削除したときの DeleteNote だけが行う。
     public void Save(IEnumerable<StickyNote> notes)
     {
         Directory.CreateDirectory(NotesDir);
-
-        var list = notes.ToList();
-        var ids  = list.Select(n => n.Id).ToHashSet();
-
-        // 削除されたノートのフォルダを消す
-        foreach (var dir in Directory.GetDirectories(NotesDir))
-            if (!ids.Contains(Path.GetFileName(dir)))
-                Directory.Delete(dir, recursive: true);
-
-        foreach (var note in list)
+        foreach (var note in notes)
             WriteNote(note);
     }
 

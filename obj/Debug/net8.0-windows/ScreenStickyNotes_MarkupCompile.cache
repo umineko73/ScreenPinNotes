@@ -1,5 +1,5 @@
 ﻿ScreenStickyNotes
-1.0.0.0
+
 
 winexe
 C#
@@ -12,7 +12,7 @@ TRACE;DEBUG;NET;NET8_0;NETCOREAPP;WINDOWS;WINDOWS7_0;NET5_0_OR_GREATER;NET6_0_OR
 D:\repo.git\ScreenStickyNotes\App.xaml
 2-295167456
 
-10-90095712
+8156689060
 2071782983808
 Resources\Styles.xaml;Views\StickyNoteWindow.xaml;
 

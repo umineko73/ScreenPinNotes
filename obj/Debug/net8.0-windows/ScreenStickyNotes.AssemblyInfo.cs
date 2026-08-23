@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ScreenStickyNotes")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d821de6def3efb0a8f366771b60c7cf3585a727b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4e3d36ad114858ad33e8249c3a31ac66422b6a9b")]
 [assembly: System.Reflection.AssemblyProductAttribute("ScreenStickyNotes")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ScreenStickyNotes")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
