@@ -134,8 +134,11 @@ public partial class StickyNoteWindow : Window
             {
                 ContentBox.Visibility = Visibility.Collapsed;
                 Height = FoldedHeight;
-                SetResizeEnabled(false);
             }
+            // 展開状態でも必ず通す。ここを通さないと WindowChrome が
+            // XAML の初期値（全辺 5px）のままになり、タイトルバー上端が
+            // リサイズ枠として残ってしまう。
+            SetResizeEnabled(!vm.IsFolded);
             // 新規（空）付箋はすぐ編集モードで開始
             if (string.IsNullOrEmpty(vm.Content))
                 Dispatcher.BeginInvoke(EnterEditMode);
@@ -263,7 +266,15 @@ public partial class StickyNoteWindow : Window
                 chrome = (WindowChrome)chrome.Clone();
                 WindowChrome.SetWindowChrome(this, chrome);
             }
-            chrome.ResizeBorderThickness = new Thickness(enabled ? ResizeBorder : 0);
+            // 上辺だけリサイズ枠を持たせない。
+            // タイトルバーは 28px 程度しかなく、その上端 5px が HTTOP になると
+            // 「畳もうとしてダブルクリック」が Windows 標準の縦方向最大化に化ける。
+            // 上辺を 0 にすればタイトルバー全体が通常のクライアント領域になり、
+            // どこをダブルクリックしても折りたたみになる。
+            // 高さの変更は下辺と左右・角で行える。
+            chrome.ResizeBorderThickness = enabled
+                ? new Thickness(ResizeBorder, 0, ResizeBorder, ResizeBorder)
+                : new Thickness(0);
         }
 
         if (enabled)
@@ -652,6 +663,9 @@ public partial class StickyNoteWindow : Window
     // ─── リサイズ中のスナップ（WM_SIZING フック） ────────────────
 
     private const int WM_SIZING          = 0x0214;
+    private const int WM_NCLBUTTONDBLCLK = 0x00A3;
+    private const int HTTOP              = 12;
+    private const int HTBOTTOM           = 15;
     private const int WMSZ_LEFT          = 1;
     private const int WMSZ_RIGHT         = 2;
     private const int WMSZ_TOP           = 3;
@@ -703,6 +717,18 @@ public partial class StickyNoteWindow : Window
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
+        // 上下のリサイズ枠をダブルクリックすると Windows が縦方向に最大化する。
+        // 付箋では意図しない動きなので握りつぶす（ドラッグでのリサイズは残る）。
+        if (msg == WM_NCLBUTTONDBLCLK)
+        {
+            int hit = wParam.ToInt32();
+            if (hit == HTTOP || hit == HTBOTTOM)
+            {
+                handled = true;
+                return IntPtr.Zero;
+            }
+        }
+
         if (msg != WM_SIZING || ViewModel.IsFolded) return IntPtr.Zero;
 
         var rect = Marshal.PtrToStructure<RECT>(lParam);
@@ -842,7 +868,9 @@ public partial class StickyNoteWindow : Window
 
     // ─── タイトルバーボタン ──────────────────────────────────────
 
-    private void AddNote_Click(object sender, RoutedEventArgs e) => App.Current.AddNewNote();
+    // 押した付箋の書式を引き継いで新規作成する
+    private void AddNote_Click(object sender, RoutedEventArgs e)
+        => App.Current.AddNewNote(ViewModel.Model);
 
     private void Pin_Changed(object sender, RoutedEventArgs e)
     {
@@ -1064,7 +1092,7 @@ public partial class StickyNoteWindow : Window
 
     private Popup BuildIconPopup()
     {
-        const double Cell    = 36;
+        const double Cell    = 28;
         const double Gap     = 3;
         const int    Columns = 8;
 
@@ -1079,12 +1107,20 @@ public partial class StickyNoteWindow : Window
                 Width = Cell, Height = Cell, Margin = new Thickness(Gap),
                 Padding    = new Thickness(0),
                 Content    = isNone ? "✕" : icon,
-                FontSize   = isNone ? 13 : 21,
+                FontSize   = isNone ? 11 : 15,
                 Foreground = isNone ? WpfBrushes.Gray : WpfBrushes.Black,
                 Tag        = icon,
                 ToolTip    = isNone ? "アイコンなし" : null,
                 Cursor     = WpfCursors.Hand,
             };
+
+            // マウスが乗ったときだけ拡大する。RenderTransform なのでレイアウトは
+            // 動かず、隣のアイコンを押しのけずに手前で大きくなる。
+            var scale = new ScaleTransform(1, 1);
+            btn.RenderTransform       = scale;
+            btn.RenderTransformOrigin = new System.Windows.Point(0.5, 0.5);
+            btn.MouseEnter += (s, _) => ZoomIconButton((UIElement)s, scale, 1.6);
+            btn.MouseLeave += (s, _) => ZoomIconButton((UIElement)s, scale, 1.0);
             btn.Click += (s, _) =>
             {
                 if (s is WpfButton b && b.Tag is string k)
@@ -1106,6 +1142,20 @@ public partial class StickyNoteWindow : Window
             },
             Placement = PlacementMode.Bottom, StaysOpen = false,
         };
+    }
+
+    private static void ZoomIconButton(UIElement button, ScaleTransform scale, double to)
+    {
+        // 拡大中は手前に出す。WrapPanel は後の要素が上に描画されるため、
+        // ZIndex を上げないと右隣・下隣のアイコンに欠けて見える。
+        System.Windows.Controls.Panel.SetZIndex(button, to > 1 ? 1 : 0);
+
+        var anim = new DoubleAnimation(to, TimeSpan.FromMilliseconds(110))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, anim);
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, anim);
     }
 
     // 選択中のアイコンだけ枠線を付けて示す

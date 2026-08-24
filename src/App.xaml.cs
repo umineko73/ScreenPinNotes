@@ -15,7 +15,6 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.Windows;
 using System.Windows.Forms;
 using ScreenStickyNotes.Models;
@@ -114,7 +113,7 @@ public partial class App : System.Windows.Application
     {
         _trayIcon = new NotifyIcon
         {
-            Icon = CreateStickyNoteIcon(),
+            Icon = LoadTrayIcon(),
             Text = "ScreenStickyNotes",
             Visible = true,
         };
@@ -157,48 +156,19 @@ public partial class App : System.Windows.Application
         };
     }
 
-    // ─── アイコン生成（付箋メモのイメージ）────────────────────────
+    // ─── アイコン ────────────────────────────────────────────────
 
-    private static Icon CreateStickyNoteIcon()
+    /// <summary>
+    /// タスクトレイ用のアイコンを app.ico から読む。
+    /// exe のアイコンと同じファイルを使うことで、デザインの管理を1箇所にまとめている。
+    /// app.ico は複数サイズを含むので、画面の DPI に応じた大きさが選ばれる。
+    /// </summary>
+    private static Icon LoadTrayIcon()
     {
-        using var bmp = new Bitmap(32, 32, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        using (var g = Graphics.FromImage(bmp))
-        {
-            g.SmoothingMode    = SmoothingMode.AntiAlias;
-            g.CompositingMode  = CompositingMode.SourceOver;
-            g.Clear(Color.Transparent);
-
-            // 本体（黄色）
-            using var bodyBrush = new SolidBrush(Color.FromArgb(255, 253, 210, 40));
-            g.FillRectangle(bodyBrush, 2, 2, 24, 28);
-
-            // 折れ角（暗い黄色）
-            using var foldBrush = new SolidBrush(Color.FromArgb(200, 190, 150, 20));
-            g.FillPolygon(foldBrush, (System.Drawing.Point[])[new(18, 2), new(26, 2), new(26, 10), new(18, 10)]);
-
-            // 折れ線
-            using var linePen = new System.Drawing.Pen(Color.FromArgb(160, 140, 100, 10), 1);
-            g.DrawLine(linePen, 18, 2, 26, 10);
-            g.DrawLine(linePen, 18, 2, 18, 10);
-            g.DrawLine(linePen, 18, 10, 26, 10);
-
-            // テキスト行
-            using var textPen = new System.Drawing.Pen(Color.FromArgb(180, 120, 80, 10), 1.5f);
-            g.DrawLine(textPen,  5, 14, 16, 14);
-            g.DrawLine(textPen,  5, 18, 16, 18);
-            g.DrawLine(textPen,  5, 22, 12, 22);
-        }
-
-        nint hIcon = bmp.GetHicon();
-        var icon = Icon.FromHandle(hIcon);
-        // Clone してハンドルを自前で管理
-        var cloned = (Icon)icon.Clone();
-        DestroyIcon(hIcon);
-        return cloned;
+        var uri = new Uri("pack://application:,,,/app.ico");
+        using var stream = System.Windows.Application.GetResourceStream(uri)!.Stream;
+        return new Icon(stream, SystemInformation.SmallIconSize);
     }
-
-    [System.Runtime.InteropServices.DllImport("user32.dll")]
-    private static extern bool DestroyIcon(nint handle);
 
     // ─── 付箋表示制御 ────────────────────────────────────────────
 
@@ -222,13 +192,29 @@ public partial class App : System.Windows.Application
 
     // ─── 付箋追加・削除 ──────────────────────────────────────────
 
-    public void AddNewNote()
+    /// <summary>
+    /// 付箋を1枚追加する。
+    /// <paramref name="template"/> を渡すと、その付箋の書式
+    /// （色・アイコン・フォント）を引き継ぐ。タスクトレイからの
+    /// 新規作成は引き継ぎ元が無いため既定の書式になる。
+    /// </summary>
+    public void AddNewNote(StickyNote? template = null)
     {
         var note = new StickyNote
         {
             X = 150 + _windows.Count * 20,
             Y = 150 + _windows.Count * 20,
         };
+
+        if (template != null)
+        {
+            note.ColorKey      = template.ColorKey;
+            note.Icon          = template.Icon;
+            note.FontFamily    = template.FontFamily;
+            note.FontSize      = template.FontSize;
+            note.TitleFontSize = template.TitleFontSize;
+        }
+
         OpenNoteWindow(note);
         SaveAll();
     }

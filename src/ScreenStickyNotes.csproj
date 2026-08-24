@@ -9,6 +9,7 @@
     <AssemblyName>ScreenStickyNotes</AssemblyName>
     <RootNamespace>ScreenStickyNotes</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -20,4 +21,10 @@
     <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/umineko73/ScreenStickyNotes</RepositoryUrl>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- ApplicationIcon は exe の Win32 リソースに埋め込むだけなので、
+         タスクトレイから読めるよう WPF リソースとしても持たせる -->
+    <Resource Include="app.ico" />
+  </ItemGroup>
 </Project>

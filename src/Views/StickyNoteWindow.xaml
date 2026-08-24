@@ -59,6 +59,8 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
                 <!-- アイコン（未設定なら非表示）。
@@ -81,7 +83,22 @@
                            Margin="8,0,4,0"
                            TextTrimming="CharacterEllipsis"/>
 
-                <Button Grid.Column="2" Content="{Binding FoldIcon}"
+                <!-- 新規作成。閲覧モードのままでも付箋を増やせるようにする -->
+                <Button Grid.Column="2" Content="＋"
+                        Style="{StaticResource TitleBarButton}"
+                        ToolTip="新しい付箋を追加"
+                        Click="AddNote_Click"/>
+
+                <!-- 常に最前面。閲覧モードや折りたたみ時も状態が見えるよう
+                     ステータスバーではなくタイトルバーに置く -->
+                <ToggleButton Grid.Column="3"
+                              IsChecked="{Binding IsTopmost, Mode=TwoWay}"
+                              Style="{StaticResource TitleBarToggle}"
+                              ToolTip="常に最前面"
+                              Content="📌"
+                              Checked="Pin_Changed" Unchecked="Pin_Changed"/>
+
+                <Button Grid.Column="4" Content="{Binding FoldIcon}"
                         Margin="0,0,2,0"
                         Style="{StaticResource TitleBarButton}"
                         ToolTip="折りたたみ / 展開"
@@ -143,13 +160,6 @@
                             ToolTip="削除" Click="Close_Click"/>
                     <!-- 左側：操作ボタン群（幅が狭いときは折り返す） -->
                     <WrapPanel>
-                        <Button Content="＋" Style="{StaticResource TitleBarButton}"
-                                ToolTip="新しい付箋を追加" Click="AddNote_Click"/>
-                        <ToggleButton IsChecked="{Binding IsTopmost, Mode=TwoWay}"
-                                      Style="{StaticResource TitleBarToggle}"
-                                      ToolTip="常に最前面"
-                                      Content="📌"
-                                      Checked="Pin_Changed" Unchecked="Pin_Changed"/>
                         <Button Content="A-" Style="{StaticResource TitleBarButton}"
                                 ToolTip="{Binding FontSize, StringFormat=本文のフォントを小さく (現在 {0}pt)}"
                                 Click="FontSmaller_Click"/>
