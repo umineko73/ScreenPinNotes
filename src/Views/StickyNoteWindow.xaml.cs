@@ -1,4 +1,20 @@
-﻿using System.Diagnostics;
+﻿// ScreenStickyNotes - a desktop sticky notes app for Windows 11
+// Copyright (C) 2026 umineko73
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
@@ -1048,7 +1064,7 @@ public partial class StickyNoteWindow : Window
 
     private Popup BuildIconPopup()
     {
-        const double Cell    = 28;
+        const double Cell    = 36;
         const double Gap     = 3;
         const int    Columns = 8;
 
@@ -1063,7 +1079,7 @@ public partial class StickyNoteWindow : Window
                 Width = Cell, Height = Cell, Margin = new Thickness(Gap),
                 Padding    = new Thickness(0),
                 Content    = isNone ? "✕" : icon,
-                FontSize   = isNone ? 11 : 15,
+                FontSize   = isNone ? 13 : 21,
                 Foreground = isNone ? WpfBrushes.Gray : WpfBrushes.Black,
                 Tag        = icon,
                 ToolTip    = isNone ? "アイコンなし" : null,

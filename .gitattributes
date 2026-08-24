@@ -1,0 +1,18 @@
+# 改行コードはリポジトリ上では LF に正規化する
+* text=auto
+
+*.cs      text diff=csharp
+*.xaml    text
+*.csproj  text
+*.md      text
+*.manifest text
+
+# Windows PowerShell 5.1 は .ps1 を ANSI として読むため、
+# 日本語を含むスクリプトは CRLF + BOM のまま維持する
+*.ps1     text eol=crlf working-tree-encoding=UTF-8
+
+# バイナリ
+*.png binary
+*.ico binary
+*.dll binary
+*.exe binary

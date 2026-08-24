@@ -4,12 +4,39 @@ obj/
 
 # 発行物
 publish/
+artifacts/
 
-# IDE
+# テスト結果
+TestResults/
+*.trx
+*.coverage
+
+# NuGet
+*.nupkg
+*.snupkg
+
+# IDE / エディタ
 .vs/
+.vscode/
 .idea/
 *.user
 *.suo
+*.userprefs
+src/Properties/launchSettings.json
 
-# その他
+# OS が勝手に作るファイル
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# 一時ファイル
 *.log
+*.tmp
+*.bak
+*~
+*.swp
+
+# Claude Code のローカル設定
+.claude/settings.local.json

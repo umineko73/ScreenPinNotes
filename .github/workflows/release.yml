@@ -1,0 +1,42 @@
+# v で始まるタグ（例: v0.0.1）を push すると、
+# 自己完結型とランタイム必須の 2 種類の exe を添付した
+# 下書きリリースを作成します。
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Build
+        run: dotnet build -c Release
+
+      - name: Publish both variants
+        shell: pwsh
+        run: ./scripts/publish.ps1
+
+      - name: List artifacts
+        shell: pwsh
+        run: Get-ChildItem artifacts -File | Format-Table Name, Length
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.exe
+          draft: true
+          generate_release_notes: true
