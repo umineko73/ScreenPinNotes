@@ -197,26 +197,26 @@
                         MouseEnter="EditToolbar_MouseEnter"
                         MouseLeave="EditToolbar_MouseLeave">
                     <StackPanel Orientation="Horizontal">
-                        <Button Content="A-" Style="{StaticResource TitleBarButton}"
+                        <Button Content="A-" Style="{StaticResource EditToolbarButton}"
                                 ToolTip="{Binding FontSize, StringFormat=本文のフォントを小さく (現在 {0}pt)}"
                                 Click="FontSmaller_Click"/>
-                        <Button Content="A+" Style="{StaticResource TitleBarButton}"
+                        <Button Content="A+" Style="{StaticResource EditToolbarButton}"
                                 ToolTip="{Binding FontSize, StringFormat=本文のフォントを大きく (現在 {0}pt)}"
                                 Click="FontLarger_Click"/>
-                        <Button Content="T-" Style="{StaticResource TitleBarButton}"
+                        <Button Content="T-" Style="{StaticResource EditToolbarButton}"
                                 ToolTip="{Binding TitleFontSize, StringFormat=タイトルのフォントを小さく (現在 {0}pt)}"
                                 Click="TitleSmaller_Click"/>
-                        <Button Content="T+" Style="{StaticResource TitleBarButton}"
+                        <Button Content="T+" Style="{StaticResource EditToolbarButton}"
                                 ToolTip="{Binding TitleFontSize, StringFormat=タイトルのフォントを大きく (現在 {0}pt)}"
                                 Click="TitleLarger_Click"/>
                         <Button x:Name="FontButton" Content="Aa"
-                                Style="{StaticResource TitleBarButton}"
+                                Style="{StaticResource EditToolbarButton}"
                                 ToolTip="フォントを変更" Click="Font_Click"/>
                         <Button x:Name="IconButton" Content="😀"
-                                Style="{StaticResource TitleBarButton}"
+                                Style="{StaticResource EditToolbarButton}"
                                 ToolTip="アイコンを変更" Click="Icon_Click"/>
                         <Button x:Name="ColorButton" Content="🎨"
-                                Style="{StaticResource TitleBarButton}"
+                                Style="{StaticResource EditToolbarButton}"
                                 ToolTip="色を変更" Click="Color_Click"/>
                     </StackPanel>
                 </Border>

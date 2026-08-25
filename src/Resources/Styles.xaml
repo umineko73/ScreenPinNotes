@@ -74,6 +74,11 @@
         </Setter>
     </Style>
 
+    <!-- 編集ツールバー用。ボタンの大きさは変えず、表示する記号だけ少し大きくする -->
+    <Style x:Key="EditToolbarButton" TargetType="Button" BasedOn="{StaticResource TitleBarButton}">
+        <Setter Property="FontSize" Value="14"/>
+    </Style>
+
     <!-- 閉じるボタン -->
     <Style x:Key="TitleBarCloseButton" TargetType="Button" BasedOn="{StaticResource TitleBarButton}">
         <Setter Property="Template">
