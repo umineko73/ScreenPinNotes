@@ -62,6 +62,9 @@ public partial class StickyNoteWindow : Window
     ];
 
     private double     _unfoldedHeight;
+    // コンストラクタ〜Loaded の初期値設定中は true。
+    // その間の SizeChanged/LocationChanged はモデルへ書き戻さない。
+    private bool       _isInitializing;
     private Popup?     _colorPopup;
     private Popup?     _fontPopup;
     private bool       _isDragging;
@@ -97,6 +100,13 @@ public partial class StickyNoteWindow : Window
         InitializeComponent();
         DataContext = vm;
 
+        // コンストラクタ・Loaded での初期値設定は SizeChanged/LocationChanged を
+        // 発火させる。ガードしないと、例えば折りたたみ状態で開いたときに
+        // 「Width = vm.Model.Width（展開時の幅）」という初期代入だけで
+        // SizeChanged が走り、IsFolded==true 判定から Model.FoldedWidth が
+        // 展開時の幅で上書きされてしまう（初期化の途中でモデルを汚染する）。
+        _isInitializing = true;
+
         Left    = vm.Model.X;
         Top     = vm.Model.Y;
         Width   = vm.Model.Width;
@@ -110,8 +120,13 @@ public partial class StickyNoteWindow : Window
         ContentBox.ContextMenu = BuildContentContextMenu();
         System.Windows.DataObject.AddPastingHandler(ContentBox, OnPaste);
 
-        // ポップアップは別HWNDのため開くとウィンドウが非アクティブになる。
-        // 開いている間はビューモードへの移行を抑止する。
+        // ポップアップ・コンテキストメニューは別HWNDのため開くとウィンドウが
+        // 非アクティブになり、フォーカスもそちらへ移る。ContentBox 自身の
+        // 右クリックメニュー（切り取り/コピー/貼り付け）を素通りさせてしまうと、
+        // メニューを開いただけで EnterViewMode() が発火して LoadContent() が
+        // ドキュメントを再構築し、IsReadOnly も true に戻る。結果、右クリックの
+        // 「貼り付け」がキャレット位置を失って機能しない（貼り付け先が末尾に
+        // ずれて見える）。開いている間はビューモードへの移行を抑止する。
         foreach (var popup in new[] { _colorPopup, _fontPopup, _iconPopup })
         {
             popup.Opened += (_, _) => _suppressViewMode = true;
@@ -121,6 +136,15 @@ public partial class StickyNoteWindow : Window
                 if (_isEditMode) Dispatcher.BeginInvoke(() => ContentBox.Focus());
             };
         }
+        // ContextMenu.Opened では遅い（開く際のフォーカス移動が先に起きて
+        // LostKeyboardFocus が発火してしまう）ため、開く"前"に呼ばれる
+        // FrameworkElement.ContextMenuOpening（ContentBox_ContextMenuOpening）
+        // 側でフラグを立てる。閉じたときの解除だけ Closed で行う。
+        ContentBox.ContextMenu.Closed += (_, _) =>
+        {
+            _suppressViewMode = false;
+            if (_isEditMode) Dispatcher.BeginInvoke(() => ContentBox.Focus());
+        };
 
         _overlayTimer.Tick += (_, _) => FadeOutSizeOverlay();
 
@@ -133,12 +157,17 @@ public partial class StickyNoteWindow : Window
             if (vm.IsFolded)
             {
                 ContentBox.Visibility = Visibility.Collapsed;
+                // 折りたたみ時専用の幅が保存されていればそれを使う
+                Width  = vm.Model.FoldedWidth ?? vm.Model.Width;
                 Height = FoldedHeight;
             }
             // 展開状態でも必ず通す。ここを通さないと WindowChrome が
             // XAML の初期値（全辺 5px）のままになり、タイトルバー上端が
             // リサイズ枠として残ってしまう。
             SetResizeEnabled(!vm.IsFolded);
+            // 初期値設定はここまで。以降の SizeChanged/LocationChanged は
+            // 通常どおりモデルに書き戻してよい。
+            _isInitializing = false;
             // 新規（空）付箋はすぐ編集モードで開始
             if (string.IsNullOrEmpty(vm.Content))
                 Dispatcher.BeginInvoke(EnterEditMode);
@@ -242,7 +271,7 @@ public partial class StickyNoteWindow : Window
         ContentBox.Cursor = WpfCursors.Arrow;
         ContentBox.BorderThickness = new Thickness(0);
         ContentBox.BorderBrush = WpfBrushes.Transparent;
-        ContentBox.ToolTip = "クリックして編集";
+        ContentBox.ToolTip = "ダブルクリックして編集";
         UpdateControlsVisibility();
         Keyboard.ClearFocus();
     }
@@ -256,6 +285,12 @@ public partial class StickyNoteWindow : Window
     // 実際のリサイズ抑止は次の2つで行う:
     //   1. WindowChrome.ResizeBorderThickness = 0 … 当たり判定を消す
     //   2. Min/Max を現在値で固定           … 寸法変更そのものを封じる
+    //
+    // 折りたたみ時（enabled=false）でも幅だけは変更できるようにしている。
+    // 上下だけ 0 にして左右は残す。タイトルバーは 28px 程度しかなく、
+    // その上端 5px が HTTOP になると「畳もうとしてダブルクリック」が
+    // Windows 標準の縦方向最大化に化けるため、上辺は常に 0 にする必要がある
+    // （下辺も同じ理由で畳んでいる間は 0 のままにする）。
     private void SetResizeEnabled(bool enabled)
     {
         var chrome = WindowChrome.GetWindowChrome(this);
@@ -266,27 +301,21 @@ public partial class StickyNoteWindow : Window
                 chrome = (WindowChrome)chrome.Clone();
                 WindowChrome.SetWindowChrome(this, chrome);
             }
-            // 上辺だけリサイズ枠を持たせない。
-            // タイトルバーは 28px 程度しかなく、その上端 5px が HTTOP になると
-            // 「畳もうとしてダブルクリック」が Windows 標準の縦方向最大化に化ける。
-            // 上辺を 0 にすればタイトルバー全体が通常のクライアント領域になり、
-            // どこをダブルクリックしても折りたたみになる。
-            // 高さの変更は下辺と左右・角で行える。
             chrome.ResizeBorderThickness = enabled
                 ? new Thickness(ResizeBorder, 0, ResizeBorder, ResizeBorder)
-                : new Thickness(0);
+                : new Thickness(ResizeBorder, 0, ResizeBorder, 0);
         }
+
+        MinWidth = UnfoldedMinWidth;
+        MaxWidth = double.PositiveInfinity;
 
         if (enabled)
         {
-            MinWidth  = UnfoldedMinWidth;
-            MaxWidth  = double.PositiveInfinity;
             MinHeight = FoldedHeight;
             MaxHeight = double.PositiveInfinity;
         }
         else
         {
-            MinWidth  = MaxWidth  = Width;
             MinHeight = MaxHeight = FoldedHeight;
         }
     }
@@ -363,7 +392,10 @@ public partial class StickyNoteWindow : Window
                 e.Handled = true;
                 return;
             }
-            EnterEditMode();
+            // シングルクリックでは編集モードに入らない。誤って文字を
+            // 選択しただけで編集が始まるのを避けるため、ダブルクリックを要求する。
+            if (e.ClickCount == 2)
+                EnterEditMode();
         }
         else if (target != null && (Keyboard.Modifiers & ModifierKeys.Control) != 0)
         {
@@ -441,8 +473,11 @@ public partial class StickyNoteWindow : Window
         var clipboard = ((string)e.DataObject.GetData(WpfDataFormats.UnicodeText))
             .Replace("\r\n", "\n").Replace("\r", "\n");
 
-        var beforeText = RangeToPlain(ContentBox.Document.ContentStart, ContentBox.Selection.Start);
-        var afterText  = RangeToPlain(ContentBox.Selection.End, ContentBox.Document.ContentEnd);
+        var plainText = GetPlainText();
+        var startOff  = GetOffsetOfPointer(ContentBox.Selection.Start);
+        var endOff    = GetOffsetOfPointer(ContentBox.Selection.End);
+        var beforeText = plainText[..startOff];
+        var afterText  = plainText[endOff..];
         var newText    = beforeText + clipboard + afterText;
         var caretOff   = beforeText.Length + clipboard.Length;
 
@@ -453,8 +488,55 @@ public partial class StickyNoteWindow : Window
         RequestSave();
     }
 
-    private string RangeToPlain(TextPointer from, TextPointer to)
-        => new TextRange(from, to).Text.Replace("\r\n", "\n").Replace("\r", "\n").TrimEnd('\n');
+    // TextPointer が指す位置の、GetPlainText() が返す文字列上での文字オフセットを求める。
+    //
+    // 以前は TextRange(from, to).Text を直接使っていたが、WPF の TextRange.Text は
+    // 範囲の終端が段落境界と一致するかどうかで末尾の改行の有無が不安定になる
+    // （終端が文書末尾かどうか等で余分な改行が付いたり付かなかったりする）。
+    // GetPlainText() と同じ辿り方（Run/Hyperlink/LineBreak の順に長さを積み上げる）を
+    // することで、その揺れを避けて GetPlainText() の結果と常に一致するオフセットを得る。
+    private int GetOffsetOfPointer(TextPointer target)
+    {
+        int pos = 0;
+        bool firstPara = true;
+        foreach (Block block in ContentBox.Document.Blocks)
+        {
+            if (!firstPara) pos++;
+            firstPara = false;
+
+            if (block is not Paragraph para) continue;
+
+            bool targetInThisPara =
+                target.CompareTo(para.ContentStart) >= 0 &&
+                target.CompareTo(para.ContentEnd) <= 0;
+
+            foreach (Inline inline in para.Inlines)
+            {
+                int len = inline switch
+                {
+                    Run r                              => r.Text.Length,
+                    Hyperlink h when h.Tag is string t => t.Length,
+                    LineBreak                          => 1,
+                    _ => new TextRange(inline.ContentStart, inline.ContentEnd).Text.Length,
+                };
+
+                if (targetInThisPara && target.CompareTo(inline.ContentEnd) <= 0)
+                {
+                    if (target.CompareTo(inline.ContentStart) <= 0)
+                        return pos;
+
+                    var within = new TextRange(inline.ContentStart, target).Text
+                        .Replace("\r\n", "\n").Replace("\r", "\n").Length;
+                    return pos + Math.Min(within, len);
+                }
+
+                pos += len;
+            }
+
+            if (targetInThisPara) return pos;
+        }
+        return pos;
+    }
 
     private void RestoreCaretAt(int target)
     {
@@ -521,6 +603,11 @@ public partial class StickyNoteWindow : Window
 
     private void ContentBox_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
+        // メニューが実際に開く前にフラグを立てる。ここで立てないと、
+        // メニューが開く際のフォーカス移動で LostKeyboardFocus が先に発火し
+        // EnterViewMode() が走ってしまう（ドキュメント再構築・IsReadOnly=true）。
+        _suppressViewMode = true;
+
         _contextMenuLink = GetHyperlinkAtCaret();
         _openLinkItem.IsEnabled = _contextMenuLink != null;
 
@@ -551,8 +638,9 @@ public partial class StickyNoteWindow : Window
         if (!LinkDetector.IsLink(sel)) return;
 
         // 選択範囲をリンクに置換してドキュメント全体を再構築
-        var before   = RangeToPlain(ContentBox.Document.ContentStart, ContentBox.Selection.Start);
-        var after    = RangeToPlain(ContentBox.Selection.End, ContentBox.Document.ContentEnd);
+        var plainText = GetPlainText();
+        var before   = plainText[..GetOffsetOfPointer(ContentBox.Selection.Start)];
+        var after    = plainText[GetOffsetOfPointer(ContentBox.Selection.End)..];
         var newText  = before + sel + after;    // sel は URL なので LoadContent でリンク検出される
         var caretOff = before.Length + sel.Length;
 
@@ -729,7 +817,10 @@ public partial class StickyNoteWindow : Window
             }
         }
 
-        if (msg != WM_SIZING || ViewModel.IsFolded) return IntPtr.Zero;
+        // 折りたたみ中でも幅の変更（左右辺）だけは許可している。上下辺は
+        // SetResizeEnabled が常に 0 にしているため、折りたたみ中に届く
+        // WM_SIZING は自然と左右辺のみになる。
+        if (msg != WM_SIZING) return IntPtr.Zero;
 
         var rect = Marshal.PtrToStructure<RECT>(lParam);
         if (SnapSizingRect(ref rect, wParam.ToInt32()))
@@ -832,6 +923,7 @@ public partial class StickyNoteWindow : Window
         {
             ContentBox.Visibility = Visibility.Visible;
             ViewModel.IsFolded = false;
+            Width = ViewModel.Model.Width; // 展開時専用の幅に戻す
             SetResizeEnabled(true);
             AnimateHeight(FoldedHeight, _unfoldedHeight);
         }
@@ -842,6 +934,8 @@ public partial class StickyNoteWindow : Window
             // アニメーション中の SizeChanged で Model.Height が
             // 途中の値に上書きされないよう先にフラグを立てる
             ViewModel.IsFolded = true;
+            // 折りたたみ時専用の幅へスナップ（未設定なら現在の幅のまま）
+            Width = ViewModel.Model.FoldedWidth ?? Width;
             AnimateHeight(Height, FoldedHeight, () =>
             {
                 ContentBox.Visibility = Visibility.Collapsed;
@@ -984,18 +1078,24 @@ public partial class StickyNoteWindow : Window
 
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        if (!ViewModel.IsFolded)
-        {
+        if (_isInitializing) return; // コンストラクタ〜Loaded の初期値設定はモデルに書き戻さない
+        // 幅は展開時/折りたたみ時で別々のフィールドに保存する
+        // （ToggleFold() が状態切り替え時にどちらか一方へスナップする）。
+        // 高さは折りたたみ中は見た目上の折りたたみ高さでしかないため、
+        // 展開時のみ保存する（編集モードで一時的に伸ばしたぶんも除く）。
+        if (ViewModel.IsFolded)
+            ViewModel.Model.FoldedWidth = Width;
+        else
             ViewModel.Model.Width = Width;
-            // 編集モードで一時的に伸ばしたぶんは保存しない
+
+        if (!ViewModel.IsFolded)
             ViewModel.Model.Height = Height - _statusBarDelta;
-            RequestSave();
-        }
+        RequestSave();
     }
 
     private void Window_LocationChanged(object? sender, EventArgs e)
     {
-        if (_isDragging) return;
+        if (_isDragging || _isInitializing) return;
         ViewModel.Model.X = Left;
         ViewModel.Model.Y = Top;
         RequestSave();

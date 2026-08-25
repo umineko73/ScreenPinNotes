@@ -27,6 +27,11 @@ public class StickyNote
     public double X { get; set; } = 100;
     public double Y { get; set; } = 100;
     public double Width { get; set; } = 260;
+
+    // 折りたたみ時専用の幅。null なら Width をそのまま使う
+    // （＝まだ折りたたみ時に個別リサイズされたことがない付箋）。
+    public double? FoldedWidth { get; set; }
+
     public double Height { get; set; } = 220;
     public string ColorKey { get; set; } = "yellow";
     public string Icon { get; set; } = "";   // タイトルバーに表示する絵文字。空 = なし
