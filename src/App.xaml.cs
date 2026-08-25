@@ -80,7 +80,15 @@ public partial class App : System.Windows.Application
 
         var notes = _storage.Load();
         if (notes.Count == 0)
-            notes.Add(new StickyNote());
+        {
+            var now = DateTime.Now;
+            notes.Add(new StickyNote
+            {
+                Title = StickyNote.CreateDefaultTitle(now),
+                CreatedAt = now,
+                UpdatedAt = now,
+            });
+        }
 
         foreach (var note in notes)
             OpenNoteWindow(note);
@@ -198,12 +206,16 @@ public partial class App : System.Windows.Application
     /// （色・アイコン・フォント）を引き継ぐ。タスクトレイからの
     /// 新規作成は引き継ぎ元が無いため既定の書式になる。
     /// </summary>
-    public void AddNewNote(StickyNote? template = null)
+    public void AddNewNote(StickyNote? template = null, double? x = null, double? y = null)
     {
+        var now = DateTime.Now;
         var note = new StickyNote
         {
-            X = 150 + _windows.Count * 20,
-            Y = 150 + _windows.Count * 20,
+            X = x ?? 150 + _windows.Count * 20,
+            Y = y ?? 150 + _windows.Count * 20,
+            Title = StickyNote.CreateDefaultTitle(now),
+            CreatedAt = now,
+            UpdatedAt = now,
         };
 
         if (template != null)

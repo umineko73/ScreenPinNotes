@@ -20,6 +20,8 @@ namespace ScreenStickyNotes.Models;
 
 public class StickyNote
 {
+    private static readonly string[] JapaneseDayNames = ["日", "月", "火", "水", "木", "金", "土"];
+
     public string Id { get; set; } = Guid.NewGuid().ToString();
 
     [JsonIgnore] // content.md に別途保存
@@ -45,4 +47,7 @@ public class StickyNote
     public bool IsFolded { get; set; } = false;
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
+
+    public static string CreateDefaultTitle(DateTime timestamp)
+        => $"{timestamp:yyyy/MM/dd}({JapaneseDayNames[(int)timestamp.DayOfWeek]}) {timestamp:HH:mm:ss}";
 }

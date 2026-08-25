@@ -71,11 +71,13 @@ public partial class StickyNoteWindow : Window
     private double     _dragOffsetX, _dragOffsetY;
     private bool       _dragMoved;               // しきい値を超えて実際に動かしたか
     private int        _dragClickCount;           // MouseDown 時のクリック回数を Up まで保持
+    private bool       _dragStartedOnTitle;       // タイトル文字列上で始まったクリックか
     private System.Drawing.Point _dragStartCursor; // ドラッグ開始時のカーソル位置（しきい値判定用）
     private System.Windows.Threading.DispatcherTimer? _singleClickTimer; // ダブルクリック判定の猶予用
     private bool       _suppressTextChange;
     private bool       _isEditMode;
     private bool       _suppressViewMode;
+    private bool       _isFoldAnimationRunning;
     private WrapPanel? _colorPanel;
 
     private readonly System.Windows.Threading.DispatcherTimer _overlayTimer =
@@ -254,7 +256,7 @@ public partial class StickyNoteWindow : Window
 
     private void EnterEditMode()
     {
-        if (_isEditMode) return;
+        if (_isEditMode && !ContentBox.IsReadOnly) return;
         _isEditMode = true;
         ContentBox.IsReadOnly = false;
         ContentBox.Cursor = WpfCursors.IBeam;
@@ -266,7 +268,27 @@ public partial class StickyNoteWindow : Window
         TitleText.Visibility    = Visibility.Collapsed;
         TitleEditBox.Visibility = Visibility.Visible;
         UpdateControlsVisibility();
-        ContentBox.Focus();
+        if (!ContentBox.IsKeyboardFocusWithin)
+            ContentBox.Focus();
+    }
+
+    private void EnterTitleEditMode()
+    {
+        if (!_isEditMode)
+        {
+            _isEditMode = true;
+            ContentBox.IsReadOnly = true;
+            ContentBox.Cursor = WpfCursors.Arrow;
+            ContentBox.BorderThickness = new Thickness(0);
+            ContentBox.BorderBrush = WpfBrushes.Transparent;
+            ContentBox.ToolTip = "ダブルクリックして編集";
+        }
+
+        TitleText.Visibility    = Visibility.Collapsed;
+        TitleEditBox.Visibility = Visibility.Visible;
+        UpdateControlsVisibility();
+        TitleEditBox.Focus();
+        TitleEditBox.SelectAll();
     }
 
     private void EnterViewMode()
@@ -400,6 +422,12 @@ public partial class StickyNoteWindow : Window
     {
         var target = GetHyperlinkAt(e.GetPosition(ContentBox));
 
+        if (_isEditMode && ContentBox.IsReadOnly && !ViewModel.IsFolded)
+        {
+            EnterEditMode();
+            return;
+        }
+
         if (!_isEditMode)
         {
             if (target != null)
@@ -438,6 +466,19 @@ public partial class StickyNoteWindow : Window
         EnterViewMode();
     }
 
+    private void TitleEditBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (_suppressViewMode) return;
+        if (IsDescendantOf(e.NewFocus as DependencyObject, StatusBar)) return;
+        if (IsDescendantOf(e.NewFocus as DependencyObject, ContentBox))
+        {
+            if (!ViewModel.IsFolded)
+                EnterEditMode();
+            return;
+        }
+        EnterViewMode();
+    }
+
     private static bool IsDescendantOf(DependencyObject? child, DependencyObject? ancestor)
     {
         while (child != null)
@@ -450,6 +491,16 @@ public partial class StickyNoteWindow : Window
 
     private void ContentBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
+        if (sender == TitleEditBox && e.Key == Key.Enter && _isEditMode)
+        {
+            TitleEditBox.GetBindingExpression(System.Windows.Controls.TextBox.TextProperty)?.UpdateSource();
+            RequestSave();
+            FlushPendingSave();
+            EnterViewMode();
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key == Key.Escape && _isEditMode)
         {
             EnterViewMode();
@@ -678,14 +729,15 @@ public partial class StickyNoteWindow : Window
     // MouseMove でしきい値を超えて初めてドラッグ確定として扱い、
     // 超えなければ MouseUp 時点のクリック回数で判定する:
     //   シングルクリック → 折りたたみ／展開
-    //   ダブルクリック   → 編集モードへ（畳んでいれば先に展開する）
+    //   タイトルをダブルクリック → タイトルだけ編集（折りたたみ状態は維持）
+    //   タイトル以外をダブルクリック → 本文編集（畳んでいれば先に展開する）
     //   ドラッグ         → ウィンドウ移動（従来どおり）
 
     private const double ClickDragThresholdPx = 4; // これ未満の移動はクリックの揺れとみなす
 
-    // シングルクリック確定までの猶予（ダブルクリックの2回目を待つ時間）。
-    // System.Windows.Forms.SystemInformation.DoubleClickTime（既定 500ms 前後）は
-    // 折りたたみ操作には長すぎて反応が鈍く感じるため、短い固定値にしている。
+    // タイトルバー空白部のシングルクリック確定までの猶予。
+    // タイトル文字列上は有効なダブルクリックを取りこぼさないよう、
+    // OS のダブルクリック判定時間を使う。
     private const int SingleClickGraceMs = 200;
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -699,6 +751,7 @@ public partial class StickyNoteWindow : Window
         _isDragging      = true;
         _dragMoved       = false;
         _dragClickCount  = e.ClickCount;
+        _dragStartedOnTitle = IsPointerInside(TitleText, e);
         var (dpiX, dpiY) = GetDpi();
         var cur = System.Windows.Forms.Cursor.Position;
         _dragOffsetX     = cur.X / dpiX - Left;
@@ -753,7 +806,9 @@ public partial class StickyNoteWindow : Window
         {
             _singleClickTimer?.Stop();
             _singleClickTimer = null;
-            if (ViewModel.IsFolded)
+            if (_dragStartedOnTitle)
+                EnterTitleEditMode();
+            else if (ViewModel.IsFolded)
                 ToggleFold(EnterEditMode); // 展開アニメーション完了後に編集モードへ
             else
                 EnterEditMode();
@@ -763,7 +818,7 @@ public partial class StickyNoteWindow : Window
         _singleClickTimer?.Stop();
         _singleClickTimer = new System.Windows.Threading.DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(SingleClickGraceMs)
+            Interval = TimeSpan.FromMilliseconds(GetSingleClickGraceMs())
         };
         _singleClickTimer.Tick += (_, _) =>
         {
@@ -772,6 +827,18 @@ public partial class StickyNoteWindow : Window
             ToggleFold();
         };
         _singleClickTimer.Start();
+    }
+
+    private int GetSingleClickGraceMs()
+        => _dragStartedOnTitle
+            ? System.Windows.Forms.SystemInformation.DoubleClickTime
+            : SingleClickGraceMs;
+
+    private static bool IsPointerInside(FrameworkElement element, System.Windows.Input.MouseEventArgs e)
+    {
+        var p = e.GetPosition(element);
+        return p.X >= 0 && p.X <= element.ActualWidth &&
+               p.Y >= 0 && p.Y <= element.ActualHeight;
     }
 
     private (double dpiX, double dpiY) GetDpi()
@@ -1017,7 +1084,11 @@ public partial class StickyNoteWindow : Window
             ViewModel.IsFolded = false;
             Width = ViewModel.Model.Width; // 展開時専用の幅に戻す
             SetResizeEnabled(true);
-            AnimateHeight(FoldedHeight, _unfoldedHeight, onUnfolded);
+            RunFoldAnimation(FoldedHeight, _unfoldedHeight, () =>
+            {
+                ViewModel.Model.Height = _unfoldedHeight;
+                onUnfolded?.Invoke();
+            });
         }
         else
         {
@@ -1028,7 +1099,7 @@ public partial class StickyNoteWindow : Window
             ViewModel.IsFolded = true;
             // 折りたたみ時専用の幅へスナップ（未設定なら現在の幅のまま）
             Width = ViewModel.Model.FoldedWidth ?? Width;
-            AnimateHeight(Height, FoldedHeight, () =>
+            RunFoldAnimation(Height, FoldedHeight, () =>
             {
                 ContentBox.Visibility = Visibility.Collapsed;
                 ViewModel.Model.Height = _unfoldedHeight;
@@ -1041,6 +1112,20 @@ public partial class StickyNoteWindow : Window
     // Completed は BeginAnimation の前に購読しないと発火しない。
     // BeginAnimation の時点で Timeline が凍結され AnimationClock が
     // 生成されるため、後から足したハンドラは呼ばれない。
+    private void RunFoldAnimation(double from, double to, Action? completed = null)
+    {
+        _isFoldAnimationRunning = true;
+        AnimateHeight(from, to, () =>
+        {
+            // アニメーション後も Height のベース値を最終値に固定する。
+            // これをしないと、後続の BeginAnimation(..., null) で折りたたみ高さへ戻ることがある。
+            Height = to;
+            BeginAnimation(HeightProperty, null);
+            _isFoldAnimationRunning = false;
+            completed?.Invoke();
+        });
+    }
+
     private void AnimateHeight(double from, double to, Action? completed = null)
     {
         var anim = new DoubleAnimation(from, to, TimeSpan.FromMilliseconds(150))
@@ -1056,7 +1141,35 @@ public partial class StickyNoteWindow : Window
 
     // 押した付箋の書式を引き継いで新規作成する
     private void AddNote_Click(object sender, RoutedEventArgs e)
-        => App.Current.AddNewNote(ViewModel.Model);
+    {
+        var (x, y) = GetNewNotePositionNearCursor();
+        App.Current.AddNewNote(ViewModel.Model, x, y);
+    }
+
+    private (double x, double y) GetNewNotePositionNearCursor()
+    {
+        const double Offset = 12;
+        const double DefaultWidth = 260;
+        const double DefaultHeight = 220;
+
+        var cursor = System.Windows.Forms.Cursor.Position;
+        var (dpiX, dpiY) = GetDpi();
+        var screen = System.Windows.Forms.Screen.FromPoint(cursor);
+        var wa = screen.WorkingArea;
+
+        double left = cursor.X / dpiX + Offset;
+        double top  = cursor.Y / dpiY + Offset;
+
+        double minLeft = wa.Left / dpiX;
+        double maxLeft = wa.Right / dpiX - DefaultWidth;
+        double minTop = wa.Top / dpiY;
+        double maxTop = wa.Bottom / dpiY - DefaultHeight;
+
+        return (
+            Math.Clamp(left, minLeft, Math.Max(minLeft, maxLeft)),
+            Math.Clamp(top, minTop, Math.Max(minTop, maxTop))
+        );
+    }
 
     private void Pin_Changed(object sender, RoutedEventArgs e)
     {
@@ -1171,6 +1284,7 @@ public partial class StickyNoteWindow : Window
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         if (_isInitializing) return; // コンストラクタ〜Loaded の初期値設定はモデルに書き戻さない
+        if (_isFoldAnimationRunning) return; // アニメーション途中の高さを展開時サイズとして保存しない
         // 幅は展開時/折りたたみ時で別々のフィールドに保存する
         // （ToggleFold() が状態切り替え時にどちらか一方へスナップする）。
         // 高さは折りたたみ中は見た目上の折りたたみ高さでしかないため、

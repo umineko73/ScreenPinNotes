@@ -85,7 +85,7 @@
                            Margin="8,0,4,0"
                            TextTrimming="CharacterEllipsis"/>
 
-                <!-- タイトル直接入力欄。本文の編集モード中だけ表示する
+                <!-- タイトル直接入力欄。編集モード中だけ表示する
                      （EnterEditMode/EnterViewMode で切り替え）。
                      空欄のままなら DisplayTitle は本文1行目にフォールバックする -->
                 <TextBox x:Name="TitleEditBox"
@@ -104,6 +104,7 @@
                          Padding="0"
                          ToolTip="空欄なら本文の1行目を表示します"
                          TextChanged="TitleEditBox_TextChanged"
+                         LostKeyboardFocus="TitleEditBox_LostKeyboardFocus"
                          PreviewKeyDown="ContentBox_PreviewKeyDown"/>
 
                 <!-- 新規作成。閲覧モードのままでも付箋を増やせるようにする -->
