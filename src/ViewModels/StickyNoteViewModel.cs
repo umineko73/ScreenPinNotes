@@ -75,7 +75,14 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     public string Content
     {
         get => _model.Content;
-        set { _model.Content = value; _model.UpdatedAt = DateTime.Now; OnPropertyChanged(); OnPropertyChanged(nameof(FirstLine)); }
+        set
+        {
+            _model.Content = value;
+            _model.UpdatedAt = DateTime.Now;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(FirstLine));
+            OnPropertyChanged(nameof(DisplayTitle));
+        }
     }
 
     public string FirstLine
@@ -86,6 +93,22 @@ public class StickyNoteViewModel : INotifyPropertyChanged
             return line.Length > 0 ? line : "（メモなし）";
         }
     }
+
+    /// <summary>タイトルバーに直接入力する文字列。空なら本文の1行目にフォールバックする。</summary>
+    public string Title
+    {
+        get => _model.Title ?? "";
+        set
+        {
+            _model.Title = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(DisplayTitle));
+        }
+    }
+
+    /// <summary>タイトルバーに実際に表示する文字列（Title が空なら FirstLine）。</summary>
+    public string DisplayTitle =>
+        string.IsNullOrWhiteSpace(_model.Title) ? FirstLine : _model.Title!;
 
     public string ColorKey
     {
@@ -172,15 +195,42 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         private set { _headerBrush = value; OnPropertyChanged(); }
     }
 
+    // タイトルバー専用の色。HeaderBrush をそのまま帯として敷くと目立ちすぎるため、
+    // 背景色へ寄せて弱めた色を使う。付箋の外枠（RootBorder）は引き続き
+    // HeaderBrush そのままなので、色の手掛かり自体は失われない。
+    private WpfBrush _titleBarBrush = WpfBrushes.Orange;
+    public WpfBrush TitleBarBrush
+    {
+        get => _titleBarBrush;
+        private set { _titleBarBrush = value; OnPropertyChanged(); }
+    }
+
+    // 明るくなったタイトルバーでも読めるよう、ヘッダー色を黒へ寄せた文字色
+    private WpfBrush _titleBarForeground = WpfBrushes.Black;
+    public WpfBrush TitleBarForeground
+    {
+        get => _titleBarForeground;
+        private set { _titleBarForeground = value; OnPropertyChanged(); }
+    }
+
     private void UpdateBrushes()
     {
         if (!ColorPresets.TryGetValue(_model.ColorKey, out var preset))
             preset = ColorPresets["yellow"];
 
-        BackgroundBrush = new WpfSolidBrush(
-            (WpfColor)WpfColorConverter.ConvertFromString(preset.Bg));
-        HeaderBrush = new WpfSolidBrush(
-            (WpfColor)WpfColorConverter.ConvertFromString(preset.Header));
+        var bg     = (WpfColor)WpfColorConverter.ConvertFromString(preset.Bg);
+        var header = (WpfColor)WpfColorConverter.ConvertFromString(preset.Header);
+
+        BackgroundBrush    = new WpfSolidBrush(bg);
+        HeaderBrush         = new WpfSolidBrush(header);
+        TitleBarBrush       = new WpfSolidBrush(Blend(header, bg, 0.90));
+        TitleBarForeground  = new WpfSolidBrush(Blend(header, WpfColor.FromRgb(0, 0, 0), 0.45));
+    }
+
+    private static WpfColor Blend(WpfColor from, WpfColor to, double t)
+    {
+        byte Lerp(byte a, byte b) => (byte)Math.Round(a + (b - a) * t);
+        return WpfColor.FromRgb(Lerp(from.R, to.R), Lerp(from.G, to.G), Lerp(from.B, to.B));
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

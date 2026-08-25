@@ -33,6 +33,9 @@ public class StickyNote
     public double? FoldedWidth { get; set; }
 
     public double Height { get; set; } = 220;
+    // タイトルバーに表示する文字列。空/未設定なら本文の1行目を表示する。
+    public string? Title { get; set; }
+
     public string ColorKey { get; set; } = "yellow";
     public string Icon { get; set; } = "";   // タイトルバーに表示する絵文字。空 = なし
     public string FontFamily { get; set; } = "Yu Gothic UI";

@@ -51,7 +51,7 @@
             </Grid.RowDefinitions>
 
             <!-- タイトルバー：折りたたみボタン + 折りたたみ時タイトル -->
-            <Grid Grid.Row="0" Height="{Binding TitleBarHeight}" Background="{Binding HeaderBrush}"
+            <Grid Grid.Row="0" Height="{Binding TitleBarHeight}" Background="{Binding TitleBarBrush}"
                   MouseLeftButtonDown="TitleBar_MouseLeftButtonDown"
                   MouseMove="TitleBar_MouseMove"
                   MouseLeftButtonUp="TitleBar_MouseLeftButtonUp">
@@ -68,24 +68,47 @@
                 <TextBlock Grid.Column="0"
                            Text="{Binding Icon}"
                            Visibility="{Binding IconVisibility}"
-                           Foreground="White"
+                           Foreground="{Binding TitleBarForeground}"
                            FontSize="13"
                            VerticalAlignment="Center"
                            Margin="6,0,0,0"/>
 
-                <!-- タイトル（1行目）は折りたたみ状態にかかわらず常に表示 -->
-                <TextBlock Grid.Column="1"
-                           Text="{Binding FirstLine}"
-                           Foreground="White"
+                <!-- タイトル表示（Title があればそれを、無ければ本文1行目を表示）。
+                     折りたたみ状態にかかわらず常に表示する -->
+                <TextBlock x:Name="TitleText"
+                           Grid.Column="1"
+                           Text="{Binding DisplayTitle}"
+                           Foreground="{Binding TitleBarForeground}"
                            FontWeight="SemiBold"
                            FontSize="{Binding TitleFontSize}"
                            VerticalAlignment="Center"
                            Margin="8,0,4,0"
                            TextTrimming="CharacterEllipsis"/>
 
+                <!-- タイトル直接入力欄。本文の編集モード中だけ表示する
+                     （EnterEditMode/EnterViewMode で切り替え）。
+                     空欄のままなら DisplayTitle は本文1行目にフォールバックする -->
+                <TextBox x:Name="TitleEditBox"
+                         Grid.Column="1"
+                         Text="{Binding Title, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         Visibility="Collapsed"
+                         Background="Transparent"
+                         Foreground="{Binding TitleBarForeground}"
+                         CaretBrush="{Binding TitleBarForeground}"
+                         BorderThickness="0"
+                         FontWeight="SemiBold"
+                         FontSize="{Binding TitleFontSize}"
+                         VerticalAlignment="Center"
+                         VerticalContentAlignment="Center"
+                         Margin="6,0,4,0"
+                         Padding="0"
+                         ToolTip="空欄なら本文の1行目を表示します"
+                         TextChanged="TitleEditBox_TextChanged"
+                         PreviewKeyDown="ContentBox_PreviewKeyDown"/>
+
                 <!-- 新規作成。閲覧モードのままでも付箋を増やせるようにする -->
                 <Button Grid.Column="2" Content="＋"
-                        Style="{StaticResource TitleBarButton}"
+                        Style="{StaticResource TitleBarButtonOnLight}"
                         ToolTip="新しい付箋を追加"
                         Click="AddNote_Click"/>
 
@@ -93,14 +116,14 @@
                      ステータスバーではなくタイトルバーに置く -->
                 <ToggleButton Grid.Column="3"
                               IsChecked="{Binding IsTopmost, Mode=TwoWay}"
-                              Style="{StaticResource TitleBarToggle}"
+                              Style="{StaticResource TitleBarToggleOnLight}"
                               ToolTip="常に最前面"
                               Content="📌"
                               Checked="Pin_Changed" Unchecked="Pin_Changed"/>
 
                 <Button Grid.Column="4" Content="{Binding FoldIcon}"
                         Margin="0,0,2,0"
-                        Style="{StaticResource TitleBarButton}"
+                        Style="{StaticResource TitleBarButtonOnLight}"
                         ToolTip="折りたたみ / 展開"
                         Click="Fold_Click"/>
             </Grid>
