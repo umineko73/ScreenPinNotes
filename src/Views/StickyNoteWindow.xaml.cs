@@ -28,8 +28,10 @@ using System.Windows.Media.Animation;
 using System.Windows.Shell;
 using ScreenStickyNotes.Services;
 using ScreenStickyNotes.ViewModels;
+using SkiaSharp;
 using WpfBrushes     = System.Windows.Media.Brushes;
 using WpfButton      = System.Windows.Controls.Button;
+using WpfBitmapImage = System.Windows.Media.Imaging.BitmapImage;
 using WpfColor       = System.Windows.Media.Color;
 using WpfColorConverter = System.Windows.Media.ColorConverter;
 using WpfCursors     = System.Windows.Input.Cursors;
@@ -108,6 +110,12 @@ public partial class StickyNoteWindow : Window
     {
         InitializeComponent();
         DataContext = vm;
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(StickyNoteViewModel.Icon) or null)
+                UpdateIconImage();
+        };
+        UpdateIconImage();
 
         // コンストラクタ・Loaded での初期値設定は SizeChanged/LocationChanged を
         // 発火させる。ガードしないと、例えば折りたたみ状態で開いたときに
@@ -192,6 +200,47 @@ public partial class StickyNoteWindow : Window
             // 通常どおりモデルに書き戻してよい。
             _isInitializing = false;
         };
+    }
+
+    // WPFはSegoe UI Emojiのカラーフォントを直接描画できないため、
+    // SkiaSharpで一度PNGへ描画してImageとして表示する。
+    private void UpdateIconImage()
+    {
+        IconImage.Source = RenderEmoji(ViewModel.Icon);
+    }
+
+    private static WpfBitmapImage? RenderEmoji(string icon)
+    {
+        if (string.IsNullOrEmpty(icon)) return null;
+
+        const int pixelSize = 64;
+        using var bitmap = new SKBitmap(pixelSize, pixelSize, SKColorType.Bgra8888, SKAlphaType.Premul);
+        using var canvas = new SKCanvas(bitmap);
+        canvas.Clear(SKColors.Transparent);
+
+        using var typeface = SKTypeface.FromFamilyName("Segoe UI Emoji");
+        using var font = new SKFont(typeface, 52) { Subpixel = true };
+        using var paint = new SKPaint
+        {
+            IsAntialias = true,
+        };
+
+        var bounds = new SKRect();
+        font.MeasureText(icon, out bounds, paint);
+        var x = (pixelSize - bounds.Width) / 2 - bounds.Left;
+        var y = (pixelSize - bounds.Height) / 2 - bounds.Top;
+        canvas.DrawText(icon, x, y, font, paint);
+
+        using var image = SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        using var stream = data.AsStream();
+        var result = new WpfBitmapImage();
+        result.BeginInit();
+        result.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+        result.StreamSource = stream;
+        result.EndInit();
+        result.Freeze();
+        return result;
     }
 
     // ─── FlowDocument ↔ プレーンテキスト ─────────────────────────
@@ -730,6 +779,10 @@ public partial class StickyNoteWindow : Window
         cm.Items.Add(new Separator());
         cm.Items.Add(_openLinkItem);
         cm.Items.Add(_convertLinkItem);
+        cm.Items.Add(new Separator());
+        var deleteItem = new MenuItem { Header = "削除" };
+        deleteItem.Click += Close_Click;
+        cm.Items.Add(deleteItem);
         return cm;
     }
 
@@ -894,10 +947,24 @@ public partial class StickyNoteWindow : Window
     }
 
     private void TitleBar_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
-        => UpdateTitleBarButtonsVisibility();
+    {
+        UpdateTitleBarButtonsVisibility();
+        UpdateTitlePreviewVisibility();
+    }
 
     private void TitleBar_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
-        => UpdateTitleBarButtonsVisibility();
+    {
+        UpdateTitleBarButtonsVisibility();
+        TitlePreviewPopup.IsOpen = false;
+    }
+
+    private void UpdateTitlePreviewVisibility()
+    {
+        TitlePreviewPopup.IsOpen = ViewModel.IsFolded &&
+            !_isEditMode &&
+            !string.IsNullOrWhiteSpace(ViewModel.Content) &&
+            TitleBar.IsMouseOver;
+    }
 
     private void RootBorder_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
         => ShowEditToolbar();
@@ -1163,6 +1230,7 @@ public partial class StickyNoteWindow : Window
             ContentBox.Visibility = Visibility.Visible;
             ViewModel.IsFolded = false;
             UpdateTitleBarButtonsVisibility();
+            UpdateTitlePreviewVisibility();
             Width = ViewModel.Model.Width; // 展開時専用の幅に戻す
             SetResizeEnabled(true);
             RunFoldAnimation(FoldedHeight, _unfoldedHeight, () =>
@@ -1179,6 +1247,7 @@ public partial class StickyNoteWindow : Window
             // 途中の値に上書きされないよう先にフラグを立てる
             ViewModel.IsFolded = true;
             UpdateTitleBarButtonsVisibility();
+            UpdateTitlePreviewVisibility();
             HideEditToolbar();
             // 折りたたみ時専用の幅へスナップ（未設定なら現在の幅のまま）
             Width = ViewModel.Model.FoldedWidth ?? Width;
@@ -1495,9 +1564,18 @@ public partial class StickyNoteWindow : Window
             {
                 Width = Cell, Height = Cell, Margin = new Thickness(Gap),
                 Padding    = new Thickness(0),
-                Content    = isNone ? "✕" : icon,
-                FontSize   = isNone ? 11 : 15,
-                Foreground = isNone ? WpfBrushes.Gray : WpfBrushes.Black,
+                Content    = isNone
+                    ? new TextBlock
+                    {
+                        Text = "✕", FontSize = 11, Foreground = WpfBrushes.Gray,
+                        HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+                        VerticalAlignment = System.Windows.VerticalAlignment.Center,
+                    }
+                    : new System.Windows.Controls.Image
+                    {
+                        Source = RenderEmoji(icon), Width = 20, Height = 20,
+                        Stretch = Stretch.Uniform,
+                    },
                 Tag        = icon,
                 ToolTip    = isNone ? "アイコンなし" : null,
                 Cursor     = WpfCursors.Hand,

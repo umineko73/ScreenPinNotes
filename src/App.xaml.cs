@@ -30,6 +30,7 @@ public partial class App : System.Windows.Application
 
     private readonly StorageService _storage = new();
     private readonly List<StickyNoteWindow> _windows = [];
+    private AppSettings _settings = new();
     private NotifyIcon? _trayIcon;
 
     public IReadOnlyList<StickyNoteWindow> NoteWindows => _windows;
@@ -74,6 +75,11 @@ public partial class App : System.Windows.Application
 
         // ログオフ・シャットダウン時にデバウンス待ちの変更を取りこぼさない
         SessionEnding += (_, _) => FlushAndSave();
+
+        _settings = _storage.LoadSettings();
+        // スタートアップ登録は既存のレジストリが実体なので、起動時にJSONへ反映する。
+        _settings.StartWithWindows = StartupService.IsRegistered;
+        _storage.SaveSettings(_settings);
 
         InitIpcWindow();
         InitTrayIcon();
@@ -128,7 +134,7 @@ public partial class App : System.Windows.Application
 
         var startupItem = new ToolStripMenuItem("スタートアップに登録")
         {
-            Checked = StartupService.IsRegistered,
+            Checked = _settings.StartWithWindows,
             CheckOnClick = false,
         };
         startupItem.Click += (_, _) =>
@@ -137,12 +143,15 @@ public partial class App : System.Windows.Application
             {
                 StartupService.Unregister();
                 startupItem.Checked = false;
+                _settings.StartWithWindows = false;
             }
             else
             {
                 StartupService.Register();
                 startupItem.Checked = true;
+                _settings.StartWithWindows = true;
             }
+            _storage.SaveSettings(_settings);
         };
 
         var menu = new ContextMenuStrip();

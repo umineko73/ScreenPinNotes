@@ -67,15 +67,15 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- アイコン（未設定なら非表示）。
-                     WPF はカラーフォントを描画しないため白抜きのシルエットになる -->
-                <TextBlock Grid.Column="0"
-                           Text="{Binding Icon}"
-                           Visibility="{Binding IconVisibility}"
-                           Foreground="{Binding TitleBarForeground}"
-                           FontSize="13"
-                           VerticalAlignment="Center"
-                           Margin="6,0,0,0"/>
+                <!-- WPFのTextBlockはカラーフォントを描画しないため、
+                     Segoe UI Emojiを画像化して表示する -->
+                <Image x:Name="IconImage"
+                       Grid.Column="0"
+                       Visibility="{Binding IconVisibility}"
+                       Width="17" Height="17"
+                       Stretch="Uniform"
+                       VerticalAlignment="Center"
+                       Margin="6,0,0,0"/>
 
                 <!-- タイトル表示（Title があればそれを、無ければ本文1行目を表示）。
                      折りたたみ状態にかかわらず常に表示する -->
@@ -218,9 +218,36 @@
                         <Button x:Name="ColorButton" Content="🎨"
                                 Style="{StaticResource TitleBarButton}"
                                 ToolTip="色を変更" Click="Color_Click"/>
-                        <Button Content="✕" Style="{StaticResource TitleBarCloseButton}"
-                                ToolTip="削除" Click="Close_Click"/>
                     </StackPanel>
+                </Border>
+            </Popup>
+
+            <!-- 折りたたみ時、タイトルバーにホバーすると本文を確認できるプレビュー -->
+            <Popup x:Name="TitlePreviewPopup"
+                   PlacementTarget="{Binding ElementName=TitleBar}"
+                   Placement="Bottom"
+                   HorizontalOffset="1"
+                   VerticalOffset="2"
+                   StaysOpen="True"
+                   AllowsTransparency="True"
+                   IsHitTestVisible="False"
+                   DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                <Border Background="{Binding BackgroundBrush}"
+                        BorderBrush="{Binding HeaderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="8"
+                        Opacity="0.78"
+                        MaxWidth="360">
+                    <ScrollViewer MaxHeight="180"
+                                  VerticalScrollBarVisibility="Hidden"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <TextBlock Text="{Binding Content}"
+                                   TextWrapping="Wrap"
+                                   Foreground="{Binding TitleBarForeground}"
+                                   FontFamily="{Binding FontFamily}"
+                                   FontSize="{Binding FontSize}"/>
+                    </ScrollViewer>
                 </Border>
             </Popup>
         </Grid>

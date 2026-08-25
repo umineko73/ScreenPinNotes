@@ -32,6 +32,9 @@ public class StorageService
     /// <summary>実際に使用しているデータフォルダ。</summary>
     public static string DataRoot => AppRoot;
 
+    /// <summary>アプリケーション全体の設定ファイル。</summary>
+    public static string SettingsPath => Path.Combine(AppRoot, "settings.json");
+
     private static string ResolveAppRoot()
     {
         var custom = Environment.GetEnvironmentVariable(DataDirEnvVar);
@@ -50,6 +53,30 @@ public class StorageService
     private static readonly string LegacyFile = Path.Combine(AppRoot, "notes.json");
 
     private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
+
+    // ─── アプリケーション設定 ───────────────────────────────────
+
+    public AppSettings LoadSettings()
+    {
+        if (!File.Exists(SettingsPath)) return new AppSettings();
+
+        try
+        {
+            return JsonSerializer.Deserialize<AppSettings>(
+                File.ReadAllText(SettingsPath, Encoding.UTF8), JsonOpts)
+                ?? new AppSettings();
+        }
+        catch
+        {
+            return new AppSettings();
+        }
+    }
+
+    public void SaveSettings(AppSettings settings)
+    {
+        Directory.CreateDirectory(AppRoot);
+        AtomicWrite(SettingsPath, JsonSerializer.Serialize(settings, JsonOpts));
+    }
 
     // ─── 読み込み ────────────────────────────────────────────────
 
