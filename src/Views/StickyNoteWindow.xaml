@@ -42,19 +42,23 @@
     <Border x:Name="RootBorder"
             Background="{Binding BackgroundBrush}"
             BorderThickness="1"
-            BorderBrush="{Binding HeaderBrush}">
+            BorderBrush="{Binding HeaderBrush}"
+            MouseEnter="RootBorder_MouseEnter"
+            MouseLeave="RootBorder_MouseLeave">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/> <!-- タイトルバー -->
                 <RowDefinition Height="*"/>    <!-- コンテンツ -->
-                <RowDefinition Height="Auto"/> <!-- ステータスバー（編集モード時） -->
             </Grid.RowDefinitions>
 
             <!-- タイトルバー：折りたたみボタン + 折りたたみ時タイトル -->
-            <Grid Grid.Row="0" Height="{Binding TitleBarHeight}" Background="{Binding TitleBarBrush}"
+            <Grid x:Name="TitleBar"
+                  Grid.Row="0" Height="{Binding TitleBarHeight}" Background="{Binding TitleBarBrush}"
                   MouseLeftButtonDown="TitleBar_MouseLeftButtonDown"
                   MouseMove="TitleBar_MouseMove"
-                  MouseLeftButtonUp="TitleBar_MouseLeftButtonUp">
+                  MouseLeftButtonUp="TitleBar_MouseLeftButtonUp"
+                  MouseEnter="TitleBar_MouseEnter"
+                  MouseLeave="TitleBar_MouseLeave">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
@@ -108,21 +112,24 @@
                          PreviewKeyDown="ContentBox_PreviewKeyDown"/>
 
                 <!-- 新規作成。閲覧モードのままでも付箋を増やせるようにする -->
-                <Button Grid.Column="2" Content="＋"
+                <Button x:Name="AddNoteButton"
+                        Grid.Column="2" Content="＋"
                         Style="{StaticResource TitleBarButtonOnLight}"
                         ToolTip="新しい付箋を追加"
                         Click="AddNote_Click"/>
 
                 <!-- 常に最前面。閲覧モードや折りたたみ時も状態が見えるよう
                      ステータスバーではなくタイトルバーに置く -->
-                <ToggleButton Grid.Column="3"
+                <ToggleButton x:Name="PinButton"
+                              Grid.Column="3"
                               IsChecked="{Binding IsTopmost, Mode=TwoWay}"
                               Style="{StaticResource TitleBarToggleOnLight}"
                               ToolTip="常に最前面"
                               Content="📌"
                               Checked="Pin_Changed" Unchecked="Pin_Changed"/>
 
-                <Button Grid.Column="4" Content="{Binding FoldIcon}"
+                <Button x:Name="FoldButton"
+                        Grid.Column="4" Content="{Binding FoldIcon}"
                         Margin="0,0,2,0"
                         Style="{StaticResource TitleBarButtonOnLight}"
                         ToolTip="折りたたみ / 展開"
@@ -172,18 +179,24 @@
                            FontWeight="SemiBold"/>
             </Border>
 
-            <!-- ステータスバー（編集モード時のみ表示） -->
-            <Border x:Name="StatusBar"
-                    Grid.Row="2"
-                    Background="{Binding HeaderBrush}"
-                    Visibility="Collapsed">
-                <DockPanel Margin="2,1">
-                    <!-- 右端：削除ボタン -->
-                    <Button DockPanel.Dock="Right"
-                            Content="✕" Style="{StaticResource TitleBarCloseButton}"
-                            ToolTip="削除" Click="Close_Click"/>
-                    <!-- 左側：操作ボタン群（幅が狭いときは折り返す） -->
-                    <WrapPanel>
+            <!-- 編集ツールバー。編集モード中のホバー時や右クリックメニュー表示時だけ浮かせて出す -->
+            <Popup x:Name="EditToolbarPopup"
+                   PlacementTarget="{Binding ElementName=RootBorder}"
+                   Placement="Bottom"
+                   HorizontalOffset="4"
+                   VerticalOffset="2"
+                   StaysOpen="True"
+                   AllowsTransparency="True"
+                   DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                <Border x:Name="StatusBar"
+                        Background="{Binding HeaderBrush}"
+                        BorderBrush="#33000000"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="2"
+                        MouseEnter="EditToolbar_MouseEnter"
+                        MouseLeave="EditToolbar_MouseLeave">
+                    <StackPanel Orientation="Horizontal">
                         <Button Content="A-" Style="{StaticResource TitleBarButton}"
                                 ToolTip="{Binding FontSize, StringFormat=本文のフォントを小さく (現在 {0}pt)}"
                                 Click="FontSmaller_Click"/>
@@ -205,9 +218,11 @@
                         <Button x:Name="ColorButton" Content="🎨"
                                 Style="{StaticResource TitleBarButton}"
                                 ToolTip="色を変更" Click="Color_Click"/>
-                    </WrapPanel>
-                </DockPanel>
-            </Border>
+                        <Button Content="✕" Style="{StaticResource TitleBarCloseButton}"
+                                ToolTip="削除" Click="Close_Click"/>
+                    </StackPanel>
+                </Border>
+            </Popup>
         </Grid>
     </Border>
 </Window>

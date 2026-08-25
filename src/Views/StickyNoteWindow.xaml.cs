@@ -77,11 +77,14 @@ public partial class StickyNoteWindow : Window
     private bool       _suppressTextChange;
     private bool       _isEditMode;
     private bool       _suppressViewMode;
+    private bool       _isContentContextMenuOpen;
     private bool       _isFoldAnimationRunning;
     private WrapPanel? _colorPanel;
 
     private readonly System.Windows.Threading.DispatcherTimer _overlayTimer =
         new() { Interval = TimeSpan.FromMilliseconds(900) };
+    private readonly System.Windows.Threading.DispatcherTimer _toolbarHideTimer =
+        new() { Interval = TimeSpan.FromMilliseconds(180) };
     private WrapPanel? _iconPanel;
     private Popup?     _iconPopup;
 
@@ -135,11 +138,16 @@ public partial class StickyNoteWindow : Window
         // ずれて見える）。開いている間はビューモードへの移行を抑止する。
         foreach (var popup in new[] { _colorPopup, _fontPopup, _iconPopup })
         {
-            popup.Opened += (_, _) => _suppressViewMode = true;
+            popup.Opened += (_, _) =>
+            {
+                _suppressViewMode = true;
+                ShowEditToolbar();
+            };
             popup.Closed += (_, _) =>
             {
                 _suppressViewMode = false;
                 if (_isEditMode) Dispatcher.BeginInvoke(() => ContentBox.Focus());
+                ScheduleHideEditToolbar();
             };
         }
         // ContextMenu.Opened では遅い（開く際のフォーカス移動が先に起きて
@@ -148,11 +156,19 @@ public partial class StickyNoteWindow : Window
         // 側でフラグを立てる。閉じたときの解除だけ Closed で行う。
         ContentBox.ContextMenu.Closed += (_, _) =>
         {
+            _isContentContextMenuOpen = false;
             _suppressViewMode = false;
             if (_isEditMode) Dispatcher.BeginInvoke(() => ContentBox.Focus());
+            ScheduleHideEditToolbar();
         };
 
         _overlayTimer.Tick += (_, _) => FadeOutSizeOverlay();
+        _toolbarHideTimer.Tick += (_, _) =>
+        {
+            _toolbarHideTimer.Stop();
+            if (!ShouldKeepEditToolbarOpen())
+                HideEditToolbar();
+        };
 
         // アプリ切り替え時もビューモードへ
         Deactivated += (_, _) => EnterViewMode();
@@ -171,12 +187,10 @@ public partial class StickyNoteWindow : Window
             // XAML の初期値（全辺 5px）のままになり、タイトルバー上端が
             // リサイズ枠として残ってしまう。
             SetResizeEnabled(!vm.IsFolded);
+            UpdateTitleBarButtonsVisibility();
             // 初期値設定はここまで。以降の SizeChanged/LocationChanged は
             // 通常どおりモデルに書き戻してよい。
             _isInitializing = false;
-            // 新規（空）付箋はすぐ編集モードで開始
-            if (string.IsNullOrEmpty(vm.Content))
-                Dispatcher.BeginInvoke(EnterEditMode);
         };
     }
 
@@ -305,6 +319,7 @@ public partial class StickyNoteWindow : Window
         TitleText.Visibility    = Visibility.Visible;
         TitleEditBox.Visibility = Visibility.Collapsed;
         UpdateControlsVisibility();
+        HideEditToolbar();
         Keyboard.ClearFocus();
     }
 
@@ -355,11 +370,57 @@ public partial class StickyNoteWindow : Window
     // 折りたたみ状態と編集モードの両方を考慮してステータスバーの表示を更新
     private void UpdateControlsVisibility()
     {
-        bool show = _isEditMode && !ViewModel.IsFolded;
-        StatusBar.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        if (_isEditMode && !ViewModel.IsFolded && ShouldKeepEditToolbarOpen())
+            ShowEditToolbar();
+        else
+            HideEditToolbar();
+    }
 
-        if (show) GrowForStatusBar();
-        else      ShrinkAfterStatusBar();
+    private bool ShouldKeepEditToolbarOpen()
+        => _isContentContextMenuOpen ||
+           RootBorder.IsMouseOver ||
+           StatusBar.IsMouseOver ||
+           (_colorPopup?.IsOpen ?? false) ||
+           (_fontPopup?.IsOpen ?? false) ||
+           (_iconPopup?.IsOpen ?? false);
+
+    private void ShowEditToolbar()
+    {
+        if (!_isEditMode || ViewModel.IsFolded) return;
+        _toolbarHideTimer.Stop();
+        UpdateEditToolbarPlacement();
+        EditToolbarPopup.IsOpen = true;
+    }
+
+    private void UpdateEditToolbarPlacement()
+    {
+        const double Gap = 2;
+        EditToolbarPopup.PlacementTarget = RootBorder;
+        EditToolbarPopup.Placement = PlacementMode.Bottom;
+        EditToolbarPopup.VerticalOffset = Gap;
+    }
+
+    private void HideEditToolbar()
+    {
+        _toolbarHideTimer.Stop();
+        EditToolbarPopup.IsOpen = false;
+    }
+
+    private void ScheduleHideEditToolbar()
+    {
+        _toolbarHideTimer.Stop();
+        _toolbarHideTimer.Start();
+    }
+
+    private void UpdateTitleBarButtonsVisibility()
+    {
+        var visibility = TitleBar.IsMouseOver
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        AddNoteButton.Visibility = visibility;
+        PinButton.Visibility = visibility;
+        FoldButton.Visibility = visibility;
     }
 
     // ─── ステータスバーぶんウィンドウを伸縮させる ────────────────
@@ -678,12 +739,15 @@ public partial class StickyNoteWindow : Window
         // メニューが開く際のフォーカス移動で LostKeyboardFocus が先に発火し
         // EnterViewMode() が走ってしまう（ドキュメント再構築・IsReadOnly=true）。
         _suppressViewMode = true;
+        _isContentContextMenuOpen = true;
 
         _contextMenuLink = GetHyperlinkAtCaret();
         _openLinkItem.IsEnabled = _contextMenuLink != null;
 
         var sel = ContentBox.Selection.IsEmpty ? "" : ContentBox.Selection.Text.Trim();
         _convertLinkItem.IsEnabled = LinkDetector.IsLink(sel);
+
+        ShowEditToolbar();
     }
 
     private Hyperlink? GetHyperlinkAtCaret()
@@ -735,10 +799,10 @@ public partial class StickyNoteWindow : Window
 
     private const double ClickDragThresholdPx = 4; // これ未満の移動はクリックの揺れとみなす
 
-    // タイトルバー空白部のシングルクリック確定までの猶予。
-    // タイトル文字列上は有効なダブルクリックを取りこぼさないよう、
-    // OS のダブルクリック判定時間を使う。
+    // タイトルバーのシングルクリック確定までの猶予。
+    // タイトル文字列上はダブルクリック編集と競合するため、空白部より少し長く待つ。
     private const int SingleClickGraceMs = 200;
+    private const int TitleSingleClickGraceMs = 250;
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
@@ -829,10 +893,26 @@ public partial class StickyNoteWindow : Window
         _singleClickTimer.Start();
     }
 
+    private void TitleBar_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+        => UpdateTitleBarButtonsVisibility();
+
+    private void TitleBar_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+        => UpdateTitleBarButtonsVisibility();
+
+    private void RootBorder_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+        => ShowEditToolbar();
+
+    private void RootBorder_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+        => ScheduleHideEditToolbar();
+
+    private void EditToolbar_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+        => ShowEditToolbar();
+
+    private void EditToolbar_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+        => ScheduleHideEditToolbar();
+
     private int GetSingleClickGraceMs()
-        => _dragStartedOnTitle
-            ? System.Windows.Forms.SystemInformation.DoubleClickTime
-            : SingleClickGraceMs;
+        => _dragStartedOnTitle ? TitleSingleClickGraceMs : SingleClickGraceMs;
 
     private static bool IsPointerInside(FrameworkElement element, System.Windows.Input.MouseEventArgs e)
     {
@@ -1082,6 +1162,7 @@ public partial class StickyNoteWindow : Window
         {
             ContentBox.Visibility = Visibility.Visible;
             ViewModel.IsFolded = false;
+            UpdateTitleBarButtonsVisibility();
             Width = ViewModel.Model.Width; // 展開時専用の幅に戻す
             SetResizeEnabled(true);
             RunFoldAnimation(FoldedHeight, _unfoldedHeight, () =>
@@ -1097,6 +1178,8 @@ public partial class StickyNoteWindow : Window
             // アニメーション中の SizeChanged で Model.Height が
             // 途中の値に上書きされないよう先にフラグを立てる
             ViewModel.IsFolded = true;
+            UpdateTitleBarButtonsVisibility();
+            HideEditToolbar();
             // 折りたたみ時専用の幅へスナップ（未設定なら現在の幅のまま）
             Width = ViewModel.Model.FoldedWidth ?? Width;
             RunFoldAnimation(Height, FoldedHeight, () =>
