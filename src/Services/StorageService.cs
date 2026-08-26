@@ -35,6 +35,12 @@ public class StorageService
     /// <summary>アプリケーション全体の設定ファイル。</summary>
     public static string SettingsPath => Path.Combine(AppRoot, "settings.json");
 
+    public static string GetNoteDirectory(string id)
+        => Path.Combine(NotesDir, id);
+
+    public static string GetNoteAssetsDirectory(string id)
+        => Path.Combine(GetNoteDirectory(id), "assets");
+
     private static string ResolveAppRoot()
     {
         var custom = Environment.GetEnvironmentVariable(DataDirEnvVar);

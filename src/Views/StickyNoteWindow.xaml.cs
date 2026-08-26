@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
@@ -39,6 +40,7 @@ using WpfColorConverter = System.Windows.Media.ColorConverter;
 using WpfCursors     = System.Windows.Input.Cursors;
 using WpfDataFormats = System.Windows.DataFormats;
 using WpfFontFamily  = System.Windows.Media.FontFamily;
+using WpfImage       = System.Windows.Controls.Image;
 using WpfListBox     = System.Windows.Controls.ListBox;
 using WpfSolidBrush  = System.Windows.Media.SolidColorBrush;
 
@@ -357,6 +359,7 @@ public partial class StickyNoteWindow : Window
                 text,
                 ViewModel.FontSize,
                 CreateHyperlink,
+                CreateMarkdownImage,
                 CreateTaskCheckbox,
                 IsDarkTheme()))
             {
@@ -452,6 +455,131 @@ public partial class StickyNoteWindow : Window
         LoadContent(ViewModel.Content);
     }
 
+    private Inline CreateMarkdownImage(MarkdownRenderer.MarkdownImage markdownImage)
+    {
+        var imagePath = ResolveImagePath(markdownImage.Target);
+        if (imagePath == null || !File.Exists(imagePath))
+            return new Run(string.IsNullOrWhiteSpace(markdownImage.Alt)
+                ? $"![image]({markdownImage.Target})"
+                : $"![{markdownImage.Alt}]({markdownImage.Target})");
+
+        var bitmap = new WpfBitmapImage();
+        bitmap.BeginInit();
+        bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+        bitmap.UriSource = new Uri(imagePath, UriKind.Absolute);
+        bitmap.EndInit();
+        bitmap.Freeze();
+
+        var image = new WpfImage
+        {
+            Source = bitmap,
+            Stretch = Stretch.Uniform,
+            MaxWidth = Math.Max(80, Width - 28),
+            MaxHeight = 260,
+            ToolTip = string.IsNullOrWhiteSpace(markdownImage.Alt) ? markdownImage.Target : markdownImage.Alt,
+            Margin = new Thickness(0, 3, 0, 3),
+        };
+
+        if (markdownImage.Width is > 0)
+            image.Width = markdownImage.Width.Value;
+        if (markdownImage.Height is > 0)
+            image.Height = markdownImage.Height.Value;
+
+        var maxDisplayScale = Math.Min(1.0, Math.Min(image.MaxWidth / bitmap.Width, image.MaxHeight / bitmap.Height));
+        var maxDisplayWidth = Math.Max(1, bitmap.Width * maxDisplayScale);
+        if (markdownImage.LineIndex >= 0)
+            image.ContextMenu = BuildImageContextMenu(new MarkdownImageContext(
+                markdownImage.LineIndex,
+                markdownImage.Start,
+                markdownImage.Length,
+                markdownImage.Alt,
+                markdownImage.Target,
+                maxDisplayWidth));
+
+        return new InlineUIContainer(image)
+        {
+            BaselineAlignment = BaselineAlignment.Center,
+        };
+    }
+
+    private sealed record MarkdownImageContext(
+        int LineIndex,
+        int Start,
+        int Length,
+        string Alt,
+        string Target,
+        double MaxDisplayWidth);
+
+    private ContextMenu BuildImageContextMenu(MarkdownImageContext context)
+    {
+        var cm = new ContextMenu();
+        for (var percent = 10; percent <= 100; percent += 10)
+        {
+            var percentItem = new MenuItem { Header = $"{percent}%" };
+            var selectedPercent = percent;
+            percentItem.Click += (_, _) => ResizeMarkdownImage(context, selectedPercent);
+            cm.Items.Add(percentItem);
+        }
+        cm.Opened += (_, _) =>
+        {
+            _suppressViewMode = true;
+            _isContentContextMenuOpen = true;
+        };
+        cm.Closed += ContentContextMenu_Closed;
+        return cm;
+    }
+
+    private void ResizeMarkdownImage(MarkdownImageContext context, int percent)
+    {
+        var lines = ViewModel.Content.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+        if (context.LineIndex < 0 || context.LineIndex >= lines.Length)
+            return;
+
+        var line = lines[context.LineIndex];
+        if (context.Start < 0 ||
+            context.Start + context.Length > line.Length ||
+            line[context.Start..(context.Start + context.Length)].IndexOf(context.Target, StringComparison.Ordinal) < 0)
+        {
+            return;
+        }
+
+        var width = Math.Clamp(Math.Round(context.MaxDisplayWidth * percent / 100.0), 40, 2000);
+        var replacement = BuildMarkdownImageText(context, width);
+
+        lines[context.LineIndex] =
+            line[..context.Start] +
+            replacement +
+            line[(context.Start + context.Length)..];
+
+        ViewModel.Content = string.Join('\n', lines);
+        RequestSave();
+        LoadContent(ViewModel.Content);
+    }
+
+    private static string BuildMarkdownImageText(MarkdownImageContext context, double? width)
+        => width.HasValue
+            ? FormattableString.Invariant($"![{context.Alt}]({context.Target}){{width={width.Value:0}}}")
+            : $"![{context.Alt}]({context.Target})";
+
+    private string? ResolveImagePath(string target)
+    {
+        if (string.IsNullOrWhiteSpace(target))
+            return null;
+
+        if (Uri.TryCreate(target, UriKind.Absolute, out var uri) && uri.IsFile)
+            return uri.LocalPath;
+
+        if (Path.IsPathRooted(target))
+            return Path.GetFullPath(target);
+
+        var noteDir = StorageService.GetNoteDirectory(ViewModel.Model.Id);
+        var fullPath = Path.GetFullPath(Path.Combine(noteDir, target.Replace('/', Path.DirectorySeparatorChar)));
+        var noteRoot = Path.GetFullPath(noteDir) + Path.DirectorySeparatorChar;
+        return fullPath.StartsWith(noteRoot, StringComparison.OrdinalIgnoreCase)
+            ? fullPath
+            : null;
+    }
+
     // ─── ハイパーリンク ──────────────────────────────────────────
 
     private Hyperlink CreateHyperlink(string target)
@@ -490,6 +618,7 @@ public partial class StickyNoteWindow : Window
         _isEditMode = true;
         LoadPlainContent(ViewModel.Content);
         ContentBox.IsReadOnly = false;
+        EnableIme(ContentBox);
         ContentBox.Cursor = WpfCursors.IBeam;
         ContentBox.BorderThickness = new Thickness(2);
         ContentBox.BorderBrush = WpfBrushes.CornflowerBlue;
@@ -501,6 +630,7 @@ public partial class StickyNoteWindow : Window
         UpdateControlsVisibility();
         if (!ContentBox.IsKeyboardFocusWithin)
             ContentBox.Focus();
+        Dispatcher.BeginInvoke(() => EnableIme(ContentBox));
     }
 
     private void EnterTitleEditMode()
@@ -509,6 +639,7 @@ public partial class StickyNoteWindow : Window
         {
             _isEditMode = true;
             ContentBox.IsReadOnly = true;
+            EnableIme(TitleEditBox);
             ContentBox.Cursor = WpfCursors.Arrow;
             ContentBox.BorderThickness = new Thickness(0);
             ContentBox.BorderBrush = WpfBrushes.Transparent;
@@ -520,6 +651,14 @@ public partial class StickyNoteWindow : Window
         UpdateControlsVisibility();
         TitleEditBox.Focus();
         TitleEditBox.SelectAll();
+        Dispatcher.BeginInvoke(() => EnableIme(TitleEditBox));
+    }
+
+    private static void EnableIme(System.Windows.Controls.Control control)
+    {
+        InputMethod.SetIsInputMethodEnabled(control, true);
+        InputMethod.SetPreferredImeState(control, InputMethodState.On);
+        InputMethod.SetPreferredImeConversionMode(control, ImeConversionModeValues.Native);
     }
 
     private void EnterViewMode()
@@ -551,10 +690,9 @@ public partial class StickyNoteWindow : Window
     //   2. Min/Max を現在値で固定           … 寸法変更そのものを封じる
     //
     // 折りたたみ時（enabled=false）でも幅だけは変更できるようにしている。
-    // 上下だけ 0 にして左右は残す。タイトルバーは 28px 程度しかなく、
-    // その上端 5px が HTTOP になると「畳もうとしてダブルクリック」が
-    // Windows 標準の縦方向最大化に化けるため、上辺は常に 0 にする必要がある
-    // （下辺も同じ理由で畳んでいる間は 0 のままにする）。
+    // 上下だけ 0 にして左右は残す。展開中の上下リサイズは許可し、
+    // 上下枠のダブルクリックによる Windows 標準の縦方向最大化だけは
+    // WndProc 側で抑止する。
     private void SetResizeEnabled(bool enabled)
     {
         var chrome = WindowChrome.GetWindowChrome(this);
@@ -567,7 +705,7 @@ public partial class StickyNoteWindow : Window
             }
             var resizeBorder = Settings.Layout.ResizeBorder;
             chrome.ResizeBorderThickness = enabled
-                ? new Thickness(resizeBorder, 0, resizeBorder, resizeBorder)
+                ? new Thickness(resizeBorder)
                 : new Thickness(resizeBorder, 0, resizeBorder, 0);
         }
 
@@ -843,25 +981,82 @@ public partial class StickyNoteWindow : Window
 
     private void OnPaste(object sender, DataObjectPastingEventArgs e)
     {
+        if (TryGetPastedImage(e.DataObject, out var image))
+        {
+            e.CancelCommand();
+            var relativePath = SavePastedImage(image);
+            var markdown = BuildImageMarkdown(relativePath);
+            InsertTextAtSelection(markdown);
+            return;
+        }
+
         if (!e.DataObject.GetDataPresent(WpfDataFormats.UnicodeText)) return;
         e.CancelCommand();
 
         var clipboard = ((string)e.DataObject.GetData(WpfDataFormats.UnicodeText))
             .Replace("\r\n", "\n").Replace("\r", "\n");
 
+        InsertTextAtSelection(clipboard);
+    }
+
+    private void InsertTextAtSelection(string text)
+    {
         var plainText = GetPlainText();
         var startOff  = GetOffsetOfPointer(ContentBox.Selection.Start);
         var endOff    = GetOffsetOfPointer(ContentBox.Selection.End);
         var beforeText = plainText[..startOff];
         var afterText  = plainText[endOff..];
-        var newText    = beforeText + clipboard + afterText;
-        var caretOff   = beforeText.Length + clipboard.Length;
+        var newText    = beforeText + text + afterText;
+        var caretOff   = beforeText.Length + text.Length;
 
         LoadPlainContent(newText);
         RestoreCaretAt(caretOff);
 
         ViewModel.Content = newText;
         RequestSave();
+    }
+
+    private static bool TryGetPastedImage(
+        System.Windows.IDataObject dataObject,
+        out System.Windows.Media.Imaging.BitmapSource image)
+    {
+        image = null!;
+        if (!dataObject.GetDataPresent(WpfDataFormats.Bitmap, autoConvert: true))
+            return false;
+
+        var bitmap = dataObject.GetData(WpfDataFormats.Bitmap, autoConvert: true)
+            as System.Windows.Media.Imaging.BitmapSource;
+        if (bitmap == null)
+            return false;
+
+        image = bitmap;
+        return true;
+    }
+
+    private string SavePastedImage(System.Windows.Media.Imaging.BitmapSource image)
+    {
+        var assetsDir = StorageService.GetNoteAssetsDirectory(ViewModel.Model.Id);
+        Directory.CreateDirectory(assetsDir);
+
+        var fileName = $"image-{DateTime.Now:yyyyMMdd-HHmmss-fff}-{Guid.NewGuid():N}.png";
+        var path = Path.Combine(assetsDir, fileName);
+
+        var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+        encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(image));
+        using (var stream = File.Create(path))
+            encoder.Save(stream);
+
+        return $"assets/{fileName}";
+    }
+
+    private string BuildImageMarkdown(string relativePath)
+    {
+        var plainText = GetPlainText();
+        var startOff = GetOffsetOfPointer(ContentBox.Selection.Start);
+        var endOff = GetOffsetOfPointer(ContentBox.Selection.End);
+        var prefix = startOff > 0 && plainText[startOff - 1] != '\n' ? "\n" : "";
+        var suffix = endOff < plainText.Length && plainText[endOff] != '\n' ? "\n" : "";
+        return $"{prefix}![image]({relativePath}){suffix}";
     }
 
     // TextPointer が指す位置の、GetPlainText() が返す文字列上での文字オフセットを求める。

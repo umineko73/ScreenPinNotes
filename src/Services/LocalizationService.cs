@@ -60,6 +60,9 @@ public static class LocalizationService
             "ZOrder" => english ? "Z order" : "重なり順",
             "BringToFront" => english ? "Bring to front" : "前面へ移動",
             "SendToBack" => english ? "Send to back" : "背面へ移動",
+            "ImageSmaller" => english ? "Smaller image" : "画像を小さく",
+            "ImageLarger" => english ? "Larger image" : "画像を大きく",
+            "ImageOriginal" => english ? "Original size" : "元のサイズ",
 
             "BodySize" => english ? "Body {0:0}pt" : "本文 {0:0}pt",
             "TitleSize" => english ? "Title {0:0}pt" : "タイトル {0:0}pt",

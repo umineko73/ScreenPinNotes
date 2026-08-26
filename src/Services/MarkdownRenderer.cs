@@ -28,10 +28,20 @@ public static class MarkdownRenderer
 {
     private static readonly WpfFontFamily CodeFontFamily = new("Consolas");
 
+    public sealed record MarkdownImage(
+        string Alt,
+        string Target,
+        int LineIndex,
+        int Start,
+        int Length,
+        double? Width,
+        double? Height);
+
     public static IEnumerable<Block> Render(
         string text,
         double baseFontSize,
         Func<string, string, Hyperlink> createHyperlink,
+        Func<MarkdownImage, Inline>? createImage = null,
         Func<int, bool, WpfCheckBox>? createTaskCheckbox = null,
         bool darkMode = false)
     {
@@ -66,7 +76,7 @@ public static class MarkdownRenderer
                 continue;
             }
 
-            if (TryParseTable(lines, i, createHyperlink, darkMode, out var table, out var nextIndex))
+            if (TryParseTable(lines, i, createHyperlink, createImage, darkMode, out var table, out var nextIndex))
             {
                 yield return table;
                 i = nextIndex;
@@ -78,7 +88,7 @@ public static class MarkdownRenderer
                 var para = CreateParagraph();
                 para.FontWeight = FontWeights.Bold;
                 para.FontSize = Math.Max(baseFontSize, baseFontSize + 9 - level);
-                AddInlineContent(para.Inlines, headingText, createHyperlink, darkMode);
+                AddInlineContent(para.Inlines, headingText, i, level + 1, createHyperlink, createImage, darkMode);
                 yield return para;
                 i++;
                 continue;
@@ -118,7 +128,8 @@ public static class MarkdownRenderer
                         });
                         para.Inlines.Add(new Run(" "));
                     }
-                    AddInlineContent(para.Inlines, itemText, createHyperlink, darkMode);
+                    var itemTextOffset = lines[i].IndexOf(itemText, StringComparison.Ordinal);
+                    AddInlineContent(para.Inlines, itemText, i, itemTextOffset < 0 ? 0 : itemTextOffset, createHyperlink, createImage, darkMode);
                     list.ListItems.Add(new ListItem(para) { Margin = new Thickness(0) });
                     i++;
                 }
@@ -135,14 +146,15 @@ public static class MarkdownRenderer
                 para.BorderBrush = GetBorderBrush(darkMode);
                 para.BorderThickness = new Thickness(3, 0, 0, 0);
                 para.Foreground = darkMode ? WpfBrushes.LightGray : WpfBrushes.DimGray;
-                AddInlineContent(para.Inlines, quoteText, createHyperlink, darkMode);
+                var quoteTextOffset = line.IndexOf(quoteText, StringComparison.Ordinal);
+                AddInlineContent(para.Inlines, quoteText, i, quoteTextOffset < 0 ? 0 : quoteTextOffset, createHyperlink, createImage, darkMode);
                 yield return para;
                 i++;
                 continue;
             }
 
             var paragraph = CreateParagraph();
-            AddInlineContent(paragraph.Inlines, line, createHyperlink, darkMode);
+            AddInlineContent(paragraph.Inlines, line, i, 0, createHyperlink, createImage, darkMode);
             yield return paragraph;
             i++;
         }
@@ -204,6 +216,7 @@ public static class MarkdownRenderer
         string[] lines,
         int start,
         Func<string, string, Hyperlink> createHyperlink,
+        Func<MarkdownImage, Inline>? createImage,
         bool darkMode,
         out Table table,
         out int nextIndex)
@@ -238,7 +251,7 @@ public static class MarkdownRenderer
         var headerRow = new TableRow();
         group.Rows.Add(headerRow);
         foreach (var header in headers)
-            headerRow.Cells.Add(CreateTableCell(header, createHyperlink, isHeader: true, darkMode));
+            headerRow.Cells.Add(CreateTableCell(header, createHyperlink, createImage, isHeader: true, darkMode));
 
         int rowIndex = start + 2;
         while (rowIndex < lines.Length && TrySplitTableRow(lines[rowIndex], out var cells))
@@ -249,7 +262,7 @@ public static class MarkdownRenderer
             var row = new TableRow();
             group.Rows.Add(row);
             foreach (var cell in cells)
-                row.Cells.Add(CreateTableCell(cell, createHyperlink, isHeader: false, darkMode));
+                row.Cells.Add(CreateTableCell(cell, createHyperlink, createImage, isHeader: false, darkMode));
 
             rowIndex++;
         }
@@ -261,11 +274,12 @@ public static class MarkdownRenderer
     private static TableCell CreateTableCell(
         string text,
         Func<string, string, Hyperlink> createHyperlink,
+        Func<MarkdownImage, Inline>? createImage,
         bool isHeader,
         bool darkMode)
     {
         var paragraph = CreateParagraph();
-        AddInlineContent(paragraph.Inlines, text.Trim(), createHyperlink, darkMode);
+        AddInlineContent(paragraph.Inlines, text.Trim(), -1, 0, createHyperlink, createImage, darkMode);
         if (isHeader)
             paragraph.FontWeight = FontWeights.Bold;
 
@@ -427,16 +441,22 @@ public static class MarkdownRenderer
     private static void AddInlineContent(
         InlineCollection inlines,
         string text,
+        int lineIndex,
+        int lineOffset,
         Func<string, string, Hyperlink> createHyperlink,
+        Func<MarkdownImage, Inline>? createImage,
         bool darkMode)
     {
-        foreach (var inline in ParseInline(text, createHyperlink, darkMode))
+        foreach (var inline in ParseInline(text, lineIndex, lineOffset, createHyperlink, createImage, darkMode))
             inlines.Add(inline);
     }
 
     private static IEnumerable<Inline> ParseInline(
         string text,
+        int lineIndex,
+        int lineOffset,
         Func<string, string, Hyperlink> createHyperlink,
+        Func<MarkdownImage, Inline>? createImage,
         bool darkMode)
     {
         int pos = 0;
@@ -472,7 +492,7 @@ public static class MarkdownRenderer
                 if (end > pos)
                 {
                     var span = new Span { FontWeight = FontWeights.Bold };
-                    AddInlineContent(span.Inlines, text[(pos + 2)..end], createHyperlink, darkMode);
+                    AddInlineContent(span.Inlines, text[(pos + 2)..end], lineIndex, lineOffset + pos + 2, createHyperlink, createImage, darkMode);
                     yield return span;
                     pos = end + 2;
                     continue;
@@ -485,11 +505,21 @@ public static class MarkdownRenderer
                 if (end > pos)
                 {
                     var span = new Span { FontStyle = FontStyles.Italic };
-                    AddInlineContent(span.Inlines, text[(pos + 1)..end], createHyperlink, darkMode);
+                    AddInlineContent(span.Inlines, text[(pos + 1)..end], lineIndex, lineOffset + pos + 1, createHyperlink, createImage, darkMode);
                     yield return span;
                     pos = end + 1;
                     continue;
                 }
+            }
+
+            if (TryGetMarkdownImage(text, pos, out var alt, out var imageTarget, out var imageLength, out var width, out var height))
+            {
+                if (createImage != null)
+                    yield return createImage(new MarkdownImage(alt, imageTarget, lineIndex, lineOffset + pos, imageLength, width, height));
+                else
+                    yield return new Run(text.Substring(pos, imageLength));
+                pos += imageLength;
+                continue;
             }
 
             if (TryGetMarkdownLink(text, pos, out var label, out var target, out var length))
@@ -508,7 +538,7 @@ public static class MarkdownRenderer
     private static int FindNextInlineMarker(string text, int start)
     {
         var result = text.Length;
-        foreach (var marker in new[] { "`", "**", "*", "[" })
+        foreach (var marker in new[] { "`", "**", "*", "![", "[" })
         {
             var index = text.IndexOf(marker, start, StringComparison.Ordinal);
             if (index >= 0 && index < result)
@@ -542,6 +572,79 @@ public static class MarkdownRenderer
         target = text[(labelEnd + 2)..targetEnd].Trim();
         length = targetEnd - start + 1;
         return LinkDetector.IsLink(target);
+    }
+
+    private static bool TryGetMarkdownImage(
+        string text,
+        int start,
+        out string alt,
+        out string target,
+        out int length,
+        out double? width,
+        out double? height)
+    {
+        alt = "";
+        target = "";
+        length = 0;
+        width = null;
+        height = null;
+
+        if (start + 1 >= text.Length || text[start] != '!' || text[start + 1] != '[')
+            return false;
+
+        var altEnd = text.IndexOf(']', start + 2);
+        if (altEnd <= start + 1 || altEnd + 1 >= text.Length || text[altEnd + 1] != '(')
+            return false;
+
+        var targetEnd = text.IndexOf(')', altEnd + 2);
+        if (targetEnd <= altEnd + 2)
+            return false;
+
+        alt = text[(start + 2)..altEnd];
+        target = text[(altEnd + 2)..targetEnd].Trim();
+        length = targetEnd - start + 1;
+        if (TryReadImageAttributes(text, start + length, out var attrLength, out width, out height))
+            length += attrLength;
+
+        return target.Length > 0;
+    }
+
+    private static bool TryReadImageAttributes(
+        string text,
+        int start,
+        out int length,
+        out double? width,
+        out double? height)
+    {
+        length = 0;
+        width = null;
+        height = null;
+
+        if (start >= text.Length || text[start] != '{')
+            return false;
+
+        var end = text.IndexOf('}', start + 1);
+        if (end <= start + 1)
+            return false;
+
+        foreach (var part in text[(start + 1)..end].Split([' ', ';'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            var pair = part.Split('=', 2);
+            if (pair.Length != 2 ||
+                !double.TryParse(pair[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value) ||
+                value <= 0)
+            {
+                continue;
+            }
+
+            if (string.Equals(pair[0], "width", StringComparison.OrdinalIgnoreCase))
+                width = value;
+            else if (string.Equals(pair[0], "height", StringComparison.OrdinalIgnoreCase))
+                height = value;
+        }
+
+        length = end - start + 1;
+        return true;
     }
 
     private static IEnumerable<Inline> ParsePlainLinks(
