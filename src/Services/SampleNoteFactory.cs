@@ -7,84 +7,68 @@
 // (at your option) any later version.
 
 using System.IO;
+using System.Text;
+using System.Text.Json;
 using ScreenStickyNotes.Models;
 
 namespace ScreenStickyNotes.Services;
 
-// 初回起動時に作成するサンプル付箋。中身（content.md、将来的な画像などの
-// assets）は SampleNotes\{ja|en}\{markdown|usage}\ に実ファイルとして置き、
+// 初回起動時に作成するサンプル付箋。中身は通常のノートと同じ形式
+// （meta.json + content.md、将来的な画像などは assets\）で
+// SampleNotes\{ja|en}\{markdown|usage}\ に実ファイルとして置き、
 // ビルド・publish のたびに exe と同じフォルダへコピーしている
-// （ScreenStickyNotes.csproj 参照）。ここでは配置・書式（座標・色・
-// アイコン）だけを決め、本文はそのフォルダから読む。
+// （ScreenStickyNotes.csproj 参照）。座標・色・アイコン・タイトルは
+// その meta.json の値をそのまま使う（Id・CreatedAt・UpdatedAt だけ
+// ここで新規に発行する）。
 //
-// SampleNotes フォルダが見つからない場合（exe だけを取り出した等）は、
-// そのサンプルを黙ってスキップする。初回起動が失敗するよりは
-// サンプル無しで起動できるほうがよい。
+// SampleNotes フォルダが見つからない、または meta.json/content.md が
+// 揃っていない場合は、そのサンプルを黙ってスキップする。初回起動が
+// 失敗するよりはサンプル無しで起動できるほうがよい。
 public static class SampleNoteFactory
 {
     private static string SampleRoot => Path.Combine(AppContext.BaseDirectory, "SampleNotes");
+    private static readonly JsonSerializerOptions JsonOpts = new();
 
     public static List<StickyNote> CreateInitialNotes(AppSettings settings)
     {
         var now = DateTime.Now;
-        var layout = settings.Layout;
         var lang = UsesEnglishLanguage(settings) ? "en" : "ja";
         var notes = new List<StickyNote>();
 
-        if (TryLoadSample(lang, "markdown", out var markdownContent, out var markdownAssets))
+        foreach (var name in new[] { "markdown", "usage" })
         {
-            var note = new StickyNote
-            {
-                X = layout.NewNoteBaseX,
-                Y = layout.NewNoteBaseY,
-                Width = Math.Max(layout.DefaultNoteWidth, 430),
-                Height = Math.Max(layout.DefaultNoteHeight, 540),
-                Title = LocalizationService.T("SampleMarkdownTitle"),
-                Content = markdownContent,
-                ColorKey = "sky",
-                Icon = "📝",
-                CreatedAt = now,
-                UpdatedAt = now,
-            };
-            CopyAssets(markdownAssets, note.Id);
-            notes.Add(note);
-        }
+            if (!TryLoadSample(lang, name, out var note))
+                continue;
 
-        if (TryLoadSample(lang, "usage", out var usageContent, out var usageAssets))
-        {
-            var note = new StickyNote
-            {
-                X = layout.NewNoteBaseX + layout.NewNoteCascadeStep,
-                Y = layout.NewNoteBaseY + layout.NewNoteCascadeStep,
-                Width = Math.Max(layout.DefaultNoteWidth, 390),
-                Height = Math.Max(layout.DefaultNoteHeight, 420),
-                Title = LocalizationService.T("SampleUsageTitle"),
-                Content = usageContent,
-                ColorKey = "yellow",
-                Icon = "💡",
-                CreatedAt = now.AddMilliseconds(1),
-                UpdatedAt = now.AddMilliseconds(1),
-            };
-            CopyAssets(usageAssets, note.Id);
+            note.CreatedAt = now;
+            note.UpdatedAt = now;
+            CopyAssets(Path.Combine(SampleRoot, lang, name, "assets"), note.Id);
             notes.Add(note);
+            now = now.AddMilliseconds(1); // 読み込み順を作成日時に反映する
         }
 
         return notes;
     }
 
-    private static bool TryLoadSample(string lang, string name, out string content, out string assetsDir)
+    private static bool TryLoadSample(string lang, string name, out StickyNote note)
     {
-        content = "";
+        note = null!;
         var dir = Path.Combine(SampleRoot, lang, name);
+        var metaPath = Path.Combine(dir, "meta.json");
         var contentPath = Path.Combine(dir, "content.md");
-        assetsDir = Path.Combine(dir, "assets");
 
-        if (!File.Exists(contentPath))
+        if (!File.Exists(metaPath) || !File.Exists(contentPath))
             return false;
 
         try
         {
-            content = File.ReadAllText(contentPath, System.Text.Encoding.UTF8);
+            var loaded = JsonSerializer.Deserialize<StickyNote>(
+                File.ReadAllText(metaPath, Encoding.UTF8), JsonOpts);
+            if (loaded == null)
+                return false;
+
+            loaded.Content = File.ReadAllText(contentPath, Encoding.UTF8);
+            note = loaded;
             return true;
         }
         catch

@@ -5,7 +5,7 @@
 ## リスト
 
 - 箇条書き
-- URL自動リンク: https://example.com
+- URL自動リンク: https://www.google.com
 - Windowsパス自動リンク: C:\Users
 
 1. 番号付きリスト
@@ -23,7 +23,7 @@
 | 書式 | 記法 | 表示 |
 | --- | --- | --- |
 | 太字 | `**text**` | **text** |
-| リンク | `[OpenAI](https://openai.com/)` | [OpenAI](https://openai.com/) |
+| リンク | `[Amazon](https://www.amazon.com/)` | [Amazon](https://www.amazon.com/) |
 
 ```csharp
 var note = "Markdown対応";

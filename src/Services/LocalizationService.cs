@@ -39,9 +39,6 @@ public static class LocalizationService
                 : "ライセンス: GNU General Public License v3.0 以降",
             "Close" => english ? "Close" : "閉じる",
 
-            "SampleMarkdownTitle" => english ? "Markdown sample" : "Markdown サンプル",
-            "SampleUsageTitle" => english ? "How to use" : "使い方",
-
             "NoMemo" => english ? "(No memo)" : "（メモなし）",
             "EditBodyTooltip" => english ? "Double-click to edit" : "ダブルクリックして編集",
             "TitleFallbackTooltip" => english

@@ -5,7 +5,7 @@ This note shows **bold**, *italic*, and `inline code`.
 ## Lists
 
 - Bullet item
-- Auto URL link: https://example.com
+- Auto URL link: https://www.google.com
 - Auto Windows path link: C:\Users
 
 1. Numbered item
@@ -23,7 +23,7 @@ This note shows **bold**, *italic*, and `inline code`.
 | Format | Syntax | Rendered |
 | --- | --- | --- |
 | Bold | `**text**` | **text** |
-| Link | `[OpenAI](https://openai.com/)` | [OpenAI](https://openai.com/) |
+| Link | `[Amazon](https://www.amazon.com/)` | [Amazon](https://www.amazon.com/) |
 
 ```csharp
 var note = "Markdown ready";
