@@ -34,6 +34,7 @@ public partial class App : System.Windows.Application
     private NotifyIcon? _trayIcon;
 
     public IReadOnlyList<StickyNoteWindow> NoteWindows => _windows;
+    public AppSettings Settings => _settings;
 
     // ─── 二重起動防止 ────────────────────────────────────────────
     // 複数インスタンスが同じ notes フォルダを読み書きすると、
@@ -87,13 +88,8 @@ public partial class App : System.Windows.Application
         var notes = _storage.Load();
         if (notes.Count == 0)
         {
-            var now = DateTime.Now;
-            notes.Add(new StickyNote
-            {
-                Title = StickyNote.CreateDefaultTitle(now),
-                CreatedAt = now,
-                UpdatedAt = now,
-            });
+            notes = SampleNoteFactory.CreateInitialNotes(_settings);
+            _storage.Save(notes);
         }
 
         foreach (var note in notes)
@@ -131,8 +127,19 @@ public partial class App : System.Windows.Application
             Text = "ScreenStickyNotes",
             Visible = true,
         };
+        _trayIcon.ContextMenuStrip = BuildTrayMenu();
 
-        var startupItem = new ToolStripMenuItem("スタートアップに登録")
+        // 左クリックで全表示トグル
+        _trayIcon.MouseClick += (_, e) =>
+        {
+            if (e.Button == MouseButtons.Left)
+                ToggleAllNotes();
+        };
+    }
+
+    private ContextMenuStrip BuildTrayMenu()
+    {
+        var startupItem = new ToolStripMenuItem(LocalizationService.T("TrayStartup"))
         {
             Checked = _settings.StartWithWindows,
             CheckOnClick = false,
@@ -155,22 +162,91 @@ public partial class App : System.Windows.Application
         };
 
         var menu = new ContextMenuStrip();
-        menu.Items.Add("全表示",    null, (_, _) => ShowAllNotes());
-        menu.Items.Add("全非表示",  null, (_, _) => HideAllNotes());
+        menu.Items.Add(LocalizationService.T("TrayShowAll"), null, (_, _) => ShowAllNotes());
+        menu.Items.Add(LocalizationService.T("TrayHideAll"), null, (_, _) => HideAllNotes());
         menu.Items.Add("-");
-        menu.Items.Add("新規付箋作成", null, (_, _) => AddNewNote());
+        menu.Items.Add(LocalizationService.T("TrayNewNote"), null, (_, _) => AddNewNote());
         menu.Items.Add("-");
         menu.Items.Add(startupItem);
+        menu.Items.Add(BuildLanguageMenu());
+        menu.Items.Add(BuildDarkModeItem());
         menu.Items.Add("-");
-        menu.Items.Add("終了", null, (_, _) => ExitApp());
-        _trayIcon.ContextMenuStrip = menu;
+        menu.Items.Add(LocalizationService.T("TrayExit"), null, (_, _) => ExitApp());
+        return menu;
+    }
 
-        // 左クリックで全表示トグル
-        _trayIcon.MouseClick += (_, e) =>
+    private ToolStripMenuItem BuildLanguageMenu()
+    {
+        var languageItem = new ToolStripMenuItem(LocalizationService.T("TrayLanguage"));
+        var japaneseItem = new ToolStripMenuItem(LocalizationService.T("TrayLanguageJapanese"))
         {
-            if (e.Button == MouseButtons.Left)
-                ToggleAllNotes();
+            Checked = !UsesEnglishLanguage(),
+            CheckOnClick = false,
         };
+        var englishItem = new ToolStripMenuItem(LocalizationService.T("TrayLanguageEnglish"))
+        {
+            Checked = UsesEnglishLanguage(),
+            CheckOnClick = false,
+        };
+
+        japaneseItem.Click += (_, _) => SetLanguage("ja");
+        englishItem.Click += (_, _) => SetLanguage("en");
+        languageItem.DropDownItems.Add(japaneseItem);
+        languageItem.DropDownItems.Add(englishItem);
+        return languageItem;
+    }
+
+    private ToolStripMenuItem BuildDarkModeItem()
+    {
+        var item = new ToolStripMenuItem(LocalizationService.T("TrayDarkMode"))
+        {
+            Checked = IsDarkTheme(),
+            CheckOnClick = false,
+        };
+        item.Click += (_, _) => SetTheme(IsDarkTheme() ? "Light" : "Dark");
+        return item;
+    }
+
+    private void SetLanguage(string language)
+    {
+        if (string.Equals(_settings.Language, language, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        _settings.Language = language;
+        ApplySettingsChange();
+    }
+
+    private void SetTheme(string theme)
+    {
+        if (string.Equals(_settings.Theme, theme, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        _settings.Theme = theme;
+        ApplySettingsChange();
+    }
+
+    private bool UsesEnglishLanguage()
+        => string.Equals(_settings.Language, "en", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsDarkTheme()
+        => string.Equals(_settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase);
+
+    private void ApplySettingsChange()
+    {
+        _settings.Normalize();
+        _storage.SaveSettings(_settings);
+        RefreshTrayMenu();
+        foreach (var win in _windows)
+            win.RefreshSettings();
+    }
+
+    private void RefreshTrayMenu()
+    {
+        if (_trayIcon == null) return;
+
+        var oldMenu = _trayIcon.ContextMenuStrip;
+        _trayIcon.ContextMenuStrip = BuildTrayMenu();
+        oldMenu?.Dispose();
     }
 
     // ─── アイコン ────────────────────────────────────────────────
@@ -218,11 +294,14 @@ public partial class App : System.Windows.Application
     public void AddNewNote(StickyNote? template = null, double? x = null, double? y = null)
     {
         var now = DateTime.Now;
+        var layout = _settings.Layout;
         var note = new StickyNote
         {
-            X = x ?? 150 + _windows.Count * 20,
-            Y = y ?? 150 + _windows.Count * 20,
-            Title = StickyNote.CreateDefaultTitle(now),
+            X = x ?? layout.NewNoteBaseX + _windows.Count * layout.NewNoteCascadeStep,
+            Y = y ?? layout.NewNoteBaseY + _windows.Count * layout.NewNoteCascadeStep,
+            Width = layout.DefaultNoteWidth,
+            Height = layout.DefaultNoteHeight,
+            Title = StickyNote.CreateDefaultTitle(now, UsesEnglishLanguage()),
             CreatedAt = now,
             UpdatedAt = now,
         };
@@ -242,7 +321,7 @@ public partial class App : System.Windows.Application
 
     private void OpenNoteWindow(StickyNote note)
     {
-        var vm  = new StickyNoteViewModel(note);
+        var vm  = new StickyNoteViewModel(note, _settings);
         var win = new StickyNoteWindow(vm);
         _windows.Add(win);
         win.Show();

@@ -58,22 +58,32 @@ public class StorageService
 
     public AppSettings LoadSettings()
     {
-        if (!File.Exists(SettingsPath)) return new AppSettings();
+        if (!File.Exists(SettingsPath))
+        {
+            var defaults = new AppSettings();
+            defaults.Normalize();
+            return defaults;
+        }
 
         try
         {
-            return JsonSerializer.Deserialize<AppSettings>(
+            var settings = JsonSerializer.Deserialize<AppSettings>(
                 File.ReadAllText(SettingsPath, Encoding.UTF8), JsonOpts)
                 ?? new AppSettings();
+            settings.Normalize();
+            return settings;
         }
         catch
         {
-            return new AppSettings();
+            var defaults = new AppSettings();
+            defaults.Normalize();
+            return defaults;
         }
     }
 
     public void SaveSettings(AppSettings settings)
     {
+        settings.Normalize();
         Directory.CreateDirectory(AppRoot);
         AtomicWrite(SettingsPath, JsonSerializer.Serialize(settings, JsonOpts));
     }

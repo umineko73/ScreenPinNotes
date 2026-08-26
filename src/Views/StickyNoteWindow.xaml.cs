@@ -26,12 +26,14 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shell;
+using ScreenStickyNotes.Models;
 using ScreenStickyNotes.Services;
 using ScreenStickyNotes.ViewModels;
 using SkiaSharp;
 using WpfBrushes     = System.Windows.Media.Brushes;
 using WpfButton      = System.Windows.Controls.Button;
 using WpfBitmapImage = System.Windows.Media.Imaging.BitmapImage;
+using WpfCheckBox    = System.Windows.Controls.CheckBox;
 using WpfColor       = System.Windows.Media.Color;
 using WpfColorConverter = System.Windows.Media.ColorConverter;
 using WpfCursors     = System.Windows.Input.Cursors;
@@ -44,17 +46,10 @@ namespace ScreenStickyNotes.Views;
 
 public partial class StickyNoteWindow : Window
 {
-    private const double UnfoldedMinWidth = 140;
-    private const double ResizeBorder     = 5;
-    private const double SnapDistance     = 10;
-
-    // RootBorder の枠線（上下 1px ずつ）。折りたたみ時のウィンドウ高さに
-    // この分を足さないとタイトルバーの下端が切り取られ、
-    // 文字が上下中央からずれて見える。
-    private const double RootBorderThickness = 1;
+    private AppSettings Settings => App.Current.Settings;
 
     /// <summary>折りたたんだときのウィンドウ高さ（枠線込み）。</summary>
-    private double FoldedHeight => ViewModel.TitleBarHeight + RootBorderThickness * 2;
+    private double FoldedHeight => ViewModel.TitleBarHeight + Settings.Layout.RootBorderThickness * 2;
 
     private static readonly string[] FontList =
     [
@@ -79,16 +74,17 @@ public partial class StickyNoteWindow : Window
     private bool       _suppressTextChange;
     private bool       _isEditMode;
     private bool       _suppressViewMode;
+    private bool       _isTaskCheckboxUpdatePending;
     private bool       _isContentContextMenuOpen;
     private bool       _isFoldAnimationRunning;
     private WrapPanel? _colorPanel;
 
     private readonly System.Windows.Threading.DispatcherTimer _overlayTimer =
-        new() { Interval = TimeSpan.FromMilliseconds(900) };
+        new();
     private readonly System.Windows.Threading.DispatcherTimer _toolbarHideTimer =
-        new() { Interval = TimeSpan.FromMilliseconds(180) };
+        new();
     private readonly System.Windows.Threading.DispatcherTimer _titlePreviewTimer =
-        new() { Interval = TimeSpan.FromMilliseconds(200) };
+        new();
     private WrapPanel? _iconPanel;
     private Popup?     _iconPopup;
 
@@ -133,13 +129,10 @@ public partial class StickyNoteWindow : Window
         Topmost = vm.IsTopmost;
         _unfoldedHeight = vm.Model.Height;
 
-        _colorPopup = BuildColorPopup();
-        _fontPopup  = BuildFontPopup();
-        _iconPopup  = BuildIconPopup();
-        ContentBox.ContextMenu = BuildContentContextMenu();
-        var titleContextMenu = BuildTitleContextMenu();
-        TitleText.ContextMenu = titleContextMenu;
-        TitleEditBox.ContextMenu = titleContextMenu;
+        ConfigurePopups();
+        ApplySettings();
+        ApplyLocalizedText();
+        ConfigureContextMenus();
         TitleText.ContextMenuOpening += TitleContextMenuOpening;
         TitleEditBox.ContextMenuOpening += TitleContextMenuOpening;
         System.Windows.DataObject.AddPastingHandler(ContentBox, OnPaste);
@@ -151,31 +144,11 @@ public partial class StickyNoteWindow : Window
         // ドキュメントを再構築し、IsReadOnly も true に戻る。結果、右クリックの
         // 「貼り付け」がキャレット位置を失って機能しない（貼り付け先が末尾に
         // ずれて見える）。開いている間はビューモードへの移行を抑止する。
-        foreach (var popup in new[] { _colorPopup, _fontPopup, _iconPopup })
-        {
-            popup.Opened += (_, _) =>
-            {
-                _suppressViewMode = true;
-                ShowEditToolbar();
-            };
-            popup.Closed += (_, _) =>
-            {
-                _suppressViewMode = false;
-                if (_isEditMode) Dispatcher.BeginInvoke(() => ContentBox.Focus());
-                ScheduleHideEditToolbar();
-            };
-        }
+        // handlers are attached by ConfigurePopups().
         // ContextMenu.Opened では遅い（開く際のフォーカス移動が先に起きて
         // LostKeyboardFocus が発火してしまう）ため、開く"前"に呼ばれる
         // FrameworkElement.ContextMenuOpening（ContentBox_ContextMenuOpening）
         // 側でフラグを立てる。閉じたときの解除だけ Closed で行う。
-        ContentBox.ContextMenu.Closed += (_, _) =>
-        {
-            _isContentContextMenuOpen = false;
-            _suppressViewMode = false;
-            if (_isEditMode) Dispatcher.BeginInvoke(() => ContentBox.Focus());
-            ScheduleHideEditToolbar();
-        };
 
         _overlayTimer.Tick += (_, _) => FadeOutSizeOverlay();
         _toolbarHideTimer.Tick += (_, _) =>
@@ -212,6 +185,102 @@ public partial class StickyNoteWindow : Window
             // 通常どおりモデルに書き戻してよい。
             _isInitializing = false;
         };
+    }
+
+    public void RefreshSettings()
+    {
+        ViewModel.RefreshSettings();
+        ConfigurePopups();
+        ApplySettings();
+        ApplyLocalizedText();
+        ConfigureContextMenus();
+        if (!_isEditMode)
+            LoadContent(ViewModel.Content);
+    }
+
+    private void ConfigureContextMenus()
+    {
+        if (ContentBox.ContextMenu != null)
+            ContentBox.ContextMenu.Closed -= ContentContextMenu_Closed;
+
+        ContentBox.ContextMenu = BuildContentContextMenu();
+        ContentBox.ContextMenu.Closed += ContentContextMenu_Closed;
+
+        var titleContextMenu = BuildTitleContextMenu();
+        TitleText.ContextMenu = titleContextMenu;
+        TitleEditBox.ContextMenu = titleContextMenu;
+    }
+
+    private void ConfigurePopups()
+    {
+        ClosePopup(_colorPopup);
+        ClosePopup(_fontPopup);
+        ClosePopup(_iconPopup);
+
+        _colorPopup = BuildColorPopup();
+        _fontPopup  = BuildFontPopup();
+        _iconPopup  = BuildIconPopup();
+
+        foreach (var popup in new[] { _colorPopup, _fontPopup, _iconPopup })
+        {
+            popup.Opened += Popup_Opened;
+            popup.Closed += Popup_Closed;
+        }
+    }
+
+    private static void ClosePopup(Popup? popup)
+    {
+        if (popup != null)
+            popup.IsOpen = false;
+    }
+
+    private void Popup_Opened(object? sender, EventArgs e)
+    {
+        _suppressViewMode = true;
+        ShowEditToolbar();
+    }
+
+    private void Popup_Closed(object? sender, EventArgs e)
+    {
+        _suppressViewMode = false;
+        if (_isEditMode) Dispatcher.BeginInvoke(() => ContentBox.Focus());
+        ScheduleHideEditToolbar();
+    }
+
+    private void ContentContextMenu_Closed(object? sender, RoutedEventArgs e)
+    {
+        _isContentContextMenuOpen = false;
+        _suppressViewMode = false;
+        if (_isEditMode) Dispatcher.BeginInvoke(() => ContentBox.Focus());
+        ScheduleHideEditToolbar();
+    }
+
+    private void ApplySettings()
+    {
+        _overlayTimer.Interval = TimeSpan.FromMilliseconds(Settings.Timings.SizeOverlayDurationMs);
+        _toolbarHideTimer.Interval = TimeSpan.FromMilliseconds(Settings.Timings.ToolbarHideDelayMs);
+        _titlePreviewTimer.Interval = TimeSpan.FromMilliseconds(Settings.Timings.TitlePreviewDelayMs);
+    }
+
+    private void ApplyLocalizedText()
+    {
+        TitleEditBox.ToolTip = LocalizationService.T("TitleFallbackTooltip");
+        AddNoteButton.ToolTip = LocalizationService.T("AddNoteTooltip");
+        PinButton.ToolTip = LocalizationService.T("TopmostTooltip");
+        FoldButton.ToolTip = LocalizationService.T("FoldTooltip");
+        ContentBox.ToolTip = LocalizationService.T("EditBodyTooltip");
+        UpdateToolbarTooltips();
+    }
+
+    private void UpdateToolbarTooltips()
+    {
+        FontSmallerButton.ToolTip = string.Format(LocalizationService.T("FontSmallerTooltip"), ViewModel.FontSize);
+        FontLargerButton.ToolTip = string.Format(LocalizationService.T("FontLargerTooltip"), ViewModel.FontSize);
+        TitleSmallerButton.ToolTip = string.Format(LocalizationService.T("TitleSmallerTooltip"), ViewModel.TitleFontSize);
+        TitleLargerButton.ToolTip = string.Format(LocalizationService.T("TitleLargerTooltip"), ViewModel.TitleFontSize);
+        FontButton.ToolTip = LocalizationService.T("FontTooltip");
+        IconButton.ToolTip = LocalizationService.T("IconTooltip");
+        ColorButton.ToolTip = LocalizationService.T("ColorTooltip");
     }
 
     // WPFはSegoe UI Emojiのカラーフォントを直接描画できないため、
@@ -255,9 +324,12 @@ public partial class StickyNoteWindow : Window
         return result;
     }
 
-    // ─── FlowDocument ↔ プレーンテキスト ─────────────────────────
+    // ─── FlowDocument ↔ プレーンテキスト / Markdown ──────────────
 
     private void LoadContent(string text)
+        => LoadMarkdownContent(text);
+
+    private void LoadPlainContent(string text)
     {
         _suppressTextChange = true;
         try
@@ -270,6 +342,25 @@ public partial class StickyNoteWindow : Window
                 foreach (var seg in LinkDetector.Parse(line))
                     para.Inlines.Add(seg.IsLink ? (Inline)CreateHyperlink(seg.Text) : new Run(seg.Text));
                 ContentBox.Document.Blocks.Add(para);
+            }
+        }
+        finally { _suppressTextChange = false; }
+    }
+
+    private void LoadMarkdownContent(string text)
+    {
+        _suppressTextChange = true;
+        try
+        {
+            ContentBox.Document.Blocks.Clear();
+            foreach (var block in MarkdownRenderer.Render(
+                text,
+                ViewModel.FontSize,
+                CreateHyperlink,
+                CreateTaskCheckbox,
+                IsDarkTheme()))
+            {
+                ContentBox.Document.Blocks.Add(block);
             }
         }
         finally { _suppressTextChange = false; }
@@ -300,13 +391,77 @@ public partial class StickyNoteWindow : Window
         return sb.ToString();
     }
 
+    private WpfCheckBox CreateTaskCheckbox(int lineIndex, bool isChecked)
+    {
+        var checkbox = new WpfCheckBox
+        {
+            IsChecked = isChecked,
+            Tag = lineIndex,
+            Focusable = false,
+            IsHitTestVisible = true,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 2, 0),
+            Foreground = ViewModel.TextForeground,
+        };
+        checkbox.PreviewMouseLeftButtonDown += TaskCheckbox_PreviewMouseLeftButtonDown;
+        return checkbox;
+    }
+
+    private void TaskCheckbox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not WpfCheckBox { Tag: int lineIndex } checkbox)
+            return;
+
+        _isTaskCheckboxUpdatePending = true;
+        var isChecked = checkbox.IsChecked != true;
+        checkbox.IsChecked = isChecked;
+        Dispatcher.BeginInvoke(() =>
+        {
+            try
+            {
+                ToggleMarkdownTask(lineIndex, isChecked);
+            }
+            finally
+            {
+                _isTaskCheckboxUpdatePending = false;
+            }
+        }, System.Windows.Threading.DispatcherPriority.Background);
+        e.Handled = true;
+    }
+
+    private void ToggleMarkdownTask(int lineIndex, bool isChecked)
+    {
+        var lines = ViewModel.Content.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+        if (lineIndex < 0 || lineIndex >= lines.Length)
+            return;
+
+        var line = lines[lineIndex];
+        var uncheckedIndex = line.IndexOf("[ ]", StringComparison.Ordinal);
+        var checkedIndex = line.IndexOf("[x]", StringComparison.OrdinalIgnoreCase);
+        var markerIndex = uncheckedIndex >= 0 ? uncheckedIndex : checkedIndex;
+        if (markerIndex < 0)
+            return;
+
+        lines[lineIndex] =
+            line[..markerIndex] +
+            (isChecked ? "[x]" : "[ ]") +
+            line[(markerIndex + 3)..];
+
+        ViewModel.Content = string.Join('\n', lines);
+        RequestSave();
+        LoadContent(ViewModel.Content);
+    }
+
     // ─── ハイパーリンク ──────────────────────────────────────────
 
     private Hyperlink CreateHyperlink(string target)
+        => CreateHyperlink(target, target);
+
+    private Hyperlink CreateHyperlink(string text, string target)
     {
-        var link = new Hyperlink(new Run(target))
+        var link = new Hyperlink(new Run(text))
         {
-            Foreground      = WpfBrushes.RoyalBlue,
+            Foreground      = IsDarkTheme() ? WpfBrushes.LightSkyBlue : WpfBrushes.RoyalBlue,
             Cursor          = WpfCursors.Hand,
             Tag             = target,
             TextDecorations = TextDecorations.Underline,
@@ -333,6 +488,7 @@ public partial class StickyNoteWindow : Window
     {
         if (_isEditMode && !ContentBox.IsReadOnly) return;
         _isEditMode = true;
+        LoadPlainContent(ViewModel.Content);
         ContentBox.IsReadOnly = false;
         ContentBox.Cursor = WpfCursors.IBeam;
         ContentBox.BorderThickness = new Thickness(2);
@@ -356,7 +512,7 @@ public partial class StickyNoteWindow : Window
             ContentBox.Cursor = WpfCursors.Arrow;
             ContentBox.BorderThickness = new Thickness(0);
             ContentBox.BorderBrush = WpfBrushes.Transparent;
-            ContentBox.ToolTip = "ダブルクリックして編集";
+            ContentBox.ToolTip = LocalizationService.T("EditBodyTooltip");
         }
 
         TitleText.Visibility    = Visibility.Collapsed;
@@ -370,13 +526,13 @@ public partial class StickyNoteWindow : Window
     {
         if (!_isEditMode || _suppressViewMode) return;
         _isEditMode = false;
-        // ドキュメントを再構築してリンクを正しく復元する
+        // ドキュメントを再構築してMarkdown表示とリンクを正しく復元する
         LoadContent(ViewModel.Content);
         ContentBox.IsReadOnly = true;
         ContentBox.Cursor = WpfCursors.Arrow;
         ContentBox.BorderThickness = new Thickness(0);
         ContentBox.BorderBrush = WpfBrushes.Transparent;
-        ContentBox.ToolTip = "ダブルクリックして編集";
+        ContentBox.ToolTip = LocalizationService.T("EditBodyTooltip");
         TitleText.Visibility    = Visibility.Visible;
         TitleEditBox.Visibility = Visibility.Collapsed;
         UpdateControlsVisibility();
@@ -409,12 +565,13 @@ public partial class StickyNoteWindow : Window
                 chrome = (WindowChrome)chrome.Clone();
                 WindowChrome.SetWindowChrome(this, chrome);
             }
+            var resizeBorder = Settings.Layout.ResizeBorder;
             chrome.ResizeBorderThickness = enabled
-                ? new Thickness(ResizeBorder, 0, ResizeBorder, ResizeBorder)
-                : new Thickness(ResizeBorder, 0, ResizeBorder, 0);
+                ? new Thickness(resizeBorder, 0, resizeBorder, resizeBorder)
+                : new Thickness(resizeBorder, 0, resizeBorder, 0);
         }
 
-        MinWidth = UnfoldedMinWidth;
+        MinWidth = Settings.Layout.UnfoldedMinWidth;
         MaxWidth = double.PositiveInfinity;
 
         if (enabled)
@@ -542,6 +699,9 @@ public partial class StickyNoteWindow : Window
     // Edit モード: Ctrl+クリックでリンクを開く
     private void ContentBox_PreviewMouseDown(object sender, MouseButtonEventArgs e)
     {
+        if (!_isEditMode && IsDescendantOfType<WpfCheckBox>(e.OriginalSource as DependencyObject))
+            return;
+
         var target = GetHyperlinkAt(e.GetPosition(ContentBox));
 
         if (_isEditMode && ContentBox.IsReadOnly && !ViewModel.IsFolded)
@@ -606,9 +766,31 @@ public partial class StickyNoteWindow : Window
         while (child != null)
         {
             if (child == ancestor) return true;
-            child = VisualTreeHelper.GetParent(child);
+            child = GetParentObject(child);
         }
         return false;
+    }
+
+    private static bool IsDescendantOfType<T>(DependencyObject? child)
+        where T : DependencyObject
+    {
+        while (child != null)
+        {
+            if (child is T) return true;
+            child = GetParentObject(child);
+        }
+        return false;
+    }
+
+    private static DependencyObject? GetParentObject(DependencyObject child)
+    {
+        if (child is Visual or System.Windows.Media.Media3D.Visual3D)
+            return VisualTreeHelper.GetParent(child);
+
+        if (child is FrameworkContentElement fce)
+            return fce.Parent;
+
+        return LogicalTreeHelper.GetParent(child);
     }
 
     private void ContentBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
@@ -649,6 +831,7 @@ public partial class StickyNoteWindow : Window
     private void ContentBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (_suppressTextChange) return;
+        if (_isTaskCheckboxUpdatePending) return;
         ViewModel.Content = GetPlainText();
         RequestSave();
     }
@@ -674,7 +857,7 @@ public partial class StickyNoteWindow : Window
         var newText    = beforeText + clipboard + afterText;
         var caretOff   = beforeText.Length + clipboard.Length;
 
-        LoadContent(newText);
+        LoadPlainContent(newText);
         RestoreCaretAt(caretOff);
 
         ViewModel.Content = newText;
@@ -779,20 +962,20 @@ public partial class StickyNoteWindow : Window
 
     private ContextMenu BuildContentContextMenu()
     {
-        _openLinkItem    = new MenuItem { Header = "リンクを開く",    IsEnabled = false };
-        _convertLinkItem = new MenuItem { Header = "リンクとして変換", IsEnabled = false };
+        _openLinkItem    = new MenuItem { Header = LocalizationService.T("OpenLink"), IsEnabled = false };
+        _convertLinkItem = new MenuItem { Header = LocalizationService.T("ConvertLink"), IsEnabled = false };
         _openLinkItem.Click    += OpenLink_Click;
         _convertLinkItem.Click += ConvertLink_Click;
 
         var cm = new ContextMenu();
-        cm.Items.Add(new MenuItem { Header = "切り取り", Command = ApplicationCommands.Cut,   CommandTarget = ContentBox });
-        cm.Items.Add(new MenuItem { Header = "コピー",   Command = ApplicationCommands.Copy,  CommandTarget = ContentBox });
-        cm.Items.Add(new MenuItem { Header = "貼り付け", Command = ApplicationCommands.Paste, CommandTarget = ContentBox });
+        cm.Items.Add(new MenuItem { Header = LocalizationService.T("Cut"), Command = ApplicationCommands.Cut, CommandTarget = ContentBox });
+        cm.Items.Add(new MenuItem { Header = LocalizationService.T("Copy"), Command = ApplicationCommands.Copy, CommandTarget = ContentBox });
+        cm.Items.Add(new MenuItem { Header = LocalizationService.T("Paste"), Command = ApplicationCommands.Paste, CommandTarget = ContentBox });
         cm.Items.Add(new Separator());
         cm.Items.Add(_openLinkItem);
         cm.Items.Add(_convertLinkItem);
         cm.Items.Add(new Separator());
-        var deleteItem = new MenuItem { Header = "削除" };
+        var deleteItem = new MenuItem { Header = LocalizationService.T("Delete") };
         deleteItem.Click += Close_Click;
         cm.Items.Add(deleteItem);
         return cm;
@@ -800,14 +983,15 @@ public partial class StickyNoteWindow : Window
 
     private ContextMenu BuildTitleContextMenu()
     {
-        var editItem = new MenuItem { Header = "タイトルを編集" };
-        var cutItem = new MenuItem { Header = "切り取り" };
-        var copyItem = new MenuItem { Header = "コピー" };
-        var pasteItem = new MenuItem { Header = "貼り付け" };
-        var selectAllItem = new MenuItem { Header = "すべて選択" };
-        var zOrderItem = new MenuItem { Header = "重なり順" };
-        var bringToFrontItem = new MenuItem { Header = "前面へ移動" };
-        var sendToBackItem = new MenuItem { Header = "背面へ移動" };
+        var editItem = new MenuItem { Header = LocalizationService.T("EditTitle") };
+        var cutItem = new MenuItem { Header = LocalizationService.T("Cut") };
+        var copyItem = new MenuItem { Header = LocalizationService.T("Copy") };
+        var pasteItem = new MenuItem { Header = LocalizationService.T("Paste") };
+        var selectAllItem = new MenuItem { Header = LocalizationService.T("SelectAll") };
+        var zOrderItem = new MenuItem { Header = LocalizationService.T("ZOrder") };
+        var bringToFrontItem = new MenuItem { Header = LocalizationService.T("BringToFront") };
+        var sendToBackItem = new MenuItem { Header = LocalizationService.T("SendToBack") };
+        var deleteItem = new MenuItem { Header = LocalizationService.T("Delete") };
 
         editItem.Click += (_, _) => EnterTitleEditMode();
         cutItem.Click += (_, _) => TitleEditBox.Cut();
@@ -823,6 +1007,7 @@ public partial class StickyNoteWindow : Window
         selectAllItem.Click += (_, _) => TitleEditBox.SelectAll();
         bringToFrontItem.Click += (_, _) => MoveInZOrder(HwndTop);
         sendToBackItem.Click += (_, _) => MoveInZOrder(HwndBottom);
+        deleteItem.Click += Close_Click;
         zOrderItem.Items.Add(bringToFrontItem);
         zOrderItem.Items.Add(sendToBackItem);
 
@@ -835,6 +1020,8 @@ public partial class StickyNoteWindow : Window
         cm.Items.Add(selectAllItem);
         cm.Items.Add(new Separator());
         cm.Items.Add(zOrderItem);
+        cm.Items.Add(new Separator());
+        cm.Items.Add(deleteItem);
         cm.Opened += (_, _) =>
         {
             bool editing = cm.PlacementTarget == TitleEditBox && _isEditMode;
@@ -917,10 +1104,10 @@ public partial class StickyNoteWindow : Window
         var plainText = GetPlainText();
         var before   = plainText[..GetOffsetOfPointer(ContentBox.Selection.Start)];
         var after    = plainText[GetOffsetOfPointer(ContentBox.Selection.End)..];
-        var newText  = before + sel + after;    // sel は URL なので LoadContent でリンク検出される
+        var newText  = before + sel + after;    // sel は URL なので LoadPlainContent でリンク検出される
         var caretOff = before.Length + sel.Length;
 
-        LoadContent(newText);
+        LoadPlainContent(newText);
         RestoreCaretAt(caretOff);
 
         ViewModel.Content = newText;
@@ -937,12 +1124,6 @@ public partial class StickyNoteWindow : Window
     //   タイトルをダブルクリック → 何もしない（編集はコンテキストメニューから）
     //   タイトル以外をダブルクリック → 本文編集（畳んでいれば先に展開する）
     //   ドラッグ         → ウィンドウ移動（従来どおり）
-
-    private const double ClickDragThresholdPx = 4; // これ未満の移動はクリックの揺れとみなす
-
-    // 本文のシングルクリック確定までの猶予。本文のダブルクリック編集と
-    // 競合するため必要。タイトル部分はマウスを離した時点で即時処理する。
-    private const int SingleClickGraceMs = 200;
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
@@ -971,8 +1152,8 @@ public partial class StickyNoteWindow : Window
 
         if (!_dragMoved)
         {
-            if (Math.Abs(cur.X - _dragStartCursor.X) < ClickDragThresholdPx &&
-                Math.Abs(cur.Y - _dragStartCursor.Y) < ClickDragThresholdPx)
+            if (Math.Abs(cur.X - _dragStartCursor.X) < Settings.Interaction.ClickDragThresholdPx &&
+                Math.Abs(cur.Y - _dragStartCursor.Y) < Settings.Interaction.ClickDragThresholdPx)
                 return; // まだクリックの範囲内。ドラッグ確定まで動かさない
             _dragMoved = true;
             _titlePreviewTimer.Stop();
@@ -1084,7 +1265,7 @@ public partial class StickyNoteWindow : Window
         => ScheduleHideEditToolbar();
 
     private int GetSingleClickGraceMs()
-        => SingleClickGraceMs;
+        => Settings.Timings.SingleClickGraceMs;
 
     private static bool IsPointerInside(FrameworkElement element, System.Windows.Input.MouseEventArgs e)
     {
@@ -1121,7 +1302,7 @@ public partial class StickyNoteWindow : Window
         double waR = wa.Right / dpiX, waB = wa.Bottom / dpiY;
 
         double? bestLeft = null, bestTop = null;
-        double  minLD = SnapDistance, minTD = SnapDistance;
+        double  minLD = Settings.Interaction.SnapDistance, minTD = Settings.Interaction.SnapDistance;
 
         TrySnap(Left,         waL, ref bestLeft, ref minLD, waL);
         TrySnap(Left + Width, waR, ref bestLeft, ref minLD, waR - Width);
@@ -1341,7 +1522,7 @@ public partial class StickyNoteWindow : Window
     private static bool TryNearest(double value, List<double> targets, out double snapped)
     {
         snapped = value;
-        double best = SnapDistance;
+        double best = App.Current.Settings.Interaction.SnapDistance;
         bool found = false;
         foreach (var t in targets)
         {
@@ -1417,7 +1598,7 @@ public partial class StickyNoteWindow : Window
 
     private void AnimateHeight(double from, double to, Action? completed = null)
     {
-        var anim = new DoubleAnimation(from, to, TimeSpan.FromMilliseconds(150))
+        var anim = new DoubleAnimation(from, to, TimeSpan.FromMilliseconds(Settings.Timings.FoldAnimationMs))
         {
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
         };
@@ -1437,22 +1618,20 @@ public partial class StickyNoteWindow : Window
 
     private (double x, double y) GetNewNotePositionNearCursor()
     {
-        const double Offset = 12;
-        const double DefaultWidth = 260;
-        const double DefaultHeight = 220;
+        var layout = Settings.Layout;
 
         var cursor = System.Windows.Forms.Cursor.Position;
         var (dpiX, dpiY) = GetDpi();
         var screen = System.Windows.Forms.Screen.FromPoint(cursor);
         var wa = screen.WorkingArea;
 
-        double left = cursor.X / dpiX + Offset;
-        double top  = cursor.Y / dpiY + Offset;
+        double left = cursor.X / dpiX + layout.NewNoteNearCursorOffset;
+        double top  = cursor.Y / dpiY + layout.NewNoteNearCursorOffset;
 
         double minLeft = wa.Left / dpiX;
-        double maxLeft = wa.Right / dpiX - DefaultWidth;
+        double maxLeft = wa.Right / dpiX - layout.DefaultNoteWidth;
         double minTop = wa.Top / dpiY;
-        double maxTop = wa.Bottom / dpiY - DefaultHeight;
+        double maxTop = wa.Bottom / dpiY - layout.DefaultNoteHeight;
 
         return (
             Math.Clamp(left, minLeft, Math.Max(minLeft, maxLeft)),
@@ -1469,25 +1648,29 @@ public partial class StickyNoteWindow : Window
     private void FontSmaller_Click(object sender, RoutedEventArgs e)
     {
         if (ViewModel.FontSize > 8) { ViewModel.FontSize -= 1; RequestSave(); }
-        ShowSizeOverlay($"本文 {ViewModel.FontSize:0}pt");
+        ShowSizeOverlay(string.Format(LocalizationService.T("BodySize"), ViewModel.FontSize));
+        UpdateToolbarTooltips();
     }
 
     private void FontLarger_Click(object sender, RoutedEventArgs e)
     {
         if (ViewModel.FontSize < 48) { ViewModel.FontSize += 1; RequestSave(); }
-        ShowSizeOverlay($"本文 {ViewModel.FontSize:0}pt");
+        ShowSizeOverlay(string.Format(LocalizationService.T("BodySize"), ViewModel.FontSize));
+        UpdateToolbarTooltips();
     }
 
     private void TitleSmaller_Click(object sender, RoutedEventArgs e)
     {
         if (ViewModel.TitleFontSize > 8) SetTitleFontSize(ViewModel.TitleFontSize - 1);
-        ShowSizeOverlay($"タイトル {ViewModel.TitleFontSize:0}pt");
+        ShowSizeOverlay(string.Format(LocalizationService.T("TitleSize"), ViewModel.TitleFontSize));
+        UpdateToolbarTooltips();
     }
 
     private void TitleLarger_Click(object sender, RoutedEventArgs e)
     {
         if (ViewModel.TitleFontSize < 28) SetTitleFontSize(ViewModel.TitleFontSize + 1);
-        ShowSizeOverlay($"タイトル {ViewModel.TitleFontSize:0}pt");
+        ShowSizeOverlay(string.Format(LocalizationService.T("TitleSize"), ViewModel.TitleFontSize));
+        UpdateToolbarTooltips();
     }
 
     private void SetTitleFontSize(double size)
@@ -1524,8 +1707,21 @@ public partial class StickyNoteWindow : Window
     {
         _overlayTimer.Stop();
         SizeOverlay.BeginAnimation(OpacityProperty,
-            new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(350)));
+            new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(Settings.Timings.SizeOverlayFadeMs)));
     }
+
+    private WpfSolidBrush PopupBackgroundBrush()
+        => IsDarkTheme()
+            ? new WpfSolidBrush(WpfColor.FromRgb(31, 41, 55))
+            : new WpfSolidBrush(WpfColor.FromRgb(255, 255, 255));
+
+    private WpfSolidBrush PopupBorderBrush()
+        => IsDarkTheme()
+            ? new WpfSolidBrush(WpfColor.FromRgb(75, 85, 99))
+            : new WpfSolidBrush(WpfColor.FromRgb(211, 211, 211));
+
+    private bool IsDarkTheme()
+        => string.Equals(Settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase);
 
     private void Font_Click(object sender, RoutedEventArgs e)
     {
@@ -1559,7 +1755,9 @@ public partial class StickyNoteWindow : Window
 
     private void Close_Click(object sender, RoutedEventArgs e)
     {
-        var result = System.Windows.MessageBox.Show("この付箋を削除しますか？", "確認",
+        var result = System.Windows.MessageBox.Show(
+            LocalizationService.T("DeleteConfirmMessage"),
+            LocalizationService.T("DeleteConfirmTitle"),
             MessageBoxButton.YesNo, MessageBoxImage.Question);
         if (result == MessageBoxResult.Yes)
         {
@@ -1615,7 +1813,7 @@ public partial class StickyNoteWindow : Window
                 _savePending = false;
                 App.Current.SaveAll();
             });
-        }, null, 800, System.Threading.Timeout.Infinite);
+        }, null, Settings.Timings.SaveDebounceMs, System.Threading.Timeout.Infinite);
     }
 
     /// <summary>
@@ -1676,7 +1874,7 @@ public partial class StickyNoteWindow : Window
         {
             Child = new Border
             {
-                Background = WpfBrushes.White, BorderBrush = WpfBrushes.LightGray,
+                Background = PopupBackgroundBrush(), BorderBrush = PopupBorderBrush(),
                 BorderThickness = new Thickness(1), Padding = new Thickness(4), Child = panel,
             },
             Placement = PlacementMode.Bottom, StaysOpen = false,
@@ -1714,7 +1912,7 @@ public partial class StickyNoteWindow : Window
                         Stretch = Stretch.Uniform,
                     },
                 Tag        = icon,
-                ToolTip    = isNone ? "アイコンなし" : null,
+                ToolTip    = isNone ? LocalizationService.T("NoIconTooltip") : null,
                 Cursor     = WpfCursors.Hand,
             };
 
@@ -1741,7 +1939,7 @@ public partial class StickyNoteWindow : Window
         {
             Child = new Border
             {
-                Background = WpfBrushes.White, BorderBrush = WpfBrushes.LightGray,
+                Background = PopupBackgroundBrush(), BorderBrush = PopupBorderBrush(),
                 BorderThickness = new Thickness(1), Padding = new Thickness(4), Child = panel,
             },
             Placement = PlacementMode.Bottom, StaysOpen = false,
@@ -1754,7 +1952,7 @@ public partial class StickyNoteWindow : Window
         // ZIndex を上げないと右隣・下隣のアイコンに欠けて見える。
         System.Windows.Controls.Panel.SetZIndex(button, to > 1 ? 1 : 0);
 
-        var anim = new DoubleAnimation(to, TimeSpan.FromMilliseconds(110))
+        var anim = new DoubleAnimation(to, TimeSpan.FromMilliseconds(App.Current.Settings.Timings.ToolbarFadeMs))
         {
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
         };
@@ -1771,7 +1969,7 @@ public partial class StickyNoteWindow : Window
             if (child is not WpfButton b) continue;
             bool selected = (b.Tag as string) == ViewModel.Icon;
             b.BorderThickness = new Thickness(selected ? 2 : 1);
-            b.BorderBrush     = selected ? WpfBrushes.CornflowerBlue : WpfBrushes.LightGray;
+            b.BorderBrush     = selected ? WpfBrushes.CornflowerBlue : PopupBorderBrush();
         }
     }
 
@@ -1779,7 +1977,14 @@ public partial class StickyNoteWindow : Window
 
     private Popup BuildFontPopup()
     {
-        var listBox = new WpfListBox { Width = 180, MaxHeight = 260, BorderThickness = new Thickness(0) };
+        var listBox = new WpfListBox
+        {
+            Width = 180,
+            MaxHeight = 260,
+            BorderThickness = new Thickness(0),
+            Background = PopupBackgroundBrush(),
+            Foreground = ViewModel.TextForeground,
+        };
         foreach (var font in FontList)
         {
             listBox.Items.Add(new ListBoxItem
@@ -1803,7 +2008,7 @@ public partial class StickyNoteWindow : Window
         {
             Child = new Border
             {
-                Background = WpfBrushes.White, BorderBrush = WpfBrushes.LightGray,
+                Background = PopupBackgroundBrush(), BorderBrush = PopupBorderBrush(),
                 BorderThickness = new Thickness(1), Child = listBox,
             },
             Placement = PlacementMode.Bottom, StaysOpen = false,

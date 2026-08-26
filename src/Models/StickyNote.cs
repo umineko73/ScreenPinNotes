@@ -21,6 +21,7 @@ namespace ScreenStickyNotes.Models;
 public class StickyNote
 {
     private static readonly string[] JapaneseDayNames = ["日", "月", "火", "水", "木", "金", "土"];
+    private static readonly string[] EnglishDayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
     public string Id { get; set; } = Guid.NewGuid().ToString();
 
@@ -50,4 +51,9 @@ public class StickyNote
 
     public static string CreateDefaultTitle(DateTime timestamp)
         => $"{timestamp:yyyy/MM/dd}({JapaneseDayNames[(int)timestamp.DayOfWeek]}) {timestamp:HH:mm:ss}";
+
+    public static string CreateDefaultTitle(DateTime timestamp, bool english)
+        => english
+            ? $"{timestamp:yyyy/MM/dd}({EnglishDayNames[(int)timestamp.DayOfWeek]}) {timestamp:HH:mm:ss}"
+            : CreateDefaultTitle(timestamp);
 }

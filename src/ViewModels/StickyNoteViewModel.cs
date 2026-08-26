@@ -19,6 +19,7 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Input;
 using ScreenStickyNotes.Models;
+using ScreenStickyNotes.Services;
 using WpfBrush = System.Windows.Media.Brush;
 using WpfBrushes = System.Windows.Media.Brushes;
 using WpfColor = System.Windows.Media.Color;
@@ -64,11 +65,13 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     };
 
     private readonly StickyNote _model;
+    private readonly AppSettings _settings;
     public StickyNote Model => _model;
 
-    public StickyNoteViewModel(StickyNote model)
+    public StickyNoteViewModel(StickyNote model, AppSettings settings)
     {
         _model = model;
+        _settings = settings;
         UpdateBrushes();
     }
 
@@ -90,7 +93,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         get
         {
             var line = _model.Content.Split('\n').FirstOrDefault(l => l.Trim().Length > 0)?.Trim() ?? "";
-            return line.Length > 0 ? line : "（メモなし）";
+            return line.Length > 0 ? line : LocalizationService.T("NoMemo");
         }
     }
 
@@ -213,18 +216,47 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         private set { _titleBarForeground = value; OnPropertyChanged(); }
     }
 
+    private WpfBrush _textForeground = WpfBrushes.Black;
+    public WpfBrush TextForeground
+    {
+        get => _textForeground;
+        private set { _textForeground = value; OnPropertyChanged(); }
+    }
+
+    public void RefreshSettings()
+    {
+        UpdateBrushes();
+        OnPropertyChanged(nameof(FirstLine));
+        OnPropertyChanged(nameof(DisplayTitle));
+    }
+
     private void UpdateBrushes()
     {
         if (!ColorPresets.TryGetValue(_model.ColorKey, out var preset))
             preset = ColorPresets["yellow"];
 
-        var bg     = (WpfColor)WpfColorConverter.ConvertFromString(preset.Bg);
+        var bg = (WpfColor)WpfColorConverter.ConvertFromString(preset.Bg);
         var header = (WpfColor)WpfColorConverter.ConvertFromString(preset.Header);
 
-        BackgroundBrush    = new WpfSolidBrush(bg);
-        HeaderBrush         = new WpfSolidBrush(header);
-        TitleBarBrush       = new WpfSolidBrush(Blend(header, bg, 0.90));
-        TitleBarForeground  = new WpfSolidBrush(Blend(header, WpfColor.FromRgb(0, 0, 0), 0.45));
+        if (IsDarkTheme())
+        {
+            var darkBase = WpfColor.FromRgb(17, 24, 39);
+            var darkPanel = Blend(header, darkBase, 0.86);
+            var darkHeader = Blend(header, WpfColor.FromRgb(0, 0, 0), 0.25);
+
+            BackgroundBrush = new WpfSolidBrush(darkPanel);
+            HeaderBrush = new WpfSolidBrush(darkHeader);
+            TitleBarBrush = new WpfSolidBrush(Blend(darkHeader, darkPanel, 0.45));
+            TitleBarForeground = new WpfSolidBrush(WpfColor.FromRgb(249, 250, 251));
+            TextForeground = new WpfSolidBrush(WpfColor.FromRgb(229, 231, 235));
+            return;
+        }
+
+        BackgroundBrush = new WpfSolidBrush(bg);
+        HeaderBrush = new WpfSolidBrush(header);
+        TitleBarBrush = new WpfSolidBrush(Blend(header, bg, 0.90));
+        TitleBarForeground = new WpfSolidBrush(Blend(header, WpfColor.FromRgb(0, 0, 0), 0.45));
+        TextForeground = new WpfSolidBrush(WpfColor.FromRgb(17, 24, 39));
     }
 
     private static WpfColor Blend(WpfColor from, WpfColor to, double t)
@@ -232,6 +264,9 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         byte Lerp(byte a, byte b) => (byte)Math.Round(a + (b - a) * t);
         return WpfColor.FromRgb(Lerp(from.R, to.R), Lerp(from.G, to.G), Lerp(from.B, to.B));
     }
+
+    private bool IsDarkTheme()
+        => string.Equals(_settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase);
 
     public event PropertyChangedEventHandler? PropertyChanged;
     protected void OnPropertyChanged([CallerMemberName] string? name = null)

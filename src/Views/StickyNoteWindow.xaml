@@ -141,12 +141,14 @@
                          Grid.Row="1"
                          FontFamily="{Binding FontFamily}"
                          FontSize="{Binding FontSize}"
+                         Foreground="{Binding TextForeground}"
                          Background="Transparent"
                          BorderThickness="0"
                          Padding="8"
                          AcceptsReturn="True"
                          AcceptsTab="True"
                          IsReadOnly="True"
+                         IsDocumentEnabled="True"
                          Cursor="Arrow"
                          VerticalScrollBarVisibility="Auto"
                          TextChanged="ContentBox_TextChanged"
@@ -197,16 +199,16 @@
                         MouseEnter="EditToolbar_MouseEnter"
                         MouseLeave="EditToolbar_MouseLeave">
                     <StackPanel Orientation="Horizontal">
-                        <Button Content="A-" Style="{StaticResource EditToolbarButton}"
+                        <Button x:Name="FontSmallerButton" Content="A-" Style="{StaticResource EditToolbarButton}"
                                 ToolTip="{Binding FontSize, StringFormat=本文のフォントを小さく (現在 {0}pt)}"
                                 Click="FontSmaller_Click"/>
-                        <Button Content="A+" Style="{StaticResource EditToolbarButton}"
+                        <Button x:Name="FontLargerButton" Content="A+" Style="{StaticResource EditToolbarButton}"
                                 ToolTip="{Binding FontSize, StringFormat=本文のフォントを大きく (現在 {0}pt)}"
                                 Click="FontLarger_Click"/>
-                        <Button Content="T-" Style="{StaticResource EditToolbarButton}"
+                        <Button x:Name="TitleSmallerButton" Content="T-" Style="{StaticResource EditToolbarButton}"
                                 ToolTip="{Binding TitleFontSize, StringFormat=タイトルのフォントを小さく (現在 {0}pt)}"
                                 Click="TitleSmaller_Click"/>
-                        <Button Content="T+" Style="{StaticResource EditToolbarButton}"
+                        <Button x:Name="TitleLargerButton" Content="T+" Style="{StaticResource EditToolbarButton}"
                                 ToolTip="{Binding TitleFontSize, StringFormat=タイトルのフォントを大きく (現在 {0}pt)}"
                                 Click="TitleLarger_Click"/>
                         <Button x:Name="FontButton" Content="Aa"
