@@ -87,6 +87,8 @@ public partial class StickyNoteWindow : Window
         new() { Interval = TimeSpan.FromMilliseconds(900) };
     private readonly System.Windows.Threading.DispatcherTimer _toolbarHideTimer =
         new() { Interval = TimeSpan.FromMilliseconds(180) };
+    private readonly System.Windows.Threading.DispatcherTimer _titlePreviewTimer =
+        new() { Interval = TimeSpan.FromMilliseconds(200) };
     private WrapPanel? _iconPanel;
     private Popup?     _iconPopup;
 
@@ -135,6 +137,11 @@ public partial class StickyNoteWindow : Window
         _fontPopup  = BuildFontPopup();
         _iconPopup  = BuildIconPopup();
         ContentBox.ContextMenu = BuildContentContextMenu();
+        var titleContextMenu = BuildTitleContextMenu();
+        TitleText.ContextMenu = titleContextMenu;
+        TitleEditBox.ContextMenu = titleContextMenu;
+        TitleText.ContextMenuOpening += TitleContextMenuOpening;
+        TitleEditBox.ContextMenuOpening += TitleContextMenuOpening;
         System.Windows.DataObject.AddPastingHandler(ContentBox, OnPaste);
 
         // ポップアップ・コンテキストメニューは別HWNDのため開くとウィンドウが
@@ -176,6 +183,11 @@ public partial class StickyNoteWindow : Window
             _toolbarHideTimer.Stop();
             if (!ShouldKeepEditToolbarOpen())
                 HideEditToolbar();
+        };
+        _titlePreviewTimer.Tick += (_, _) =>
+        {
+            _titlePreviewTimer.Stop();
+            UpdateTitlePreviewVisibility();
         };
 
         // アプリ切り替え時もビューモードへ
@@ -786,6 +798,62 @@ public partial class StickyNoteWindow : Window
         return cm;
     }
 
+    private ContextMenu BuildTitleContextMenu()
+    {
+        var editItem = new MenuItem { Header = "タイトルを編集" };
+        var cutItem = new MenuItem { Header = "切り取り" };
+        var copyItem = new MenuItem { Header = "コピー" };
+        var pasteItem = new MenuItem { Header = "貼り付け" };
+        var selectAllItem = new MenuItem { Header = "すべて選択" };
+
+        editItem.Click += (_, _) => EnterTitleEditMode();
+        cutItem.Click += (_, _) => TitleEditBox.Cut();
+        copyItem.Click += (_, _) =>
+        {
+            if (_isEditMode && TitleEditBox.Visibility == Visibility.Visible &&
+                TitleEditBox.SelectionLength > 0)
+                TitleEditBox.Copy();
+            else if (!string.IsNullOrEmpty(ViewModel.DisplayTitle))
+                System.Windows.Clipboard.SetText(ViewModel.DisplayTitle);
+        };
+        pasteItem.Click += (_, _) => TitleEditBox.Paste();
+        selectAllItem.Click += (_, _) => TitleEditBox.SelectAll();
+
+        var cm = new ContextMenu();
+        cm.Items.Add(editItem);
+        cm.Items.Add(new Separator());
+        cm.Items.Add(cutItem);
+        cm.Items.Add(copyItem);
+        cm.Items.Add(pasteItem);
+        cm.Items.Add(selectAllItem);
+        cm.Opened += (_, _) =>
+        {
+            bool editing = cm.PlacementTarget == TitleEditBox && _isEditMode;
+            editItem.Visibility = editing ? Visibility.Collapsed : Visibility.Visible;
+            cutItem.Visibility = editing ? Visibility.Visible : Visibility.Collapsed;
+            pasteItem.Visibility = editing ? Visibility.Visible : Visibility.Collapsed;
+            selectAllItem.Visibility = editing ? Visibility.Visible : Visibility.Collapsed;
+            copyItem.IsEnabled = editing
+                ? TitleEditBox.SelectionLength > 0
+                : !string.IsNullOrEmpty(ViewModel.DisplayTitle);
+            cutItem.IsEnabled = TitleEditBox.SelectionLength > 0;
+            pasteItem.IsEnabled = System.Windows.Clipboard.ContainsText();
+        };
+        cm.Closed += (_, _) =>
+        {
+            _suppressViewMode = false;
+            if (_isEditMode && TitleEditBox.Visibility == Visibility.Visible)
+                Dispatcher.BeginInvoke(() => TitleEditBox.Focus());
+        };
+        return cm;
+    }
+
+    private void TitleContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (sender == TitleEditBox)
+            _suppressViewMode = true;
+    }
+
     private void ContentBox_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
         // メニューが実際に開く前にフラグを立てる。ここで立てないと、
@@ -846,16 +914,15 @@ public partial class StickyNoteWindow : Window
     // MouseMove でしきい値を超えて初めてドラッグ確定として扱い、
     // 超えなければ MouseUp 時点のクリック回数で判定する:
     //   シングルクリック → 折りたたみ／展開
-    //   タイトルをダブルクリック → タイトルだけ編集（折りたたみ状態は維持）
+    //   タイトルをダブルクリック → 何もしない（編集はコンテキストメニューから）
     //   タイトル以外をダブルクリック → 本文編集（畳んでいれば先に展開する）
     //   ドラッグ         → ウィンドウ移動（従来どおり）
 
     private const double ClickDragThresholdPx = 4; // これ未満の移動はクリックの揺れとみなす
 
-    // タイトルバーのシングルクリック確定までの猶予。
-    // タイトル文字列上はダブルクリック編集と競合するため、空白部より少し長く待つ。
+    // 本文のシングルクリック確定までの猶予。本文のダブルクリック編集と
+    // 競合するため必要。タイトル部分はマウスを離した時点で即時処理する。
     private const int SingleClickGraceMs = 200;
-    private const int TitleSingleClickGraceMs = 250;
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
@@ -888,6 +955,8 @@ public partial class StickyNoteWindow : Window
                 Math.Abs(cur.Y - _dragStartCursor.Y) < ClickDragThresholdPx)
                 return; // まだクリックの範囲内。ドラッグ確定まで動かさない
             _dragMoved = true;
+            _titlePreviewTimer.Stop();
+            TitlePreviewPopup.IsOpen = false;
         }
 
         var (dpiX, dpiY) = GetDpi();
@@ -917,17 +986,23 @@ public partial class StickyNoteWindow : Window
         // ここで即座に畳んでしまうと、直後に来る2回目のクリックに間に合わず
         // ダブルクリックとして拾えない。そこで、シングルクリックの確定を
         // 短い猶予だけ遅らせ、その間に2回目が来たら
-        // （ClickCount==2 で Up が呼ばれたら）畳む処理をキャンセルして
-        // 編集モードへの遷移に差し替える。
+        // （ClickCount==2 で Up が呼ばれたら）畳む処理をキャンセルする。
+        if (_dragStartedOnTitle)
+        {
+            // タイトルはダブルクリック編集を廃止したため、シングルクリックを
+            // 即時確定する。2回目のクリックは追加の切り替えを起こさない。
+            if (_dragClickCount < 2)
+                ToggleFold();
+            return;
+        }
+
         if (_dragClickCount >= 2)
         {
             _singleClickTimer?.Stop();
             _singleClickTimer = null;
-            if (_dragStartedOnTitle)
-                EnterTitleEditMode();
-            else if (ViewModel.IsFolded)
+            if (!_dragStartedOnTitle && ViewModel.IsFolded)
                 ToggleFold(EnterEditMode); // 展開アニメーション完了後に編集モードへ
-            else
+            else if (!_dragStartedOnTitle)
                 EnterEditMode();
             return;
         }
@@ -949,13 +1024,23 @@ public partial class StickyNoteWindow : Window
     private void TitleBar_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
     {
         UpdateTitleBarButtonsVisibility();
-        UpdateTitlePreviewVisibility();
+        ScheduleTitlePreview();
     }
 
     private void TitleBar_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
     {
         UpdateTitleBarButtonsVisibility();
+        _titlePreviewTimer.Stop();
         TitlePreviewPopup.IsOpen = false;
+    }
+
+    private void ScheduleTitlePreview()
+    {
+        _titlePreviewTimer.Stop();
+        TitlePreviewPopup.IsOpen = false;
+        if (ViewModel.IsFolded && !_isEditMode &&
+            !string.IsNullOrWhiteSpace(ViewModel.Content) && TitleBar.IsMouseOver)
+            _titlePreviewTimer.Start();
     }
 
     private void UpdateTitlePreviewVisibility()
@@ -979,7 +1064,7 @@ public partial class StickyNoteWindow : Window
         => ScheduleHideEditToolbar();
 
     private int GetSingleClickGraceMs()
-        => _dragStartedOnTitle ? TitleSingleClickGraceMs : SingleClickGraceMs;
+        => SingleClickGraceMs;
 
     private static bool IsPointerInside(FrameworkElement element, System.Windows.Input.MouseEventArgs e)
     {
@@ -1001,6 +1086,8 @@ public partial class StickyNoteWindow : Window
 
     private void SnapToAll()
     {
+        if (IsAltPressed()) return;
+
         var hwnd   = new WindowInteropHelper(this).Handle;
         var screen = System.Windows.Forms.Screen.FromHandle(hwnd);
         var wa     = screen.WorkingArea;
@@ -1136,6 +1223,8 @@ public partial class StickyNoteWindow : Window
     // ドラッグ中の矩形（デバイスpx）を論理pxに直してスナップ先を探し、書き戻す
     private bool SnapSizingRect(ref RECT r, int edge)
     {
+        if (IsAltPressed()) return false;
+
         var (dpiX, dpiY) = GetDpi();
 
         double left   = r.Left   / dpiX;
@@ -1201,6 +1290,14 @@ public partial class StickyNoteWindow : Window
         return true;
     }
 
+    private const int VK_MENU = 0x12;
+
+    [DllImport("user32.dll")]
+    private static extern short GetAsyncKeyState(int vKey);
+
+    private static bool IsAltPressed()
+        => (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
+
     private static bool TryNearest(double value, List<double> targets, out double snapped)
     {
         snapped = value;
@@ -1230,7 +1327,7 @@ public partial class StickyNoteWindow : Window
             ContentBox.Visibility = Visibility.Visible;
             ViewModel.IsFolded = false;
             UpdateTitleBarButtonsVisibility();
-            UpdateTitlePreviewVisibility();
+            ScheduleTitlePreview();
             Width = ViewModel.Model.Width; // 展開時専用の幅に戻す
             SetResizeEnabled(true);
             RunFoldAnimation(FoldedHeight, _unfoldedHeight, () =>
@@ -1247,7 +1344,7 @@ public partial class StickyNoteWindow : Window
             // 途中の値に上書きされないよう先にフラグを立てる
             ViewModel.IsFolded = true;
             UpdateTitleBarButtonsVisibility();
-            UpdateTitlePreviewVisibility();
+            ScheduleTitlePreview();
             HideEditToolbar();
             // 折りたたみ時専用の幅へスナップ（未設定なら現在の幅のまま）
             Width = ViewModel.Model.FoldedWidth ?? Width;
