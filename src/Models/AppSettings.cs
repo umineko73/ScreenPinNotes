@@ -18,6 +18,20 @@ public sealed class AppSettings
     public InteractionSettings Interaction { get; set; } = new();
     public LayoutSettings Layout { get; set; } = new();
 
+    // タイトルバーに付けられるアイコンパレット。「アイコンなし」は常に先頭に
+    // 別途表示するのでここには含めない。settings.json で好きな絵文字に
+    // 差し替えられる。
+    public List<string> IconPalette { get; set; } = DefaultIconPalette();
+
+    public static List<string> DefaultIconPalette() =>
+    [
+        "📌", "⭐", "❗", "❓", "✅", "🔥", "💡", "📝",
+        "📋", "📅", "⏰", "🔔", "🎯", "🚀", "💼", "🏠",
+        "🛒", "🍽", "☕", "🎵", "📚", "✏", "🔧", "🐛",
+        "💰", "📞", "✉", "🔑", "🔒", "❤", "👍", "🎉",
+        "🎁", "🌟", "⚠", "🚨", "📦", "🗓", "🧪", "🌱",
+    ];
+
     public void Normalize()
     {
         if (!string.Equals(Language, "en", StringComparison.OrdinalIgnoreCase))
@@ -27,6 +41,8 @@ public sealed class AppSettings
         Timings ??= new TimingSettings();
         Interaction ??= new InteractionSettings();
         Layout ??= new LayoutSettings();
+        if (IconPalette == null || IconPalette.Count == 0)
+            IconPalette = DefaultIconPalette();
 
         Timings.TitlePreviewDelayMs = Math.Max(0, Timings.TitlePreviewDelayMs);
         Timings.ToolbarHideDelayMs = Math.Max(0, Timings.ToolbarHideDelayMs);

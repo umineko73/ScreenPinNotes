@@ -27,7 +27,17 @@ public static class LocalizationService
             "TrayLanguageJapanese" => english ? "Japanese" : "日本語",
             "TrayLanguageEnglish" => english ? "English" : "英語",
             "TrayDarkMode" => english ? "Dark mode" : "ダークモード",
+            "TrayAbout" => english ? "About ScreenStickyNotes" : "ScreenStickyNotes について",
             "TrayExit" => english ? "Exit" : "終了",
+
+            "AboutTitle" => english ? "About ScreenStickyNotes" : "ScreenStickyNotes について",
+            "AboutDescription" => english
+                ? "A desktop sticky notes app for Windows 11."
+                : "Windows 11 向けのデスクトップ付箋アプリです。",
+            "AboutLicense" => english
+                ? "License: GNU General Public License v3.0 or later"
+                : "ライセンス: GNU General Public License v3.0 以降",
+            "Close" => english ? "Close" : "閉じる",
 
             "SampleMarkdownTitle" => english ? "Markdown sample" : "Markdown サンプル",
             "SampleUsageTitle" => english ? "How to use" : "使い方",

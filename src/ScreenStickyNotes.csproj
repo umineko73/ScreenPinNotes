@@ -13,7 +13,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <Version>0.0.2</Version>
+    <Version>0.1.0</Version>
     <Authors>umineko73</Authors>
     <Product>ScreenStickyNotes</Product>
     <Description>Windows 11 向けのデスクトップ付箋アプリ</Description>
@@ -28,5 +28,14 @@
     <Resource Include="app.ico" />
     <PackageReference Include="SkiaSharp" Version="3.119.4-preview.1.1" />
     <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="3.119.4-preview.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 初回起動時に作成するサンプル付箋の中身。exe と同じフォルダに
+         SampleNotes\ としてコピーし、初回起動時にそこから読み込んで
+         notes フォルダへコピーする（SampleNoteFactory.cs 参照）。
+         コンパイル対象ではないので None、ビルド・publish のたびに
+         最新版へ追従させるため PreserveNewest。 -->
+    <None Include="SampleNotes\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

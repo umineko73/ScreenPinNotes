@@ -90,16 +90,9 @@ public partial class StickyNoteWindow : Window
     private WrapPanel? _iconPanel;
     private Popup?     _iconPopup;
 
-    // タイトルバーに付けられるアイコン。先頭の "" は「アイコンなし」。
-    private static readonly string[] IconList =
-    [
-        "",
-        "📌", "⭐", "❗", "❓", "✅", "🔥", "💡", "📝",
-        "📋", "📅", "⏰", "🔔", "🎯", "🚀", "💼", "🏠",
-        "🛒", "🍽", "☕", "🎵", "📚", "✏", "🔧", "🐛",
-        "💰", "📞", "✉", "🔑", "🔒", "❤", "👍", "🎉",
-        "🎁", "🌟", "⚠", "🚨", "📦", "🗓", "🧪", "🌱",
-    ];
+    // タイトルバーに付けられるアイコン。先頭の "" は「アイコンなし」で固定。
+    // それ以降は settings.json の IconPalette で差し替えられる。
+    private IEnumerable<string> IconList => new[] { "" }.Concat(Settings.IconPalette);
     private Hyperlink? _contextMenuLink;
     private MenuItem   _openLinkItem  = new();
     private MenuItem   _convertLinkItem = new();

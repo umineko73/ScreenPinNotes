@@ -171,6 +171,7 @@ public partial class App : System.Windows.Application
         menu.Items.Add(BuildLanguageMenu());
         menu.Items.Add(BuildDarkModeItem());
         menu.Items.Add("-");
+        menu.Items.Add(LocalizationService.T("TrayAbout"), null, (_, _) => ShowAboutWindow());
         menu.Items.Add(LocalizationService.T("TrayExit"), null, (_, _) => ExitApp());
         return menu;
     }
@@ -281,6 +282,24 @@ public partial class App : System.Windows.Application
     {
         bool anyVisible = _windows.Any(w => w.IsVisible);
         if (anyVisible) HideAllNotes(); else ShowAllNotes();
+    }
+
+    // ─── About ──────────────────────────────────────────────────
+
+    private Views.AboutWindow? _aboutWindow;
+
+    private void ShowAboutWindow()
+    {
+        if (_aboutWindow != null)
+        {
+            _aboutWindow.Activate();
+            return;
+        }
+
+        _aboutWindow = new Views.AboutWindow();
+        _aboutWindow.Closed += (_, _) => _aboutWindow = null;
+        _aboutWindow.Show();
+        _aboutWindow.Activate();
     }
 
     // ─── 付箋追加・削除 ──────────────────────────────────────────

@@ -1,6 +1,6 @@
-# v で始まるタグ（例: v0.0.2）を push すると、
-# 自己完結型とランタイム必須の 2 種類の exe を添付した
-# 下書きリリースを作成します。
+# v で始まるタグ（例: v0.1.0）を push すると、
+# 自己完結型とランタイム必須の 2 種類の zip
+# （exe とサンプル付箋 SampleNotes\ を同梱）を添付した下書きリリースを作成します。
 name: Release
 
 on:
@@ -37,6 +37,6 @@ jobs:
       - name: Create draft release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/*.exe
+          files: artifacts/*.zip
           draft: true
           generate_release_notes: true
