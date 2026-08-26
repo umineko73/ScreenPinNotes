@@ -805,6 +805,9 @@ public partial class StickyNoteWindow : Window
         var copyItem = new MenuItem { Header = "コピー" };
         var pasteItem = new MenuItem { Header = "貼り付け" };
         var selectAllItem = new MenuItem { Header = "すべて選択" };
+        var zOrderItem = new MenuItem { Header = "重なり順" };
+        var bringToFrontItem = new MenuItem { Header = "前面へ移動" };
+        var sendToBackItem = new MenuItem { Header = "背面へ移動" };
 
         editItem.Click += (_, _) => EnterTitleEditMode();
         cutItem.Click += (_, _) => TitleEditBox.Cut();
@@ -818,6 +821,10 @@ public partial class StickyNoteWindow : Window
         };
         pasteItem.Click += (_, _) => TitleEditBox.Paste();
         selectAllItem.Click += (_, _) => TitleEditBox.SelectAll();
+        bringToFrontItem.Click += (_, _) => MoveInZOrder(HwndTop);
+        sendToBackItem.Click += (_, _) => MoveInZOrder(HwndBottom);
+        zOrderItem.Items.Add(bringToFrontItem);
+        zOrderItem.Items.Add(sendToBackItem);
 
         var cm = new ContextMenu();
         cm.Items.Add(editItem);
@@ -826,6 +833,8 @@ public partial class StickyNoteWindow : Window
         cm.Items.Add(copyItem);
         cm.Items.Add(pasteItem);
         cm.Items.Add(selectAllItem);
+        cm.Items.Add(new Separator());
+        cm.Items.Add(zOrderItem);
         cm.Opened += (_, _) =>
         {
             bool editing = cm.PlacementTarget == TitleEditBox && _isEditMode;
@@ -846,6 +855,17 @@ public partial class StickyNoteWindow : Window
                 Dispatcher.BeginInvoke(() => TitleEditBox.Focus());
         };
         return cm;
+    }
+
+    private void MoveInZOrder(IntPtr insertAfter)
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero) return;
+
+        SetWindowPos(hwnd, insertAfter, 0, 0, 0, 0,
+            SetWindowPosFlags.NoMove |
+            SetWindowPosFlags.NoSize |
+            SetWindowPosFlags.NoActivate);
     }
 
     private void TitleContextMenuOpening(object sender, ContextMenuEventArgs e)
@@ -1291,9 +1311,29 @@ public partial class StickyNoteWindow : Window
     }
 
     private const int VK_MENU = 0x12;
+    private static readonly IntPtr HwndTop = new(0);
+    private static readonly IntPtr HwndBottom = new(1);
+
+    [Flags]
+    private enum SetWindowPosFlags : uint
+    {
+        NoSize = 0x0001,
+        NoMove = 0x0002,
+        NoActivate = 0x0010,
+    }
 
     [DllImport("user32.dll")]
     private static extern short GetAsyncKeyState(int vKey);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetWindowPos(
+        IntPtr hWnd,
+        IntPtr hWndInsertAfter,
+        int x,
+        int y,
+        int cx,
+        int cy,
+        SetWindowPosFlags uFlags);
 
     private static bool IsAltPressed()
         => (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
