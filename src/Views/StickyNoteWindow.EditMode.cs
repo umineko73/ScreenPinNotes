@@ -1,0 +1,422 @@
+﻿// ScreenStickyNotes - a desktop sticky notes app for Windows 11
+// Copyright (C) 2026 umineko73
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+using System.Diagnostics;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Documents;
+using System.Windows.Input;
+using System.Windows.Interop;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Shell;
+using ScreenStickyNotes.Models;
+using ScreenStickyNotes.Services;
+using ScreenStickyNotes.ViewModels;
+using SkiaSharp;
+using WpfBrushes     = System.Windows.Media.Brushes;
+using WpfButton      = System.Windows.Controls.Button;
+using WpfBitmapImage = System.Windows.Media.Imaging.BitmapImage;
+using WpfCheckBox    = System.Windows.Controls.CheckBox;
+using WpfColor       = System.Windows.Media.Color;
+using WpfColorConverter = System.Windows.Media.ColorConverter;
+using WpfCursors     = System.Windows.Input.Cursors;
+using WpfDataFormats = System.Windows.DataFormats;
+using WpfFontFamily  = System.Windows.Media.FontFamily;
+using WpfImage       = System.Windows.Controls.Image;
+using WpfListBox     = System.Windows.Controls.ListBox;
+using WpfSolidBrush  = System.Windows.Media.SolidColorBrush;
+
+
+namespace ScreenStickyNotes.Views;
+
+public partial class StickyNoteWindow
+{
+    // ─── Edit / View モード ──────────────────────────────────────
+
+    private void EnterEditMode()
+    {
+        if (_isEditMode && !ContentBox.IsReadOnly) return;
+        _isEditMode = true;
+        ViewModel.SetForceOpaque(true);
+        LoadPlainContent(ViewModel.Content);
+        ContentBox.IsReadOnly = false;
+        EnableIme(ContentBox);
+        ContentBox.Cursor = WpfCursors.IBeam;
+        ContentBox.BorderThickness = new Thickness(2);
+        ContentBox.BorderBrush = WpfBrushes.CornflowerBlue;
+        ContentBox.ToolTip = null;
+        // タイトルも同時に編集可能にする。フォーカスは本文に置いたままにし、
+        // タイトルを直したい人だけ自分でクリックしてもらう。
+        TitleText.Visibility    = Visibility.Collapsed;
+        TitleEditBox.Visibility = Visibility.Visible;
+        UpdateControlsVisibility();
+        if (!ContentBox.IsKeyboardFocusWithin)
+            ContentBox.Focus();
+        Dispatcher.BeginInvoke(() => EnableIme(ContentBox));
+    }
+
+    private void EnterTitleEditMode()
+    {
+        ViewModel.SetForceOpaque(true);
+        if (!_isEditMode)
+        {
+            _isEditMode = true;
+            ContentBox.IsReadOnly = true;
+            EnableIme(TitleEditBox);
+            ContentBox.Cursor = WpfCursors.Arrow;
+            ContentBox.BorderThickness = new Thickness(0);
+            ContentBox.BorderBrush = WpfBrushes.Transparent;
+            ContentBox.ToolTip = LocalizationService.T("EditBodyTooltip");
+        }
+
+        TitleText.Visibility    = Visibility.Collapsed;
+        TitleEditBox.Visibility = Visibility.Visible;
+        UpdateControlsVisibility();
+        TitleEditBox.Focus();
+        TitleEditBox.SelectAll();
+        Dispatcher.BeginInvoke(() => EnableIme(TitleEditBox));
+    }
+
+    private static void EnableIme(System.Windows.Controls.Control control)
+    {
+        InputMethod.SetIsInputMethodEnabled(control, true);
+        InputMethod.SetPreferredImeState(control, InputMethodState.On);
+        InputMethod.SetPreferredImeConversionMode(control, ImeConversionModeValues.Native);
+    }
+
+    private void EnterViewMode()
+    {
+        if (!_isEditMode || _suppressViewMode) return;
+        _isEditMode = false;
+        ViewModel.SetForceOpaque(false);
+        // ドキュメントを再構築してMarkdown表示とリンクを正しく復元する
+        LoadContent(ViewModel.Content);
+        ContentBox.IsReadOnly = true;
+        ContentBox.Cursor = WpfCursors.Arrow;
+        ContentBox.BorderThickness = new Thickness(0);
+        ContentBox.BorderBrush = WpfBrushes.Transparent;
+        ContentBox.ToolTip = LocalizationService.T("EditBodyTooltip");
+        TitleText.Visibility    = Visibility.Visible;
+        TitleEditBox.Visibility = Visibility.Collapsed;
+        UpdateControlsVisibility();
+        HideEditToolbar();
+        Keyboard.ClearFocus();
+    }
+
+    // リサイズ可否を切り替える。
+    //
+    // ResizeMode は XAML で CanResize 固定にしてある。実行時に切り替えると
+    // Window テンプレートが再適用され ResizeGrip が作り直されてしまうため。
+    // （CanResize ではグリップ自体がテンプレートに生成されない）
+    //
+    // 実際のリサイズ抑止は次の2つで行う:
+    //   1. WindowChrome.ResizeBorderThickness = 0 … 当たり判定を消す
+    //   2. Min/Max を現在値で固定           … 寸法変更そのものを封じる
+    //
+    // 折りたたみ時（enabled=false）でも幅だけは変更できるようにしている。
+    // 上下だけ 0 にして左右は残す。展開中の上下リサイズは許可し、
+    // 上下枠のダブルクリックによる Windows 標準の縦方向最大化だけは
+    // WndProc 側で抑止する。
+    private void SetResizeEnabled(bool enabled)
+    {
+        var chrome = WindowChrome.GetWindowChrome(this);
+        if (chrome != null)
+        {
+            if (chrome.IsFrozen)
+            {
+                chrome = (WindowChrome)chrome.Clone();
+                WindowChrome.SetWindowChrome(this, chrome);
+            }
+            var resizeBorder = Settings.Layout.ResizeBorder;
+            chrome.ResizeBorderThickness = enabled
+                ? new Thickness(resizeBorder)
+                : new Thickness(resizeBorder, 0, resizeBorder, 0);
+        }
+
+        MinWidth = Settings.Layout.UnfoldedMinWidth;
+        MaxWidth = double.PositiveInfinity;
+
+        if (enabled)
+        {
+            MinHeight = FoldedHeight;
+            MaxHeight = double.PositiveInfinity;
+        }
+        else
+        {
+            MinHeight = MaxHeight = FoldedHeight;
+        }
+    }
+
+    // 折りたたみ状態と編集モードの両方を考慮してステータスバーの表示を更新
+    private void UpdateControlsVisibility()
+    {
+        if (_isEditMode && !ViewModel.IsFolded && ShouldKeepEditToolbarOpen())
+            ShowEditToolbar();
+        else
+            HideEditToolbar();
+    }
+
+    private bool ShouldKeepEditToolbarOpen()
+        => _isContentContextMenuOpen ||
+           RootBorder.IsMouseOver ||
+           StatusBar.IsMouseOver ||
+           (_colorPopup?.IsOpen ?? false) ||
+           (_fontPopup?.IsOpen ?? false) ||
+           (_iconPopup?.IsOpen ?? false);
+
+    private void ShowEditToolbar()
+    {
+        if (!_isEditMode || ViewModel.IsFolded) return;
+        _toolbarHideTimer.Stop();
+        UpdateEditToolbarPlacement();
+        EditToolbarPopup.IsOpen = true;
+    }
+
+    private void UpdateEditToolbarPlacement()
+    {
+        const double Gap = 2;
+        EditToolbarPopup.PlacementTarget = RootBorder;
+        EditToolbarPopup.Placement = PlacementMode.Bottom;
+        EditToolbarPopup.VerticalOffset = Gap;
+    }
+
+    private void HideEditToolbar()
+    {
+        _toolbarHideTimer.Stop();
+        EditToolbarPopup.IsOpen = false;
+    }
+
+    private void ScheduleHideEditToolbar()
+    {
+        _toolbarHideTimer.Stop();
+        _toolbarHideTimer.Start();
+    }
+
+    private void UpdateTitleBarButtonsVisibility()
+    {
+        var visibility = TitleBar.IsMouseOver
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        AddNoteButton.Visibility = visibility;
+        PinButton.Visibility = visibility;
+        FoldButton.Visibility = Settings.ShowFoldButton ? visibility : Visibility.Collapsed;
+    }
+
+    // ─── ステータスバーぶんウィンドウを伸縮させる ────────────────
+    //
+    // ステータスバーを本文と同じ領域に押し込むと、背の低い付箋では
+    // 本文が隠れてしまう。編集モードの間だけウィンドウを下に伸ばし、
+    // 本文の表示領域を変えないようにする。
+
+    private double _statusBarDelta;
+
+    private void GrowForStatusBar()
+    {
+        if (_statusBarDelta > 0) return;          // すでに伸ばしてある
+
+        UpdateLayout();                           // 実際の高さを確定させる
+        double barHeight = StatusBar.ActualHeight;
+        if (barHeight <= 0) return;
+
+        _statusBarDelta = barHeight;
+
+        // 折りたたみアニメーションが Height プロパティを掴んだままだと、
+        // 以下の直接代入がその場では効いても次のレイアウトパスで
+        // アニメーションの最終値に上書きされてしまう。先に解除する。
+        BeginAnimation(HeightProperty, null);
+
+        // 伸ばす前に上下の制限を緩めておく（折りたたみ用の固定が残っていることがある）
+        MaxHeight = double.PositiveInfinity;
+        Height += barHeight;
+
+        KeepInsideWorkArea();
+    }
+
+    private void ShrinkAfterStatusBar()
+    {
+        if (_statusBarDelta <= 0) return;
+
+        // Height を変えると SizeChanged が走る。そこで差分を引く処理と
+        // 二重に引かないよう、先にクリアしておく。
+        double delta = _statusBarDelta;
+        _statusBarDelta = 0;
+        BeginAnimation(HeightProperty, null); // 同上の理由で解除してから代入する
+        Height = Math.Max(MinHeight, Height - delta);
+    }
+
+    // 下に伸ばした結果、画面外にはみ出すなら上へずらす
+    private void KeepInsideWorkArea()
+    {
+        var screen = System.Windows.Forms.Screen.FromHandle(new WindowInteropHelper(this).Handle);
+        var (dpiX, dpiY) = GetDpi();
+        double workBottom = screen.WorkingArea.Bottom / dpiY;
+        double workTop    = screen.WorkingArea.Top    / dpiY;
+
+        if (Top + Height > workBottom)
+            Top = Math.Max(workTop, workBottom - Height);
+    }
+
+    // View モード: クリックでリンクを直接開く / 非リンクならEdit モードへ
+    // Edit モード: Ctrl+クリックでリンクを開く
+    private void ContentBox_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!_isEditMode && IsDescendantOfType<WpfCheckBox>(e.OriginalSource as DependencyObject))
+            return;
+
+        var target = GetHyperlinkAt(e.GetPosition(ContentBox));
+
+        if (_isEditMode && ContentBox.IsReadOnly && !ViewModel.IsFolded)
+        {
+            EnterEditMode();
+            return;
+        }
+
+        if (!_isEditMode)
+        {
+            if (target != null)
+            {
+                OpenTarget(target);
+                e.Handled = true;
+                return;
+            }
+            // シングルクリックでは編集モードに入らない。誤って文字を
+            // 選択しただけで編集が始まるのを避けるため、ダブルクリックを要求する。
+            if (e.ClickCount == 2)
+                EnterEditMode();
+        }
+        else if (target != null && (Keyboard.Modifiers & ModifierKeys.Control) != 0)
+        {
+            OpenTarget(target);
+            e.Handled = true;
+        }
+    }
+
+    // View モードでハイパーリンク上にカーソルが来たら Hand に切り替え
+    private void ContentBox_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (_isEditMode) return;
+        var target = GetHyperlinkAt(e.GetPosition(ContentBox));
+        ContentBox.Cursor = target != null ? WpfCursors.Hand : WpfCursors.Arrow;
+    }
+
+    private void ContentBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        // ステータスバー・タイトル編集欄への移動は編集モードを維持する。
+        // ここで Focus() を呼び戻すとボタンのマウスキャプチャを奪い Click が発火しなくなる。
+        if (_suppressViewMode) return;
+        if (IsDescendantOf(e.NewFocus as DependencyObject, StatusBar)) return;
+        if (IsDescendantOf(e.NewFocus as DependencyObject, TitleEditBox)) return;
+        EnterViewMode();
+    }
+
+    private void TitleEditBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (_suppressViewMode) return;
+        if (IsDescendantOf(e.NewFocus as DependencyObject, StatusBar)) return;
+        if (IsDescendantOf(e.NewFocus as DependencyObject, ContentBox))
+        {
+            if (!ViewModel.IsFolded)
+                EnterEditMode();
+            return;
+        }
+        EnterViewMode();
+    }
+
+    private static bool IsDescendantOf(DependencyObject? child, DependencyObject? ancestor)
+    {
+        while (child != null)
+        {
+            if (child == ancestor) return true;
+            child = GetParentObject(child);
+        }
+        return false;
+    }
+
+    private static bool IsDescendantOfType<T>(DependencyObject? child)
+        where T : DependencyObject
+    {
+        while (child != null)
+        {
+            if (child is T) return true;
+            child = GetParentObject(child);
+        }
+        return false;
+    }
+
+    private static DependencyObject? GetParentObject(DependencyObject child)
+    {
+        if (child is Visual or System.Windows.Media.Media3D.Visual3D)
+            return VisualTreeHelper.GetParent(child);
+
+        if (child is FrameworkContentElement fce)
+            return fce.Parent;
+
+        return LogicalTreeHelper.GetParent(child);
+    }
+
+    private void ContentBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (sender == TitleEditBox && e.Key == Key.Enter && _isEditMode)
+        {
+            TitleEditBox.GetBindingExpression(System.Windows.Controls.TextBox.TextProperty)?.UpdateSource();
+            RequestSave();
+            FlushPendingSave();
+            EnterViewMode();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Escape && _isEditMode)
+        {
+            EnterViewMode();
+            e.Handled = true;
+        }
+    }
+
+    // テキストポインタを辿りハイパーリンクを探す（ヒットテストのコア）
+    private string? GetHyperlinkAt(System.Windows.Point pt)
+    {
+        var tp = ContentBox.GetPositionFromPoint(pt, snapToText: false);
+        if (tp == null) return null;
+        var el = tp.Parent as TextElement;
+        while (el != null)
+        {
+            if (el is Hyperlink h && h.Tag is string t) return t;
+            el = el.Parent as TextElement;
+        }
+        return null;
+    }
+
+    // ─── テキスト変更 ────────────────────────────────────────────
+
+    private void ContentBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_suppressTextChange) return;
+        if (_isTaskCheckboxUpdatePending) return;
+        ViewModel.Content = GetPlainText();
+        RequestSave();
+    }
+
+    // Title 自体の値は TwoWay バインディングが更新するので、ここでは保存の予約だけ行う
+    private void TitleEditBox_TextChanged(object sender, TextChangedEventArgs e) => RequestSave();
+
+}
