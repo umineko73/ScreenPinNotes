@@ -1,62 +1,64 @@
 # ScreenStickyNotes
 
-Windows 11 向けのデスクトップ付箋アプリです。折りたたむと本文の1行目がタイトルバーに残るので、メモを何枚も並べたまま内容を把握できます。
+English | [日本語](README.ja.md)
 
-初回起動時は、データフォルダに「Markdown サンプル」と「使い方」の付箋が自動作成されます。
+A desktop sticky notes app for Windows 11. When folded, the first line of the body stays visible in the title bar, so you can keep track of many notes at a glance without unfolding them.
 
-![ScreenStickyNotes のスクリーンショット](docs/screenshot.png)
+On first launch, a "Markdown sample" note and a "How to use" note are created automatically in the data folder.
 
-## 特徴
+![ScreenStickyNotes screenshot](docs/screenshot.png)
 
-- **折りたたみ**：タイトルバーだけの高さに畳める。畳んでもタイトル（または本文1行目）は見える
-- **閲覧／編集モード**：本文をダブルクリックで編集、Escape かフォーカス外しで閲覧に戻る
-- **Markdown 表示**（下記参照）
-- **スナップ**：ドラッグ・リサイズ時に画面端や他の付箋に10px以内で吸着
-- **半透明表示**：付箋ごとに10%〜100%の不透明度を設定（タイトル右クリック）。ホバー時は自動的に不透明寄りになり読みやすくなる
-- 24色のカラーパレット、40種のアイコン（`settings.json` の `IconPalette` で差し替え可）
-- 本文・タイトルで独立したフォントサイズ／フォントファミリー変更
-- 常に最前面（付箋ごと）、タスクトレイ常駐
-- 日本語/英語・ライト/ダークモードの切り替え
-- クリップボード画像の貼り付け、Windows スタートアップ登録、自動保存
-- タイトルホバープレビュー・折りたたみアニメーション・折りたたみボタンの表示は、タスクトレイメニューから個別にON/OFF可能
+## Features
 
-## Markdown 記法
+- **Fold**: collapse a note down to just its title bar height. The title (or the first body line) stays visible even folded
+- **View / Edit mode**: double-click the body to edit, Escape or losing focus returns to view mode
+- **Markdown rendering** (see below)
+- **Snapping**: notes snap within 10px of screen edges or other notes while dragging/resizing
+- **Semi-transparency**: set per-note opacity from 10% to 100% (right-click the title). Hovering automatically boosts opacity for readability
+- 24-color palette, 40 icons (customizable via `IconPalette` in `settings.json`)
+- Independent font size / font family for body and title
+- Always-on-top (per note), lives in the system tray
+- Japanese/English and Light/Dark mode switching
+- Paste images from the clipboard, register for Windows startup, autosave
+- Title hover preview, fold animation, and the fold button can each be toggled on/off from the tray menu
 
-編集モードでは Markdown ソースをそのまま表示し、閲覧モードで整形して表示します。
+## Markdown syntax
 
-| 記法 | 効果 |
+Edit mode shows the raw Markdown source; view mode renders it.
+
+| Syntax | Effect |
 |------|------|
-| `# 見出し` 〜 `###### 見出し` | 見出し（6段階） |
-| `**太字**` | **太字** |
-| `*斜体*` | *斜体* |
-| `` `コード` `` | インラインコード |
-| ` ```コードブロック``` ` | コードブロック |
-| `- 項目` / `1. 項目` | 箇条書き／番号付きリスト |
-| `- [ ]` / `- [x]` | チェックリスト（閲覧モードでもクリックで切替） |
-| `> 引用` | 引用 |
-| `---` | 水平線 |
-| `\| a \| b \|` | 表 |
-| `[表示名](https://example.com)` | リンク |
-| `![説明](assets/image.png)` | 画像（`{width=240}` でサイズ指定も可） |
+| `# Heading` through `###### Heading` | Headings (6 levels) |
+| `**bold**` | **bold** |
+| `*italic*` | *italic* |
+| `` `code` `` | Inline code |
+| ` ```code block``` ` | Code block |
+| `- item` / `1. item` | Bullet / numbered list |
+| `- [ ]` / `- [x]` | Checklist (clickable in view mode too) |
+| `> quote` | Blockquote |
+| `---` | Horizontal rule |
+| `\| a \| b \|` | Table |
+| `[label](https://example.com)` | Link |
+| `![alt](assets/image.png)` | Image (size can be set with `{width=240}`) |
 
-画像は編集モードで貼り付けると付箋フォルダの `assets` に保存されます。閲覧モードで画像を右クリックすると 10%〜100% でリサイズできます。
+Pasting an image in edit mode saves it to the note folder's `assets`. Right-click an image in view mode to resize it from 10% to 100%.
 
-## ダウンロード
+## Download
 
-[Releases](https://github.com/umineko73/ScreenStickyNotes/releases) から取得できます。zip を展開するだけで、インストール不要です。
+Get it from [Releases](https://github.com/umineko73/ScreenStickyNotes/releases). Just unzip it — no installation needed.
 
-| ファイル | 必要なもの |
+| File | Requires |
 |----------|-----------|
-| `ScreenStickyNotes-x.y.z-win-x64.zip`（約68MB） | なし。迷ったらこちら |
-| `ScreenStickyNotes-x.y.z-win-x64-runtime.zip`（約220KB） | [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) |
+| `ScreenStickyNotes-x.y.z-win-x64.zip` (~68MB) | Nothing. Pick this if unsure |
+| `ScreenStickyNotes-x.y.z-win-x64-runtime.zip` (~220KB) | [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) |
 
-どちらも展開すると `ScreenStickyNotes.exe` と `SampleNotes\`（サンプル付箋。無くても起動できます）が同じフォルダに入っています。
+Either way, unzipping gives you `ScreenStickyNotes.exe` and `SampleNotes\` (sample notes; the app runs fine without them) in the same folder.
 
-## 動作環境
+## Requirements
 
-Windows 10 以降（角丸表示は Windows 11 のみ）、x64。ビルドには .NET 8 SDK が必要です。
+Windows 10 or later (rounded corners require Windows 11), x64. Building requires the .NET 8 SDK.
 
-## ビルドと実行
+## Build and run
 
 ```bash
 git clone https://github.com/umineko73/ScreenStickyNotes.git
@@ -65,64 +67,64 @@ dotnet build
 dotnet run --project src
 ```
 
-配布用の zip は `powershell -ExecutionPolicy Bypass -File scripts/publish.ps1` で `artifacts/` に生成できます（バージョンは `-Version 0.1.1` で上書き可）。
+Distributable zips can be generated into `artifacts/` with `powershell -ExecutionPolicy Bypass -File scripts/publish.ps1` (override the version with `-Version 0.1.1`).
 
-## 使い方
+## Usage
 
-| 操作 | 動作 |
+| Action | Effect |
 |------|------|
-| 本文をダブルクリック | 編集モードに入る |
-| Escape | 閲覧モードに戻る |
-| タイトルバーをドラッグ / シングルクリック | 移動 / 折りたたみ・展開 |
-| タイトル上で右クリック | タイトル編集・重なり順・透明度・削除 |
-| タスクトレイアイコン 左クリック / 右クリック | 全表示切替 / メニュー |
+| Double-click the body | Enter edit mode |
+| Escape | Return to view mode |
+| Drag / single-click the title bar | Move / fold and unfold |
+| Right-click the title | Edit title, z-order, opacity, delete |
+| Tray icon left-click / right-click | Toggle show-all / open menu |
 
-タスクトレイの右クリックメニューでは、スタートアップ登録・言語・ダークモードに加えて、タイトルホバープレビュー・折りたたみアニメーション・折りたたみボタンの表示をそれぞれON/OFFできます。
+The tray icon's right-click menu also lets you toggle registering for startup, language, dark mode, and the title hover preview / fold animation / fold button display, in addition to the actions above.
 
-編集モード中はノート下部にツールバー（フォントサイズ・フォント・アイコン・色）が表示されます。本文中の URL・パス・Markdownリンクはクリック（編集モードは Ctrl+クリック）で開けます。
+While editing, a toolbar (font size, font, icon, color) appears at the bottom of the note. URLs, paths, and Markdown links in the body can be opened by clicking (Ctrl+click in edit mode).
 
 ## settings.json
 
-`%APPDATA%\ScreenStickyNotes\settings.json` に保存されます。主な項目:
+Saved at `%APPDATA%\ScreenStickyNotes\settings.json`. Key fields:
 
-- `Language`: `ja` / `en`、`Theme`: `Light` / `Dark`（トレイメニューから即時反映）
-- `ShowTitlePreviewTooltip` / `EnableFoldAnimation` / `ShowFoldButton`: トレイメニューのON/OFFトグルと連動
-- `HoverOpacityBoostPercent`: ホバー時に不透明度を何%上乗せするか（既定10）
-- `IconPalette`: タイトルバーのアイコン候補（絵文字の配列、既定40種）
-- `Timings` / `Interaction` / `Layout`: アニメーション速度・スナップ距離・初期サイズなどの細かい調整
+- `Language`: `ja` / `en`, `Theme`: `Light` / `Dark` (applied immediately from the tray menu)
+- `ShowTitlePreviewTooltip` / `EnableFoldAnimation` / `ShowFoldButton`: mirror the tray menu's ON/OFF toggles
+- `HoverOpacityBoostPercent`: how much opacity to add on hover, in percent (default 10)
+- `IconPalette`: candidate icons for the title bar (array of emoji, 40 by default)
+- `Timings` / `Interaction` / `Layout`: fine-tuning for animation speed, snap distance, default size, etc.
 
-直接編集した場合はアプリの再起動が必要です。
+Editing it directly requires restarting the app.
 
-## データの保存場所
+## Data location
 
 ```
 %AppData%\ScreenStickyNotes\
   settings.json
-  notes\{付箋ID}\meta.json, content.md, assets\
+  notes\{note id}\meta.json, content.md, assets\
 ```
 
-保存先は環境変数 `SCREENSTICKYNOTES_DATA` で変更できます。変更後 800ms でデバウンス保存されます。
+The storage location can be changed with the `SCREENSTICKYNOTES_DATA` environment variable. Changes are saved with an 800ms debounce.
 
-## 開発
+## Development
 
 ```
 src/
-  App.xaml(.cs)      エントリポイント・タスクトレイ常駐
-  Models/            データモデル
-  ViewModels/        ビューモデル
-  Views/             付箋ウィンドウ（XAML + コードビハインド）
-  Services/          永続化・Markdown・リンク検出など
-  SampleNotes/       初回起動時にコピーされるサンプル付箋
+  App.xaml(.cs)      Entry point, system tray hosting
+  Models/            Data models
+  ViewModels/        View models
+  Views/             Note windows (XAML + code-behind)
+  Services/          Persistence, Markdown, link detection, etc.
+  SampleNotes/       Sample notes copied on first launch
 ```
 
-付箋1枚が1つの `Window` です。`WindowStyle="None"` + `WindowChrome` で独自タイトルバーを描画しています。
+Each note is a single `Window`. `WindowStyle="None"` plus `WindowChrome` draws the custom title bar.
 
-## ライセンス
+## License
 
 [GNU General Public License v3.0](LICENSE)
 
 Copyright (C) 2026 umineko73
 
-このプログラムはフリーソフトウェアです。フリーソフトウェア財団が公表した GNU 一般公衆利用許諾書バージョン3、または（任意で）それ以降のバージョンの条項に従って、再頒布・改変することができます。
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 
-このプログラムは有用であることを願って頒布されますが、**一切の保証はありません**。詳細は GNU 一般公衆利用許諾書をご覧ください。
+This program is distributed in the hope that it will be useful, but **WITHOUT ANY WARRANTY**; see the GNU General Public License for more details.
