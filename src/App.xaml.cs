@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 using System.Drawing;
+using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
@@ -29,7 +30,7 @@ public partial class App : System.Windows.Application
 {
     public new static App Current => (App)System.Windows.Application.Current;
 
-    private readonly StorageService _storage = new();
+    private StorageService _storage = new();
     private readonly List<StickyNoteWindow> _windows = [];
     private AppSettings _settings = new();
     private NotifyIcon? _trayIcon;
@@ -82,6 +83,8 @@ public partial class App : System.Windows.Application
         _settings = _storage.LoadSettings();
         // スタートアップ登録は既存のレジストリが実体なので、起動時にJSONへ反映する。
         _settings.StartWithWindows = StartupService.IsRegistered;
+        EnsureStorageRootSelected();
+        _storage = _storage.WithStorageRoot(_settings.StorageRoot);
         _storage.SaveSettings(_settings);
 
         InitIpcWindow();
@@ -96,6 +99,42 @@ public partial class App : System.Windows.Application
 
         foreach (var note in notes)
             OpenNoteWindow(note);
+    }
+
+    private void EnsureStorageRootSelected()
+    {
+        if (!string.IsNullOrWhiteSpace(_settings.StorageRoot))
+            return;
+
+        if (!string.IsNullOrWhiteSpace(_settings.NotesRoot))
+        {
+            _settings.StorageRoot = StorageService.GetStorageRootFromLegacyNotesRoot(_settings.NotesRoot);
+            _settings.NotesRoot = "";
+            _settings.Normalize();
+            return;
+        }
+
+        _settings.StorageRoot = StorageService.DefaultStorageRoot;
+        _settings.Normalize();
+    }
+
+    private static string? ShowStorageRootDialog(string? selectedPath)
+    {
+        var initialPath = string.IsNullOrWhiteSpace(selectedPath)
+            ? StorageService.DefaultStorageRoot
+            : selectedPath;
+        Directory.CreateDirectory(initialPath);
+
+        using var dialog = new FolderBrowserDialog
+        {
+            Description = LocalizationService.T("SelectNotesRootDescription"),
+            UseDescriptionForTitle = true,
+            ShowNewFolderButton = true,
+            SelectedPath = initialPath,
+        };
+
+        var result = dialog.ShowDialog();
+        return result == DialogResult.OK ? dialog.SelectedPath : null;
     }
 
     private void ConfigureExceptionHandling()
@@ -220,6 +259,8 @@ public partial class App : System.Windows.Application
     private ToolStripMenuItem BuildSettingsMenu(ToolStripMenuItem startupItem)
     {
         var settingsItem = new ToolStripMenuItem(LocalizationService.T("TraySettings"));
+        settingsItem.DropDownItems.Add(BuildSelectNotesRootItem());
+        settingsItem.DropDownItems.Add("-");
         settingsItem.DropDownItems.Add(startupItem);
         settingsItem.DropDownItems.Add(BuildTitlePreviewTooltipItem());
         settingsItem.DropDownItems.Add(BuildFoldAnimationItem());
@@ -227,6 +268,117 @@ public partial class App : System.Windows.Application
         settingsItem.DropDownItems.Add(BuildDarkModeItem());
         settingsItem.DropDownItems.Add(BuildLanguageMenu());
         return settingsItem;
+    }
+
+    private ToolStripMenuItem BuildSelectNotesRootItem()
+    {
+        var item = new ToolStripMenuItem(LocalizationService.T("TraySelectNotesRoot"));
+        item.Click += (_, _) => SelectNotesRootFromTray();
+        return item;
+    }
+
+    private void SelectNotesRootFromTray()
+    {
+        var selectedPath = ShowStorageRootDialog(StorageService.GetSelectableFolderFromStorageRoot(_settings.StorageRoot));
+        if (string.IsNullOrWhiteSpace(selectedPath))
+            return;
+
+        var storageRoot = StorageService.GetStorageRootFromSelectedFolder(selectedPath);
+        if (string.Equals(storageRoot, Path.GetFullPath(_settings.StorageRoot), StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var targetNotesRoot = StorageService.GetNotesRootFromStorageRoot(storageRoot);
+        var targetNotesMissing = !Directory.Exists(targetNotesRoot);
+
+        FlushAndSave();
+        if (!TryMoveNotesToNewStorageRoot(_storage.NotesRoot, storageRoot, out var movedNotes))
+            return;
+
+        _settings.StorageRoot = storageRoot;
+        _settings.NotesRoot = "";
+        _settings.Normalize();
+        _storage.SaveSettings(_settings);
+        _storage = _storage.WithStorageRoot(_settings.StorageRoot);
+
+        if (targetNotesMissing && !movedNotes)
+            ShowEmptyStorageInitializationMessage();
+
+        ReloadNoteWindowsFromStorage(showEmptyStorageMessage: !targetNotesMissing || movedNotes);
+        RefreshTrayMenu();
+
+        System.Windows.MessageBox.Show(
+            LocalizationService.T("SelectNotesRootChangedMessage"),
+            LocalizationService.T("SelectNotesRootChangedTitle"),
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+    }
+
+    private bool TryMoveNotesToNewStorageRoot(string sourceNotesRoot, string targetStorageRoot, out bool moved)
+    {
+        moved = false;
+        var source = Path.GetFullPath(sourceNotesRoot);
+        var target = StorageService.GetNotesRootFromStorageRoot(targetStorageRoot);
+
+        if (string.Equals(source, target, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (!Directory.Exists(source) || !Directory.EnumerateFileSystemEntries(source).Any())
+            return true;
+        if (Directory.Exists(target))
+            return true;
+
+        var result = System.Windows.MessageBox.Show(
+            LocalizationService.T("MoveNotesConfirmMessage"),
+            LocalizationService.T("MoveNotesConfirmTitle"),
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+        if (result != MessageBoxResult.Yes)
+            return true;
+
+        try
+        {
+            MoveDirectory(source, target);
+            moved = true;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            ErrorReporter.ReportNonFatal("Move notes folder", ex);
+            System.Windows.MessageBox.Show(
+                LocalizationService.T("MoveNotesFailedMessage"),
+                LocalizationService.T("MoveNotesFailedTitle"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            return false;
+        }
+    }
+
+    private static void MoveDirectory(string source, string target)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        if (string.Equals(Path.GetPathRoot(source), Path.GetPathRoot(target), StringComparison.OrdinalIgnoreCase))
+        {
+            Directory.Move(source, target);
+            return;
+        }
+
+        CopyDirectory(source, target);
+        Directory.Delete(source, recursive: true);
+    }
+
+    private static void CopyDirectory(string source, string target)
+    {
+        Directory.CreateDirectory(target);
+        foreach (var directory in Directory.EnumerateDirectories(source, "*", SearchOption.AllDirectories))
+        {
+            var relativePath = Path.GetRelativePath(source, directory);
+            Directory.CreateDirectory(Path.Combine(target, relativePath));
+        }
+
+        foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+        {
+            var relativePath = Path.GetRelativePath(source, file);
+            File.Copy(file, Path.Combine(target, relativePath), overwrite: false);
+        }
     }
 
     private ToolStripMenuItem BuildTitlePreviewTooltipItem()
@@ -459,6 +611,46 @@ public partial class App : System.Windows.Application
         _windows.Add(win);
         win.Show();
     }
+
+    private void ReloadNoteWindowsFromStorage(bool showEmptyStorageMessage = true)
+    {
+        var oldWindows = _windows.ToList();
+        _windows.Clear();
+        foreach (var win in oldWindows)
+            win.Close();
+
+        var notes = LoadOrCreateInitialNotes(showEmptyStorageMessage);
+
+        foreach (var note in notes)
+            OpenNoteWindow(note);
+    }
+
+    private List<StickyNote> LoadOrCreateInitialNotes(bool showEmptyStorageMessage = true)
+    {
+        var notes = _storage.Load();
+        if (notes.Count > 0)
+            return notes;
+
+        if (showEmptyStorageMessage && !IsDefaultStorageRoot())
+            ShowEmptyStorageInitializationMessage();
+
+        notes = SampleNoteFactory.CreateInitialNotes(_settings, _storage);
+        _storage.Save(notes);
+        return notes;
+    }
+
+    private static void ShowEmptyStorageInitializationMessage()
+        => System.Windows.MessageBox.Show(
+            LocalizationService.T("InitializeEmptyStorageMessage"),
+            LocalizationService.T("InitializeEmptyStorageTitle"),
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+
+    private bool IsDefaultStorageRoot()
+        => string.Equals(
+            Path.GetFullPath(_settings.StorageRoot),
+            Path.GetFullPath(StorageService.DefaultStorageRoot),
+            StringComparison.OrdinalIgnoreCase);
 
     public void RemoveNote(string id)
     {

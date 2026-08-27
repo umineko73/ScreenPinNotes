@@ -16,6 +16,8 @@ public sealed class AppSettings
     public bool EnableFoldAnimation { get; set; }
     public bool ShowFoldButton { get; set; }
     public int HoverOpacityBoostPercent { get; set; } = 10;
+    public string StorageRoot { get; set; } = "";
+    public string NotesRoot { get; set; } = "";
     public string Language { get; set; } = "ja";
     public string Theme { get; set; } = "Light";
     public TimingSettings Timings { get; set; } = new();
@@ -41,6 +43,8 @@ public sealed class AppSettings
         if (!string.Equals(Language, "en", StringComparison.OrdinalIgnoreCase))
             Language = "ja";
         Theme = string.Equals(Theme, "Dark", StringComparison.OrdinalIgnoreCase) ? "Dark" : "Light";
+        StorageRoot = StorageRoot?.Trim() ?? "";
+        NotesRoot = NotesRoot?.Trim() ?? "";
 
         Timings ??= new TimingSettings();
         Interaction ??= new InteractionSettings();

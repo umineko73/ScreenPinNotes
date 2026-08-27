@@ -23,6 +23,7 @@ public static class LocalizationService
             "TrayHideAll" => english ? "Hide all" : "全非表示",
             "TrayNewNote" => english ? "New note" : "新規付箋作成",
             "TraySettings" => english ? "Settings" : "設定",
+            "TraySelectNotesRoot" => english ? "Select note folder..." : "保存フォルダを選択...",
             "TrayStartup" => english ? "Start with Windows" : "Windows 起動時に開始",
             "TrayTitlePreviewTooltip" => english ? "Title hover preview" : "タイトルのツールチップ",
             "TrayFoldAnimation" => english ? "Fold animation" : "折りたたみアニメーション",
@@ -33,6 +34,26 @@ public static class LocalizationService
             "TrayDarkMode" => english ? "Dark mode" : "ダークモード",
             "TrayAbout" => english ? "About ScreenStickyNotes" : "ScreenStickyNotes について",
             "TrayExit" => english ? "Exit" : "終了",
+            "SelectNotesRootTitle" => english ? "Select note folder" : "ノート保存フォルダの選択",
+            "SelectNotesRootDescription" => english
+                ? "Select the parent folder. A ScreenStickyNotes folder and its notes folder will be created inside it."
+                : "親フォルダを選択してください。選択したフォルダ内に ScreenStickyNotes フォルダと notes フォルダを作成します。",
+            "SelectNotesRootChangedTitle" => english ? "Note folder changed" : "保存フォルダを変更しました",
+            "SelectNotesRootChangedMessage" => english
+                ? "The storage folder has been changed. Notes from its ScreenStickyNotes\\notes folder are now loaded."
+                : "保存フォルダを変更しました。選択したフォルダ内の ScreenStickyNotes\\notes フォルダから付箋を読み込みました。",
+            "InitializeEmptyStorageTitle" => english ? "No notes found" : "付箋データがありません",
+            "InitializeEmptyStorageMessage" => english
+                ? "No notes were found in the selected storage folder. The app will create initial notes and start with them."
+                : "選択した保存フォルダに付箋データがありません。初期ノートを作成して起動します。",
+            "MoveNotesConfirmTitle" => english ? "Move existing notes?" : "既存の付箋を移動しますか？",
+            "MoveNotesConfirmMessage" => english
+                ? "The selected folder does not contain ScreenStickyNotes\\notes.\n\nYes: move the current notes folder to the selected folder.\nNo: create initial notes in the selected folder. The current notes folder will remain unchanged."
+                : "選択したフォルダに ScreenStickyNotes\\notes フォルダがありません。\n\nはい: 現在の notes フォルダを選択したフォルダへ移動します。\nいいえ: 選択したフォルダに初期ノートを作成します。現在の notes フォルダはそのまま残ります。",
+            "MoveNotesFailedTitle" => english ? "Move failed" : "移動に失敗しました",
+            "MoveNotesFailedMessage" => english
+                ? "The notes folder could not be moved. The storage folder was not changed. See the log for details."
+                : "notes フォルダを移動できませんでした。保存フォルダは変更していません。詳細はログを確認してください。",
 
             "AboutTitle" => english ? "About ScreenStickyNotes" : "ScreenStickyNotes について",
             "AboutDescription" => english

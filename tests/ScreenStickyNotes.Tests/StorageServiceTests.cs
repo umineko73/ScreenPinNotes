@@ -161,6 +161,7 @@ public sealed class StorageServiceTests : IDisposable
     {
         var settings = new AppSettings { Language = "en", Theme = "Dark" };
         settings.HoverOpacityBoostPercent = 999; // out of range, Normalize should clamp on save
+        settings.StorageRoot = Path.Combine(_tempRoot, "custom-storage");
 
         _storage.SaveSettings(settings);
         var loaded = _storage.LoadSettings();
@@ -168,6 +169,7 @@ public sealed class StorageServiceTests : IDisposable
         Assert.Equal("en", loaded.Language);
         Assert.Equal("Dark", loaded.Theme);
         Assert.Equal(90, loaded.HoverOpacityBoostPercent);
+        Assert.Equal(Path.Combine(_tempRoot, "custom-storage"), loaded.StorageRoot);
     }
 
     [Fact]
@@ -178,6 +180,74 @@ public sealed class StorageServiceTests : IDisposable
         Assert.Equal("ja", settings.Language);
         Assert.Equal("Light", settings.Theme);
         Assert.NotEmpty(settings.IconPalette);
+    }
+
+    [Fact]
+    public void Constructor_WithSeparateNotesRoot_KeepsSettingsInSettingsRoot()
+    {
+        var settingsRoot = Path.Combine(_tempRoot, "settings-root");
+        var storageRoot = Path.Combine(_tempRoot, "storage-root");
+        var notesRoot = Path.Combine(storageRoot, "notes");
+        var storage = new StorageService(settingsRoot).WithStorageRoot(storageRoot);
+        var note = new StickyNote { Content = "body" };
+
+        storage.SaveSettings(new AppSettings { StorageRoot = storageRoot });
+        storage.SaveNote(note);
+
+        Assert.True(File.Exists(Path.Combine(settingsRoot, "settings.json")));
+        Assert.True(File.Exists(Path.Combine(notesRoot, note.Id, "meta.json")));
+        Assert.True(File.Exists(Path.Combine(notesRoot, note.Id, "content.md")));
+        Assert.False(Directory.Exists(Path.Combine(settingsRoot, "notes")));
+    }
+
+    [Fact]
+    public void GetNotesRootFromStorageRoot_UsesNotesSubfolder()
+    {
+        var storageRoot = Path.Combine(_tempRoot, "storage-root");
+
+        var notesRoot = StorageService.GetNotesRootFromStorageRoot(storageRoot);
+
+        Assert.Equal(Path.Combine(storageRoot, "notes"), notesRoot);
+    }
+
+    [Fact]
+    public void GetStorageRootFromSelectedFolder_AppendsScreenStickyNotesFolder()
+    {
+        var selectedFolder = Path.Combine(_tempRoot, "selected");
+
+        var storageRoot = StorageService.GetStorageRootFromSelectedFolder(selectedFolder);
+
+        Assert.Equal(Path.Combine(selectedFolder, "ScreenStickyNotes"), storageRoot);
+    }
+
+    [Fact]
+    public void GetStorageRootFromSelectedFolder_DoesNotAppendDuplicateScreenStickyNotesFolder()
+    {
+        var selectedFolder = Path.Combine(_tempRoot, "selected", "ScreenStickyNotes");
+
+        var storageRoot = StorageService.GetStorageRootFromSelectedFolder(selectedFolder);
+
+        Assert.Equal(selectedFolder, storageRoot);
+    }
+
+    [Fact]
+    public void GetSelectableFolderFromStorageRoot_UsesParentForScreenStickyNotesFolder()
+    {
+        var storageRoot = Path.Combine(_tempRoot, "selected", "ScreenStickyNotes");
+
+        var selectedFolder = StorageService.GetSelectableFolderFromStorageRoot(storageRoot);
+
+        Assert.Equal(Path.Combine(_tempRoot, "selected"), selectedFolder);
+    }
+
+    [Fact]
+    public void GetStorageRootFromLegacyNotesRoot_UsesParentWhenFolderIsNotes()
+    {
+        var legacyNotesRoot = Path.Combine(_tempRoot, "ScreenStickyNotes", "notes");
+
+        var storageRoot = StorageService.GetStorageRootFromLegacyNotesRoot(legacyNotesRoot);
+
+        Assert.Equal(Path.Combine(_tempRoot, "ScreenStickyNotes"), storageRoot);
     }
 
     [Fact]

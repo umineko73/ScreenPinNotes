@@ -32,6 +32,12 @@ public class StorageService
     /// <summary>実際に使用しているデータフォルダ（アプリ全体で共有する既定値）。</summary>
     public static string DataRoot => AppRoot;
 
+    /// <summary>既定の保存ルートフォルダ。</summary>
+    public static string DefaultStorageRoot => AppRoot;
+
+    /// <summary>既定のノート保存フォルダ。</summary>
+    public static string DefaultNotesRoot => GetNotesRootFromStorageRoot(DefaultStorageRoot);
+
     /// <summary>アプリケーション全体の設定ファイル（既定のデータフォルダ基準）。</summary>
     public static string SettingsPath => Path.Combine(AppRoot, "settings.json");
 
@@ -59,12 +65,49 @@ public class StorageService
 
     public StorageService() : this(AppRoot) { }
 
-    public StorageService(string dataRoot)
+    public StorageService(string dataRoot) : this(dataRoot, Path.Combine(Path.GetFullPath(dataRoot), "notes")) { }
+
+    public StorageService(string settingsRoot, string notesRoot)
     {
-        _root = Path.GetFullPath(dataRoot);
-        _notesDir = Path.Combine(_root, "notes");
+        _root = Path.GetFullPath(settingsRoot);
+        _notesDir = Path.GetFullPath(notesRoot);
         _settingsPath = Path.Combine(_root, "settings.json");
         _legacyFile = Path.Combine(_root, "notes.json"); // 旧形式（移行元）
+    }
+
+    public string NotesRoot => _notesDir;
+
+    public StorageService WithNotesRoot(string notesRoot)
+        => new(_root, notesRoot);
+
+    public StorageService WithStorageRoot(string storageRoot)
+        => WithNotesRoot(GetNotesRootFromStorageRoot(storageRoot));
+
+    public static string GetNotesRootFromStorageRoot(string storageRoot)
+        => Path.Combine(Path.GetFullPath(storageRoot), "notes");
+
+    public static string GetStorageRootFromSelectedFolder(string selectedFolder)
+    {
+        var fullPath = Path.GetFullPath(selectedFolder);
+        return string.Equals(Path.GetFileName(fullPath), "ScreenStickyNotes", StringComparison.OrdinalIgnoreCase)
+            ? fullPath
+            : Path.Combine(fullPath, "ScreenStickyNotes");
+    }
+
+    public static string GetSelectableFolderFromStorageRoot(string storageRoot)
+    {
+        var fullPath = Path.GetFullPath(storageRoot);
+        return string.Equals(Path.GetFileName(fullPath), "ScreenStickyNotes", StringComparison.OrdinalIgnoreCase)
+            ? Path.GetDirectoryName(fullPath) ?? fullPath
+            : fullPath;
+    }
+
+    public static string GetStorageRootFromLegacyNotesRoot(string notesRoot)
+    {
+        var fullPath = Path.GetFullPath(notesRoot);
+        return string.Equals(Path.GetFileName(fullPath), "notes", StringComparison.OrdinalIgnoreCase)
+            ? Path.GetDirectoryName(fullPath) ?? fullPath
+            : fullPath;
     }
 
     public string GetNoteDirectoryPath(string id)
