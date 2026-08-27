@@ -199,13 +199,14 @@ public partial class StickyNoteWindow
         if (!LinkDetector.IsRenderableImageTarget(markdownImage.Target))
             return fallback;
 
-        var imagePath = ResolveImagePath(markdownImage.Target);
-        if (imagePath == null || !File.Exists(imagePath))
-            return fallback;
-
-        var bitmap = new WpfBitmapImage();
+        WpfBitmapImage bitmap;
         try
         {
+            var imagePath = ResolveImagePath(markdownImage.Target);
+            if (imagePath == null || !File.Exists(imagePath))
+                return fallback;
+
+            bitmap = new WpfBitmapImage();
             bitmap.BeginInit();
             bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
             bitmap.UriSource = new Uri(imagePath, UriKind.Absolute);
@@ -365,7 +366,10 @@ public partial class StickyNoteWindow
             return pending.Percent;
         }
 
-        var currentWidth = !double.IsNaN(image.Width) && image.Width > 0
+        // image.Width == 0 は「サイズ0%を明示的に指定した」有効な状態なので、
+        // NaN（未指定）とは区別する。0 を "未指定" 扱いすると、0%まで縮めた画像の
+        // 現在値が誤って ActualWidth/OriginalWidth 側にフォールバックしてしまう。
+        var currentWidth = !double.IsNaN(image.Width)
             ? image.Width
             : image.ActualWidth > 0
                 ? image.ActualWidth

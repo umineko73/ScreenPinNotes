@@ -102,6 +102,36 @@ public class StorageService
             : fullPath;
     }
 
+    /// <summary>
+    /// settings.json をアプリ設定として読み込む前に、実際に使われる notes フォルダを
+    /// 軽く覗き見る。二重起動防止のミューテックスキーを、DataRoot だけでなく
+    /// 実際の notes フォルダ（StorageRoot、または移行前の旧 NotesRoot）に基づいて
+    /// 決められるようにするためのもの。設定ファイルが無い/壊れている/notes フォルダが
+    /// 未設定の場合は null（呼び出し側は既定の notes フォルダにフォールバックする）。
+    /// </summary>
+    public static string? PeekConfiguredNotesRoot()
+    {
+        try
+        {
+            if (!File.Exists(SettingsPath)) return null;
+            using var doc = JsonDocument.Parse(File.ReadAllText(SettingsPath, Encoding.UTF8));
+
+            if (doc.RootElement.TryGetProperty("StorageRoot", out var storageRootEl) &&
+                storageRootEl.GetString() is { Length: > 0 } storageRoot)
+                return GetNotesRootFromStorageRoot(storageRoot);
+
+            if (doc.RootElement.TryGetProperty("NotesRoot", out var notesRootEl) &&
+                notesRootEl.GetString() is { Length: > 0 } legacyNotesRoot)
+                return Path.GetFullPath(legacyNotesRoot);
+
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public static string GetStorageRootFromLegacyNotesRoot(string notesRoot)
     {
         var fullPath = Path.GetFullPath(notesRoot);
@@ -284,17 +314,25 @@ public class StorageService
                     if (!IsSafeNoteId(old.Id))
                         continue;
 
-                    WriteNote(new StickyNote
+                    try
                     {
-                        Id         = old.Id,
-                        Content    = old.Content,
-                        X          = old.X,         Y      = old.Y,
-                        Width      = old.Width,      Height = old.Height,
-                        ColorKey   = old.ColorKey,
-                        FontFamily = old.FontFamily, FontSize = old.FontSize,
-                        IsTopmost  = old.IsTopmost,  IsFolded = old.IsFolded,
-                        CreatedAt  = old.CreatedAt,  UpdatedAt = old.UpdatedAt,
-                    });
+                        WriteNote(new StickyNote
+                        {
+                            Id         = old.Id,
+                            Content    = old.Content,
+                            X          = old.X,         Y      = old.Y,
+                            Width      = old.Width,      Height = old.Height,
+                            ColorKey   = old.ColorKey,
+                            FontFamily = old.FontFamily, FontSize = old.FontSize,
+                            IsTopmost  = old.IsTopmost,  IsFolded = old.IsFolded,
+                            CreatedAt  = old.CreatedAt,  UpdatedAt = old.UpdatedAt,
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        // この1件が壊れていても他の移行・.bakへのリネームは続ける
+                        ErrorReporter.ReportNonFatal($"Migrate legacy note {old.Id}", ex);
+                    }
                 }
             }
             // 旧ファイルを .bak にリネームして保持

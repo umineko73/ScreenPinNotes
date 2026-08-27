@@ -42,15 +42,24 @@ public partial class App : System.Windows.Application
     // 複数インスタンスが同じ notes フォルダを読み書きすると、
     // 一方の保存が他方のノートを壊すため 1 プロセスに制限する。
 
-    // 名前はデータフォルダごとに分ける。別フォルダを使うインスタンス
-    // （テスト用など）は互いに独立して動いてよいため。
-    private static readonly string InstanceKey =
-        StorageService.DataRoot.ToLowerInvariant().Replace('\\', '_').Replace(':', '_');
-
-    private static readonly string MutexName = "ScreenStickyNotes.SingleInstance." + InstanceKey;
-    private static readonly int ShowAllMessage =
-        RegisterWindowMessage("ScreenStickyNotes.ShowAll." + InstanceKey);
+    // キーは実際に使われる notes フォルダ（StorageRoot、または移行前の旧
+    // NotesRoot）ごとに分ける。DataRoot だけをキーにしていた頃は、
+    // タスクトレイの「保存フォルダを選択...」で notes だけを DataRoot と無関係な
+    // 場所へ移動できるようになったことで、DataRoot（＝settings.jsonの置き場所）が
+    // 異なる2インスタンスが同じ notes フォルダを指せてしまい、二重起動防止が
+    // 効かなくなる穴があった。settings.json をアプリとして読み込む前に軽く覗き見て
+    // 実際の notes フォルダを特定し、それをキーにする（未設定/読み込み不可なら
+    // DataRoot 配下の既定 notes フォルダにフォールバック）。
+    private string _instanceKey = "";
+    private string _mutexName = "";
+    private int _showAllMessage;
     private const int HWND_BROADCAST = 0xFFFF;
+
+    private static string ResolveInstanceKey()
+    {
+        var notesRoot = StorageService.PeekConfiguredNotesRoot() ?? StorageService.DefaultNotesRoot;
+        return Path.GetFullPath(notesRoot).ToLowerInvariant().Replace('\\', '_').Replace(':', '_');
+    }
 
     private Mutex? _instanceMutex;
     private System.Windows.Interop.HwndSource? _ipcWindow;
@@ -66,11 +75,15 @@ public partial class App : System.Windows.Application
         base.OnStartup(e);
         ConfigureExceptionHandling();
 
-        _instanceMutex = new Mutex(initiallyOwned: true, MutexName, out bool isFirstInstance);
+        _instanceKey = ResolveInstanceKey();
+        _mutexName = "ScreenStickyNotes.SingleInstance." + _instanceKey;
+        _showAllMessage = RegisterWindowMessage("ScreenStickyNotes.ShowAll." + _instanceKey);
+
+        _instanceMutex = new Mutex(initiallyOwned: true, _mutexName, out bool isFirstInstance);
         if (!isFirstInstance)
         {
             // 既に起動済み。既存インスタンスに全表示を依頼して自分は終了する
-            PostMessage(HWND_BROADCAST, ShowAllMessage, 0, 0);
+            PostMessage(HWND_BROADCAST, _showAllMessage, 0, 0);
             _instanceMutex.Dispose();
             _instanceMutex = null;
             Shutdown();
@@ -192,7 +205,7 @@ public partial class App : System.Windows.Application
         _ipcWindow = new System.Windows.Interop.HwndSource(parameters);
         _ipcWindow.AddHook((nint hwnd, int msg, nint w, nint l, ref bool handled) =>
         {
-            if (msg == ShowAllMessage)
+            if (msg == _showAllMessage)
             {
                 Dispatcher.BeginInvoke(ShowAllNotes);
                 handled = true;
@@ -277,7 +290,7 @@ public partial class App : System.Windows.Application
         return item;
     }
 
-    private void SelectNotesRootFromTray()
+    private async void SelectNotesRootFromTray()
     {
         var selectedPath = ShowStorageRootDialog(StorageService.GetSelectableFolderFromStorageRoot(_settings.StorageRoot));
         if (string.IsNullOrWhiteSpace(selectedPath))
@@ -291,7 +304,8 @@ public partial class App : System.Windows.Application
         var targetNotesMissing = !Directory.Exists(targetNotesRoot);
 
         FlushAndSave();
-        if (!TryMoveNotesToNewStorageRoot(_storage.NotesRoot, storageRoot, out var movedNotes))
+        var (canProceed, movedNotes) = await TryMoveNotesToNewStorageRootAsync(_storage.NotesRoot, storageRoot);
+        if (!canProceed)
             return;
 
         _settings.StorageRoot = storageRoot;
@@ -313,18 +327,20 @@ public partial class App : System.Windows.Application
             MessageBoxImage.Information);
     }
 
-    private bool TryMoveNotesToNewStorageRoot(string sourceNotesRoot, string targetStorageRoot, out bool moved)
+    // 大きな notes フォルダの移動はディスク I/O が伴うため、UI スレッドを
+    // ブロックしないよう実際のコピー／移動だけバックグラウンドスレッドで行う。
+    // 確認・失敗ダイアログは呼び出し元と同じスレッド（UIスレッド）で表示される。
+    private async Task<(bool canProceed, bool moved)> TryMoveNotesToNewStorageRootAsync(string sourceNotesRoot, string targetStorageRoot)
     {
-        moved = false;
         var source = Path.GetFullPath(sourceNotesRoot);
         var target = StorageService.GetNotesRootFromStorageRoot(targetStorageRoot);
 
         if (string.Equals(source, target, StringComparison.OrdinalIgnoreCase))
-            return true;
+            return (true, false);
         if (!Directory.Exists(source) || !Directory.EnumerateFileSystemEntries(source).Any())
-            return true;
+            return (true, false);
         if (Directory.Exists(target))
-            return true;
+            return (true, false);
 
         var result = System.Windows.MessageBox.Show(
             LocalizationService.T("MoveNotesConfirmMessage"),
@@ -332,13 +348,12 @@ public partial class App : System.Windows.Application
             MessageBoxButton.YesNo,
             MessageBoxImage.Question);
         if (result != MessageBoxResult.Yes)
-            return true;
+            return (true, false);
 
         try
         {
-            MoveDirectory(source, target);
-            moved = true;
-            return true;
+            await Task.Run(() => MoveDirectory(source, target));
+            return (true, true);
         }
         catch (Exception ex)
         {
@@ -348,7 +363,7 @@ public partial class App : System.Windows.Application
                 LocalizationService.T("MoveNotesFailedTitle"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
-            return false;
+            return (false, false);
         }
     }
 
@@ -361,7 +376,25 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        CopyDirectory(source, target);
+        // 別ドライブへの移動はファイルコピーになるため、target へ直接コピーすると
+        // 途中で失敗したときに不完全なフォルダが target に残ってしまい、
+        // 再試行時に「target が存在する＝移行済み」と誤認してしまう
+        // （呼び出し元の Directory.Exists(target) チェック）。
+        // 一時フォルダへ完全にコピーできてから target へリネームすることで、
+        // 失敗時は target が存在しない状態を保ち、安全に再試行できるようにする。
+        var staging = target + ".migrating-" + Guid.NewGuid().ToString("N");
+        try
+        {
+            CopyDirectory(source, staging);
+            Directory.Move(staging, target);
+        }
+        catch
+        {
+            if (Directory.Exists(staging))
+                Directory.Delete(staging, recursive: true);
+            throw;
+        }
+
         Directory.Delete(source, recursive: true);
     }
 
