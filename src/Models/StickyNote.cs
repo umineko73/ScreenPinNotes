@@ -44,6 +44,7 @@ public class StickyNote
     public string FontFamily { get; set; } = "Yu Gothic UI";
     public double FontSize { get; set; } = 13;
     public double TitleFontSize { get; set; } = 12;
+    public int OpacityPercent { get; set; } = 100;
     public bool IsTopmost { get; set; } = false;
     public bool IsFolded { get; set; } = false;
     public DateTime CreatedAt { get; set; } = DateTime.Now;

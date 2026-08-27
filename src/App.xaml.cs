@@ -168,12 +168,48 @@ public partial class App : System.Windows.Application
         menu.Items.Add(LocalizationService.T("TrayNewNote"), null, (_, _) => AddNewNote());
         menu.Items.Add("-");
         menu.Items.Add(startupItem);
+        menu.Items.Add(BuildTitlePreviewTooltipItem());
+        menu.Items.Add(BuildFoldAnimationItem());
+        menu.Items.Add(BuildFoldButtonItem());
         menu.Items.Add(BuildLanguageMenu());
         menu.Items.Add(BuildDarkModeItem());
         menu.Items.Add("-");
         menu.Items.Add(LocalizationService.T("TrayAbout"), null, (_, _) => ShowAboutWindow());
         menu.Items.Add(LocalizationService.T("TrayExit"), null, (_, _) => ExitApp());
         return menu;
+    }
+
+    private ToolStripMenuItem BuildTitlePreviewTooltipItem()
+    {
+        var item = new ToolStripMenuItem(LocalizationService.T("TrayTitlePreviewTooltip"))
+        {
+            Checked = _settings.ShowTitlePreviewTooltip,
+            CheckOnClick = false,
+        };
+        item.Click += (_, _) => SetTitlePreviewTooltipEnabled(!_settings.ShowTitlePreviewTooltip);
+        return item;
+    }
+
+    private ToolStripMenuItem BuildFoldAnimationItem()
+    {
+        var item = new ToolStripMenuItem(LocalizationService.T("TrayFoldAnimation"))
+        {
+            Checked = _settings.EnableFoldAnimation,
+            CheckOnClick = false,
+        };
+        item.Click += (_, _) => SetFoldAnimationEnabled(!_settings.EnableFoldAnimation);
+        return item;
+    }
+
+    private ToolStripMenuItem BuildFoldButtonItem()
+    {
+        var item = new ToolStripMenuItem(LocalizationService.T("TrayFoldButton"))
+        {
+            Checked = _settings.ShowFoldButton,
+            CheckOnClick = false,
+        };
+        item.Click += (_, _) => SetFoldButtonVisible(!_settings.ShowFoldButton);
+        return item;
     }
 
     private ToolStripMenuItem BuildLanguageMenu()
@@ -223,6 +259,33 @@ public partial class App : System.Windows.Application
             return;
 
         _settings.Theme = theme;
+        ApplySettingsChange();
+    }
+
+    private void SetTitlePreviewTooltipEnabled(bool enabled)
+    {
+        if (_settings.ShowTitlePreviewTooltip == enabled)
+            return;
+
+        _settings.ShowTitlePreviewTooltip = enabled;
+        ApplySettingsChange();
+    }
+
+    private void SetFoldAnimationEnabled(bool enabled)
+    {
+        if (_settings.EnableFoldAnimation == enabled)
+            return;
+
+        _settings.EnableFoldAnimation = enabled;
+        ApplySettingsChange();
+    }
+
+    private void SetFoldButtonVisible(bool visible)
+    {
+        if (_settings.ShowFoldButton == visible)
+            return;
+
+        _settings.ShowFoldButton = visible;
         ApplySettingsChange();
     }
 
@@ -332,6 +395,7 @@ public partial class App : System.Windows.Application
             note.FontFamily    = template.FontFamily;
             note.FontSize      = template.FontSize;
             note.TitleFontSize = template.TitleFontSize;
+            note.OpacityPercent = template.OpacityPercent;
         }
 
         OpenNoteWindow(note);

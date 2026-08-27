@@ -12,6 +12,10 @@ namespace ScreenStickyNotes.Models;
 public sealed class AppSettings
 {
     public bool StartWithWindows { get; set; }
+    public bool ShowTitlePreviewTooltip { get; set; }
+    public bool EnableFoldAnimation { get; set; }
+    public bool ShowFoldButton { get; set; }
+    public int HoverOpacityBoostPercent { get; set; } = 10;
     public string Language { get; set; } = "ja";
     public string Theme { get; set; } = "Light";
     public TimingSettings Timings { get; set; } = new();
@@ -47,11 +51,12 @@ public sealed class AppSettings
         Timings.TitlePreviewDelayMs = Math.Max(0, Timings.TitlePreviewDelayMs);
         Timings.ToolbarHideDelayMs = Math.Max(0, Timings.ToolbarHideDelayMs);
         Timings.SizeOverlayDurationMs = Math.Max(0, Timings.SizeOverlayDurationMs);
-        Timings.SingleClickGraceMs = Math.Max(0, Timings.SingleClickGraceMs);
         Timings.FoldAnimationMs = Math.Max(0, Timings.FoldAnimationMs);
         Timings.SizeOverlayFadeMs = Math.Max(0, Timings.SizeOverlayFadeMs);
         Timings.ToolbarFadeMs = Math.Max(0, Timings.ToolbarFadeMs);
         Timings.SaveDebounceMs = Math.Max(0, Timings.SaveDebounceMs);
+
+        HoverOpacityBoostPercent = Math.Clamp(HoverOpacityBoostPercent, 0, 90);
 
         Interaction.SnapDistance = Math.Max(0, Interaction.SnapDistance);
         Interaction.ClickDragThresholdPx = Math.Max(0, Interaction.ClickDragThresholdPx);
@@ -69,7 +74,6 @@ public sealed class TimingSettings
     public int TitlePreviewDelayMs { get; set; } = 500;
     public int ToolbarHideDelayMs { get; set; } = 180;
     public int SizeOverlayDurationMs { get; set; } = 900;
-    public int SingleClickGraceMs { get; set; } = 200;
     public int FoldAnimationMs { get; set; } = 150;
     public int SizeOverlayFadeMs { get; set; } = 350;
     public int ToolbarFadeMs { get; set; } = 110;

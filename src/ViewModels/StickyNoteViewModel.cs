@@ -66,6 +66,8 @@ public class StickyNoteViewModel : INotifyPropertyChanged
 
     private readonly StickyNote _model;
     private readonly AppSettings _settings;
+    private bool _forceOpaque;
+    private bool _isHovered;
     public StickyNote Model => _model;
 
     public StickyNoteViewModel(StickyNote model, AppSettings settings)
@@ -177,6 +179,31 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         }
     }
 
+    public int OpacityPercent
+    {
+        get => Math.Clamp(_model.OpacityPercent, 10, 100);
+        set
+        {
+            _model.OpacityPercent = Math.Clamp(value, 10, 100);
+            UpdateBrushes();
+            OnPropertyChanged();
+        }
+    }
+
+    public void SetForceOpaque(bool forceOpaque)
+    {
+        if (_forceOpaque == forceOpaque) return;
+        _forceOpaque = forceOpaque;
+        UpdateBrushes();
+    }
+
+    public void SetHovered(bool isHovered)
+    {
+        if (_isHovered == isHovered) return;
+        _isHovered = isHovered;
+        UpdateBrushes();
+    }
+
     /// <summary>
     /// タイトルバーの高さ。文字を大きくしても切れないよう追従させる。
     /// 折りたたみ時のウィンドウ高さもこの値になる。
@@ -244,19 +271,33 @@ public class StickyNoteViewModel : INotifyPropertyChanged
             var darkPanel = Blend(header, darkBase, 0.86);
             var darkHeader = Blend(header, WpfColor.FromRgb(0, 0, 0), 0.25);
 
-            BackgroundBrush = new WpfSolidBrush(darkPanel);
-            HeaderBrush = new WpfSolidBrush(darkHeader);
-            TitleBarBrush = new WpfSolidBrush(Blend(darkHeader, darkPanel, 0.45));
+            BackgroundBrush = new WpfSolidBrush(WithOpacity(darkPanel));
+            HeaderBrush = new WpfSolidBrush(WithOpacity(darkHeader));
+            TitleBarBrush = new WpfSolidBrush(WithOpacity(Blend(darkHeader, darkPanel, 0.45)));
             TitleBarForeground = new WpfSolidBrush(WpfColor.FromRgb(249, 250, 251));
             TextForeground = new WpfSolidBrush(WpfColor.FromRgb(229, 231, 235));
             return;
         }
 
-        BackgroundBrush = new WpfSolidBrush(bg);
-        HeaderBrush = new WpfSolidBrush(header);
-        TitleBarBrush = new WpfSolidBrush(Blend(header, bg, 0.90));
+        BackgroundBrush = new WpfSolidBrush(WithOpacity(bg));
+        HeaderBrush = new WpfSolidBrush(WithOpacity(header));
+        TitleBarBrush = new WpfSolidBrush(WithOpacity(Blend(header, bg, 0.90)));
         TitleBarForeground = new WpfSolidBrush(Blend(header, WpfColor.FromRgb(0, 0, 0), 0.45));
         TextForeground = new WpfSolidBrush(WpfColor.FromRgb(17, 24, 39));
+    }
+
+    private WpfColor WithOpacity(WpfColor color)
+        => WpfColor.FromArgb(
+            (byte)Math.Round(255 * GetEffectiveOpacity()),
+            color.R,
+            color.G,
+            color.B);
+
+    private double GetEffectiveOpacity()
+    {
+        if (_forceOpaque) return 1.0;
+        var boost = _isHovered ? Math.Clamp(_settings.HoverOpacityBoostPercent, 0, 90) : 0;
+        return Math.Min(100, OpacityPercent + boost) / 100.0;
     }
 
     private static WpfColor Blend(WpfColor from, WpfColor to, double t)

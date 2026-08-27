@@ -69,10 +69,7 @@ public partial class StickyNoteWindow : Window
     private bool       _isDragging;
     private double     _dragOffsetX, _dragOffsetY;
     private bool       _dragMoved;               // しきい値を超えて実際に動かしたか
-    private int        _dragClickCount;           // MouseDown 時のクリック回数を Up まで保持
-    private bool       _dragStartedOnTitle;       // タイトル文字列上で始まったクリックか
     private System.Drawing.Point _dragStartCursor; // ドラッグ開始時のカーソル位置（しきい値判定用）
-    private System.Windows.Threading.DispatcherTimer? _singleClickTimer; // ダブルクリック判定の猶予用
     private bool       _suppressTextChange;
     private bool       _isEditMode;
     private bool       _suppressViewMode;
@@ -96,6 +93,8 @@ public partial class StickyNoteWindow : Window
     private Hyperlink? _contextMenuLink;
     private MenuItem   _openLinkItem  = new();
     private MenuItem   _convertLinkItem = new();
+    private MenuItem   _pasteExcelTableItem = new();
+    private MenuItem   _copyExcelTableItem = new();
 
     public StickyNoteViewModel ViewModel => (StickyNoteViewModel)DataContext;
 
@@ -326,24 +325,29 @@ public partial class StickyNoteWindow : Window
 
     private void LoadPlainContent(string text)
     {
+        text = NormalizeLineEndings(text);
         _suppressTextChange = true;
         try
         {
             ContentBox.Document.Blocks.Clear();
             var lines = string.IsNullOrEmpty(text) ? [""] : text.Split('\n');
-            foreach (var line in lines)
+            var para = new Paragraph { Margin = new Thickness(0) };
+            for (var i = 0; i < lines.Length; i++)
             {
-                var para = new Paragraph { Margin = new Thickness(0) };
-                foreach (var seg in LinkDetector.Parse(line))
+                if (i > 0)
+                    para.Inlines.Add(new LineBreak());
+
+                foreach (var seg in LinkDetector.Parse(lines[i]))
                     para.Inlines.Add(seg.IsLink ? (Inline)CreateHyperlink(seg.Text) : new Run(seg.Text));
-                ContentBox.Document.Blocks.Add(para);
             }
+            ContentBox.Document.Blocks.Add(para);
         }
         finally { _suppressTextChange = false; }
     }
 
     private void LoadMarkdownContent(string text)
     {
+        text = NormalizeLineEndings(text);
         _suppressTextChange = true;
         try
         {
@@ -559,13 +563,17 @@ public partial class StickyNoteWindow : Window
         if (string.IsNullOrWhiteSpace(target))
             return null;
 
-        if (Uri.TryCreate(target, UriKind.Absolute, out var uri) && uri.IsFile)
-            return uri.LocalPath;
-
         if (Path.IsPathRooted(target))
             return Path.GetFullPath(target);
 
         var noteDir = StorageService.GetNoteDirectory(ViewModel.Model.Id);
+        if ((target.Contains("://", StringComparison.Ordinal) ||
+             target.StartsWith("file:", StringComparison.OrdinalIgnoreCase)) &&
+            Uri.TryCreate(target, UriKind.Absolute, out var uri))
+        {
+            return uri.IsFile ? uri.LocalPath : null;
+        }
+
         var fullPath = Path.GetFullPath(Path.Combine(noteDir, target.Replace('/', Path.DirectorySeparatorChar)));
         var noteRoot = Path.GetFullPath(noteDir) + Path.DirectorySeparatorChar;
         return fullPath.StartsWith(noteRoot, StringComparison.OrdinalIgnoreCase)
@@ -609,6 +617,7 @@ public partial class StickyNoteWindow : Window
     {
         if (_isEditMode && !ContentBox.IsReadOnly) return;
         _isEditMode = true;
+        ViewModel.SetForceOpaque(true);
         LoadPlainContent(ViewModel.Content);
         ContentBox.IsReadOnly = false;
         EnableIme(ContentBox);
@@ -628,6 +637,7 @@ public partial class StickyNoteWindow : Window
 
     private void EnterTitleEditMode()
     {
+        ViewModel.SetForceOpaque(true);
         if (!_isEditMode)
         {
             _isEditMode = true;
@@ -658,6 +668,7 @@ public partial class StickyNoteWindow : Window
     {
         if (!_isEditMode || _suppressViewMode) return;
         _isEditMode = false;
+        ViewModel.SetForceOpaque(false);
         // ドキュメントを再構築してMarkdown表示とリンクを正しく復元する
         LoadContent(ViewModel.Content);
         ContentBox.IsReadOnly = true;
@@ -769,7 +780,7 @@ public partial class StickyNoteWindow : Window
 
         AddNoteButton.Visibility = visibility;
         PinButton.Visibility = visibility;
-        FoldButton.Visibility = visibility;
+        FoldButton.Visibility = Settings.ShowFoldButton ? visibility : Visibility.Collapsed;
     }
 
     // ─── ステータスバーぶんウィンドウを伸縮させる ────────────────
@@ -986,14 +997,25 @@ public partial class StickyNoteWindow : Window
         if (!e.DataObject.GetDataPresent(WpfDataFormats.UnicodeText)) return;
         e.CancelCommand();
 
-        var clipboard = ((string)e.DataObject.GetData(WpfDataFormats.UnicodeText))
-            .Replace("\r\n", "\n").Replace("\r", "\n");
+        if (!TryGetClipboardText(e.DataObject, out var clipboardText)) return;
+        InsertTextAtSelection(clipboardText.TrimEnd('\n'));
+    }
 
-        InsertTextAtSelection(clipboard);
+    private static bool TryGetClipboardText(
+        System.Windows.IDataObject dataObject,
+        out string text)
+    {
+        text = "";
+        if (!dataObject.GetDataPresent(WpfDataFormats.UnicodeText))
+            return false;
+
+        text = NormalizeLineEndings((string)dataObject.GetData(WpfDataFormats.UnicodeText)).TrimEnd('\n');
+        return text.Length > 0;
     }
 
     private void InsertTextAtSelection(string text)
     {
+        text = NormalizeLineEndings(text);
         var plainText = GetPlainText();
         var startOff  = GetOffsetOfPointer(ContentBox.Selection.Start);
         var endOff    = GetOffsetOfPointer(ContentBox.Selection.End);
@@ -1008,6 +1030,214 @@ public partial class StickyNoteWindow : Window
         ViewModel.Content = newText;
         RequestSave();
     }
+
+    private void PasteExcelTable_Click(object sender, RoutedEventArgs e)
+        => PasteExcelTable(useFirstRowAsHeader: true);
+
+    private void PasteExcelTableWithoutHeader_Click(object sender, RoutedEventArgs e)
+        => PasteExcelTable(useFirstRowAsHeader: false);
+
+    private void PasteExcelTable(bool useFirstRowAsHeader)
+    {
+        if (!System.Windows.Clipboard.ContainsText()) return;
+        var clipboard = System.Windows.Clipboard.GetText();
+        if (!TryTabularTextToMarkdownTable(clipboard, useFirstRowAsHeader, out var markdownTable))
+            return;
+
+        if (!_isEditMode)
+            EnterEditMode();
+        InsertTextAtSelection(BuildBlockMarkdown(markdownTable));
+    }
+
+    private void CopyExcelTable_Click(object sender, RoutedEventArgs e)
+    {
+        var selectedText = ContentBox.Selection.IsEmpty
+            ? ""
+            : ContentBox.Selection.Text.Replace("\r\n", "\n").Replace("\r", "\n").Trim();
+        if (!TryCopyableTableTextToTabularText(selectedText, out var tabularText))
+            return;
+
+        System.Windows.Clipboard.SetText(tabularText);
+    }
+
+    private static bool TryTabularTextToMarkdownTable(
+        string text,
+        bool useFirstRowAsHeader,
+        out string markdownTable)
+    {
+        markdownTable = "";
+        var rows = ParseTabularText(text);
+        if (rows.Count == 0 || rows.All(row => row.Count <= 1))
+            return false;
+
+        var columnCount = rows.Max(row => row.Count);
+        if (columnCount < 2)
+            return false;
+
+        foreach (var row in rows)
+        {
+            while (row.Count < columnCount)
+                row.Add("");
+        }
+
+        var lines = new List<string>
+        {
+            BuildMarkdownTableRow(useFirstRowAsHeader ? rows[0] : Enumerable.Repeat("", columnCount)),
+            BuildMarkdownTableRow(Enumerable.Repeat("---", columnCount)),
+        };
+        lines.AddRange((useFirstRowAsHeader ? rows.Skip(1) : rows).Select(BuildMarkdownTableRow));
+
+        markdownTable = string.Join('\n', lines);
+        return true;
+    }
+
+    private static string NormalizeLineEndings(string text)
+        => text.Replace("\r\n", "\n").Replace("\r", "\n");
+
+    private string BuildBlockMarkdown(string markdown)
+    {
+        var plainText = GetPlainText();
+        var startOff = GetOffsetOfPointer(ContentBox.Selection.Start);
+        var endOff = GetOffsetOfPointer(ContentBox.Selection.End);
+        var prefix = startOff > 0 && plainText[startOff - 1] != '\n' ? "\n" : "";
+        var suffix = endOff < plainText.Length && plainText[endOff] != '\n' ? "\n" : "";
+        return $"{prefix}{markdown}{suffix}";
+    }
+
+    private static List<List<string>> ParseTabularText(string text)
+    {
+        var normalized = text.Replace("\r\n", "\n").Replace("\r", "\n").TrimEnd('\n');
+        var rows = new List<List<string>>();
+        foreach (var line in normalized.Split('\n'))
+        {
+            var cells = line.Split('\t')
+                .Select(cell => cell.Trim().Replace("\n", "<br>"))
+                .ToList();
+            if (cells.Count > 0 && cells.Any(cell => cell.Length > 0))
+                rows.Add(cells);
+        }
+        return rows;
+    }
+
+    private static string BuildMarkdownTableRow(IEnumerable<string> cells)
+        => "| " + string.Join(" | ", cells.Select(EscapeMarkdownTableCell)) + " |";
+
+    private static string EscapeMarkdownTableCell(string text)
+        => text.Replace("\\", "\\\\").Replace("|", "\\|").Replace("\r\n", "<br>").Replace("\r", "<br>").Replace("\n", "<br>");
+
+    private static bool TryMarkdownTableToTabularText(string text, out string tabularText)
+    {
+        tabularText = "";
+        var lines = text.Replace("\r\n", "\n").Replace("\r", "\n")
+            .Split('\n')
+            .Select(line => line.Trim())
+            .Where(line => line.Length > 0)
+            .ToList();
+
+        if (lines.Count < 2 ||
+            !TrySplitMarkdownTableRow(lines[0], out var headers) ||
+            !TrySplitMarkdownTableRow(lines[1], out var separator) ||
+            !IsMarkdownTableSeparator(separator))
+        {
+            return false;
+        }
+
+        var rows = headers.All(cell => string.IsNullOrWhiteSpace(cell))
+            ? new List<List<string>>()
+            : new List<List<string>> { headers };
+        foreach (var line in lines.Skip(2))
+        {
+            if (!TrySplitMarkdownTableRow(line, out var cells) || cells.Count != headers.Count)
+                break;
+            rows.Add(cells);
+        }
+
+        tabularText = string.Join("\r\n", rows.Select(row => string.Join("\t", row.Select(UnescapeMarkdownTableCell))));
+        return true;
+    }
+
+    private static bool TryCopyableTableTextToTabularText(string text, out string tabularText)
+    {
+        if (TryMarkdownTableToTabularText(text, out tabularText))
+            return true;
+
+        var rows = ParseTabularText(text);
+        if (rows.Count == 0 || rows.All(row => row.Count <= 1))
+        {
+            tabularText = "";
+            return false;
+        }
+
+        tabularText = string.Join("\r\n", rows.Select(row => string.Join("\t", row)));
+        return true;
+    }
+
+    private static bool TrySplitMarkdownTableRow(string line, out List<string> cells)
+    {
+        cells = [];
+        var trimmed = line.Trim();
+        if (!trimmed.Contains('|'))
+            return false;
+
+        if (trimmed.StartsWith('|'))
+            trimmed = trimmed[1..];
+        if (trimmed.EndsWith('|'))
+            trimmed = trimmed[..^1];
+
+        cells = SplitUnescapedPipes(trimmed).Select(cell => cell.Trim()).ToList();
+        return cells.Count >= 2;
+    }
+
+    private static List<string> SplitUnescapedPipes(string text)
+    {
+        var cells = new List<string>();
+        var start = 0;
+        var escaped = false;
+
+        for (int i = 0; i < text.Length; i++)
+        {
+            var ch = text[i];
+            if (escaped)
+            {
+                escaped = false;
+                continue;
+            }
+
+            if (ch == '\\')
+            {
+                escaped = true;
+                continue;
+            }
+
+            if (ch == '|')
+            {
+                cells.Add(text[start..i]);
+                start = i + 1;
+            }
+        }
+
+        cells.Add(text[start..]);
+        return cells;
+    }
+
+    private static bool IsMarkdownTableSeparator(IReadOnlyList<string> cells)
+        => cells.Count >= 2 && cells.All(IsMarkdownTableSeparatorCell);
+
+    private static bool IsMarkdownTableSeparatorCell(string cell)
+    {
+        var trimmed = cell.Trim();
+        if (trimmed.StartsWith(":"))
+            trimmed = trimmed[1..];
+        if (trimmed.EndsWith(":"))
+            trimmed = trimmed[..^1];
+
+        return trimmed.Length >= 3 && trimmed.All(c => c == '-');
+    }
+
+    private static string UnescapeMarkdownTableCell(string text)
+        => text.Replace("<br>", "\n", StringComparison.OrdinalIgnoreCase)
+            .Replace("\\|", "|")
+            .Replace("\\\\", "\\");
 
     private static bool TryGetPastedImage(
         System.Windows.IDataObject dataObject,
@@ -1129,6 +1359,7 @@ public partial class StickyNoteWindow : Window
                     {
                         Run r                              => r.Text.Length,
                         Hyperlink h when h.Tag is string t => t.Length,
+                        LineBreak                          => 1,
                         _                                  => 0,
                     };
                     if (pos + len >= target)
@@ -1152,13 +1383,19 @@ public partial class StickyNoteWindow : Window
     {
         _openLinkItem    = new MenuItem { Header = LocalizationService.T("OpenLink"), IsEnabled = false };
         _convertLinkItem = new MenuItem { Header = LocalizationService.T("ConvertLink"), IsEnabled = false };
+        _pasteExcelTableItem = BuildPasteExcelTableMenuItem();
+        _copyExcelTableItem = new MenuItem { Header = LocalizationService.T("CopyExcelTable"), IsEnabled = false };
         _openLinkItem.Click    += OpenLink_Click;
         _convertLinkItem.Click += ConvertLink_Click;
+        _copyExcelTableItem.Click += CopyExcelTable_Click;
 
         var cm = new ContextMenu();
         cm.Items.Add(new MenuItem { Header = LocalizationService.T("Cut"), Command = ApplicationCommands.Cut, CommandTarget = ContentBox });
         cm.Items.Add(new MenuItem { Header = LocalizationService.T("Copy"), Command = ApplicationCommands.Copy, CommandTarget = ContentBox });
         cm.Items.Add(new MenuItem { Header = LocalizationService.T("Paste"), Command = ApplicationCommands.Paste, CommandTarget = ContentBox });
+        cm.Items.Add(new Separator());
+        cm.Items.Add(_pasteExcelTableItem);
+        cm.Items.Add(_copyExcelTableItem);
         cm.Items.Add(new Separator());
         cm.Items.Add(_openLinkItem);
         cm.Items.Add(_convertLinkItem);
@@ -1177,6 +1414,7 @@ public partial class StickyNoteWindow : Window
         var pasteItem = new MenuItem { Header = LocalizationService.T("Paste") };
         var selectAllItem = new MenuItem { Header = LocalizationService.T("SelectAll") };
         var zOrderItem = new MenuItem { Header = LocalizationService.T("ZOrder") };
+        var opacityItem = BuildOpacityMenuItem();
         var bringToFrontItem = new MenuItem { Header = LocalizationService.T("BringToFront") };
         var sendToBackItem = new MenuItem { Header = LocalizationService.T("SendToBack") };
         var deleteItem = new MenuItem { Header = LocalizationService.T("Delete") };
@@ -1208,6 +1446,7 @@ public partial class StickyNoteWindow : Window
         cm.Items.Add(selectAllItem);
         cm.Items.Add(new Separator());
         cm.Items.Add(zOrderItem);
+        cm.Items.Add(opacityItem);
         cm.Items.Add(new Separator());
         cm.Items.Add(deleteItem);
         cm.Opened += (_, _) =>
@@ -1222,6 +1461,7 @@ public partial class StickyNoteWindow : Window
                 : !string.IsNullOrEmpty(ViewModel.DisplayTitle);
             cutItem.IsEnabled = TitleEditBox.SelectionLength > 0;
             pasteItem.IsEnabled = System.Windows.Clipboard.ContainsText();
+            UpdateOpacityMenuChecks(opacityItem);
         };
         cm.Closed += (_, _) =>
         {
@@ -1230,6 +1470,42 @@ public partial class StickyNoteWindow : Window
                 Dispatcher.BeginInvoke(() => TitleEditBox.Focus());
         };
         return cm;
+    }
+
+    private MenuItem BuildOpacityMenuItem()
+    {
+        var opacityItem = new MenuItem { Header = LocalizationService.T("Opacity") };
+        for (var percent = 10; percent <= 100; percent += 10)
+        {
+            var percentItem = new MenuItem
+            {
+                Header = $"{percent}%",
+                IsCheckable = true,
+                IsChecked = ViewModel.OpacityPercent == percent,
+            };
+            var selectedPercent = percent;
+            percentItem.Click += (_, _) => SetNoteOpacity(selectedPercent);
+            opacityItem.Items.Add(percentItem);
+        }
+        return opacityItem;
+    }
+
+    private void UpdateOpacityMenuChecks(MenuItem opacityItem)
+    {
+        foreach (var item in opacityItem.Items.OfType<MenuItem>())
+        {
+            if (item.Header is string header && header.EndsWith("%", StringComparison.Ordinal) &&
+                int.TryParse(header[..^1], out var percent))
+            {
+                item.IsChecked = ViewModel.OpacityPercent == percent;
+            }
+        }
+    }
+
+    private void SetNoteOpacity(int percent)
+    {
+        ViewModel.OpacityPercent = percent;
+        RequestSave();
     }
 
     private void MoveInZOrder(IntPtr insertAfter)
@@ -1262,8 +1538,25 @@ public partial class StickyNoteWindow : Window
 
         var sel = ContentBox.Selection.IsEmpty ? "" : ContentBox.Selection.Text.Trim();
         _convertLinkItem.IsEnabled = LinkDetector.IsLink(sel);
+        _copyExcelTableItem.IsEnabled = TryCopyableTableTextToTabularText(sel, out _);
+        _pasteExcelTableItem.IsEnabled =
+            _isEditMode &&
+            System.Windows.Clipboard.ContainsText() &&
+            TryTabularTextToMarkdownTable(System.Windows.Clipboard.GetText(), useFirstRowAsHeader: true, out _);
 
         ShowEditToolbar();
+    }
+
+    private MenuItem BuildPasteExcelTableMenuItem()
+    {
+        var pasteItem = new MenuItem { Header = LocalizationService.T("PasteExcelTable"), IsEnabled = false };
+        var withHeaderItem = new MenuItem { Header = LocalizationService.T("PasteExcelTableWithHeader") };
+        var withoutHeaderItem = new MenuItem { Header = LocalizationService.T("PasteExcelTableWithoutHeader") };
+        withHeaderItem.Click += PasteExcelTable_Click;
+        withoutHeaderItem.Click += PasteExcelTableWithoutHeader_Click;
+        pasteItem.Items.Add(withHeaderItem);
+        pasteItem.Items.Add(withoutHeaderItem);
+        return pasteItem;
     }
 
     private Hyperlink? GetHyperlinkAtCaret()
@@ -1307,11 +1600,9 @@ public partial class StickyNoteWindow : Window
     // タイトルバーは「動かさなければクリック、動かせばドラッグ」で
     // 意味が変わる。押した瞬間はまだどちらか分からないので、
     // MouseMove でしきい値を超えて初めてドラッグ確定として扱い、
-    // 超えなければ MouseUp 時点のクリック回数で判定する:
-    //   シングルクリック → 折りたたみ／展開
-    //   タイトルをダブルクリック → 何もしない（編集はコンテキストメニューから）
-    //   タイトル以外をダブルクリック → 本文編集（畳んでいれば先に展開する）
-    //   ドラッグ         → ウィンドウ移動（従来どおり）
+    // 超えなければ MouseUp 時点で折りたたみ／展開する。
+    //   クリック → 折りたたみ／展開
+    //   ドラッグ → ウィンドウ移動（従来どおり）
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
@@ -1323,8 +1614,6 @@ public partial class StickyNoteWindow : Window
 
         _isDragging      = true;
         _dragMoved       = false;
-        _dragClickCount  = e.ClickCount;
-        _dragStartedOnTitle = IsPointerInside(TitleText, e);
         var (dpiX, dpiY) = GetDpi();
         var cur = System.Windows.Forms.Cursor.Position;
         _dragOffsetX     = cur.X / dpiX - Left;
@@ -1369,45 +1658,7 @@ public partial class StickyNoteWindow : Window
         }
 
         // 動かなかった＝クリックとして扱う。
-        //
-        // 1回目のクリックの MouseUp 時点ではまだ ClickCount==1 でしか
-        // 届かない（2回目が来て初めて Windows が ClickCount==2 と判定する）。
-        // ここで即座に畳んでしまうと、直後に来る2回目のクリックに間に合わず
-        // ダブルクリックとして拾えない。そこで、シングルクリックの確定を
-        // 短い猶予だけ遅らせ、その間に2回目が来たら
-        // （ClickCount==2 で Up が呼ばれたら）畳む処理をキャンセルする。
-        if (_dragStartedOnTitle)
-        {
-            // タイトルはダブルクリック編集を廃止したため、シングルクリックを
-            // 即時確定する。2回目のクリックは追加の切り替えを起こさない。
-            if (_dragClickCount < 2)
-                ToggleFold();
-            return;
-        }
-
-        if (_dragClickCount >= 2)
-        {
-            _singleClickTimer?.Stop();
-            _singleClickTimer = null;
-            if (!_dragStartedOnTitle && ViewModel.IsFolded)
-                ToggleFold(EnterEditMode); // 展開アニメーション完了後に編集モードへ
-            else if (!_dragStartedOnTitle)
-                EnterEditMode();
-            return;
-        }
-
-        _singleClickTimer?.Stop();
-        _singleClickTimer = new System.Windows.Threading.DispatcherTimer
-        {
-            Interval = TimeSpan.FromMilliseconds(GetSingleClickGraceMs())
-        };
-        _singleClickTimer.Tick += (_, _) =>
-        {
-            _singleClickTimer!.Stop();
-            _singleClickTimer = null;
-            ToggleFold();
-        };
-        _singleClickTimer.Start();
+        ToggleFold();
     }
 
     private void TitleBar_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
@@ -1427,40 +1678,38 @@ public partial class StickyNoteWindow : Window
     {
         _titlePreviewTimer.Stop();
         TitlePreviewPopup.IsOpen = false;
-        if (ViewModel.IsFolded && !_isEditMode &&
+        if (Settings.ShowTitlePreviewTooltip &&
+            ViewModel.IsFolded && !_isEditMode &&
             !string.IsNullOrWhiteSpace(ViewModel.Content) && TitleBar.IsMouseOver)
             _titlePreviewTimer.Start();
     }
 
     private void UpdateTitlePreviewVisibility()
     {
-        TitlePreviewPopup.IsOpen = ViewModel.IsFolded &&
+        TitlePreviewPopup.IsOpen = Settings.ShowTitlePreviewTooltip &&
+            ViewModel.IsFolded &&
             !_isEditMode &&
             !string.IsNullOrWhiteSpace(ViewModel.Content) &&
             TitleBar.IsMouseOver;
     }
 
     private void RootBorder_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
-        => ShowEditToolbar();
+    {
+        ViewModel.SetHovered(true);
+        ShowEditToolbar();
+    }
 
     private void RootBorder_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
-        => ScheduleHideEditToolbar();
+    {
+        ViewModel.SetHovered(false);
+        ScheduleHideEditToolbar();
+    }
 
     private void EditToolbar_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
         => ShowEditToolbar();
 
     private void EditToolbar_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
         => ScheduleHideEditToolbar();
-
-    private int GetSingleClickGraceMs()
-        => Settings.Timings.SingleClickGraceMs;
-
-    private static bool IsPointerInside(FrameworkElement element, System.Windows.Input.MouseEventArgs e)
-    {
-        var p = e.GetPosition(element);
-        return p.X >= 0 && p.X <= element.ActualWidth &&
-               p.Y >= 0 && p.Y <= element.ActualHeight;
-    }
 
     private (double dpiX, double dpiY) GetDpi()
     {
@@ -1773,6 +2022,15 @@ public partial class StickyNoteWindow : Window
     private void RunFoldAnimation(double from, double to, Action? completed = null)
     {
         _isFoldAnimationRunning = true;
+        if (!Settings.EnableFoldAnimation || Settings.Timings.FoldAnimationMs <= 0)
+        {
+            BeginAnimation(HeightProperty, null);
+            Height = to;
+            _isFoldAnimationRunning = false;
+            completed?.Invoke();
+            return;
+        }
+
         AnimateHeight(from, to, () =>
         {
             // アニメーション後も Height のベース値を最終値に固定する。
