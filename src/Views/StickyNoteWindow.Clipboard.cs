@@ -77,7 +77,10 @@ public partial class StickyNoteWindow
         if (!dataObject.GetDataPresent(WpfDataFormats.UnicodeText))
             return false;
 
-        text = NormalizeLineEndings((string)dataObject.GetData(WpfDataFormats.UnicodeText)).TrimEnd('\n');
+        if (dataObject.GetData(WpfDataFormats.UnicodeText) is not string rawText)
+            return false;
+
+        text = NormalizeLineEndings(rawText).TrimEnd('\n');
         return text.Length > 0;
     }
 
@@ -107,8 +110,7 @@ public partial class StickyNoteWindow
 
     private void PasteExcelTable(bool useFirstRowAsHeader)
     {
-        if (!System.Windows.Clipboard.ContainsText()) return;
-        var clipboard = System.Windows.Clipboard.GetText();
+        if (!TryGetClipboardText(out var clipboard)) return;
         if (!MarkdownTableClipboard.TryTabularTextToMarkdownTable(clipboard, useFirstRowAsHeader, out var markdownTable))
             return;
 
@@ -125,7 +127,45 @@ public partial class StickyNoteWindow
         if (!MarkdownTableClipboard.TryCopyableTableTextToTabularText(selectedText, out var tabularText))
             return;
 
-        System.Windows.Clipboard.SetText(tabularText);
+        TrySetClipboardText(tabularText);
+    }
+
+    private static bool TryGetClipboardText(out string text)
+    {
+        text = "";
+        try
+        {
+            if (!System.Windows.Clipboard.ContainsText())
+                return false;
+
+            text = System.Windows.Clipboard.GetText();
+            return true;
+        }
+        catch (System.Runtime.InteropServices.ExternalException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    private static bool TrySetClipboardText(string text)
+    {
+        try
+        {
+            System.Windows.Clipboard.SetText(text);
+            return true;
+        }
+        catch (System.Runtime.InteropServices.ExternalException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
     }
 
     // 汎用の改行正規化。編集内容の読み込みや貼り付け処理から幅広く使われるため、
@@ -162,7 +202,7 @@ public partial class StickyNoteWindow
 
     private string SavePastedImage(System.Windows.Media.Imaging.BitmapSource image)
     {
-        var assetsDir = StorageService.GetNoteAssetsDirectory(ViewModel.Model.Id);
+        var assetsDir = _storage.GetNoteAssetsDirectoryPath(ViewModel.Model.Id);
         Directory.CreateDirectory(assetsDir);
 
         var fileName = $"image-{DateTime.Now:yyyyMMdd-HHmmss-fff}-{Guid.NewGuid():N}.png";

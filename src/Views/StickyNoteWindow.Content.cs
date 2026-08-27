@@ -297,7 +297,7 @@ public partial class StickyNoteWindow
         if (Path.IsPathRooted(target))
             return Path.GetFullPath(target);
 
-        var noteDir = StorageService.GetNoteDirectory(ViewModel.Model.Id);
+        var noteDir = _storage.GetNoteDirectoryPath(ViewModel.Model.Id);
         if ((target.Contains("://", StringComparison.Ordinal) ||
              target.StartsWith("file:", StringComparison.OrdinalIgnoreCase)) &&
             Uri.TryCreate(target, UriKind.Absolute, out var uri))

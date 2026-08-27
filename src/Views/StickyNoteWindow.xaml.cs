@@ -95,13 +95,15 @@ public partial class StickyNoteWindow : Window
     private MenuItem   _convertLinkItem = new();
     private MenuItem   _pasteExcelTableItem = new();
     private MenuItem   _copyExcelTableItem = new();
+    private readonly StorageService _storage;
 
     public StickyNoteViewModel ViewModel => (StickyNoteViewModel)DataContext;
 
-    public StickyNoteWindow(StickyNoteViewModel vm)
+    public StickyNoteWindow(StickyNoteViewModel vm, StorageService? storage = null)
     {
         InitializeComponent();
         DataContext = vm;
+        _storage = storage ?? new StorageService();
         vm.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(StickyNoteViewModel.Icon) or null)

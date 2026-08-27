@@ -29,8 +29,9 @@ public static class SampleNoteFactory
     private static string SampleRoot => Path.Combine(AppContext.BaseDirectory, "SampleNotes");
     private static readonly JsonSerializerOptions JsonOpts = new();
 
-    public static List<StickyNote> CreateInitialNotes(AppSettings settings)
+    public static List<StickyNote> CreateInitialNotes(AppSettings settings, StorageService? storage = null)
     {
+        storage ??= new StorageService();
         var now = DateTime.Now;
         var lang = UsesEnglishLanguage(settings) ? "en" : "ja";
         var notes = new List<StickyNote>();
@@ -42,7 +43,7 @@ public static class SampleNoteFactory
 
             note.CreatedAt = now;
             note.UpdatedAt = now;
-            CopyAssets(Path.Combine(SampleRoot, lang, name, "assets"), note.Id);
+            CopyAssets(Path.Combine(SampleRoot, lang, name, "assets"), note.Id, storage);
             notes.Add(note);
             now = now.AddMilliseconds(1); // 読み込み順を作成日時に反映する
         }
@@ -77,12 +78,12 @@ public static class SampleNoteFactory
         }
     }
 
-    private static void CopyAssets(string sourceAssetsDir, string noteId)
+    private static void CopyAssets(string sourceAssetsDir, string noteId, StorageService storage)
     {
         if (!Directory.Exists(sourceAssetsDir))
             return;
 
-        var destDir = StorageService.GetNoteAssetsDirectory(noteId);
+        var destDir = storage.GetNoteAssetsDirectoryPath(noteId);
         Directory.CreateDirectory(destDir);
         foreach (var file in Directory.GetFiles(sourceAssetsDir))
             File.Copy(file, Path.Combine(destDir, Path.GetFileName(file)), overwrite: true);

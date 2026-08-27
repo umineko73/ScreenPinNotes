@@ -35,12 +35,6 @@ public class StorageService
     /// <summary>アプリケーション全体の設定ファイル（既定のデータフォルダ基準）。</summary>
     public static string SettingsPath => Path.Combine(AppRoot, "settings.json");
 
-    public static string GetNoteDirectory(string id)
-        => Path.Combine(NotesDir, id);
-
-    public static string GetNoteAssetsDirectory(string id)
-        => Path.Combine(GetNoteDirectory(id), "assets");
-
     private static string ResolveAppRoot()
     {
         var custom = Environment.GetEnvironmentVariable(DataDirEnvVar);
@@ -52,17 +46,11 @@ public class StorageService
             "ScreenStickyNotes");
     }
 
-    // 新形式: notes/{id}/meta.json + content.md
-    private static readonly string NotesDir = Path.Combine(AppRoot, "notes");
-
     private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
 
     // ─── インスタンスごとの保存先 ──────────────────────────────────
     // 通常は上記の静的な既定フォルダを使うが、テストでは互いに独立した
     // 一時フォルダを渡してデータを隔離できるようにする。
-    // App.xaml.cs の二重起動判定（StorageService.DataRoot）や
-    // StickyNoteWindow / SampleNoteFactory の画像保存先（GetNoteAssetsDirectory）は
-    // 常に既定フォルダを指す静的メンバーを使い続けるため、ここでは変更しない。
 
     private readonly string _root;
     private readonly string _notesDir;
@@ -73,11 +61,21 @@ public class StorageService
 
     public StorageService(string dataRoot)
     {
-        _root = dataRoot;
+        _root = Path.GetFullPath(dataRoot);
         _notesDir = Path.Combine(_root, "notes");
         _settingsPath = Path.Combine(_root, "settings.json");
         _legacyFile = Path.Combine(_root, "notes.json"); // 旧形式（移行元）
     }
+
+    public string GetNoteDirectoryPath(string id)
+    {
+        if (!TryGetNoteDirectoryPath(id, out var dir))
+            throw new ArgumentException("Invalid note id.", nameof(id));
+        return dir;
+    }
+
+    public string GetNoteAssetsDirectoryPath(string id)
+        => Path.Combine(GetNoteDirectoryPath(id), "assets");
 
     // ─── アプリケーション設定 ───────────────────────────────────
 
@@ -132,6 +130,11 @@ public class StorageService
                     File.ReadAllText(metaPath, Encoding.UTF8), JsonOpts);
                 if (note == null) continue;
 
+                var noteId = Path.GetFileName(dir);
+                if (!IsSafeNoteId(noteId))
+                    continue;
+                note.Id = noteId;
+
                 var contentPath = Path.Combine(dir, "content.md");
                 note.Content = File.Exists(contentPath)
                     ? File.ReadAllText(contentPath, Encoding.UTF8)
@@ -167,7 +170,8 @@ public class StorageService
 
     public void DeleteNote(string id)
     {
-        var dir = Path.Combine(_notesDir, id);
+        if (!TryGetNoteDirectoryPath(id, out var dir))
+            return;
         if (Directory.Exists(dir))
             Directory.Delete(dir, recursive: true);
     }
@@ -176,7 +180,7 @@ public class StorageService
 
     private void WriteNote(StickyNote note)
     {
-        var dir = Path.Combine(_notesDir, note.Id);
+        var dir = GetNoteDirectoryPath(note.Id);
         Directory.CreateDirectory(dir);
 
         // meta.json（Content は [JsonIgnore] により除外される）
@@ -194,6 +198,32 @@ public class StorageService
         File.Move(tmp, path, overwrite: true);
     }
 
+    private bool TryGetNoteDirectoryPath(string id, out string dir)
+    {
+        dir = "";
+        if (!IsSafeNoteId(id))
+            return false;
+
+        var fullPath = Path.GetFullPath(Path.Combine(_notesDir, id));
+        var notesRoot = Path.GetFullPath(_notesDir) + Path.DirectorySeparatorChar;
+        if (!fullPath.StartsWith(notesRoot, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        dir = fullPath;
+        return true;
+    }
+
+    private static bool IsSafeNoteId(string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id) || id is "." or "..")
+            return false;
+        if (Path.IsPathRooted(id))
+            return false;
+        return id.IndexOfAny(Path.GetInvalidFileNameChars()) < 0 &&
+               !id.Contains(Path.DirectorySeparatorChar) &&
+               !id.Contains(Path.AltDirectorySeparatorChar);
+    }
+
     // ─── 旧形式からの移行 ────────────────────────────────────────
 
     private void MigrateFromLegacy()
@@ -207,17 +237,23 @@ public class StorageService
             {
                 Directory.CreateDirectory(_notesDir);
                 foreach (var old in legacy)
-                    WriteNote(new StickyNote
+                {
+                    try
                     {
-                        Id         = old.Id,
-                        Content    = old.Content,
-                        X          = old.X,         Y      = old.Y,
-                        Width      = old.Width,      Height = old.Height,
-                        ColorKey   = old.ColorKey,
-                        FontFamily = old.FontFamily, FontSize = old.FontSize,
-                        IsTopmost  = old.IsTopmost,  IsFolded = old.IsFolded,
-                        CreatedAt  = old.CreatedAt,  UpdatedAt = old.UpdatedAt,
-                    });
+                        WriteNote(new StickyNote
+                        {
+                            Id         = old.Id,
+                            Content    = old.Content,
+                            X          = old.X,         Y      = old.Y,
+                            Width      = old.Width,      Height = old.Height,
+                            ColorKey   = old.ColorKey,
+                            FontFamily = old.FontFamily, FontSize = old.FontSize,
+                            IsTopmost  = old.IsTopmost,  IsFolded = old.IsFolded,
+                            CreatedAt  = old.CreatedAt,  UpdatedAt = old.UpdatedAt,
+                        });
+                    }
+                    catch { /* この1件が壊れていても他の移行・.bakへのリネームは続ける */ }
+                }
             }
             // 旧ファイルを .bak にリネームして保持
             File.Move(_legacyFile, _legacyFile + ".bak", overwrite: true);

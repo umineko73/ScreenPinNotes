@@ -88,7 +88,7 @@ public partial class App : System.Windows.Application
         var notes = _storage.Load();
         if (notes.Count == 0)
         {
-            notes = SampleNoteFactory.CreateInitialNotes(_settings);
+            notes = SampleNoteFactory.CreateInitialNotes(_settings, _storage);
             _storage.Save(notes);
         }
 
@@ -405,7 +405,7 @@ public partial class App : System.Windows.Application
     private void OpenNoteWindow(StickyNote note)
     {
         var vm  = new StickyNoteViewModel(note, _settings);
-        var win = new StickyNoteWindow(vm);
+        var win = new StickyNoteWindow(vm, _storage);
         _windows.Add(win);
         win.Show();
     }

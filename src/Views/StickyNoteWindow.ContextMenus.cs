@@ -99,7 +99,7 @@ public partial class StickyNoteWindow
                 TitleEditBox.SelectionLength > 0)
                 TitleEditBox.Copy();
             else if (!string.IsNullOrEmpty(ViewModel.DisplayTitle))
-                System.Windows.Clipboard.SetText(ViewModel.DisplayTitle);
+                TrySetClipboardText(ViewModel.DisplayTitle);
         };
         pasteItem.Click += (_, _) => TitleEditBox.Paste();
         selectAllItem.Click += (_, _) => TitleEditBox.SelectAll();
@@ -132,7 +132,7 @@ public partial class StickyNoteWindow
                 ? TitleEditBox.SelectionLength > 0
                 : !string.IsNullOrEmpty(ViewModel.DisplayTitle);
             cutItem.IsEnabled = TitleEditBox.SelectionLength > 0;
-            pasteItem.IsEnabled = System.Windows.Clipboard.ContainsText();
+            pasteItem.IsEnabled = TryGetClipboardText(out _);
             UpdateOpacityMenuChecks(opacityItem);
         };
         cm.Closed += (_, _) =>
@@ -213,8 +213,8 @@ public partial class StickyNoteWindow
         _copyExcelTableItem.IsEnabled = MarkdownTableClipboard.TryCopyableTableTextToTabularText(sel, out _);
         _pasteExcelTableItem.IsEnabled =
             _isEditMode &&
-            System.Windows.Clipboard.ContainsText() &&
-            MarkdownTableClipboard.TryTabularTextToMarkdownTable(System.Windows.Clipboard.GetText(), useFirstRowAsHeader: true, out _);
+            TryGetClipboardText(out var clipboardText) &&
+            MarkdownTableClipboard.TryTabularTextToMarkdownTable(clipboardText, useFirstRowAsHeader: true, out _);
 
         ShowEditToolbar();
     }
