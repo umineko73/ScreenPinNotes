@@ -1041,7 +1041,7 @@ public partial class StickyNoteWindow : Window
     {
         if (!System.Windows.Clipboard.ContainsText()) return;
         var clipboard = System.Windows.Clipboard.GetText();
-        if (!TryTabularTextToMarkdownTable(clipboard, useFirstRowAsHeader, out var markdownTable))
+        if (!MarkdownTableClipboard.TryTabularTextToMarkdownTable(clipboard, useFirstRowAsHeader, out var markdownTable))
             return;
 
         if (!_isEditMode)
@@ -1054,43 +1054,14 @@ public partial class StickyNoteWindow : Window
         var selectedText = ContentBox.Selection.IsEmpty
             ? ""
             : ContentBox.Selection.Text.Replace("\r\n", "\n").Replace("\r", "\n").Trim();
-        if (!TryCopyableTableTextToTabularText(selectedText, out var tabularText))
+        if (!MarkdownTableClipboard.TryCopyableTableTextToTabularText(selectedText, out var tabularText))
             return;
 
         System.Windows.Clipboard.SetText(tabularText);
     }
 
-    private static bool TryTabularTextToMarkdownTable(
-        string text,
-        bool useFirstRowAsHeader,
-        out string markdownTable)
-    {
-        markdownTable = "";
-        var rows = ParseTabularText(text);
-        if (rows.Count == 0 || rows.All(row => row.Count <= 1))
-            return false;
-
-        var columnCount = rows.Max(row => row.Count);
-        if (columnCount < 2)
-            return false;
-
-        foreach (var row in rows)
-        {
-            while (row.Count < columnCount)
-                row.Add("");
-        }
-
-        var lines = new List<string>
-        {
-            BuildMarkdownTableRow(useFirstRowAsHeader ? rows[0] : Enumerable.Repeat("", columnCount)),
-            BuildMarkdownTableRow(Enumerable.Repeat("---", columnCount)),
-        };
-        lines.AddRange((useFirstRowAsHeader ? rows.Skip(1) : rows).Select(BuildMarkdownTableRow));
-
-        markdownTable = string.Join('\n', lines);
-        return true;
-    }
-
+    // 汎用の改行正規化。編集内容の読み込みや貼り付け処理から幅広く使われるため、
+    // テーブル変換専用の MarkdownTableClipboard には含めていない。
     private static string NormalizeLineEndings(string text)
         => text.Replace("\r\n", "\n").Replace("\r", "\n");
 
@@ -1103,141 +1074,6 @@ public partial class StickyNoteWindow : Window
         var suffix = endOff < plainText.Length && plainText[endOff] != '\n' ? "\n" : "";
         return $"{prefix}{markdown}{suffix}";
     }
-
-    private static List<List<string>> ParseTabularText(string text)
-    {
-        var normalized = text.Replace("\r\n", "\n").Replace("\r", "\n").TrimEnd('\n');
-        var rows = new List<List<string>>();
-        foreach (var line in normalized.Split('\n'))
-        {
-            var cells = line.Split('\t')
-                .Select(cell => cell.Trim().Replace("\n", "<br>"))
-                .ToList();
-            if (cells.Count > 0 && cells.Any(cell => cell.Length > 0))
-                rows.Add(cells);
-        }
-        return rows;
-    }
-
-    private static string BuildMarkdownTableRow(IEnumerable<string> cells)
-        => "| " + string.Join(" | ", cells.Select(EscapeMarkdownTableCell)) + " |";
-
-    private static string EscapeMarkdownTableCell(string text)
-        => text.Replace("\\", "\\\\").Replace("|", "\\|").Replace("\r\n", "<br>").Replace("\r", "<br>").Replace("\n", "<br>");
-
-    private static bool TryMarkdownTableToTabularText(string text, out string tabularText)
-    {
-        tabularText = "";
-        var lines = text.Replace("\r\n", "\n").Replace("\r", "\n")
-            .Split('\n')
-            .Select(line => line.Trim())
-            .Where(line => line.Length > 0)
-            .ToList();
-
-        if (lines.Count < 2 ||
-            !TrySplitMarkdownTableRow(lines[0], out var headers) ||
-            !TrySplitMarkdownTableRow(lines[1], out var separator) ||
-            !IsMarkdownTableSeparator(separator))
-        {
-            return false;
-        }
-
-        var rows = headers.All(cell => string.IsNullOrWhiteSpace(cell))
-            ? new List<List<string>>()
-            : new List<List<string>> { headers };
-        foreach (var line in lines.Skip(2))
-        {
-            if (!TrySplitMarkdownTableRow(line, out var cells) || cells.Count != headers.Count)
-                break;
-            rows.Add(cells);
-        }
-
-        tabularText = string.Join("\r\n", rows.Select(row => string.Join("\t", row.Select(UnescapeMarkdownTableCell))));
-        return true;
-    }
-
-    private static bool TryCopyableTableTextToTabularText(string text, out string tabularText)
-    {
-        if (TryMarkdownTableToTabularText(text, out tabularText))
-            return true;
-
-        var rows = ParseTabularText(text);
-        if (rows.Count == 0 || rows.All(row => row.Count <= 1))
-        {
-            tabularText = "";
-            return false;
-        }
-
-        tabularText = string.Join("\r\n", rows.Select(row => string.Join("\t", row)));
-        return true;
-    }
-
-    private static bool TrySplitMarkdownTableRow(string line, out List<string> cells)
-    {
-        cells = [];
-        var trimmed = line.Trim();
-        if (!trimmed.Contains('|'))
-            return false;
-
-        if (trimmed.StartsWith('|'))
-            trimmed = trimmed[1..];
-        if (trimmed.EndsWith('|'))
-            trimmed = trimmed[..^1];
-
-        cells = SplitUnescapedPipes(trimmed).Select(cell => cell.Trim()).ToList();
-        return cells.Count >= 2;
-    }
-
-    private static List<string> SplitUnescapedPipes(string text)
-    {
-        var cells = new List<string>();
-        var start = 0;
-        var escaped = false;
-
-        for (int i = 0; i < text.Length; i++)
-        {
-            var ch = text[i];
-            if (escaped)
-            {
-                escaped = false;
-                continue;
-            }
-
-            if (ch == '\\')
-            {
-                escaped = true;
-                continue;
-            }
-
-            if (ch == '|')
-            {
-                cells.Add(text[start..i]);
-                start = i + 1;
-            }
-        }
-
-        cells.Add(text[start..]);
-        return cells;
-    }
-
-    private static bool IsMarkdownTableSeparator(IReadOnlyList<string> cells)
-        => cells.Count >= 2 && cells.All(IsMarkdownTableSeparatorCell);
-
-    private static bool IsMarkdownTableSeparatorCell(string cell)
-    {
-        var trimmed = cell.Trim();
-        if (trimmed.StartsWith(":"))
-            trimmed = trimmed[1..];
-        if (trimmed.EndsWith(":"))
-            trimmed = trimmed[..^1];
-
-        return trimmed.Length >= 3 && trimmed.All(c => c == '-');
-    }
-
-    private static string UnescapeMarkdownTableCell(string text)
-        => text.Replace("<br>", "\n", StringComparison.OrdinalIgnoreCase)
-            .Replace("\\|", "|")
-            .Replace("\\\\", "\\");
 
     private static bool TryGetPastedImage(
         System.Windows.IDataObject dataObject,
@@ -1538,11 +1374,11 @@ public partial class StickyNoteWindow : Window
 
         var sel = ContentBox.Selection.IsEmpty ? "" : ContentBox.Selection.Text.Trim();
         _convertLinkItem.IsEnabled = LinkDetector.IsLink(sel);
-        _copyExcelTableItem.IsEnabled = TryCopyableTableTextToTabularText(sel, out _);
+        _copyExcelTableItem.IsEnabled = MarkdownTableClipboard.TryCopyableTableTextToTabularText(sel, out _);
         _pasteExcelTableItem.IsEnabled =
             _isEditMode &&
             System.Windows.Clipboard.ContainsText() &&
-            TryTabularTextToMarkdownTable(System.Windows.Clipboard.GetText(), useFirstRowAsHeader: true, out _);
+            MarkdownTableClipboard.TryTabularTextToMarkdownTable(System.Windows.Clipboard.GetText(), useFirstRowAsHeader: true, out _);
 
         ShowEditToolbar();
     }

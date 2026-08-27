@@ -29,10 +29,10 @@ public class StorageService
 
     private static readonly string AppRoot = ResolveAppRoot();
 
-    /// <summary>実際に使用しているデータフォルダ。</summary>
+    /// <summary>実際に使用しているデータフォルダ（アプリ全体で共有する既定値）。</summary>
     public static string DataRoot => AppRoot;
 
-    /// <summary>アプリケーション全体の設定ファイル。</summary>
+    /// <summary>アプリケーション全体の設定ファイル（既定のデータフォルダ基準）。</summary>
     public static string SettingsPath => Path.Combine(AppRoot, "settings.json");
 
     public static string GetNoteDirectory(string id)
@@ -55,16 +55,35 @@ public class StorageService
     // 新形式: notes/{id}/meta.json + content.md
     private static readonly string NotesDir = Path.Combine(AppRoot, "notes");
 
-    // 旧形式（移行元）
-    private static readonly string LegacyFile = Path.Combine(AppRoot, "notes.json");
-
     private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
+
+    // ─── インスタンスごとの保存先 ──────────────────────────────────
+    // 通常は上記の静的な既定フォルダを使うが、テストでは互いに独立した
+    // 一時フォルダを渡してデータを隔離できるようにする。
+    // App.xaml.cs の二重起動判定（StorageService.DataRoot）や
+    // StickyNoteWindow / SampleNoteFactory の画像保存先（GetNoteAssetsDirectory）は
+    // 常に既定フォルダを指す静的メンバーを使い続けるため、ここでは変更しない。
+
+    private readonly string _root;
+    private readonly string _notesDir;
+    private readonly string _settingsPath;
+    private readonly string _legacyFile;
+
+    public StorageService() : this(AppRoot) { }
+
+    public StorageService(string dataRoot)
+    {
+        _root = dataRoot;
+        _notesDir = Path.Combine(_root, "notes");
+        _settingsPath = Path.Combine(_root, "settings.json");
+        _legacyFile = Path.Combine(_root, "notes.json"); // 旧形式（移行元）
+    }
 
     // ─── アプリケーション設定 ───────────────────────────────────
 
     public AppSettings LoadSettings()
     {
-        if (!File.Exists(SettingsPath))
+        if (!File.Exists(_settingsPath))
         {
             var defaults = new AppSettings();
             defaults.Normalize();
@@ -74,7 +93,7 @@ public class StorageService
         try
         {
             var settings = JsonSerializer.Deserialize<AppSettings>(
-                File.ReadAllText(SettingsPath, Encoding.UTF8), JsonOpts)
+                File.ReadAllText(_settingsPath, Encoding.UTF8), JsonOpts)
                 ?? new AppSettings();
             settings.Normalize();
             return settings;
@@ -90,8 +109,8 @@ public class StorageService
     public void SaveSettings(AppSettings settings)
     {
         settings.Normalize();
-        Directory.CreateDirectory(AppRoot);
-        AtomicWrite(SettingsPath, JsonSerializer.Serialize(settings, JsonOpts));
+        Directory.CreateDirectory(_root);
+        AtomicWrite(_settingsPath, JsonSerializer.Serialize(settings, JsonOpts));
     }
 
     // ─── 読み込み ────────────────────────────────────────────────
@@ -100,10 +119,10 @@ public class StorageService
     {
         MigrateFromLegacy();
 
-        if (!Directory.Exists(NotesDir)) return [];
+        if (!Directory.Exists(_notesDir)) return [];
 
         var notes = new List<StickyNote>();
-        foreach (var dir in Directory.GetDirectories(NotesDir))
+        foreach (var dir in Directory.GetDirectories(_notesDir))
         {
             var metaPath = Path.Combine(dir, "meta.json");
             if (!File.Exists(metaPath)) continue;
@@ -135,7 +154,7 @@ public class StorageService
     // 削除はユーザーが明示的に削除したときの DeleteNote だけが行う。
     public void Save(IEnumerable<StickyNote> notes)
     {
-        Directory.CreateDirectory(NotesDir);
+        Directory.CreateDirectory(_notesDir);
         foreach (var note in notes)
             WriteNote(note);
     }
@@ -148,16 +167,16 @@ public class StorageService
 
     public void DeleteNote(string id)
     {
-        var dir = Path.Combine(NotesDir, id);
+        var dir = Path.Combine(_notesDir, id);
         if (Directory.Exists(dir))
             Directory.Delete(dir, recursive: true);
     }
 
     // ─── 内部：ファイル書き込み（アトミック） ───────────────────
 
-    private static void WriteNote(StickyNote note)
+    private void WriteNote(StickyNote note)
     {
-        var dir = Path.Combine(NotesDir, note.Id);
+        var dir = Path.Combine(_notesDir, note.Id);
         Directory.CreateDirectory(dir);
 
         // meta.json（Content は [JsonIgnore] により除外される）
@@ -177,16 +196,16 @@ public class StorageService
 
     // ─── 旧形式からの移行 ────────────────────────────────────────
 
-    private static void MigrateFromLegacy()
+    private void MigrateFromLegacy()
     {
-        if (!File.Exists(LegacyFile)) return;
+        if (!File.Exists(_legacyFile)) return;
         try
         {
-            var json   = File.ReadAllText(LegacyFile, Encoding.UTF8);
+            var json   = File.ReadAllText(_legacyFile, Encoding.UTF8);
             var legacy = JsonSerializer.Deserialize<List<LegacyNote>>(json, JsonOpts);
             if (legacy != null)
             {
-                Directory.CreateDirectory(NotesDir);
+                Directory.CreateDirectory(_notesDir);
                 foreach (var old in legacy)
                     WriteNote(new StickyNote
                     {
@@ -201,7 +220,7 @@ public class StorageService
                     });
             }
             // 旧ファイルを .bak にリネームして保持
-            File.Move(LegacyFile, LegacyFile + ".bak", overwrite: true);
+            File.Move(_legacyFile, _legacyFile + ".bak", overwrite: true);
         }
         catch { /* 移行失敗は無視 */ }
     }
