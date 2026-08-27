@@ -1,0 +1,32 @@
+# Builds and runs the test suite on every push to main and every pull request,
+# so a broken build or a failing test is caught before it can reach a release.
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore ScreenStickyNotes.sln
+
+      - name: Build
+        run: dotnet build ScreenStickyNotes.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test ScreenStickyNotes.sln -c Release --no-build
