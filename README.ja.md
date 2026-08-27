@@ -77,7 +77,7 @@ dotnet build
 dotnet run --project src
 ```
 
-配布用の zip は `powershell -ExecutionPolicy Bypass -File scripts/publish.ps1` で `artifacts/` に生成できます（バージョンは `-Version 0.1.1` で上書き可）。
+配布用の zip は `powershell -ExecutionPolicy Bypass -File scripts/publish.ps1` で `artifacts/` に生成できます（バージョンは `-Version 0.1.2` で上書き可）。
 
 ## 使い方
 

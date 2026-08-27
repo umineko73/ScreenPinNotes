@@ -77,7 +77,7 @@ dotnet build
 dotnet run --project src
 ```
 
-Distributable zips can be generated into `artifacts/` with `powershell -ExecutionPolicy Bypass -File scripts/publish.ps1` (override the version with `-Version 0.1.1`).
+Distributable zips can be generated into `artifacts/` with `powershell -ExecutionPolicy Bypass -File scripts/publish.ps1` (override the version with `-Version 0.1.2`).
 
 ## Usage
 
