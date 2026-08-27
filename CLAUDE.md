@@ -1,0 +1,50 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Commands
+
+```bash
+dotnet build                     # build (Debug)
+dotnet build -c Release          # build Release
+dotnet run --project src         # run the app locally
+```
+
+There is no test project/suite in this repo — verify changes by building and, for UI/behavior changes, actually running the app (see the `run` skill / `verify-ui-fixes-by-testing` guidance: reason about GUI fixes only after confirming them by launching the app, not by inspection alone).
+
+To avoid touching your real notes while testing, point the app at a scratch data folder:
+
+```bash
+SCREENSTICKYNOTES_DATA=/path/to/scratch dotnet run --project src
+```
+
+Build release zips (self-contained + framework-dependent) into `artifacts/`:
+
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/publish.ps1            # uses <Version> from the csproj
+powershell -ExecutionPolicy Bypass -File scripts/publish.ps1 -Version 0.2.0
+```
+
+Releases are also built by CI: pushing a `v*` tag triggers `.github/workflows/release.yml`, which runs the same `publish.ps1` and attaches both zips to a **draft** GitHub release — publish it manually afterward.
+
+## Architecture
+
+Single WPF project targeting `net8.0-windows` (`src/ScreenStickyNotes.csproj`, `OutputType=WinExe`). No MVVM framework, no DI container — plain code wiring throughout.
+
+**Single-instance app, one `Window` per note.** `App.xaml.cs` is the entry point: it owns `AppSettings`, the list of open `StickyNoteWindow`s, and the tray icon (`System.Windows.Forms.NotifyIcon`, mixed into the WPF app). A second launch is prevented via a named `Mutex` keyed off the resolved data root, and a registered Windows broadcast message asks the already-running instance to show all notes before the newcomer exits — see the "二重起動防止" block in `App.xaml.cs`.
+
+**Notes are files, not a database.** `StorageService` persists everything under `%APPDATA%\ScreenStickyNotes\` (overridable via the `SCREENSTICKYNOTES_DATA` env var): `settings.json` for `AppSettings`, and one `notes\{id}\` folder per note holding `meta.json` (everything on `StickyNote` except `Content`, which is `[JsonIgnore]`), `content.md`, and an `assets\` folder for pasted images. Keeping the Markdown body in its own file (instead of JSON-embedded) keeps notes human-readable/diffable. Writes are atomic (write `.tmp`, then `File.Move` with overwrite) and debounced per `AppSettings.Timings.SaveDebounceMs` (800ms default). `StorageService.Save` never deletes folders that aren't in the in-memory list — only explicit `DeleteNote` does — because two instances sharing a data folder previously caused one to erase the other's notes; keep that invariant if you touch save/load. A legacy single-`notes.json` format is still auto-migrated (`MigrateFromLegacy`).
+
+**Window chrome is largely code-behind, not the ViewModel.** `Views/StickyNoteWindow.xaml.cs` (~2500 lines) owns folding, dragging/resizing/snapping, the edit/view mode switch, context menus (title bar right-click: title edit, z-order, opacity, delete), the floating edit toolbar, and image resize handling. `ViewModels/StickyNoteViewModel.cs` is thin by comparison — mainly theme-aware brush/color derivation (light/dark, per-note color key, opacity) — so don't expect note-window logic to live in the ViewModel by default. Each note window is `WindowStyle="None"` + `WindowChrome` for the custom title bar, and `AllowsTransparency="True"` for per-note semi-transparency (`StickyNote.OpacityPercent`, boosted on hover via `AppSettings.HoverOpacityBoostPercent`). `AllowsTransparency` was previously avoided by design (risk of breaking `WindowChrome` resize hit-testing) before shipping this way — if you touch window chrome/resize, verify resizing/dragging still works by actually running the app, since that regression risk was never fully re-verified.
+
+**Markdown is hand-rolled, not a library.** `Services/MarkdownRenderer.cs` parses a Markdown subset (headings, bold/italic, inline code, fences, lists/checkboxes, blockquote, hr, tables, images, links) directly into WPF `FlowDocument` `Block`s — no Markdig or other dependency. Edit mode always shows/edits the raw source string; only View mode renders through `MarkdownRenderer`, so content is never mutated by the renderer.
+
+**Localization is a single switch statement.** `Services/LocalizationService.T(key)` returns ja/en strings from one big `switch` keyed on `Settings.Language` — there's no `.resx`/resource system. Adding UI text means adding a `case` here for both languages.
+
+**Sample notes are real files, copied at first run.** `SampleNoteFactory` reads `meta.json` + `content.md` per language/kind from `SampleNotes\{ja|en}\{markdown|usage}\`, which the csproj copies next to the built exe (`CopyToOutputDirectory=PreserveNewest`). On first launch (empty notes folder), these are instantiated as real notes via `StorageService`. If the `SampleNotes` folder is missing (e.g. exe copied out on its own), sample creation is silently skipped rather than failing startup.
+
+## Conventions
+
+- README is bilingual: `README.md` is the English default, `README.ja.md` is the Japanese counterpart (each links to the other at the top). Keep both in sync when documenting user-facing changes.
+- Write git commit messages in English; chat with the user stays in whatever language they use.
+- Version is set in one place: `<Version>` in `src/ScreenStickyNotes.csproj`. `scripts/publish.ps1` reads it by default.

@@ -6,7 +6,7 @@ A desktop sticky notes app for Windows 11. When folded, the first line of the bo
 
 On first launch, a "Markdown sample" note and a "How to use" note are created automatically in the data folder.
 
-![ScreenStickyNotes screenshot](docs/screenshot.png)
+![ScreenStickyNotes screenshot](docs/screenshot-en.png)
 
 ## Features
 
