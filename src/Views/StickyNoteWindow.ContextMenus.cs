@@ -55,16 +55,19 @@ public partial class StickyNoteWindow
     {
         _openLinkItem    = new MenuItem { Header = LocalizationService.T("OpenLink"), IsEnabled = false };
         _convertLinkItem = new MenuItem { Header = LocalizationService.T("ConvertLink"), IsEnabled = false };
+        _pasteMarkdownLinkItem = new MenuItem { Header = LocalizationService.T("PasteMarkdownLink"), IsEnabled = false };
         _pasteExcelTableItem = BuildPasteExcelTableMenuItem();
         _copyExcelTableItem = new MenuItem { Header = LocalizationService.T("CopyExcelTable"), IsEnabled = false };
         _openLinkItem.Click    += OpenLink_Click;
         _convertLinkItem.Click += ConvertLink_Click;
+        _pasteMarkdownLinkItem.Click += PasteMarkdownLink_Click;
         _copyExcelTableItem.Click += CopyExcelTable_Click;
 
         var cm = new ContextMenu();
         cm.Items.Add(new MenuItem { Header = LocalizationService.T("Cut"), Command = ApplicationCommands.Cut, CommandTarget = ContentBox });
         cm.Items.Add(new MenuItem { Header = LocalizationService.T("Copy"), Command = ApplicationCommands.Copy, CommandTarget = ContentBox });
         cm.Items.Add(new MenuItem { Header = LocalizationService.T("Paste"), Command = ApplicationCommands.Paste, CommandTarget = ContentBox });
+        cm.Items.Add(_pasteMarkdownLinkItem);
         cm.Items.Add(new Separator());
         cm.Items.Add(_pasteExcelTableItem);
         cm.Items.Add(_copyExcelTableItem);
@@ -209,11 +212,14 @@ public partial class StickyNoteWindow
         _openLinkItem.IsEnabled = _contextMenuLink != null;
 
         var sel = ContentBox.Selection.IsEmpty ? "" : ContentBox.Selection.Text.Trim();
-        _convertLinkItem.IsEnabled = LinkDetector.IsLink(sel);
+        var hasClipboardLink = TryGetClipboardText(out var clipboardText) &&
+            LinkDetector.IsExactLink(clipboardText);
+        _convertLinkItem.IsEnabled = _isEditMode && LinkDetector.IsExactLink(sel);
         _copyExcelTableItem.IsEnabled = MarkdownTableClipboard.TryCopyableTableTextToTabularText(sel, out _);
+        _pasteMarkdownLinkItem.IsEnabled = _isEditMode && hasClipboardLink;
         _pasteExcelTableItem.IsEnabled =
             _isEditMode &&
-            TryGetClipboardText(out var clipboardText) &&
+            TryGetClipboardText(out clipboardText) &&
             MarkdownTableClipboard.TryTabularTextToMarkdownTable(clipboardText, useFirstRowAsHeader: true, out _);
 
         ShowEditToolbar();
@@ -247,18 +253,39 @@ public partial class StickyNoteWindow
         if (_contextMenuLink?.Tag is string t) OpenTarget(t);
     }
 
+    private void PasteMarkdownLink_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_isEditMode) return;
+        if (!TryGetClipboardText(out var target)) return;
+
+        target = target.Trim();
+        if (!LinkDetector.IsExactLink(target)) return;
+
+        var label = ShowMarkdownLinkLabelDialog(GetDefaultMarkdownLinkLabel(target));
+        if (label == null)
+            return;
+        if (label.Length == 0)
+            label = target;
+
+        InsertTextAtSelection(BuildMarkdownLink(label, target));
+    }
+
     private void ConvertLink_Click(object sender, RoutedEventArgs e)
     {
+        if (!_isEditMode) return;
         if (ContentBox.Selection.IsEmpty) return;
         var sel = ContentBox.Selection.Text.Trim();
-        if (!LinkDetector.IsLink(sel)) return;
+        if (!LinkDetector.IsExactLink(sel)) return;
 
-        // 選択範囲をリンクに置換してドキュメント全体を再構築
+        // 選択範囲を明示的な Markdown リンクに置換してドキュメント全体を再構築
         var plainText = GetPlainText();
         var before   = plainText[..GetOffsetOfPointer(ContentBox.Selection.Start)];
         var after    = plainText[GetOffsetOfPointer(ContentBox.Selection.End)..];
-        var newText  = before + sel + after;    // sel は URL なので LoadPlainContent でリンク検出される
-        var caretOff = before.Length + sel.Length;
+        var markdown = LinkDetector.IsImageTarget(sel)
+            ? BuildMarkdownImage(sel)
+            : BuildMarkdownLink(sel, sel);
+        var newText  = before + markdown + after;
+        var caretOff = before.Length + markdown.Length;
 
         LoadPlainContent(newText);
         RestoreCaretAt(caretOff);
@@ -266,5 +293,84 @@ public partial class StickyNoteWindow
         ViewModel.Content = newText;
         RequestSave();
     }
+
+    private string? ShowMarkdownLinkLabelDialog(string defaultLabel)
+    {
+        var input = new System.Windows.Controls.TextBox
+        {
+            Text = defaultLabel,
+            MinWidth = 320,
+            Margin = new Thickness(0, 6, 0, 12),
+        };
+        input.SelectAll();
+
+        var okButton = new System.Windows.Controls.Button
+        {
+            Content = "OK",
+            IsDefault = true,
+            MinWidth = 72,
+            Margin = new Thickness(0, 0, 8, 0),
+        };
+        var cancelButton = new System.Windows.Controls.Button
+        {
+            Content = LocalizationService.T("Cancel"),
+            IsCancel = true,
+            MinWidth = 72,
+        };
+        var buttons = new StackPanel
+        {
+            Orientation = System.Windows.Controls.Orientation.Horizontal,
+            HorizontalAlignment = System.Windows.HorizontalAlignment.Right,
+        };
+        buttons.Children.Add(okButton);
+        buttons.Children.Add(cancelButton);
+
+        var panel = new StackPanel { Margin = new Thickness(14) };
+        panel.Children.Add(new TextBlock { Text = LocalizationService.T("MarkdownLinkLabelPrompt") });
+        panel.Children.Add(input);
+        panel.Children.Add(buttons);
+
+        var dialog = new Window
+        {
+            Title = LocalizationService.T("MarkdownLinkLabelTitle"),
+            Content = panel,
+            Owner = this,
+            ShowInTaskbar = false,
+            SizeToContent = SizeToContent.WidthAndHeight,
+            ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Topmost = Topmost,
+        };
+        okButton.Click += (_, _) => dialog.DialogResult = true;
+        dialog.Loaded += (_, _) => input.Focus();
+
+        return dialog.ShowDialog() == true
+            ? input.Text.Trim()
+            : null;
+    }
+
+    private static string GetDefaultMarkdownLinkLabel(string target)
+    {
+        if (Uri.TryCreate(target, UriKind.Absolute, out var uri) &&
+            !string.IsNullOrWhiteSpace(uri.Host))
+        {
+            return uri.Host.StartsWith("www.", StringComparison.OrdinalIgnoreCase)
+                ? uri.Host[4..]
+                : uri.Host;
+        }
+
+        var trimmed = target.TrimEnd('\\', '/');
+        var fileName = Path.GetFileName(trimmed);
+        return string.IsNullOrWhiteSpace(fileName) ? target : fileName;
+    }
+
+    private static string BuildMarkdownLink(string label, string target)
+        => $"[{EscapeMarkdownLinkLabel(label)}]({target})";
+
+    private static string BuildMarkdownImage(string target)
+        => $"![image]({target})";
+
+    private static string EscapeMarkdownLinkLabel(string label)
+        => label.Replace("\\", "\\\\").Replace("]", "\\]");
 
 }

@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 using System.Drawing;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
 using ScreenStickyNotes.Models;
@@ -62,6 +63,7 @@ public partial class App : System.Windows.Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        ConfigureExceptionHandling();
 
         _instanceMutex = new Mutex(initiallyOwned: true, MutexName, out bool isFirstInstance);
         if (!isFirstInstance)
@@ -94,6 +96,47 @@ public partial class App : System.Windows.Application
 
         foreach (var note in notes)
             OpenNoteWindow(note);
+    }
+
+    private void ConfigureExceptionHandling()
+    {
+        DispatcherUnhandledException += (_, e) =>
+        {
+            ErrorReporter.ReportNonFatal("Unhandled UI exception", e.Exception);
+            TryShowErrorNotice();
+            e.Handled = true;
+        };
+
+        TaskScheduler.UnobservedTaskException += (_, e) =>
+        {
+            ErrorReporter.ReportNonFatal("Unobserved task exception", e.Exception);
+            e.SetObserved();
+        };
+
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            if (e.ExceptionObject is Exception exception)
+                ErrorReporter.ReportNonFatal("Unhandled application exception", exception);
+        };
+    }
+
+    private void TryShowErrorNotice()
+    {
+        if (_trayIcon == null)
+            return;
+
+        try
+        {
+            _trayIcon.ShowBalloonTip(
+                3000,
+                "ScreenStickyNotes",
+                $"処理中にエラーが発生しました。詳細はログを確認してください。\n{ErrorReporter.LogPath}",
+                ToolTipIcon.Warning);
+        }
+        catch
+        {
+            // Notification failure should not affect note editing.
+        }
     }
 
     // 2つ目のインスタンスからのブロードキャストを受け取るための隠しウィンドウ。
@@ -167,16 +210,23 @@ public partial class App : System.Windows.Application
         menu.Items.Add("-");
         menu.Items.Add(LocalizationService.T("TrayNewNote"), null, (_, _) => AddNewNote());
         menu.Items.Add("-");
-        menu.Items.Add(startupItem);
-        menu.Items.Add(BuildTitlePreviewTooltipItem());
-        menu.Items.Add(BuildFoldAnimationItem());
-        menu.Items.Add(BuildFoldButtonItem());
-        menu.Items.Add(BuildLanguageMenu());
-        menu.Items.Add(BuildDarkModeItem());
+        menu.Items.Add(BuildSettingsMenu(startupItem));
         menu.Items.Add("-");
         menu.Items.Add(LocalizationService.T("TrayAbout"), null, (_, _) => ShowAboutWindow());
         menu.Items.Add(LocalizationService.T("TrayExit"), null, (_, _) => ExitApp());
         return menu;
+    }
+
+    private ToolStripMenuItem BuildSettingsMenu(ToolStripMenuItem startupItem)
+    {
+        var settingsItem = new ToolStripMenuItem(LocalizationService.T("TraySettings"));
+        settingsItem.DropDownItems.Add(startupItem);
+        settingsItem.DropDownItems.Add(BuildTitlePreviewTooltipItem());
+        settingsItem.DropDownItems.Add(BuildFoldAnimationItem());
+        settingsItem.DropDownItems.Add(BuildFoldButtonItem());
+        settingsItem.DropDownItems.Add(BuildDarkModeItem());
+        settingsItem.DropDownItems.Add(BuildLanguageMenu());
+        return settingsItem;
     }
 
     private ToolStripMenuItem BuildTitlePreviewTooltipItem()

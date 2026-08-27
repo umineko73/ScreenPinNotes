@@ -159,9 +159,11 @@
                          InputMethod.PreferredImeConversionMode="Native"
                          Cursor="Arrow"
                          VerticalScrollBarVisibility="Auto"
+                         HorizontalScrollBarVisibility="Auto"
                          TextChanged="ContentBox_TextChanged"
                          ContextMenuOpening="ContentBox_ContextMenuOpening"
                          PreviewMouseLeftButtonDown="ContentBox_PreviewMouseDown"
+                         PreviewMouseWheel="ContentBox_PreviewMouseWheel"
                          MouseMove="ContentBox_MouseMove"
                          LostKeyboardFocus="ContentBox_LostKeyboardFocus"
                          PreviewKeyDown="ContentBox_PreviewKeyDown">

@@ -14,12 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+using System.IO;
 using System.Text.RegularExpressions;
 
 namespace ScreenStickyNotes.Services;
 
 public static class LinkDetector
 {
+    private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".tif", ".tiff",
+    };
+
     // URL と Windows パスを検出
     private static readonly Regex Pattern = new(
         @"https?://[^\s<>""\[\]{}|\\^`]+|ftp://[^\s<>""\[\]{}|\\^`]+" +
@@ -48,10 +54,65 @@ public static class LinkDetector
     public static bool IsLink(string text)
         => !string.IsNullOrWhiteSpace(text) && Pattern.IsMatch(text.Trim());
 
+    public static bool IsExactLink(string text)
+    {
+        var trimmed = text.Trim();
+        if (trimmed.Length == 0)
+            return false;
+
+        var match = Pattern.Match(trimmed);
+        return match.Success && match.Index == 0 && match.Length == trimmed.Length ||
+               IsExactWindowsPath(trimmed);
+    }
+
+    public static bool IsImageTarget(string text)
+    {
+        var trimmed = text.Trim();
+        if (trimmed.Length == 0)
+            return false;
+
+        var extension = GetTargetExtension(trimmed);
+        return extension.Length > 0 && ImageExtensions.Contains(extension);
+    }
+
+    public static bool IsRenderableImageTarget(string text)
+    {
+        var trimmed = text.Trim();
+        if (trimmed.Length == 0)
+            return false;
+
+        var extension = GetTargetExtension(trimmed);
+        if (extension.Length == 0)
+            extension = Path.GetExtension(trimmed.TrimEnd('\\', '/'));
+
+        return extension.Length > 0 && ImageExtensions.Contains(extension);
+    }
+
+    private static string GetTargetExtension(string target)
+    {
+        if (Uri.TryCreate(target, UriKind.Absolute, out var uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp ||
+             uri.Scheme == Uri.UriSchemeHttps ||
+             uri.Scheme == Uri.UriSchemeFtp ||
+             uri.IsFile))
+        {
+            return Path.GetExtension(uri.IsFile ? uri.LocalPath : uri.AbsolutePath);
+        }
+
+        return IsExactWindowsPath(target)
+            ? Path.GetExtension(target.TrimEnd('\\', '/'))
+            : "";
+    }
+
     public static bool IsFolder(string text)
     {
         var t = text.Trim();
         return (t.Length >= 3 && char.IsLetter(t[0]) && t[1] == ':' && t[2] == '\\')
             || t.StartsWith("\\\\");
     }
+
+    private static bool IsExactWindowsPath(string text)
+        => ((text.Length >= 3 && char.IsLetter(text[0]) && text[1] == ':' && text[2] == '\\') ||
+            text.StartsWith("\\\\", StringComparison.Ordinal)) &&
+           text.IndexOfAny(['\r', '\n', '<', '>', '|', '"']) < 0;
 }

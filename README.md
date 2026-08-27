@@ -50,7 +50,7 @@ Get it from [Releases](https://github.com/umineko73/ScreenStickyNotes/releases).
 | File | Requires |
 |----------|-----------|
 | `ScreenStickyNotes-x.y.z-win-x64.zip` (~68MB) | Nothing. Pick this if unsure |
-| `ScreenStickyNotes-x.y.z-win-x64-runtime.zip` (~220KB) | [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) |
+| `ScreenStickyNotes-x.y.z-win-x64-runtime.zip` (~11MB) | [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) |
 
 Either way, unzipping gives you `ScreenStickyNotes.exe` and `SampleNotes\` (sample notes; the app runs fine without them) in the same folder.
 

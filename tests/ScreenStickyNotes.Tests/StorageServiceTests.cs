@@ -245,4 +245,30 @@ public sealed class StorageServiceTests : IDisposable
         Assert.False(File.Exists(Path.Combine(_tempRoot, "notes.json")));
         Assert.True(File.Exists(Path.Combine(_tempRoot, "notes.json.bak")));
     }
+
+    [Fact]
+    public void Load_KeepsLegacyNotesJsonWhenMigrationCannotRenameBackup()
+    {
+        var legacyId = Guid.NewGuid().ToString();
+        var legacyJson = JsonSerializer.Serialize(new[]
+        {
+            new
+            {
+                Id = legacyId,
+                Content = "legacy body",
+                X = 10.0, Y = 20.0, Width = 260.0, Height = 220.0,
+                ColorKey = "blue", FontFamily = "Yu Gothic UI", FontSize = 13.0,
+                IsTopmost = false, IsFolded = false,
+                CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now,
+            },
+        });
+        File.WriteAllText(Path.Combine(_tempRoot, "notes.json"), legacyJson);
+        Directory.CreateDirectory(Path.Combine(_tempRoot, "notes.json.bak"));
+
+        var loaded = _storage.Load();
+
+        var migrated = Assert.Single(loaded);
+        Assert.Equal(legacyId, migrated.Id);
+        Assert.True(File.Exists(Path.Combine(_tempRoot, "notes.json")));
+    }
 }

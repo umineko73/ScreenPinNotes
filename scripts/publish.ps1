@@ -6,9 +6,10 @@
     artifacts/ に以下を出力します。
 
       ScreenStickyNotes-<version>-win-x64.zip            自己完結型（約68MB）
-      ScreenStickyNotes-<version>-win-x64-runtime.zip    ランタイム必須（約220KB）
+      ScreenStickyNotes-<version>-win-x64-runtime.zip    ランタイム必須（約11MB）
 
-    それぞれの zip の中身は ScreenStickyNotes.exe と、初回起動時に
+    それぞれの zip の中身は publish 出力一式（ScreenStickyNotes.exe、
+    ネイティブ DLL など）と、初回起動時に
     サンプル付箋としてコピーされる SampleNotes\ フォルダです
     （SampleNoteFactory.cs 参照）。展開してそのまま使えるように、
     あらかじめ同じフォルダにまとめてあります。
@@ -65,22 +66,10 @@ function Publish-Variant {
     $exe = Join-Path $stage "ScreenStickyNotes.exe"
     if (-not (Test-Path $exe)) { throw "exe not produced: $Name" }
 
-    # SampleNotes\ は単一ファイル化の対象外として意図的に exe の隣に残るファイル
-    # （csproj の CopyToOutputDirectory）。zip に含めて配布する。
-    $sampleNotesSrc = Join-Path $stage "SampleNotes"
-    $hadSampleNotes = Test-Path $sampleNotesSrc
-
-    # 単一ファイルにならなかった場合（SampleNotes 以外の取りこぼし）を知らせる
-    $leftovers = Get-ChildItem $stage -File | Where-Object { $_.Name -ne "ScreenStickyNotes.exe" }
-    if ($leftovers.Count -gt 0) {
-        Write-Host ("  WARNING: {0} extra file(s) left beside the exe:" -f $leftovers.Count) -ForegroundColor Yellow
-        $leftovers | ForEach-Object { Write-Host ("    " + $_.Name) -ForegroundColor Yellow }
-    }
-
     $zipName = "ScreenStickyNotes-{0}-{1}{2}.zip" -f $Version, $Runtime, $Suffix
     $zipPath = Join-Path $outDir $zipName
-    $zipItems = @($exe)
-    if ($hadSampleNotes) { $zipItems += $sampleNotesSrc }
+    $zipItems = Get-ChildItem $stage | Where-Object { $_.Extension -ne ".pdb" } | Select-Object -ExpandProperty FullName
+    if ($zipItems.Count -eq 0) { throw "no publish output to zip: $Name" }
     Compress-Archive -Path $zipItems -DestinationPath $zipPath -Force
     Remove-Item $stage -Recurse -Force
 

@@ -238,21 +238,20 @@ public class StorageService
                 Directory.CreateDirectory(_notesDir);
                 foreach (var old in legacy)
                 {
-                    try
+                    if (!IsSafeNoteId(old.Id))
+                        continue;
+
+                    WriteNote(new StickyNote
                     {
-                        WriteNote(new StickyNote
-                        {
-                            Id         = old.Id,
-                            Content    = old.Content,
-                            X          = old.X,         Y      = old.Y,
-                            Width      = old.Width,      Height = old.Height,
-                            ColorKey   = old.ColorKey,
-                            FontFamily = old.FontFamily, FontSize = old.FontSize,
-                            IsTopmost  = old.IsTopmost,  IsFolded = old.IsFolded,
-                            CreatedAt  = old.CreatedAt,  UpdatedAt = old.UpdatedAt,
-                        });
-                    }
-                    catch { /* この1件が壊れていても他の移行・.bakへのリネームは続ける */ }
+                        Id         = old.Id,
+                        Content    = old.Content,
+                        X          = old.X,         Y      = old.Y,
+                        Width      = old.Width,      Height = old.Height,
+                        ColorKey   = old.ColorKey,
+                        FontFamily = old.FontFamily, FontSize = old.FontSize,
+                        IsTopmost  = old.IsTopmost,  IsFolded = old.IsFolded,
+                        CreatedAt  = old.CreatedAt,  UpdatedAt = old.UpdatedAt,
+                    });
                 }
             }
             // 旧ファイルを .bak にリネームして保持

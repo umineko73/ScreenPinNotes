@@ -89,14 +89,44 @@ public partial class StickyNoteWindow
 
     private void FontSmaller_Click(object sender, RoutedEventArgs e)
     {
-        if (ViewModel.FontSize > 8) { ViewModel.FontSize -= 1; RequestSave(); }
-        ShowSizeOverlay(string.Format(LocalizationService.T("BodySize"), ViewModel.FontSize));
-        UpdateToolbarTooltips();
+        SetBodyFontSize(ViewModel.FontSize - 1);
     }
 
     private void FontLarger_Click(object sender, RoutedEventArgs e)
     {
-        if (ViewModel.FontSize < 48) { ViewModel.FontSize += 1; RequestSave(); }
+        SetBodyFontSize(ViewModel.FontSize + 1);
+    }
+
+    private void ContentBox_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        try
+        {
+            if ((Keyboard.Modifiers & ModifierKeys.Control) != ModifierKeys.Control)
+                return;
+
+            e.Handled = true;
+            if (ResizeMarkdownImageAtPoint(e.GetPosition(ContentBox), e.Delta))
+                return;
+
+            var delta = e.Delta > 0 ? 1 : -1;
+            SetBodyFontSize(ViewModel.FontSize + delta);
+        }
+        catch (Exception ex)
+        {
+            e.Handled = true;
+            ErrorReporter.ReportNonFatal("Content mouse wheel", ex);
+            ShowSizeOverlay("操作に失敗しました");
+        }
+    }
+
+    private void SetBodyFontSize(double size)
+    {
+        var newSize = Math.Clamp(size, 8, 48);
+        if (Math.Abs(ViewModel.FontSize - newSize) < 0.001)
+            return;
+
+        ViewModel.FontSize = newSize;
+        RequestSave();
         ShowSizeOverlay(string.Format(LocalizationService.T("BodySize"), ViewModel.FontSize));
         UpdateToolbarTooltips();
     }
@@ -197,14 +227,31 @@ public partial class StickyNoteWindow
 
     private void Close_Click(object sender, RoutedEventArgs e)
     {
+        var messageKey = HasNoteAssets()
+            ? "DeleteConfirmMessageWithAssets"
+            : "DeleteConfirmMessage";
         var result = System.Windows.MessageBox.Show(
-            LocalizationService.T("DeleteConfirmMessage"),
+            LocalizationService.T(messageKey),
             LocalizationService.T("DeleteConfirmTitle"),
             MessageBoxButton.YesNo, MessageBoxImage.Question);
         if (result == MessageBoxResult.Yes)
         {
             App.Current.RemoveNote(ViewModel.Model.Id);
             Close();
+        }
+    }
+
+    private bool HasNoteAssets()
+    {
+        try
+        {
+            var assetsDir = _storage.GetNoteAssetsDirectoryPath(ViewModel.Model.Id);
+            return Directory.Exists(assetsDir) && Directory.EnumerateFileSystemEntries(assetsDir).Any();
+        }
+        catch (Exception ex)
+        {
+            ErrorReporter.ReportNonFatal("Check note assets before delete", ex);
+            return false;
         }
     }
 

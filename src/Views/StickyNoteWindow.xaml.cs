@@ -76,6 +76,10 @@ public partial class StickyNoteWindow : Window
     private bool       _isTaskCheckboxUpdatePending;
     private bool       _isContentContextMenuOpen;
     private bool       _isFoldAnimationRunning;
+    private double     _requiredMarkdownPageWidth;
+    private PendingMarkdownImageResize? _pendingMarkdownImageResize;
+    private bool       _isMarkdownImageResizeQueued;
+    private readonly Dictionary<WpfImage, MarkdownImageContext> _markdownImageContexts = [];
     private WrapPanel? _colorPanel;
 
     private readonly System.Windows.Threading.DispatcherTimer _overlayTimer =
@@ -93,6 +97,7 @@ public partial class StickyNoteWindow : Window
     private Hyperlink? _contextMenuLink;
     private MenuItem   _openLinkItem  = new();
     private MenuItem   _convertLinkItem = new();
+    private MenuItem   _pasteMarkdownLinkItem = new();
     private MenuItem   _pasteExcelTableItem = new();
     private MenuItem   _copyExcelTableItem = new();
     private readonly StorageService _storage;

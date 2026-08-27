@@ -632,7 +632,7 @@ public static class MarkdownRenderer
             var pair = part.Split('=', 2);
             if (pair.Length != 2 ||
                 !double.TryParse(pair[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value) ||
-                value <= 0)
+                value < 0)
             {
                 continue;
             }

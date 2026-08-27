@@ -61,6 +61,7 @@ public partial class StickyNoteWindow
         try
         {
             ContentBox.Document.Blocks.Clear();
+            ContentBox.Document.PageWidth = double.NaN;
             var lines = string.IsNullOrEmpty(text) ? [""] : text.Split('\n');
             var para = new Paragraph { Margin = new Thickness(0) };
             for (var i = 0; i < lines.Length; i++)
@@ -68,8 +69,7 @@ public partial class StickyNoteWindow
                 if (i > 0)
                     para.Inlines.Add(new LineBreak());
 
-                foreach (var seg in LinkDetector.Parse(lines[i]))
-                    para.Inlines.Add(seg.IsLink ? (Inline)CreateHyperlink(seg.Text) : new Run(seg.Text));
+                para.Inlines.Add(new Run(lines[i]));
             }
             ContentBox.Document.Blocks.Add(para);
         }
@@ -82,7 +82,9 @@ public partial class StickyNoteWindow
         _suppressTextChange = true;
         try
         {
+            _markdownImageContexts.Clear();
             ContentBox.Document.Blocks.Clear();
+            _requiredMarkdownPageWidth = 0;
             foreach (var block in MarkdownRenderer.Render(
                 text,
                 ViewModel.FontSize,
@@ -93,8 +95,16 @@ public partial class StickyNoteWindow
             {
                 ContentBox.Document.Blocks.Add(block);
             }
+            ApplyMarkdownPageWidth();
         }
         finally { _suppressTextChange = false; }
+    }
+
+    private void ApplyMarkdownPageWidth()
+    {
+        ContentBox.Document.PageWidth = _requiredMarkdownPageWidth > 0
+            ? _requiredMarkdownPageWidth
+            : double.NaN;
     }
 
     private string GetPlainText()
@@ -185,44 +195,79 @@ public partial class StickyNoteWindow
 
     private Inline CreateMarkdownImage(MarkdownRenderer.MarkdownImage markdownImage)
     {
+        var fallback = CreateMarkdownImageFallback(markdownImage);
+        if (!LinkDetector.IsRenderableImageTarget(markdownImage.Target))
+            return fallback;
+
         var imagePath = ResolveImagePath(markdownImage.Target);
         if (imagePath == null || !File.Exists(imagePath))
-            return new Run(string.IsNullOrWhiteSpace(markdownImage.Alt)
-                ? $"![image]({markdownImage.Target})"
-                : $"![{markdownImage.Alt}]({markdownImage.Target})");
+            return fallback;
 
         var bitmap = new WpfBitmapImage();
-        bitmap.BeginInit();
-        bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
-        bitmap.UriSource = new Uri(imagePath, UriKind.Absolute);
-        bitmap.EndInit();
-        bitmap.Freeze();
+        try
+        {
+            bitmap.BeginInit();
+            bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+            bitmap.UriSource = new Uri(imagePath, UriKind.Absolute);
+            bitmap.EndInit();
+            bitmap.Freeze();
+        }
+        catch (Exception ex)
+        {
+            ErrorReporter.ReportNonFatal("Load markdown image", ex);
+            return fallback;
+        }
 
+        var hasExplicitSize = markdownImage.Width.HasValue || markdownImage.Height.HasValue;
         var image = new WpfImage
         {
             Source = bitmap,
             Stretch = Stretch.Uniform,
-            MaxWidth = Math.Max(80, Width - 28),
-            MaxHeight = 260,
             ToolTip = string.IsNullOrWhiteSpace(markdownImage.Alt) ? markdownImage.Target : markdownImage.Alt,
             Margin = new Thickness(0, 3, 0, 3),
         };
+        if (!hasExplicitSize)
+            image.MaxWidth = Math.Max(80, Width - 28);
 
-        if (markdownImage.Width is > 0)
+        if (markdownImage.Width.HasValue)
+        {
             image.Width = markdownImage.Width.Value;
-        if (markdownImage.Height is > 0)
+            _requiredMarkdownPageWidth = Math.Max(_requiredMarkdownPageWidth, markdownImage.Width.Value);
+        }
+        if (markdownImage.Height.HasValue)
             image.Height = markdownImage.Height.Value;
 
-        var maxDisplayScale = Math.Min(1.0, Math.Min(image.MaxWidth / bitmap.Width, image.MaxHeight / bitmap.Height));
-        var maxDisplayWidth = Math.Max(1, bitmap.Width * maxDisplayScale);
+        var dpi = VisualTreeHelper.GetDpi(this);
+        var originalWidth = Math.Max(1, bitmap.PixelWidth / dpi.DpiScaleX);
         if (markdownImage.LineIndex >= 0)
-            image.ContextMenu = BuildImageContextMenu(new MarkdownImageContext(
+        {
+            var context = new MarkdownImageContext(
                 markdownImage.LineIndex,
                 markdownImage.Start,
                 markdownImage.Length,
                 markdownImage.Alt,
                 markdownImage.Target,
-                maxDisplayWidth));
+                originalWidth);
+            _markdownImageContexts[image] = context;
+            image.ContextMenu = BuildImageContextMenu(context);
+            image.PreviewMouseWheel += (_, e) =>
+            {
+                try
+                {
+                    if ((Keyboard.Modifiers & ModifierKeys.Control) != ModifierKeys.Control)
+                        return;
+
+                    e.Handled = true;
+                    QueueNextMarkdownImageResize(context, image, e.Delta);
+                }
+                catch (Exception ex)
+                {
+                    e.Handled = true;
+                    ErrorReporter.ReportNonFatal("Image mouse wheel", ex);
+                    ShowSizeOverlay("画像サイズ変更に失敗しました");
+                }
+            };
+        }
 
         return new InlineUIContainer(image)
         {
@@ -230,24 +275,49 @@ public partial class StickyNoteWindow
         };
     }
 
+    private static Run CreateMarkdownImageFallback(MarkdownRenderer.MarkdownImage markdownImage)
+        => new(string.IsNullOrWhiteSpace(markdownImage.Alt)
+            ? $"![image]({markdownImage.Target})"
+            : $"![{markdownImage.Alt}]({markdownImage.Target})");
+
     private sealed record MarkdownImageContext(
         int LineIndex,
         int Start,
         int Length,
         string Alt,
         string Target,
-        double MaxDisplayWidth);
+        double OriginalWidth);
+
+    private sealed record PendingMarkdownImageResize(MarkdownImageContext Context, int Percent);
 
     private ContextMenu BuildImageContextMenu(MarkdownImageContext context)
     {
         var cm = new ContextMenu();
-        for (var percent = 10; percent <= 100; percent += 10)
+        for (var percent = 0; percent <= 200; percent += 20)
         {
             var percentItem = new MenuItem { Header = $"{percent}%" };
             var selectedPercent = percent;
             percentItem.Click += (_, _) => ResizeMarkdownImage(context, selectedPercent);
             cm.Items.Add(percentItem);
         }
+        cm.Items.Add(new Separator());
+        var removeWidthItem = new MenuItem { Header = LocalizationService.T("RemoveImageWidth") };
+        removeWidthItem.Click += (_, _) => RemoveMarkdownImageWidth(context);
+        cm.Items.Add(removeWidthItem);
+
+        cm.Items.Add(new Separator());
+        var detachItem = new MenuItem { Header = LocalizationService.T("DetachImageFromNote") };
+        detachItem.Click += (_, _) => RemoveMarkdownImage(context, deleteFile: false);
+        cm.Items.Add(detachItem);
+
+        var deleteFileItem = new MenuItem
+        {
+            Header = LocalizationService.T("DeleteImageFile"),
+            IsEnabled = IsImageFileInNoteAssets(context.Target),
+        };
+        deleteFileItem.Click += (_, _) => RemoveMarkdownImage(context, deleteFile: true);
+        cm.Items.Add(deleteFileItem);
+
         cm.Opened += (_, _) =>
         {
             _suppressViewMode = true;
@@ -257,7 +327,89 @@ public partial class StickyNoteWindow
         return cm;
     }
 
+    private void RemoveMarkdownImageWidth(MarkdownImageContext context)
+        => ReplaceMarkdownImage(context, BuildMarkdownImageText(context, null));
+
+    private bool ResizeMarkdownImageAtPoint(System.Windows.Point point, int wheelDelta)
+    {
+        var hit = VisualTreeHelper.HitTest(ContentBox, point)?.VisualHit as DependencyObject;
+        while (hit != null)
+        {
+            if (hit is WpfImage image && _markdownImageContexts.TryGetValue(image, out var context))
+            {
+                QueueNextMarkdownImageResize(context, image, wheelDelta);
+                return true;
+            }
+
+            hit = VisualTreeHelper.GetParent(hit);
+        }
+
+        return false;
+    }
+
+    private void QueueNextMarkdownImageResize(MarkdownImageContext context, WpfImage image, int wheelDelta)
+    {
+        var currentPercent = GetCurrentMarkdownImagePercent(context, image);
+        var nextPercent = Math.Clamp(currentPercent + (wheelDelta > 0 ? 20 : -20), 0, 200);
+        QueueMarkdownImageResize(context, nextPercent);
+        ShowSizeOverlay($"画像 {nextPercent}%");
+    }
+
+    private int GetCurrentMarkdownImagePercent(MarkdownImageContext context, WpfImage image)
+    {
+        if (_pendingMarkdownImageResize is { } pending &&
+            pending.Context.LineIndex == context.LineIndex &&
+            pending.Context.Start == context.Start &&
+            string.Equals(pending.Context.Target, context.Target, StringComparison.Ordinal))
+        {
+            return pending.Percent;
+        }
+
+        var currentWidth = !double.IsNaN(image.Width) && image.Width > 0
+            ? image.Width
+            : image.ActualWidth > 0
+                ? image.ActualWidth
+                : context.OriginalWidth;
+
+        return (int)Math.Round(currentWidth / context.OriginalWidth * 100.0 / 20.0) * 20;
+    }
+
+    private void QueueMarkdownImageResize(MarkdownImageContext context, int percent)
+    {
+        _pendingMarkdownImageResize = new PendingMarkdownImageResize(context, percent);
+        if (_isMarkdownImageResizeQueued)
+            return;
+
+        _isMarkdownImageResizeQueued = true;
+        Dispatcher.BeginInvoke(ProcessPendingMarkdownImageResize, System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    private void ProcessPendingMarkdownImageResize()
+    {
+        var pending = _pendingMarkdownImageResize;
+        _pendingMarkdownImageResize = null;
+        _isMarkdownImageResizeQueued = false;
+        if (pending == null)
+            return;
+
+        try
+        {
+            ResizeMarkdownImage(pending.Context, pending.Percent);
+        }
+        catch (Exception ex)
+        {
+            ErrorReporter.ReportNonFatal("Resize markdown image", ex);
+            ShowSizeOverlay("画像サイズ変更に失敗しました");
+        }
+    }
+
     private void ResizeMarkdownImage(MarkdownImageContext context, int percent)
+    {
+        var width = Math.Clamp(Math.Round(context.OriginalWidth * percent / 100.0), 0, 2000);
+        ReplaceMarkdownImage(context, BuildMarkdownImageText(context, width));
+    }
+
+    private void ReplaceMarkdownImage(MarkdownImageContext context, string replacement)
     {
         var lines = ViewModel.Content.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
         if (context.LineIndex < 0 || context.LineIndex >= lines.Length)
@@ -271,9 +423,6 @@ public partial class StickyNoteWindow
             return;
         }
 
-        var width = Math.Clamp(Math.Round(context.MaxDisplayWidth * percent / 100.0), 40, 2000);
-        var replacement = BuildMarkdownImageText(context, width);
-
         lines[context.LineIndex] =
             line[..context.Start] +
             replacement +
@@ -282,6 +431,95 @@ public partial class StickyNoteWindow
         ViewModel.Content = string.Join('\n', lines);
         RequestSave();
         LoadContent(ViewModel.Content);
+    }
+
+    private void RemoveMarkdownImage(MarkdownImageContext context, bool deleteFile)
+    {
+        if (deleteFile)
+        {
+            var result = System.Windows.MessageBox.Show(
+                LocalizationService.T("DeleteImageFileConfirmMessage"),
+                LocalizationService.T("DeleteImageFileConfirmTitle"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (result != MessageBoxResult.Yes)
+                return;
+
+            if (!DeleteImageFileIfOwnedByNote(context.Target))
+                return;
+        }
+
+        RemoveMarkdownImageReference(context);
+    }
+
+    private void RemoveMarkdownImageReference(MarkdownImageContext context)
+    {
+        var lines = ViewModel.Content.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n').ToList();
+        if (context.LineIndex < 0 || context.LineIndex >= lines.Count)
+            return;
+
+        var line = lines[context.LineIndex];
+        if (context.Start < 0 ||
+            context.Start + context.Length > line.Length ||
+            line[context.Start..(context.Start + context.Length)].IndexOf(context.Target, StringComparison.Ordinal) < 0)
+        {
+            return;
+        }
+
+        var before = line[..context.Start];
+        var after = line[(context.Start + context.Length)..];
+        if (string.IsNullOrWhiteSpace(before) && string.IsNullOrWhiteSpace(after))
+            lines.RemoveAt(context.LineIndex);
+        else
+            lines[context.LineIndex] = before + after;
+
+        ViewModel.Content = string.Join('\n', lines);
+        RequestSave();
+        LoadContent(ViewModel.Content);
+    }
+
+    private bool DeleteImageFileIfOwnedByNote(string target)
+    {
+        var imagePath = ResolveImagePath(target);
+        if (imagePath == null)
+            return false;
+        var fullPath = Path.GetFullPath(imagePath);
+        if (!File.Exists(fullPath))
+            return true;
+
+        if (!IsImageFileInNoteAssets(target))
+        {
+            System.Windows.MessageBox.Show(
+                LocalizationService.T("DeleteExternalImageFileBlocked"),
+                LocalizationService.T("DeleteImageFileConfirmTitle"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return false;
+        }
+
+        try
+        {
+            File.Delete(fullPath);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private bool IsImageFileInNoteAssets(string target)
+    {
+        var imagePath = ResolveImagePath(target);
+        if (imagePath == null)
+            return false;
+
+        var fullPath = Path.GetFullPath(imagePath);
+        var assetsRoot = Path.GetFullPath(_storage.GetNoteAssetsDirectoryPath(ViewModel.Model.Id))
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) +
+            Path.DirectorySeparatorChar;
+
+        return fullPath.StartsWith(assetsRoot, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string BuildMarkdownImageText(MarkdownImageContext context, double? width)
@@ -324,6 +562,7 @@ public partial class StickyNoteWindow
             Foreground      = IsDarkTheme() ? WpfBrushes.LightSkyBlue : WpfBrushes.RoyalBlue,
             Cursor          = WpfCursors.Hand,
             Tag             = target,
+            ToolTip         = target,
             TextDecorations = TextDecorations.Underline,
         };
         link.Click += (_, _) => OpenTarget(target);
@@ -339,7 +578,10 @@ public partial class StickyNoteWindow
             else
                 Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
         }
-        catch { /* ignore */ }
+        catch (Exception ex)
+        {
+            ErrorReporter.ReportNonFatal("Open link target", ex);
+        }
     }
 
 }

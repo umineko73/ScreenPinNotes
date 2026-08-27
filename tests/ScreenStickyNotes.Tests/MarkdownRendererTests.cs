@@ -63,6 +63,25 @@ public class MarkdownRendererTests
         Assert.Contains(("Example", "https://example.com"), calls);
     }
 
+    [Fact]
+    public void Render_MarkdownImage_PreservesZeroWidthAttribute()
+    {
+        MarkdownRenderer.MarkdownImage? captured = null;
+
+        MarkdownRenderer.Render(
+            "![image](assets/pasted.png){width=0}",
+            13,
+            CreateHyperlink,
+            createImage: image =>
+            {
+                captured = image;
+                return new Run("");
+            }).ToList();
+
+        Assert.NotNull(captured);
+        Assert.Equal(0, captured.Width);
+    }
+
     // Constructing a System.Windows.Controls.CheckBox (a Control, unlike the plain
     // TextElement types the other tests use) requires an STA thread with a WPF
     // Dispatcher, which plain [Fact] doesn't provide.

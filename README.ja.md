@@ -50,7 +50,7 @@ Windows 11 向けのデスクトップ付箋アプリです。折りたたむと
 | ファイル | 必要なもの |
 |----------|-----------|
 | `ScreenStickyNotes-x.y.z-win-x64.zip`（約68MB） | なし。迷ったらこちら |
-| `ScreenStickyNotes-x.y.z-win-x64-runtime.zip`（約220KB） | [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) |
+| `ScreenStickyNotes-x.y.z-win-x64-runtime.zip`（約11MB） | [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) |
 
 どちらも展開すると `ScreenStickyNotes.exe` と `SampleNotes\`（サンプル付箋。無くても起動できます）が同じフォルダに入っています。
 
