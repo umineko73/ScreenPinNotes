@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using ScreenStickyNotes.Models;
@@ -28,7 +29,14 @@ public sealed class StorageServiceTests : IDisposable
     [Fact]
     public void SaveNote_ThenLoad_RoundTripsContentSeparatelyFromMeta()
     {
-        var note = new StickyNote { Content = "# Hello\nworld", Title = "My Note" };
+        var note = new StickyNote
+        {
+            Content = "# Hello\nworld",
+            Title = "My Note",
+            FoldedX = 12,
+            FoldedY = 34,
+            FoldedWidth = 180,
+        };
 
         _storage.SaveNote(note);
 
@@ -47,6 +55,9 @@ public sealed class StorageServiceTests : IDisposable
         Assert.Equal(note.Id, loadedNote.Id);
         Assert.Equal("My Note", loadedNote.Title);
         Assert.Equal("# Hello\nworld", loadedNote.Content);
+        Assert.Equal(12, loadedNote.FoldedX);
+        Assert.Equal(34, loadedNote.FoldedY);
+        Assert.Equal(180, loadedNote.FoldedWidth);
     }
 
     [Fact]
@@ -177,9 +188,27 @@ public sealed class StorageServiceTests : IDisposable
     {
         var settings = _storage.LoadSettings();
 
-        Assert.Equal("ja", settings.Language);
+        Assert.Equal(AppSettings.GetDefaultLanguage(CultureInfo.CurrentUICulture), settings.Language);
         Assert.Equal("Light", settings.Theme);
         Assert.NotEmpty(settings.IconPalette);
+    }
+
+    [Fact]
+    public void LoadSettings_NoFileYet_UsesEnglishForNonJapaneseOsCulture()
+    {
+        var original = CultureInfo.CurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
+
+            var settings = _storage.LoadSettings();
+
+            Assert.Equal("en", settings.Language);
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = original;
+        }
     }
 
     [Fact]

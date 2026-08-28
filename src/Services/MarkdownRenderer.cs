@@ -564,13 +564,11 @@ public static class MarkdownRenderer
         if (labelEnd <= start || labelEnd + 1 >= text.Length || text[labelEnd + 1] != '(')
             return false;
 
-        var targetEnd = text.IndexOf(')', labelEnd + 2);
-        if (targetEnd <= labelEnd + 2)
+        if (!TryReadMarkdownTarget(text, labelEnd + 1, out target, out var targetLength))
             return false;
 
         label = text[(start + 1)..labelEnd];
-        target = text[(labelEnd + 2)..targetEnd].Trim();
-        length = targetEnd - start + 1;
+        length = labelEnd + 1 + targetLength - start;
         return LinkDetector.IsLink(target);
     }
 
@@ -596,16 +594,72 @@ public static class MarkdownRenderer
         if (altEnd <= start + 1 || altEnd + 1 >= text.Length || text[altEnd + 1] != '(')
             return false;
 
-        var targetEnd = text.IndexOf(')', altEnd + 2);
-        if (targetEnd <= altEnd + 2)
+        if (!TryReadMarkdownTarget(text, altEnd + 1, out target, out var targetLength))
             return false;
 
         alt = text[(start + 2)..altEnd];
-        target = text[(altEnd + 2)..targetEnd].Trim();
-        length = targetEnd - start + 1;
+        length = altEnd + 1 + targetLength - start;
         if (TryReadImageAttributes(text, start + length, out var attrLength, out width, out height))
             length += attrLength;
 
+        return target.Length > 0;
+    }
+
+    private static bool TryReadMarkdownTarget(
+        string text,
+        int openParenIndex,
+        out string target,
+        out int length)
+    {
+        target = "";
+        length = 0;
+        if (openParenIndex >= text.Length || text[openParenIndex] != '(')
+            return false;
+
+        var start = openParenIndex + 1;
+        var depth = 0;
+        var fallbackEnd = -1;
+        for (var i = start; i < text.Length; i++)
+        {
+            var ch = text[i];
+            if (ch == '\\' && i + 1 < text.Length)
+            {
+                i++;
+                continue;
+            }
+
+            if (ch == '(')
+            {
+                depth++;
+                continue;
+            }
+
+            if (ch != ')')
+                continue;
+
+            fallbackEnd = i;
+            if (depth > 0)
+            {
+                depth--;
+                continue;
+            }
+
+            return FinishMarkdownTarget(text, openParenIndex, i, out target, out length);
+        }
+
+        return fallbackEnd > start &&
+               FinishMarkdownTarget(text, openParenIndex, fallbackEnd, out target, out length);
+    }
+
+    private static bool FinishMarkdownTarget(
+        string text,
+        int openParenIndex,
+        int closeParenIndex,
+        out string target,
+        out int length)
+    {
+        target = text[(openParenIndex + 1)..closeParenIndex].Trim();
+        length = closeParenIndex - openParenIndex + 1;
         return target.Length > 0;
     }
 

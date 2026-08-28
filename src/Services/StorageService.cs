@@ -156,7 +156,7 @@ public class StorageService
     {
         if (!File.Exists(_settingsPath))
         {
-            var defaults = new AppSettings();
+            var defaults = AppSettings.CreateDefault();
             defaults.Normalize();
             return defaults;
         }
@@ -171,7 +171,7 @@ public class StorageService
         }
         catch
         {
-            var defaults = new AppSettings();
+            var defaults = AppSettings.CreateDefault();
             defaults.Normalize();
             return defaults;
         }

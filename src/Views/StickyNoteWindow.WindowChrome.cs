@@ -105,8 +105,7 @@ public partial class StickyNoteWindow
 
         if (_dragMoved)
         {
-            ViewModel.Model.X = Left;
-            ViewModel.Model.Y = Top;
+            SaveCurrentPositionToModel();
             RequestSave();
             return;
         }

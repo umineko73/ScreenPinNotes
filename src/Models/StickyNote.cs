@@ -33,6 +33,8 @@ public class StickyNote
 
     // 折りたたみ時専用の幅。null なら Width をそのまま使う
     // （＝まだ折りたたみ時に個別リサイズされたことがない付箋）。
+    public double? FoldedX { get; set; }
+    public double? FoldedY { get; set; }
     public double? FoldedWidth { get; set; }
 
     public double Height { get; set; } = 220;

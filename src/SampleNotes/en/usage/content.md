@@ -1,14 +1,27 @@
-# How to use
+# Basic Usage Manual
 
-## Basics
+![Fold and unfold position overview](assets/window-position-guide.png)
 
-- Double-click body: edit mode
-- Escape: return to view mode
+## Editing and Viewing
+
+- Double-click the body: switch to edit mode
+- Esc: return to view mode
+- In view mode, links, checklists, and image operations are available
+
+## Moving Notes
+
 - Drag title bar: move the note
 - Click title bar: fold / unfold
-- Right-click title: edit title, z order, delete
+- Folded and unfolded positions and sizes are saved separately
+- Moving a folded note resets the next unfolded position automatically
+- Right-click title: edit title, z order, opacity, unfolded position, delete
 
-## Title bar buttons
+## Fold and Unfold
+
+- When a note near the bottom of the screen is unfolded, the window is adjusted so it stays visible
+- While folded, use "Open here" from the title context menu to reset the unfolded position
+
+## Title Bar Buttons
 
 | Button | Action |
 | --- | --- |
@@ -16,11 +29,11 @@
 | Pin | Always on top |
 | Up / Down | Fold / unfold |
 
-## Tray icon
+## Tray Icon
 
 - Left-click: show / hide all notes
 - Right-click: new note, language, dark mode, exit
 
-## Data folder
+## Data Folder
 
 `%APPDATA%\ScreenStickyNotes`

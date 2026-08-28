@@ -1,3 +1,4 @@
+using System.Globalization;
 using ScreenStickyNotes.Models;
 
 namespace ScreenStickyNotes.Tests;
@@ -30,6 +31,20 @@ public class AppSettingsTests
         settings.Normalize();
 
         Assert.Equal(expected, settings.Language);
+    }
+
+    [Theory]
+    [InlineData("ja-JP", "ja")]
+    [InlineData("ja", "ja")]
+    [InlineData("en-US", "en")]
+    [InlineData("fr-FR", "en")]
+    public void GetDefaultLanguage_UsesJapaneseOnlyForJapaneseCulture(string cultureName, string expected)
+    {
+        var culture = CultureInfo.GetCultureInfo(cultureName);
+
+        var language = AppSettings.GetDefaultLanguage(culture);
+
+        Assert.Equal(expected, language);
     }
 
     [Theory]

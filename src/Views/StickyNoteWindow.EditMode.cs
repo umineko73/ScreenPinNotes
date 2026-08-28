@@ -265,14 +265,25 @@ public partial class StickyNoteWindow
 
     // 下に伸ばした結果、画面外にはみ出すなら上へずらす
     private void KeepInsideWorkArea()
+        => KeepInsideWorkArea(Width, Height);
+
+    private void KeepInsideWorkArea(double targetWidth, double targetHeight)
     {
         var screen = System.Windows.Forms.Screen.FromHandle(new WindowInteropHelper(this).Handle);
         var (dpiX, dpiY) = GetDpi();
         double workBottom = screen.WorkingArea.Bottom / dpiY;
         double workTop    = screen.WorkingArea.Top    / dpiY;
+        double workRight  = screen.WorkingArea.Right  / dpiX;
+        double workLeft   = screen.WorkingArea.Left   / dpiX;
 
-        if (Top + Height > workBottom)
-            Top = Math.Max(workTop, workBottom - Height);
+        if (Top + targetHeight > workBottom)
+            Top = Math.Max(workTop, workBottom - targetHeight);
+        if (Top < workTop)
+            Top = workTop;
+        if (Left + targetWidth > workRight)
+            Left = Math.Max(workLeft, workRight - targetWidth);
+        if (Left < workLeft)
+            Left = workLeft;
     }
 
     // View モード: クリックでリンクを直接開く / 非リンクならEdit モードへ
@@ -412,8 +423,16 @@ public partial class StickyNoteWindow
     {
         if (_suppressTextChange) return;
         if (_isTaskCheckboxUpdatePending) return;
-        ViewModel.Content = GetPlainText();
-        RequestSave();
+        if (!_isEditMode || ContentBox.IsReadOnly) return;
+        try
+        {
+            ViewModel.Content = GetPlainText();
+            RequestSave();
+        }
+        catch (Exception ex)
+        {
+            ErrorReporter.ReportNonFatal("Content text changed", ex);
+        }
     }
 
     // Title 自体の値は TwoWay バインディングが更新するので、ここでは保存の予約だけ行う

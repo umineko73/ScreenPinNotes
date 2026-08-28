@@ -71,6 +71,7 @@ public partial class StickyNoteWindow : Window
     private bool       _dragMoved;               // しきい値を超えて実際に動かしたか
     private System.Drawing.Point _dragStartCursor; // ドラッグ開始時のカーソル位置（しきい値判定用）
     private bool       _suppressTextChange;
+    private bool       _suppressWindowBoundsSave;
     private bool       _isEditMode;
     private bool       _suppressViewMode;
     private bool       _isTaskCheckboxUpdatePending;
@@ -79,6 +80,10 @@ public partial class StickyNoteWindow : Window
     private double     _requiredMarkdownPageWidth;
     private PendingMarkdownImageResize? _pendingMarkdownImageResize;
     private bool       _isMarkdownImageResizeQueued;
+    private bool       _isImageScrollDragging;
+    private System.Windows.Point _imageScrollStartPoint;
+    private double     _imageScrollStartHorizontalOffset;
+    private double     _imageScrollStartVerticalOffset;
     private readonly Dictionary<WpfImage, MarkdownImageContext> _markdownImageContexts = [];
     private WrapPanel? _colorPanel;
 
@@ -100,6 +105,7 @@ public partial class StickyNoteWindow : Window
     private MenuItem   _pasteMarkdownLinkItem = new();
     private MenuItem   _pasteExcelTableItem = new();
     private MenuItem   _copyExcelTableItem = new();
+    private MenuItem   _fitWindowToImagesItem = new();
     private readonly StorageService _storage;
 
     public StickyNoteViewModel ViewModel => (StickyNoteViewModel)DataContext;
@@ -123,9 +129,9 @@ public partial class StickyNoteWindow : Window
         // 展開時の幅で上書きされてしまう（初期化の途中でモデルを汚染する）。
         _isInitializing = true;
 
-        Left    = vm.Model.X;
-        Top     = vm.Model.Y;
-        Width   = vm.Model.Width;
+        Left    = vm.IsFolded ? vm.Model.FoldedX ?? vm.Model.X : vm.Model.X;
+        Top     = vm.IsFolded ? vm.Model.FoldedY ?? vm.Model.Y : vm.Model.Y;
+        Width   = vm.IsFolded ? vm.Model.FoldedWidth ?? vm.Model.Width : vm.Model.Width;
         Height  = vm.Model.Height;
         Topmost = vm.IsTopmost;
         _unfoldedHeight = vm.Model.Height;
@@ -173,8 +179,6 @@ public partial class StickyNoteWindow : Window
             if (vm.IsFolded)
             {
                 ContentBox.Visibility = Visibility.Collapsed;
-                // 折りたたみ時専用の幅が保存されていればそれを使う
-                Width  = vm.Model.FoldedWidth ?? vm.Model.Width;
                 Height = FoldedHeight;
             }
             // 展開状態でも必ず通す。ここを通さないと WindowChrome が
@@ -330,6 +334,7 @@ public partial class StickyNoteWindow : Window
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         if (_isInitializing) return; // コンストラクタ〜Loaded の初期値設定はモデルに書き戻さない
+        if (_suppressWindowBoundsSave) return;
         if (_isFoldAnimationRunning) return; // アニメーション途中の高さを展開時サイズとして保存しない
         // 幅は展開時/折りたたみ時で別々のフィールドに保存する
         // （ToggleFold() が状態切り替え時にどちらか一方へスナップする）。
@@ -342,15 +347,46 @@ public partial class StickyNoteWindow : Window
 
         if (!ViewModel.IsFolded)
             ViewModel.Model.Height = Height - _statusBarDelta;
+        if (!_isEditMode && !ViewModel.IsFolded)
+            Dispatcher.BeginInvoke(() => LoadContent(ViewModel.Content), System.Windows.Threading.DispatcherPriority.Background);
         RequestSave();
     }
 
     private void Window_LocationChanged(object? sender, EventArgs e)
     {
         if (_isDragging || _isInitializing) return;
-        ViewModel.Model.X = Left;
-        ViewModel.Model.Y = Top;
+        if (_suppressWindowBoundsSave) return;
+        SaveCurrentPositionToModel();
         RequestSave();
+    }
+
+    private void SuppressWindowBoundsSave(Action action)
+    {
+        _suppressWindowBoundsSave = true;
+        try
+        {
+            action();
+        }
+        finally
+        {
+            _suppressWindowBoundsSave = false;
+        }
+    }
+
+    private void SaveCurrentPositionToModel()
+    {
+        if (ViewModel.IsFolded)
+        {
+            ViewModel.Model.FoldedX = Left;
+            ViewModel.Model.FoldedY = Top;
+            ViewModel.Model.X = Left;
+            ViewModel.Model.Y = Top;
+        }
+        else
+        {
+            ViewModel.Model.X = Left;
+            ViewModel.Model.Y = Top;
+        }
     }
 
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -367,11 +403,24 @@ public partial class StickyNoteWindow : Window
         _saveTimer?.Dispose();
         _saveTimer = new System.Threading.Timer(_ =>
         {
-            Dispatcher.Invoke(() =>
+            try
             {
-                _savePending = false;
-                App.Current.SaveAll();
-            });
+                if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+                    return;
+
+                Dispatcher.Invoke(() =>
+                {
+                    _savePending = false;
+                    App.Current.SaveAll();
+                });
+            }
+            catch (Exception ex) when (
+                ex is InvalidOperationException ||
+                ex is System.Threading.Tasks.TaskCanceledException ||
+                ex is System.ComponentModel.Win32Exception)
+            {
+                ErrorReporter.ReportNonFatal("Deferred save", ex);
+            }
         }, null, Settings.Timings.SaveDebounceMs, System.Threading.Timeout.Infinite);
     }
 

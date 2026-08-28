@@ -62,11 +62,23 @@ public partial class StickyNoteWindow
     {
         if (ViewModel.IsFolded)
         {
+            ViewModel.Model.FoldedX = Left;
+            ViewModel.Model.FoldedY = Top;
+            ViewModel.Model.FoldedWidth = Width;
+
             ContentBox.Visibility = Visibility.Visible;
             ViewModel.IsFolded = false;
             UpdateTitleBarButtonsVisibility();
             ScheduleTitlePreview();
-            Width = ViewModel.Model.Width; // 展開時専用の幅に戻す
+            SuppressWindowBoundsSave(() =>
+            {
+                Width = ViewModel.Model.Width; // 展開時専用の幅に戻す
+                Left = ViewModel.Model.X;
+                Top = ViewModel.Model.Y;
+                KeepInsideWorkArea(Width, _unfoldedHeight);
+            });
+            ViewModel.Model.X = Left;
+            ViewModel.Model.Y = Top;
             SetResizeEnabled(true);
             RunFoldAnimation(FoldedHeight, _unfoldedHeight, () =>
             {
@@ -77,6 +89,9 @@ public partial class StickyNoteWindow
         else
         {
             if (_isEditMode) EnterViewMode(); // 折りたたみ時は閲覧モードに戻す
+            ViewModel.Model.X = Left;
+            ViewModel.Model.Y = Top;
+            ViewModel.Model.Width = Width;
             _unfoldedHeight = Height;
             // アニメーション中の SizeChanged で Model.Height が
             // 途中の値に上書きされないよう先にフラグを立てる
@@ -85,7 +100,15 @@ public partial class StickyNoteWindow
             ScheduleTitlePreview();
             HideEditToolbar();
             // 折りたたみ時専用の幅へスナップ（未設定なら現在の幅のまま）
-            Width = ViewModel.Model.FoldedWidth ?? Width;
+            SuppressWindowBoundsSave(() =>
+            {
+                Left = ViewModel.Model.FoldedX ?? Left;
+                Top = ViewModel.Model.FoldedY ?? Top;
+                Width = ViewModel.Model.FoldedWidth ?? Width;
+            });
+            ViewModel.Model.FoldedX = Left;
+            ViewModel.Model.FoldedY = Top;
+            ViewModel.Model.FoldedWidth = Width;
             RunFoldAnimation(Height, FoldedHeight, () =>
             {
                 ContentBox.Visibility = Visibility.Collapsed;

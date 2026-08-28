@@ -58,10 +58,12 @@ public partial class StickyNoteWindow
         _pasteMarkdownLinkItem = new MenuItem { Header = LocalizationService.T("PasteMarkdownLink"), IsEnabled = false };
         _pasteExcelTableItem = BuildPasteExcelTableMenuItem();
         _copyExcelTableItem = new MenuItem { Header = LocalizationService.T("CopyExcelTable"), IsEnabled = false };
+        _fitWindowToImagesItem = new MenuItem { Header = LocalizationService.T("FitWindowToImages"), IsEnabled = false };
         _openLinkItem.Click    += OpenLink_Click;
         _convertLinkItem.Click += ConvertLink_Click;
         _pasteMarkdownLinkItem.Click += PasteMarkdownLink_Click;
         _copyExcelTableItem.Click += CopyExcelTable_Click;
+        _fitWindowToImagesItem.Click += (_, _) => FitWindowToMarkdownImages();
 
         var cm = new ContextMenu();
         cm.Items.Add(new MenuItem { Header = LocalizationService.T("Cut"), Command = ApplicationCommands.Cut, CommandTarget = ContentBox });
@@ -71,6 +73,8 @@ public partial class StickyNoteWindow
         cm.Items.Add(new Separator());
         cm.Items.Add(_pasteExcelTableItem);
         cm.Items.Add(_copyExcelTableItem);
+        cm.Items.Add(new Separator());
+        cm.Items.Add(_fitWindowToImagesItem);
         cm.Items.Add(new Separator());
         cm.Items.Add(_openLinkItem);
         cm.Items.Add(_convertLinkItem);
@@ -90,6 +94,7 @@ public partial class StickyNoteWindow
         var selectAllItem = new MenuItem { Header = LocalizationService.T("SelectAll") };
         var zOrderItem = new MenuItem { Header = LocalizationService.T("ZOrder") };
         var opacityItem = BuildOpacityMenuItem();
+        var setUnfoldedPositionItem = new MenuItem { Header = LocalizationService.T("SetUnfoldedPositionHere") };
         var bringToFrontItem = new MenuItem { Header = LocalizationService.T("BringToFront") };
         var sendToBackItem = new MenuItem { Header = LocalizationService.T("SendToBack") };
         var deleteItem = new MenuItem { Header = LocalizationService.T("Delete") };
@@ -106,6 +111,7 @@ public partial class StickyNoteWindow
         };
         pasteItem.Click += (_, _) => TitleEditBox.Paste();
         selectAllItem.Click += (_, _) => TitleEditBox.SelectAll();
+        setUnfoldedPositionItem.Click += (_, _) => SetUnfoldedPositionHere();
         bringToFrontItem.Click += (_, _) => MoveInZOrder(HwndTop);
         sendToBackItem.Click += (_, _) => MoveInZOrder(HwndBottom);
         deleteItem.Click += Close_Click;
@@ -122,6 +128,7 @@ public partial class StickyNoteWindow
         cm.Items.Add(new Separator());
         cm.Items.Add(zOrderItem);
         cm.Items.Add(opacityItem);
+        cm.Items.Add(setUnfoldedPositionItem);
         cm.Items.Add(new Separator());
         cm.Items.Add(deleteItem);
         cm.Opened += (_, _) =>
@@ -136,6 +143,7 @@ public partial class StickyNoteWindow
                 : !string.IsNullOrEmpty(ViewModel.DisplayTitle);
             cutItem.IsEnabled = TitleEditBox.SelectionLength > 0;
             pasteItem.IsEnabled = TryGetClipboardText(out _);
+            setUnfoldedPositionItem.IsEnabled = ViewModel.IsFolded;
             UpdateOpacityMenuChecks(opacityItem);
         };
         cm.Closed += (_, _) =>
@@ -183,6 +191,13 @@ public partial class StickyNoteWindow
         RequestSave();
     }
 
+    private void SetUnfoldedPositionHere()
+    {
+        ViewModel.Model.X = Left;
+        ViewModel.Model.Y = Top;
+        RequestSave();
+    }
+
     private void MoveInZOrder(IntPtr insertAfter)
     {
         var hwnd = new WindowInteropHelper(this).Handle;
@@ -221,6 +236,7 @@ public partial class StickyNoteWindow
             _isEditMode &&
             TryGetClipboardText(out clipboardText) &&
             MarkdownTableClipboard.TryTabularTextToMarkdownTable(clipboardText, useFirstRowAsHeader: true, out _);
+        _fitWindowToImagesItem.IsEnabled = !_isEditMode && _markdownImageContexts.Count > 0;
 
         ShowEditToolbar();
     }

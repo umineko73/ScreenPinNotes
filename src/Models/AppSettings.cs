@@ -6,6 +6,8 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
+using System.Globalization;
+
 namespace ScreenStickyNotes.Models;
 
 /// <summary>アプリケーション全体に関する設定。</summary>
@@ -28,6 +30,14 @@ public sealed class AppSettings
     // 別途表示するのでここには含めない。settings.json で好きな絵文字に
     // 差し替えられる。
     public List<string> IconPalette { get; set; } = DefaultIconPalette();
+
+    public static AppSettings CreateDefault()
+        => new() { Language = GetDefaultLanguage(CultureInfo.CurrentUICulture) };
+
+    public static string GetDefaultLanguage(CultureInfo culture)
+        => culture.Name.StartsWith("ja", StringComparison.OrdinalIgnoreCase)
+            ? "ja"
+            : "en";
 
     public static List<string> DefaultIconPalette() =>
     [

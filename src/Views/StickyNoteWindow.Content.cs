@@ -49,6 +49,10 @@ namespace ScreenStickyNotes.Views;
 
 public partial class StickyNoteWindow
 {
+    private const int MarkdownImageMinPercent = 20;
+    private const int MarkdownImageMaxPercent = 200;
+    private const double MarkdownImageVerticalMargin = 6;
+
     // ─── FlowDocument ↔ プレーンテキスト / Markdown ──────────────
 
     private void LoadContent(string text)
@@ -199,19 +203,20 @@ public partial class StickyNoteWindow
         if (!LinkDetector.IsRenderableImageTarget(markdownImage.Target))
             return fallback;
 
-        WpfBitmapImage bitmap;
+        System.Windows.Media.Imaging.BitmapSource bitmap;
         try
         {
             var imagePath = ResolveImagePath(markdownImage.Target);
             if (imagePath == null || !File.Exists(imagePath))
                 return fallback;
 
-            bitmap = new WpfBitmapImage();
-            bitmap.BeginInit();
-            bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
-            bitmap.UriSource = new Uri(imagePath, UriKind.Absolute);
-            bitmap.EndInit();
-            bitmap.Freeze();
+            var loaded = new WpfBitmapImage();
+            loaded.BeginInit();
+            loaded.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+            loaded.UriSource = new Uri(imagePath, UriKind.Absolute);
+            loaded.EndInit();
+            loaded.Freeze();
+            bitmap = NormalizeZeroAlphaImage(loaded);
         }
         catch (Exception ex)
         {
@@ -219,7 +224,10 @@ public partial class StickyNoteWindow
             return fallback;
         }
 
-        var hasExplicitSize = markdownImage.Width.HasValue || markdownImage.Height.HasValue;
+        var dpi = VisualTreeHelper.GetDpi(this);
+        var originalWidth = Math.Max(1, bitmap.PixelWidth / dpi.DpiScaleX);
+        var originalHeight = Math.Max(1, bitmap.PixelHeight / dpi.DpiScaleY);
+        var hasExplicitWidth = markdownImage.Width.HasValue;
         var image = new WpfImage
         {
             Source = bitmap,
@@ -227,8 +235,24 @@ public partial class StickyNoteWindow
             ToolTip = string.IsNullOrWhiteSpace(markdownImage.Alt) ? markdownImage.Target : markdownImage.Alt,
             Margin = new Thickness(0, 3, 0, 3),
         };
-        if (!hasExplicitSize)
-            image.MaxWidth = Math.Max(80, Width - 28);
+
+        var displayWidth = markdownImage.Width ?? originalWidth;
+        var displayHeight = markdownImage.Height ?? originalHeight;
+        if (markdownImage.Width.HasValue && !markdownImage.Height.HasValue)
+            displayHeight = originalHeight * markdownImage.Width.Value / originalWidth;
+        else if (!markdownImage.Width.HasValue && markdownImage.Height.HasValue)
+            displayWidth = originalWidth * markdownImage.Height.Value / originalHeight;
+
+        if (!hasExplicitWidth)
+        {
+            var naturalWidth = markdownImage.Height.HasValue
+                ? originalWidth * markdownImage.Height.Value / originalHeight
+                : originalWidth;
+            displayWidth = Math.Min(naturalWidth, GetMarkdownImageAvailableWidth());
+            displayHeight = originalHeight * displayWidth / originalWidth;
+            image.Width = displayWidth;
+            image.Height = originalHeight * displayWidth / originalWidth;
+        }
 
         if (markdownImage.Width.HasValue)
         {
@@ -238,8 +262,6 @@ public partial class StickyNoteWindow
         if (markdownImage.Height.HasValue)
             image.Height = markdownImage.Height.Value;
 
-        var dpi = VisualTreeHelper.GetDpi(this);
-        var originalWidth = Math.Max(1, bitmap.PixelWidth / dpi.DpiScaleX);
         if (markdownImage.LineIndex >= 0)
         {
             var context = new MarkdownImageContext(
@@ -248,9 +270,16 @@ public partial class StickyNoteWindow
                 markdownImage.Length,
                 markdownImage.Alt,
                 markdownImage.Target,
-                originalWidth);
+                originalWidth,
+                originalHeight,
+                displayWidth,
+                displayHeight);
             _markdownImageContexts[image] = context;
             image.ContextMenu = BuildImageContextMenu(context);
+            image.PreviewMouseLeftButtonDown += MarkdownImage_PreviewMouseLeftButtonDown;
+            image.PreviewMouseLeftButtonUp += MarkdownImage_PreviewMouseLeftButtonUp;
+            image.MouseMove += MarkdownImage_MouseMove;
+            image.LostMouseCapture += MarkdownImage_LostMouseCapture;
             image.PreviewMouseWheel += (_, e) =>
             {
                 try
@@ -281,20 +310,32 @@ public partial class StickyNoteWindow
             ? $"![image]({markdownImage.Target})"
             : $"![{markdownImage.Alt}]({markdownImage.Target})");
 
+    private double GetMarkdownImageAvailableWidth()
+    {
+        var boxWidth = ContentBox.ActualWidth > 0 ? ContentBox.ActualWidth : Width;
+        var padding = ContentBox.Padding.Left + ContentBox.Padding.Right;
+        var border = ContentBox.BorderThickness.Left + ContentBox.BorderThickness.Right;
+        const double ScrollbarAllowance = 18;
+        return Math.Max(1, boxWidth - padding - border - ScrollbarAllowance);
+    }
+
     private sealed record MarkdownImageContext(
         int LineIndex,
         int Start,
         int Length,
         string Alt,
         string Target,
-        double OriginalWidth);
+        double OriginalWidth,
+        double OriginalHeight,
+        double DisplayWidth,
+        double DisplayHeight);
 
     private sealed record PendingMarkdownImageResize(MarkdownImageContext Context, int Percent);
 
     private ContextMenu BuildImageContextMenu(MarkdownImageContext context)
     {
         var cm = new ContextMenu();
-        for (var percent = 0; percent <= 200; percent += 20)
+        for (var percent = MarkdownImageMinPercent; percent <= MarkdownImageMaxPercent; percent += 20)
         {
             var percentItem = new MenuItem { Header = $"{percent}%" };
             var selectedPercent = percent;
@@ -305,6 +346,11 @@ public partial class StickyNoteWindow
         var removeWidthItem = new MenuItem { Header = LocalizationService.T("RemoveImageWidth") };
         removeWidthItem.Click += (_, _) => RemoveMarkdownImageWidth(context);
         cm.Items.Add(removeWidthItem);
+
+        cm.Items.Add(new Separator());
+        var fitWindowItem = new MenuItem { Header = LocalizationService.T("FitWindowToImage") };
+        fitWindowItem.Click += (_, _) => FitWindowToMarkdownImage(context);
+        cm.Items.Add(fitWindowItem);
 
         cm.Items.Add(new Separator());
         var detachItem = new MenuItem { Header = LocalizationService.T("DetachImageFromNote") };
@@ -351,7 +397,10 @@ public partial class StickyNoteWindow
     private void QueueNextMarkdownImageResize(MarkdownImageContext context, WpfImage image, int wheelDelta)
     {
         var currentPercent = GetCurrentMarkdownImagePercent(context, image);
-        var nextPercent = Math.Clamp(currentPercent + (wheelDelta > 0 ? 20 : -20), 0, 200);
+        var nextPercent = Math.Clamp(
+            currentPercent + (wheelDelta > 0 ? 20 : -20),
+            MarkdownImageMinPercent,
+            MarkdownImageMaxPercent);
         QueueMarkdownImageResize(context, nextPercent);
         ShowSizeOverlay($"画像 {nextPercent}%");
     }
@@ -409,8 +458,184 @@ public partial class StickyNoteWindow
 
     private void ResizeMarkdownImage(MarkdownImageContext context, int percent)
     {
-        var width = Math.Clamp(Math.Round(context.OriginalWidth * percent / 100.0), 0, 2000);
+        percent = Math.Clamp(percent, MarkdownImageMinPercent, MarkdownImageMaxPercent);
+        var width = Math.Clamp(Math.Round(context.OriginalWidth * percent / 100.0), 1, 2000);
         ReplaceMarkdownImage(context, BuildMarkdownImageText(context, width));
+    }
+
+    private void FitWindowToMarkdownImage(MarkdownImageContext context)
+    {
+        var image = _markdownImageContexts.FirstOrDefault(pair => pair.Value.Equals(context)).Key;
+        if (image != null)
+            FitWindowToMarkdownImages([image]);
+    }
+
+    private void FitWindowToMarkdownImages()
+        => FitWindowToMarkdownImages(_markdownImageContexts.Keys);
+
+    private void FitWindowToMarkdownImages(IEnumerable<WpfImage> images)
+    {
+        var imageList = images.ToList();
+        if (imageList.Count == 0)
+            return;
+
+        UpdateLayout();
+        var contentExtent = GetMarkdownImageContentExtent(imageList);
+        var (maxWidth, maxHeight) = GetWorkAreaSize();
+        var targetWidth = Math.Min(
+            maxWidth,
+            Math.Max(MinWidth, contentExtent.Width + GetWindowExtraWidthForContent()));
+        var targetHeight = Math.Min(
+            maxHeight,
+            Math.Max(FoldedHeight, contentExtent.Height + GetWindowExtraHeightForContent()));
+
+        SuppressWindowBoundsSave(() =>
+        {
+            Width = targetWidth;
+            Height = targetHeight;
+            KeepInsideWorkArea(Width, Height);
+        });
+
+        ViewModel.Model.Width = Width;
+        ViewModel.Model.Height = Height - _statusBarDelta;
+        ViewModel.Model.X = Left;
+        ViewModel.Model.Y = Top;
+        RequestSave();
+        LoadContent(ViewModel.Content);
+    }
+
+    private System.Windows.Size GetMarkdownImageContentExtent(IReadOnlyCollection<WpfImage> images)
+    {
+        var width = 0.0;
+        var height = 0.0;
+        var scrollViewer = FindVisualChild<ScrollViewer>(ContentBox);
+        var horizontalOffset = scrollViewer?.HorizontalOffset ?? 0;
+        var verticalOffset = scrollViewer?.VerticalOffset ?? 0;
+        foreach (var image in images)
+        {
+            var actualWidth = image.ActualWidth > 0 ? image.ActualWidth : image.Width;
+            var actualHeight = image.ActualHeight > 0 ? image.ActualHeight : image.Height;
+            if (double.IsNaN(actualWidth) || actualWidth <= 0)
+                actualWidth = _markdownImageContexts.TryGetValue(image, out var widthContext)
+                    ? widthContext.DisplayWidth
+                    : 0;
+            if (double.IsNaN(actualHeight) || actualHeight <= 0)
+                actualHeight = _markdownImageContexts.TryGetValue(image, out var heightContext)
+                    ? heightContext.DisplayHeight
+                    : 0;
+
+            try
+            {
+                var bounds = image.TransformToAncestor(ContentBox)
+                    .TransformBounds(new Rect(0, 0, actualWidth, actualHeight));
+                width = Math.Max(width, bounds.Right + horizontalOffset + ContentBox.Padding.Right);
+                height = Math.Max(height, bounds.Bottom + verticalOffset + ContentBox.Padding.Bottom + MarkdownImageVerticalMargin);
+            }
+            catch (InvalidOperationException)
+            {
+                width = Math.Max(width, actualWidth + ContentBox.Padding.Left + ContentBox.Padding.Right);
+                height += actualHeight + MarkdownImageVerticalMargin;
+            }
+        }
+
+        return new System.Windows.Size(Math.Max(1, width), Math.Max(1, height));
+    }
+
+    private double GetWindowExtraWidthForContent()
+    {
+        var padding = ContentBox.Padding.Left + ContentBox.Padding.Right;
+        var border = ContentBox.BorderThickness.Left + ContentBox.BorderThickness.Right;
+        var rootBorder = RootBorder.BorderThickness.Left + RootBorder.BorderThickness.Right;
+        const double ScrollbarAllowance = 18;
+        return border + rootBorder + ScrollbarAllowance;
+    }
+
+    private double GetWindowExtraHeightForContent()
+    {
+        var border = ContentBox.BorderThickness.Top + ContentBox.BorderThickness.Bottom;
+        var rootBorder = RootBorder.BorderThickness.Top + RootBorder.BorderThickness.Bottom;
+        const double ScrollbarAllowance = 18;
+        return ViewModel.TitleBarHeight + border + rootBorder + ScrollbarAllowance;
+    }
+
+    private (double Width, double Height) GetWorkAreaSize()
+    {
+        var screen = System.Windows.Forms.Screen.FromHandle(new WindowInteropHelper(this).Handle);
+        var (dpiX, dpiY) = GetDpi();
+        return (screen.WorkingArea.Width / dpiX, screen.WorkingArea.Height / dpiY);
+    }
+
+    private void MarkdownImage_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not WpfImage image)
+            return;
+
+        var scrollViewer = FindVisualChild<ScrollViewer>(ContentBox);
+        if (scrollViewer == null ||
+            scrollViewer.ScrollableWidth <= 0 && scrollViewer.ScrollableHeight <= 0)
+        {
+            return;
+        }
+
+        _isImageScrollDragging = true;
+        _imageScrollStartPoint = e.GetPosition(ContentBox);
+        _imageScrollStartHorizontalOffset = scrollViewer.HorizontalOffset;
+        _imageScrollStartVerticalOffset = scrollViewer.VerticalOffset;
+        image.CaptureMouse();
+        ContentBox.Cursor = WpfCursors.SizeAll;
+        e.Handled = true;
+    }
+
+    private void MarkdownImage_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (!_isImageScrollDragging)
+            return;
+
+        var scrollViewer = FindVisualChild<ScrollViewer>(ContentBox);
+        if (scrollViewer == null)
+            return;
+
+        var current = e.GetPosition(ContentBox);
+        scrollViewer.ScrollToHorizontalOffset(_imageScrollStartHorizontalOffset - (current.X - _imageScrollStartPoint.X));
+        scrollViewer.ScrollToVerticalOffset(_imageScrollStartVerticalOffset - (current.Y - _imageScrollStartPoint.Y));
+        e.Handled = true;
+    }
+
+    private void MarkdownImage_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        EndMarkdownImageScrollDrag(sender as WpfImage);
+        e.Handled = true;
+    }
+
+    private void MarkdownImage_LostMouseCapture(object sender, System.Windows.Input.MouseEventArgs e)
+        => EndMarkdownImageScrollDrag(sender as WpfImage);
+
+    private void EndMarkdownImageScrollDrag(WpfImage? image)
+    {
+        if (!_isImageScrollDragging)
+            return;
+
+        _isImageScrollDragging = false;
+        if (image?.IsMouseCaptured == true)
+            image.ReleaseMouseCapture();
+        ContentBox.Cursor = WpfCursors.Arrow;
+    }
+
+    private static T? FindVisualChild<T>(DependencyObject parent)
+        where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T typed)
+                return typed;
+
+            var descendant = FindVisualChild<T>(child);
+            if (descendant != null)
+                return descendant;
+        }
+
+        return null;
     }
 
     private void ReplaceMarkdownImage(MarkdownImageContext context, string replacement)

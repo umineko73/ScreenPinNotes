@@ -56,14 +56,21 @@ public partial class StickyNoteWindow
         if (TryGetPastedImage(e.DataObject, out var image))
         {
             e.CancelCommand();
+            if (!_isEditMode || ContentBox.IsReadOnly)
+                EnterEditMode();
+
             var relativePath = SavePastedImage(image);
             var markdown = BuildImageMarkdown(relativePath);
             InsertTextAtSelection(markdown);
+            EnterViewMode();
             return;
         }
 
         if (!e.DataObject.GetDataPresent(WpfDataFormats.UnicodeText)) return;
         e.CancelCommand();
+
+        if (!_isEditMode || ContentBox.IsReadOnly)
+            EnterEditMode();
 
         if (!TryGetClipboardText(e.DataObject, out var clipboardText)) return;
         InsertTextAtSelection(clipboardText.TrimEnd('\n'));
@@ -193,12 +200,59 @@ public partial class StickyNoteWindow
 
         var bitmap = dataObject.GetData(WpfDataFormats.Bitmap, autoConvert: true)
             as System.Windows.Media.Imaging.BitmapSource;
-        if (bitmap == null)
-            return false;
+        if (bitmap != null)
+        {
+            image = bitmap;
+            return true;
+        }
 
-        image = bitmap;
-        return true;
+        if (dataObject.GetData(WpfDataFormats.Bitmap, autoConvert: true) is System.Drawing.Bitmap drawingBitmap)
+        {
+            image = ConvertDrawingBitmapToBitmapSource(drawingBitmap);
+            return true;
+        }
+
+        try
+        {
+            var clipboardImage = System.Windows.Clipboard.GetImage();
+            if (clipboardImage != null)
+            {
+                image = clipboardImage;
+                return true;
+            }
+        }
+        catch (System.Runtime.InteropServices.ExternalException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+
+        return false;
     }
+
+    private static System.Windows.Media.Imaging.BitmapSource ConvertDrawingBitmapToBitmapSource(
+        System.Drawing.Bitmap bitmap)
+    {
+        var hBitmap = bitmap.GetHbitmap();
+        try
+        {
+            var source = Imaging.CreateBitmapSourceFromHBitmap(
+                hBitmap,
+                IntPtr.Zero,
+                Int32Rect.Empty,
+                System.Windows.Media.Imaging.BitmapSizeOptions.FromEmptyOptions());
+            source.Freeze();
+            return source;
+        }
+        finally
+        {
+            DeleteObject(hBitmap);
+        }
+    }
+
+    [DllImport("gdi32.dll")]
+    private static extern bool DeleteObject(IntPtr hObject);
 
     private string SavePastedImage(System.Windows.Media.Imaging.BitmapSource image)
     {
@@ -208,12 +262,57 @@ public partial class StickyNoteWindow
         var fileName = $"image-{DateTime.Now:yyyyMMdd-HHmmss-fff}-{Guid.NewGuid():N}.png";
         var path = Path.Combine(assetsDir, fileName);
 
+        image = NormalizeZeroAlphaImage(image);
         var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
         encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(image));
         using (var stream = File.Create(path))
             encoder.Save(stream);
 
         return $"assets/{fileName}";
+    }
+
+    private static System.Windows.Media.Imaging.BitmapSource NormalizeZeroAlphaImage(
+        System.Windows.Media.Imaging.BitmapSource image)
+    {
+        var source = image.Format == System.Windows.Media.PixelFormats.Bgra32
+            ? image
+            : new System.Windows.Media.Imaging.FormatConvertedBitmap(
+                image,
+                System.Windows.Media.PixelFormats.Bgra32,
+                null,
+                0);
+
+        var stride = (source.PixelWidth * source.Format.BitsPerPixel + 7) / 8;
+        var pixels = new byte[stride * source.PixelHeight];
+        source.CopyPixels(pixels, stride, 0);
+
+        var hasNonZeroAlpha = false;
+        var hasRgbContent = false;
+        for (var i = 0; i + 3 < pixels.Length; i += 4)
+        {
+            hasNonZeroAlpha |= pixels[i + 3] != 0;
+            hasRgbContent |= pixels[i] != 0 || pixels[i + 1] != 0 || pixels[i + 2] != 0;
+            if (hasNonZeroAlpha && hasRgbContent)
+                break;
+        }
+
+        if (hasNonZeroAlpha || !hasRgbContent)
+            return image;
+
+        for (var i = 3; i < pixels.Length; i += 4)
+            pixels[i] = 255;
+
+        var normalized = System.Windows.Media.Imaging.BitmapSource.Create(
+            source.PixelWidth,
+            source.PixelHeight,
+            source.DpiX,
+            source.DpiY,
+            System.Windows.Media.PixelFormats.Bgra32,
+            null,
+            pixels,
+            stride);
+        normalized.Freeze();
+        return normalized;
     }
 
     private string BuildImageMarkdown(string relativePath)

@@ -64,6 +64,40 @@ public class MarkdownRendererTests
     }
 
     [Fact]
+    public void Render_MarkdownLink_AllowsParenthesesInTarget()
+    {
+        var calls = new List<(string Label, string Target)>();
+        Hyperlink Factory(string label, string target)
+        {
+            calls.Add((label, target));
+            return CreateHyperlink(label, target);
+        }
+
+        MarkdownRenderer.Render("[Example](https://example.com/files/report(1).html)", 13, Factory).ToList();
+
+        Assert.Contains(("Example", "https://example.com/files/report(1).html"), calls);
+    }
+
+    [Fact]
+    public void Render_MarkdownImage_AllowsParenthesesInTarget()
+    {
+        MarkdownRenderer.MarkdownImage? captured = null;
+
+        MarkdownRenderer.Render(
+            "![image](assets/report(1).png)",
+            13,
+            CreateHyperlink,
+            createImage: image =>
+            {
+                captured = image;
+                return new Run("");
+            }).ToList();
+
+        Assert.NotNull(captured);
+        Assert.Equal("assets/report(1).png", captured.Target);
+    }
+
+    [Fact]
     public void Render_MarkdownImage_PreservesZeroWidthAttribute()
     {
         MarkdownRenderer.MarkdownImage? captured = null;
