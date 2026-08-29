@@ -21,6 +21,10 @@ This note has editing locked. The body text and title text are protected, but ch
 
 ## Moving and Snapping
 
+![Unfolded vs. folded appearance](assets/window-position-guide.png)
+
+Left: unfolded (body text visible). Right: folded (only the title bar remains). Each state's position can be adjusted independently with the actions below.
+
 - Normal drag: keep folded and unfolded positions synchronized
 - `Shift + drag`: adjust folded and unfolded positions independently
 - `Alt + drag`: disable snapping

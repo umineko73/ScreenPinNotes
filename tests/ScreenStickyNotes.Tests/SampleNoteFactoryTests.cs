@@ -42,6 +42,7 @@ public class SampleNoteFactoryTests
         Assert.Equal(825, usageNote.X);
         Assert.True(usageNote.IsReadOnly);
         Assert.False(string.IsNullOrWhiteSpace(usageNote.Content));
+        Assert.Contains("assets/window-position-guide.png", usageNote.Content);
         Assert.Contains("## 移動とスナップ", usageNote.Content);
         Assert.Contains("`Alt + Shift + ドラッグ`", usageNote.Content);
     }
@@ -62,6 +63,7 @@ public class SampleNoteFactoryTests
         Assert.Contains("This note lists the Markdown syntax supported in the body.", notes[0].Content);
         Assert.Contains("Double-click the body", notes[1].Content);
         Assert.Contains("Alt + Shift + drag", notes[1].Content);
+        Assert.Contains("assets/window-position-guide.png", notes[1].Content);
     }
 
     [Fact]
@@ -82,6 +84,9 @@ public class SampleNoteFactoryTests
             Assert.Equal("Usage Help", notes[1].Title);
             Assert.Contains("This note lists the Markdown syntax supported in the body.", notes[0].Content);
             Assert.Contains("Double-click the body", notes[1].Content);
+            Assert.True(File.Exists(Path.Combine(
+                storage.GetNoteAssetsDirectoryPath(notes[1].Id),
+                "window-position-guide.png")));
         }
         finally
         {
