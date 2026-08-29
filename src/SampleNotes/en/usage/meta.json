@@ -3,7 +3,8 @@
   "Y": 150,
   "Width": 585,
   "Height": 660,
-  "Title": "Basic Usage Manual",
+  "Title": "Usage Help",
   "ColorKey": "yellow",
-  "Icon": "💡"
+  "Icon": "💡",
+  "IsReadOnly": true
 }

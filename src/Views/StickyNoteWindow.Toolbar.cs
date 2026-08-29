@@ -133,29 +133,31 @@ public partial class StickyNoteWindow
 
     private void TitleSmaller_Click(object sender, RoutedEventArgs e)
     {
-        if (ViewModel.TitleFontSize > 8) SetTitleFontSize(ViewModel.TitleFontSize - 1);
-        ShowSizeOverlay(string.Format(LocalizationService.T("TitleSize"), ViewModel.TitleFontSize));
-        UpdateToolbarTooltips();
+        SetTitleFontSize(ViewModel.TitleFontSize - 1);
     }
 
     private void TitleLarger_Click(object sender, RoutedEventArgs e)
     {
-        if (ViewModel.TitleFontSize < 28) SetTitleFontSize(ViewModel.TitleFontSize + 1);
-        ShowSizeOverlay(string.Format(LocalizationService.T("TitleSize"), ViewModel.TitleFontSize));
-        UpdateToolbarTooltips();
+        SetTitleFontSize(ViewModel.TitleFontSize + 1);
     }
 
     private void SetTitleFontSize(double size)
     {
-        ViewModel.TitleFontSize = size;
+        var newSize = Math.Clamp(size, 8, 28);
+        if (Math.Abs(ViewModel.TitleFontSize - newSize) < 0.001)
+            return;
+
+        ViewModel.TitleFontSize = newSize;
+        SetResizeEnabled(!ViewModel.IsFolded);
 
         // 折りたたみ中はウィンドウ高さ＝タイトルバー高さなので追従させる
         if (ViewModel.IsFolded)
         {
             BeginAnimation(HeightProperty, null);   // 折りたたみアニメの保持を解除
-            SetResizeEnabled(false);                // Min/Max を新しい高さで固定し直す
             Height = FoldedHeight;
         }
+        ShowSizeOverlay(string.Format(LocalizationService.T("TitleSize"), ViewModel.TitleFontSize));
+        UpdateToolbarTooltips();
         RequestSave();
     }
 
@@ -227,6 +229,16 @@ public partial class StickyNoteWindow
 
     private void Close_Click(object sender, RoutedEventArgs e)
     {
+        if (ViewModel.IsReadOnly)
+        {
+            System.Windows.MessageBox.Show(
+                LocalizationService.T("EditLockDeleteBlockedMessage"),
+                LocalizationService.T("EditLockDeleteBlockedTitle"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
         var messageKey = HasNoteAssets()
             ? "DeleteConfirmMessageWithAssets"
             : "DeleteConfirmMessage";
@@ -236,8 +248,8 @@ public partial class StickyNoteWindow
             MessageBoxButton.YesNo, MessageBoxImage.Question);
         if (result == MessageBoxResult.Yes)
         {
-            App.Current.RemoveNote(ViewModel.Model.Id);
-            Close();
+            if (App.Current.RemoveNote(ViewModel.Model.Id))
+                Close();
         }
     }
 

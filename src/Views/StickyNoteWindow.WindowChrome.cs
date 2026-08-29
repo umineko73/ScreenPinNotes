@@ -68,6 +68,7 @@ public partial class StickyNoteWindow
 
         _isDragging      = true;
         _dragMoved       = false;
+        _dragSeparatesFoldedPosition = IsShiftPressed();
         var (dpiX, dpiY) = GetDpi();
         var cur = System.Windows.Forms.Cursor.Position;
         _dragOffsetX     = cur.X / dpiX - Left;
@@ -80,6 +81,7 @@ public partial class StickyNoteWindow
     {
         if (!_isDragging) return;
         var cur = System.Windows.Forms.Cursor.Position;
+        _dragSeparatesFoldedPosition |= IsShiftPressed();
 
         if (!_dragMoved)
         {
@@ -107,11 +109,23 @@ public partial class StickyNoteWindow
         {
             SaveCurrentPositionToModel();
             RequestSave();
+            _dragSeparatesFoldedPosition = false;
             return;
         }
 
         // 動かなかった＝クリックとして扱う。
+        _dragSeparatesFoldedPosition = false;
         ToggleFold();
+    }
+
+    private void TitleBar_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if ((Keyboard.Modifiers & ModifierKeys.Control) != ModifierKeys.Control)
+            return;
+
+        e.Handled = true;
+        var delta = e.Delta > 0 ? 1 : -1;
+        SetTitleFontSize(ViewModel.TitleFontSize + delta);
     }
 
     private void TitleBar_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
@@ -382,6 +396,7 @@ public partial class StickyNoteWindow
     }
 
     private const int VK_MENU = 0x12;
+    private const int VK_SHIFT = 0x10;
     private static readonly IntPtr HwndTop = new(0);
     private static readonly IntPtr HwndBottom = new(1);
 
@@ -408,6 +423,9 @@ public partial class StickyNoteWindow
 
     private static bool IsAltPressed()
         => (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
+
+    private static bool IsShiftPressed()
+        => (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
 
     private static bool TryNearest(double value, List<double> targets, out double snapped)
     {

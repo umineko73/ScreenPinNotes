@@ -27,6 +27,8 @@ public static class LocalizationService
             "TrayNewNote" => english ? "New note" : "新規付箋作成",
             "TraySettings" => english ? "Settings" : "設定",
             "TraySelectNotesRoot" => english ? "Select note folder..." : "保存フォルダを選択...",
+            "TrayExportNotes" => english ? "Export notes..." : "付箋をエクスポート...",
+            "TrayImportNotes" => english ? "Import notes..." : "付箋をインポート...",
             "TrayStartup" => english ? "Start with Windows" : "Windows 起動時に開始",
             "TrayTitlePreviewTooltip" => english ? "Title hover preview" : "タイトルのツールチップ",
             "TrayFoldAnimation" => english ? "Fold animation" : "折りたたみアニメーション",
@@ -57,6 +59,29 @@ public static class LocalizationService
             "MoveNotesFailedMessage" => english
                 ? "The notes folder could not be moved. The storage folder was not changed. See the log for details."
                 : "notes フォルダを移動できませんでした。保存フォルダは変更していません。詳細はログを確認してください。",
+            "NotesZipFilter" => english ? "ScreenStickyNotes zip (*.zip)|*.zip" : "ScreenStickyNotes zip (*.zip)|*.zip",
+            "ExportNotesTitle" => english ? "Export notes" : "付箋のエクスポート",
+            "ExportNotesCompletedTitle" => english ? "Export complete" : "エクスポート完了",
+            "ExportNotesCompletedMessage" => english
+                ? "Notes were exported."
+                : "付箋をエクスポートしました。",
+            "ExportNotesFailedTitle" => english ? "Export failed" : "エクスポートに失敗しました",
+            "ExportNotesFailedMessage" => english
+                ? "Notes could not be exported. See the log for details."
+                : "付箋をエクスポートできませんでした。詳細はログを確認してください。",
+            "ImportNotesTitle" => english ? "Import notes" : "付箋のインポート",
+            "ImportNotesConfirmTitle" => english ? "Import notes?" : "付箋をインポートしますか？",
+            "ImportNotesConfirmMessage" => english
+                ? "Notes from the selected zip will be added. Existing notes will not be overwritten; duplicate notes will be imported with new IDs."
+                : "選択した zip の付箋を追加します。既存の付箋は上書きせず、ID が重複する付箋は新しい ID で取り込みます。",
+            "ImportNotesCompletedTitle" => english ? "Import complete" : "インポート完了",
+            "ImportNotesCompletedMessage" => english
+                ? "Imported {0} note(s). Skipped {1} note(s)."
+                : "{0} 件の付箋をインポートしました。{1} 件をスキップしました。",
+            "ImportNotesFailedTitle" => english ? "Import failed" : "インポートに失敗しました",
+            "ImportNotesFailedMessage" => english
+                ? "Notes could not be imported. The current notes were left unchanged. See the log for details."
+                : "付箋をインポートできませんでした。現在の付箋は変更していません。詳細はログを確認してください。",
 
             "AboutTitle" => english ? "About ScreenStickyNotes" : "ScreenStickyNotes について",
             "AboutDescription" => english
@@ -70,6 +95,13 @@ public static class LocalizationService
 
             "NoMemo" => english ? "(No memo)" : "（メモなし）",
             "EditBodyTooltip" => english ? "Double-click to edit" : "ダブルクリックして編集",
+            "EditLockBodyTooltip" => english ? "Editing is locked" : "編集がロックされています",
+            "EditLock" => english ? "Lock editing" : "編集をロック",
+            "EditLockNotice" => english ? "Editing is locked" : "編集がロックされています",
+            "EditLockDeleteBlockedTitle" => english ? "Editing locked" : "編集ロック中",
+            "EditLockDeleteBlockedMessage" => english
+                ? "This note is locked and cannot be deleted."
+                : "この付箋は編集ロック中のため削除できません。",
             "TitleFallbackTooltip" => english
                 ? "Leave blank to show the first body line"
                 : "空欄なら本文の1行目を表示します",

@@ -59,16 +59,21 @@ public partial class StickyNoteWindow
         _pasteExcelTableItem = BuildPasteExcelTableMenuItem();
         _copyExcelTableItem = new MenuItem { Header = LocalizationService.T("CopyExcelTable"), IsEnabled = false };
         _fitWindowToImagesItem = new MenuItem { Header = LocalizationService.T("FitWindowToImages"), IsEnabled = false };
+        var cutItem = new MenuItem { Header = LocalizationService.T("Cut"), Command = ApplicationCommands.Cut, CommandTarget = ContentBox };
+        var pasteItem = new MenuItem { Header = LocalizationService.T("Paste"), Command = ApplicationCommands.Paste, CommandTarget = ContentBox };
+        var readOnlyItem = BuildReadOnlyMenuItem();
+        var deleteItem = new MenuItem { Header = LocalizationService.T("Delete") };
         _openLinkItem.Click    += OpenLink_Click;
         _convertLinkItem.Click += ConvertLink_Click;
         _pasteMarkdownLinkItem.Click += PasteMarkdownLink_Click;
         _copyExcelTableItem.Click += CopyExcelTable_Click;
         _fitWindowToImagesItem.Click += (_, _) => FitWindowToMarkdownImages();
+        deleteItem.Click += Close_Click;
 
         var cm = new ContextMenu();
-        cm.Items.Add(new MenuItem { Header = LocalizationService.T("Cut"), Command = ApplicationCommands.Cut, CommandTarget = ContentBox });
+        cm.Items.Add(cutItem);
         cm.Items.Add(new MenuItem { Header = LocalizationService.T("Copy"), Command = ApplicationCommands.Copy, CommandTarget = ContentBox });
-        cm.Items.Add(new MenuItem { Header = LocalizationService.T("Paste"), Command = ApplicationCommands.Paste, CommandTarget = ContentBox });
+        cm.Items.Add(pasteItem);
         cm.Items.Add(_pasteMarkdownLinkItem);
         cm.Items.Add(new Separator());
         cm.Items.Add(_pasteExcelTableItem);
@@ -82,9 +87,16 @@ public partial class StickyNoteWindow
         var hideItem = new MenuItem { Header = LocalizationService.T("HideNote") };
         hideItem.Click += (_, _) => App.Current.HideNote(ViewModel.Model.Id);
         cm.Items.Add(hideItem);
-        var deleteItem = new MenuItem { Header = LocalizationService.T("Delete") };
-        deleteItem.Click += Close_Click;
+        cm.Items.Add(readOnlyItem);
         cm.Items.Add(deleteItem);
+        cm.Opened += (_, _) =>
+        {
+            var canEdit = !ViewModel.IsReadOnly;
+            cutItem.IsEnabled = canEdit && _isEditMode && ContentBox.Selection.IsEmpty == false;
+            pasteItem.IsEnabled = canEdit && _isEditMode && TryGetClipboardText(out _);
+            readOnlyItem.IsChecked = ViewModel.IsReadOnly;
+            deleteItem.IsEnabled = !ViewModel.IsReadOnly;
+        };
         return cm;
     }
 
@@ -97,6 +109,7 @@ public partial class StickyNoteWindow
         var selectAllItem = new MenuItem { Header = LocalizationService.T("SelectAll") };
         var zOrderItem = new MenuItem { Header = LocalizationService.T("ZOrder") };
         var opacityItem = BuildOpacityMenuItem();
+        var readOnlyItem = BuildReadOnlyMenuItem();
         var setUnfoldedPositionItem = new MenuItem { Header = LocalizationService.T("SetUnfoldedPositionHere") };
         var bringToFrontItem = new MenuItem { Header = LocalizationService.T("BringToFront") };
         var sendToBackItem = new MenuItem { Header = LocalizationService.T("SendToBack") };
@@ -134,22 +147,26 @@ public partial class StickyNoteWindow
         cm.Items.Add(zOrderItem);
         cm.Items.Add(opacityItem);
         cm.Items.Add(setUnfoldedPositionItem);
+        cm.Items.Add(readOnlyItem);
         cm.Items.Add(new Separator());
         cm.Items.Add(hideItem);
         cm.Items.Add(deleteItem);
         cm.Opened += (_, _) =>
         {
             bool editing = cm.PlacementTarget == TitleEditBox && _isEditMode;
-            editItem.Visibility = editing ? Visibility.Collapsed : Visibility.Visible;
-            cutItem.Visibility = editing ? Visibility.Visible : Visibility.Collapsed;
-            pasteItem.Visibility = editing ? Visibility.Visible : Visibility.Collapsed;
+            var canEdit = !ViewModel.IsReadOnly;
+            editItem.Visibility = editing || !canEdit ? Visibility.Collapsed : Visibility.Visible;
+            cutItem.Visibility = editing && canEdit ? Visibility.Visible : Visibility.Collapsed;
+            pasteItem.Visibility = editing && canEdit ? Visibility.Visible : Visibility.Collapsed;
             selectAllItem.Visibility = editing ? Visibility.Visible : Visibility.Collapsed;
             copyItem.IsEnabled = editing
                 ? TitleEditBox.SelectionLength > 0
                 : !string.IsNullOrEmpty(ViewModel.DisplayTitle);
-            cutItem.IsEnabled = TitleEditBox.SelectionLength > 0;
-            pasteItem.IsEnabled = TryGetClipboardText(out _);
+            cutItem.IsEnabled = canEdit && TitleEditBox.SelectionLength > 0;
+            pasteItem.IsEnabled = canEdit && TryGetClipboardText(out _);
             setUnfoldedPositionItem.IsEnabled = ViewModel.IsFolded;
+            readOnlyItem.IsChecked = ViewModel.IsReadOnly;
+            deleteItem.IsEnabled = !ViewModel.IsReadOnly;
             UpdateOpacityMenuChecks(opacityItem);
         };
         cm.Closed += (_, _) =>
@@ -159,6 +176,27 @@ public partial class StickyNoteWindow
                 Dispatcher.BeginInvoke(() => TitleEditBox.Focus());
         };
         return cm;
+    }
+
+    private MenuItem BuildReadOnlyMenuItem()
+    {
+        var item = new MenuItem
+        {
+            Header = LocalizationService.T("EditLock"),
+            IsCheckable = true,
+            IsChecked = ViewModel.IsReadOnly,
+        };
+        item.Click += (_, _) => ToggleReadOnly();
+        return item;
+    }
+
+    private void ToggleReadOnly()
+    {
+        if (_isEditMode)
+            EnterViewMode();
+
+        ViewModel.IsReadOnly = !ViewModel.IsReadOnly;
+        RequestSave();
     }
 
     private MenuItem BuildOpacityMenuItem()
@@ -236,9 +274,12 @@ public partial class StickyNoteWindow
         var hasClipboardLink = TryGetClipboardText(out var clipboardText) &&
             LinkDetector.IsExactLink(clipboardText);
         _convertLinkItem.IsEnabled = _isEditMode && LinkDetector.IsExactLink(sel);
+        if (ViewModel.IsReadOnly)
+            _convertLinkItem.IsEnabled = false;
         _copyExcelTableItem.IsEnabled = MarkdownTableClipboard.TryCopyableTableTextToTabularText(sel, out _);
-        _pasteMarkdownLinkItem.IsEnabled = _isEditMode && hasClipboardLink;
+        _pasteMarkdownLinkItem.IsEnabled = !ViewModel.IsReadOnly && _isEditMode && hasClipboardLink;
         _pasteExcelTableItem.IsEnabled =
+            !ViewModel.IsReadOnly &&
             _isEditMode &&
             TryGetClipboardText(out clipboardText) &&
             MarkdownTableClipboard.TryTabularTextToMarkdownTable(clipboardText, useFirstRowAsHeader: true, out _);
@@ -277,6 +318,7 @@ public partial class StickyNoteWindow
 
     private void PasteMarkdownLink_Click(object sender, RoutedEventArgs e)
     {
+        if (ViewModel.IsReadOnly) return;
         if (!_isEditMode) return;
         if (!TryGetClipboardText(out var target)) return;
 
@@ -294,6 +336,7 @@ public partial class StickyNoteWindow
 
     private void ConvertLink_Click(object sender, RoutedEventArgs e)
     {
+        if (ViewModel.IsReadOnly) return;
         if (!_isEditMode) return;
         if (ContentBox.Selection.IsEmpty) return;
         var sel = ContentBox.Selection.Text.Trim();

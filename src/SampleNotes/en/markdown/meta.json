@@ -3,7 +3,8 @@
   "Y": 150,
   "Width": 645,
   "Height": 640,
-  "Title": "Markdown and Image Manual",
+  "Title": "Markdown Syntax List",
   "ColorKey": "sky",
-  "Icon": "📝"
+  "Icon": "📝",
+  "IsReadOnly": true
 }

@@ -50,6 +50,7 @@ public class StickyNote
     public bool IsTopmost { get; set; } = false;
     public bool IsFolded { get; set; } = false;
     public bool IsHidden { get; set; } = false;
+    public bool IsReadOnly { get; set; } = false;
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
 

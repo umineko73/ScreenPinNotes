@@ -53,6 +53,12 @@ public partial class StickyNoteWindow
 
     private void EnterEditMode()
     {
+        if (ViewModel.IsReadOnly)
+        {
+            ShowSizeOverlay(LocalizationService.T("EditLockNotice"));
+            return;
+        }
+
         if (_isEditMode && !ContentBox.IsReadOnly) return;
         _isEditMode = true;
         ViewModel.SetForceOpaque(true);
@@ -75,6 +81,12 @@ public partial class StickyNoteWindow
 
     private void EnterTitleEditMode()
     {
+        if (ViewModel.IsReadOnly)
+        {
+            ShowSizeOverlay(LocalizationService.T("EditLockNotice"));
+            return;
+        }
+
         ViewModel.SetForceOpaque(true);
         if (!_isEditMode)
         {
@@ -436,6 +448,10 @@ public partial class StickyNoteWindow
     }
 
     // Title 自体の値は TwoWay バインディングが更新するので、ここでは保存の予約だけ行う
-    private void TitleEditBox_TextChanged(object sender, TextChangedEventArgs e) => RequestSave();
+    private void TitleEditBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (!ViewModel.IsReadOnly)
+            RequestSave();
+    }
 
 }

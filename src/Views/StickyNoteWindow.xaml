@@ -60,10 +60,12 @@
                   MouseMove="TitleBar_MouseMove"
                   MouseLeftButtonUp="TitleBar_MouseLeftButtonUp"
                   MouseEnter="TitleBar_MouseEnter"
-                  MouseLeave="TitleBar_MouseLeave">
+                  MouseLeave="TitleBar_MouseLeave"
+                  PreviewMouseWheel="TitleBar_PreviewMouseWheel">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
@@ -74,7 +76,8 @@
                 <Image x:Name="IconImage"
                        Grid.Column="0"
                        Visibility="{Binding IconVisibility}"
-                       Width="17" Height="17"
+                       Width="{Binding TitleIconSize}"
+                       Height="{Binding TitleIconSize}"
                        Stretch="Uniform"
                        VerticalAlignment="Center"
                        Margin="6,0,0,0"/>
@@ -88,7 +91,7 @@
                            FontWeight="SemiBold"
                            FontSize="{Binding TitleFontSize}"
                            VerticalAlignment="Center"
-                           Margin="8,0,4,0"
+                           Margin="4,0,4,0"
                            TextTrimming="CharacterEllipsis"/>
 
                 <!-- タイトル直接入力欄。編集モード中だけ表示する
@@ -106,7 +109,7 @@
                          FontSize="{Binding TitleFontSize}"
                          VerticalAlignment="Center"
                          VerticalContentAlignment="Center"
-                         Margin="6,0,4,0"
+                         Margin="4,0,4,0"
                          Padding="0"
                          InputMethod.IsInputMethodEnabled="True"
                          InputMethod.PreferredImeState="On"
@@ -116,9 +119,22 @@
                          LostKeyboardFocus="TitleEditBox_LostKeyboardFocus"
                          PreviewKeyDown="ContentBox_PreviewKeyDown"/>
 
+                <!-- 編集ロック中の状態表示。クリック対象にしないことで、
+                     タイトルバーのドラッグ/折りたたみ操作を邪魔しない。 -->
+                <TextBlock Grid.Column="2"
+                           Text="🔒"
+                           Visibility="{Binding EditLockVisibility}"
+                           Foreground="{Binding TitleBarForeground}"
+                           Opacity="0.75"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"
+                           FontSize="12"
+                           Margin="2,0,3,0"
+                           IsHitTestVisible="False"/>
+
                 <!-- 新規作成。閲覧モードのままでも付箋を増やせるようにする -->
                 <Button x:Name="AddNoteButton"
-                        Grid.Column="2" Content="＋"
+                        Grid.Column="3" Content="＋"
                         Style="{StaticResource TitleBarButtonOnLight}"
                         ToolTip="新しい付箋を追加"
                         Click="AddNote_Click"/>
@@ -126,7 +142,7 @@
                 <!-- 常に最前面。閲覧モードや折りたたみ時も状態が見えるよう
                      ステータスバーではなくタイトルバーに置く -->
                 <ToggleButton x:Name="PinButton"
-                              Grid.Column="3"
+                              Grid.Column="4"
                               IsChecked="{Binding IsTopmost, Mode=TwoWay}"
                               Style="{StaticResource TitleBarToggleOnLight}"
                               ToolTip="常に最前面"
@@ -134,7 +150,7 @@
                               Checked="Pin_Changed" Unchecked="Pin_Changed"/>
 
                 <Button x:Name="FoldButton"
-                        Grid.Column="4" Content="{Binding FoldIcon}"
+                        Grid.Column="5" Content="{Binding FoldIcon}"
                         Margin="0,0,2,0"
                         Style="{StaticResource TitleBarButtonOnLight}"
                         ToolTip="折りたたみ / 展開"

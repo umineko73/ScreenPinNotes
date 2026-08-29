@@ -53,6 +53,13 @@ public partial class StickyNoteWindow
 
     private void OnPaste(object sender, DataObjectPastingEventArgs e)
     {
+        if (ViewModel.IsReadOnly)
+        {
+            e.CancelCommand();
+            ShowSizeOverlay(LocalizationService.T("EditLockNotice"));
+            return;
+        }
+
         if (TryGetPastedImage(e.DataObject, out var image))
         {
             e.CancelCommand();
@@ -93,6 +100,9 @@ public partial class StickyNoteWindow
 
     private void InsertTextAtSelection(string text)
     {
+        if (ViewModel.IsReadOnly)
+            return;
+
         text = NormalizeLineEndings(text);
         var plainText = GetPlainText();
         var startOff  = GetOffsetOfPointer(ContentBox.Selection.Start);
@@ -117,6 +127,9 @@ public partial class StickyNoteWindow
 
     private void PasteExcelTable(bool useFirstRowAsHeader)
     {
+        if (ViewModel.IsReadOnly)
+            return;
+
         if (!TryGetClipboardText(out var clipboard)) return;
         if (!MarkdownTableClipboard.TryTabularTextToMarkdownTable(clipboard, useFirstRowAsHeader, out var markdownTable))
             return;

@@ -337,13 +337,13 @@ public partial class StickyNoteWindow
         var cm = new ContextMenu();
         for (var percent = MarkdownImageMinPercent; percent <= MarkdownImageMaxPercent; percent += 20)
         {
-            var percentItem = new MenuItem { Header = $"{percent}%" };
+            var percentItem = new MenuItem { Header = $"{percent}%", Tag = "ContentChange" };
             var selectedPercent = percent;
             percentItem.Click += (_, _) => ResizeMarkdownImage(context, selectedPercent);
             cm.Items.Add(percentItem);
         }
         cm.Items.Add(new Separator());
-        var removeWidthItem = new MenuItem { Header = LocalizationService.T("RemoveImageWidth") };
+        var removeWidthItem = new MenuItem { Header = LocalizationService.T("RemoveImageWidth"), Tag = "ContentChange" };
         removeWidthItem.Click += (_, _) => RemoveMarkdownImageWidth(context);
         cm.Items.Add(removeWidthItem);
 
@@ -353,13 +353,14 @@ public partial class StickyNoteWindow
         cm.Items.Add(fitWindowItem);
 
         cm.Items.Add(new Separator());
-        var detachItem = new MenuItem { Header = LocalizationService.T("DetachImageFromNote") };
+        var detachItem = new MenuItem { Header = LocalizationService.T("DetachImageFromNote"), Tag = "ContentChange" };
         detachItem.Click += (_, _) => RemoveMarkdownImage(context, deleteFile: false);
         cm.Items.Add(detachItem);
 
         var deleteFileItem = new MenuItem
         {
             Header = LocalizationService.T("DeleteImageFile"),
+            Tag = "ContentChange",
             IsEnabled = IsImageFileInNoteAssets(context.Target),
         };
         deleteFileItem.Click += (_, _) => RemoveMarkdownImage(context, deleteFile: true);
@@ -369,13 +370,22 @@ public partial class StickyNoteWindow
         {
             _suppressViewMode = true;
             _isContentContextMenuOpen = true;
+            foreach (var item in cm.Items.OfType<MenuItem>())
+            {
+                if (item.Tag is string tag && tag == "ContentChange")
+                    item.IsEnabled = ViewModel.IsReadOnly
+                        ? item != detachItem && item != deleteFileItem
+                        : item != deleteFileItem || IsImageFileInNoteAssets(context.Target);
+            }
         };
         cm.Closed += ContentContextMenu_Closed;
         return cm;
     }
 
     private void RemoveMarkdownImageWidth(MarkdownImageContext context)
-        => ReplaceMarkdownImage(context, BuildMarkdownImageText(context, null));
+    {
+        ReplaceMarkdownImage(context, BuildMarkdownImageText(context, null));
+    }
 
     private bool ResizeMarkdownImageAtPoint(System.Windows.Point point, int wheelDelta)
     {
@@ -664,6 +674,9 @@ public partial class StickyNoteWindow
 
     private void RemoveMarkdownImage(MarkdownImageContext context, bool deleteFile)
     {
+        if (ViewModel.IsReadOnly)
+            return;
+
         if (deleteFile)
         {
             var result = System.Windows.MessageBox.Show(

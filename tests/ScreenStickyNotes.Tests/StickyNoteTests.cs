@@ -39,6 +39,7 @@ public class StickyNoteTests
         Assert.Equal("yellow", note.ColorKey);
         Assert.Equal(100, note.OpacityPercent);
         Assert.False(note.IsFolded);
+        Assert.False(note.IsReadOnly);
         Assert.Null(note.FoldedWidth);
         Assert.False(string.IsNullOrWhiteSpace(note.Id));
     }

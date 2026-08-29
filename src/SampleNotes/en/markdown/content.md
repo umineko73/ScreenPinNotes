@@ -1,54 +1,99 @@
-# Markdown and Image Manual
+# Markdown Syntax List
 
 ![Markdown and image overview](assets/markdown-image-guide.png)
 
-The body supports Markdown. This is **bold**, *italic*, and `inline code`.
+This note lists the Markdown syntax supported in the body. When editing is locked, checkboxes and the body/title/image display sizes can still be adjusted.
 
-## Links
+## Inline Syntax
 
-- Auto URL link: https://www.google.com
-- Auto Windows path link: C:\Users
-- Markdown link: [OpenAI](https://openai.com/)
-- URLs and paths that contain `(` can be recognized
-- URL encoding such as `%28` and `%29` also works when needed
+| Type | Syntax | Rendered |
+| --- | --- | --- |
+| Bold | `**Important**` or `__Important__` | **Important** |
+| Italic | `*Note*` or `_Note_` | *Note* |
+| Strikethrough | `~~Removed~~` | ~~Removed~~ |
+| Inline code | `` `Ctrl+C` `` | `Ctrl+C` |
+| Markdown link | `[OpenAI](https://openai.com/)` | [OpenAI](https://openai.com/) |
+| Auto URL link | `https://www.google.com` | https://www.google.com |
+| Auto Windows path link | `C:\Users` | C:\Users |
+| Escape | `\*show as text\*` | \*show as text\* |
 
-## Lists and Checklists
+## Block Syntax
 
-- Bullet item
-- Numbered lists are supported
+| Type | Syntax | Rendered |
+| --- | --- | --- |
+| Headings 1 to 6 | `# Heading 1` through `###### Heading 6` | See "Headings" below |
+| Bullet list | `- Item`, `* Item`, `+ Item` | See "Bullet list" below |
+| Numbered list | `1. Item` | See "Numbered list" below |
+| Checklist | `- [ ] Todo`, `- [x] Done` | See "Checklist" below |
+| Quote | `> Quote text` | See "Quote" below |
+| Horizontal rule | `---`, `***`, `___` | See "Horizontal rule" below |
+| Code block | Wrap lines with three backticks | See "Code block" below |
+| Table | `\| Col 1 \| Col 2 \|` plus `\| --- \| --- \|` | See "Table" below |
+| Table left align | `\| :--- \|` | See "Table" below |
+| Table center align | `\| :---: \|` | See "Table" below |
+| Table right align | `\| ---: \|` | See "Table" below |
+
+## Block Rendered Examples
+
+### Headings
+
+# Heading 1
+## Heading 2
+### Heading 3
+
+### Bullet list
+
+- Item A
+* Item B
++ Item C
+
+### Numbered list
 
 1. First
 2. Second
 
+### Checklist
+
 - [x] Completed item
-- [ ] Click in view mode to toggle
+- [ ] Click to toggle in view mode or while editing is locked
 
-## Images
+### Quote
 
-- Images render with `![description](assets/image.png)`
-- Resize images from the right-click menu or with the mouse wheel
-- The minimum size is 20%, and the maximum size is 200%
-- Images without an explicit width fit inside the note when they would overflow
-- When a zoomed image has scrollbars, drag with the left mouse button to scroll it
-- Use "Fit window to image" from an image context menu to resize the note for that image
-- Use "Fit window to images" from the body context menu to include multiple images
+> This is a quote example.
 
-## Paste
-
-- Excel cell ranges can be pasted as Markdown tables
-- Normal paste from Excel can paste an image when the clipboard contains one
-- Transparent images are handled so visible content remains visible
-
-> Quotes are supported too.
+### Horizontal rule
 
 ---
 
-| Format | Syntax | Rendered |
-| --- | --- | --- |
-| Bold | `**text**` | **text** |
-| Link | `[Amazon](https://www.amazon.com/)` | [Amazon](https://www.amazon.com/) |
+### Table
+
+| Left | Center | Right |
+| :--- | :---: | ---: |
+| A | B | C |
+
+### Code block
 
 ```csharp
 var note = "Markdown ready";
 Console.WriteLine(note);
 ```
+
+## Images
+
+| Type | Syntax |
+| --- | --- |
+| Image | `![description](assets/image.png)` |
+| Width | `![description](assets/image.png){width=320}` |
+
+Image targets can be files in this note's `assets` folder, Windows paths, or URLs. Pasted images are saved into this note's `assets` folder.
+
+## Syntax Created by Operations
+
+| Operation | Result |
+| --- | --- |
+| Paste an image | `![description](assets/...)` |
+| `Ctrl + mouse wheel` over an image | Changes the image `{width=...}` |
+| `Ctrl + mouse wheel` over the body | Changes the body font size |
+| `Ctrl + mouse wheel` over the title bar | Changes the title font size |
+| Paste an Excel range | Markdown table |
+| Paste as Markdown link | `[label](URL)` |

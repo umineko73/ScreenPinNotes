@@ -24,21 +24,28 @@ public class SampleNoteFactoryTests
         Assert.Equal(2, notes.Count);
 
         var markdownNote = notes[0];
-        Assert.Equal("Markdown・画像マニュアル", markdownNote.Title);
+        Assert.Equal("Markdown 書式一覧", markdownNote.Title);
         Assert.Equal("sky", markdownNote.ColorKey);
         Assert.Equal("📝", markdownNote.Icon);
         Assert.Equal(645, markdownNote.Width);
+        Assert.True(markdownNote.IsReadOnly);
         Assert.False(string.IsNullOrWhiteSpace(markdownNote.Content));
         Assert.Contains("assets/markdown-image-guide.png", markdownNote.Content);
+        Assert.Contains("## インライン記法", markdownNote.Content);
+        Assert.Contains("## ブロック記法", markdownNote.Content);
+        Assert.Contains("タイトルバー上で `Ctrl + マウスホイール`", markdownNote.Content);
 
         var usageNote = notes[1];
-        Assert.Equal("基本操作マニュアル", usageNote.Title);
+        Assert.Equal("操作ヘルプ", usageNote.Title);
         Assert.Equal("yellow", usageNote.ColorKey);
         Assert.Equal("💡", usageNote.Icon);
         Assert.Equal(585, usageNote.Width);
         Assert.Equal(825, usageNote.X);
+        Assert.True(usageNote.IsReadOnly);
         Assert.False(string.IsNullOrWhiteSpace(usageNote.Content));
         Assert.Contains("assets/window-position-guide.png", usageNote.Content);
+        Assert.Contains("## 移動とスナップ", usageNote.Content);
+        Assert.Contains("`Alt + Shift + ドラッグ`", usageNote.Content);
     }
 
     [Fact]
@@ -51,11 +58,13 @@ public class SampleNoteFactoryTests
         var notes = SampleNoteFactory.CreateInitialNotes(settings, storage);
 
         Assert.Equal(2, notes.Count);
-        Assert.Equal("Markdown and Image Manual", notes[0].Title);
-        Assert.Equal("Basic Usage Manual", notes[1].Title);
-        Assert.Contains("The body supports Markdown.", notes[0].Content);
+        Assert.Equal("Markdown Syntax List", notes[0].Title);
+        Assert.Equal("Usage Help", notes[1].Title);
+        Assert.All(notes, note => Assert.True(note.IsReadOnly));
+        Assert.Contains("This note lists the Markdown syntax supported in the body.", notes[0].Content);
         Assert.Contains("assets/markdown-image-guide.png", notes[0].Content);
         Assert.Contains("Double-click the body", notes[1].Content);
+        Assert.Contains("Alt + Shift + drag", notes[1].Content);
         Assert.Contains("assets/window-position-guide.png", notes[1].Content);
     }
 
@@ -73,9 +82,9 @@ public class SampleNoteFactoryTests
             var notes = SampleNoteFactory.CreateInitialNotes(settings, storage);
 
             Assert.Equal(2, notes.Count);
-            Assert.Equal("Markdown and Image Manual", notes[0].Title);
-            Assert.Equal("Basic Usage Manual", notes[1].Title);
-            Assert.Contains("The body supports Markdown.", notes[0].Content);
+            Assert.Equal("Markdown Syntax List", notes[0].Title);
+            Assert.Equal("Usage Help", notes[1].Title);
+            Assert.Contains("This note lists the Markdown syntax supported in the body.", notes[0].Content);
             Assert.Contains("Double-click the body", notes[1].Content);
             Assert.True(File.Exists(Path.Combine(
                 storage.GetNoteAssetsDirectoryPath(notes[0].Id),

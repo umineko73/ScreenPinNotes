@@ -3,7 +3,8 @@
   "Y": 150,
   "Width": 585,
   "Height": 660,
-  "Title": "基本操作マニュアル",
+  "Title": "操作ヘルプ",
   "ColorKey": "yellow",
-  "Icon": "💡"
+  "Icon": "💡",
+  "IsReadOnly": true
 }

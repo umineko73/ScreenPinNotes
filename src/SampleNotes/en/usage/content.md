@@ -1,39 +1,79 @@
-# Basic Usage Manual
+# Usage Help
 
 ![Fold and unfold position overview](assets/window-position-guide.png)
 
-## Editing and Viewing
+This note has editing locked. The body text and title text are protected, but checkboxes, display sizes, position, color, and similar view settings can still be adjusted.
+
+## Basics
 
 - Double-click the body: switch to edit mode
-- Esc: return to view mode
-- In view mode, links, checklists, and image operations are available
+- `Esc`: return to view mode
+- Click the title bar: fold / unfold
+- Drag the title bar: move the note
+- Click a link: open it
+- In edit mode, use `Ctrl + click` to open a link
 
-## Moving Notes
+## Mouse Wheel
 
-- Drag title bar: move the note
-- Click title bar: fold / unfold
-- Folded and unfolded positions and sizes are saved separately
-- Moving a folded note resets the next unfolded position automatically
-- Right-click title: edit title, z order, opacity, unfolded position, hide, delete
+| Area | Action |
+| --- | --- |
+| Body | `Ctrl + wheel` changes the body font size |
+| Title bar | `Ctrl + wheel` changes the title font size |
+| Image | `Ctrl + wheel` changes the image display size |
 
-## Fold and Unfold
+## Moving and Snapping
 
-- When a note near the bottom of the screen is unfolded, the window is adjusted so it stays visible
-- While folded, use "Open here" from the title context menu to reset the unfolded position
+- Normal drag: keep folded and unfolded positions synchronized
+- `Shift + drag`: adjust folded and unfolded positions independently
+- `Alt + drag`: disable snapping
+- `Alt + Shift + drag`: adjust only the current state without snapping
+
+## Title Context Menu
+
+- Edit title
+- Change z order
+- Change opacity
+- "Open here" while folded
+- Lock editing
+- Hide
+- Delete
+
+While editing is locked, the title text cannot be edited and the note cannot be deleted.
+
+## Body Context Menu
+
+- Cut / copy / paste
+- Paste as Markdown link
+- Paste / copy Excel tables
+- Open link
+- Convert to Markdown link
+- Fit window to images
+- Lock editing
+- Hide
+- Delete
+
+While editing is locked, text input, paste, link conversion, image insertion, and image removal are disabled.
 
 ## Title Bar Buttons
 
 | Button | Action |
 | --- | --- |
 | + | Add a note using this note's color, icon, and font |
-| Pin | Always on top |
+| 📌 | Always on top |
 | Up / Down | Fold / unfold |
+| 🔒 | Shows that editing is locked |
+
+The lock is only a status indicator. It is not clickable, so it does not interfere with dragging or folding.
 
 ## Tray Icon
 
 - Left-click: show / hide all notes
-- Right-click: show hidden notes, new note, language, dark mode, exit
+- Right-click: show hidden notes, create a note, open settings, exit
+- Settings: storage folder, export, import, language, dark mode, and more
 
-## Data Folder
+## Storage and Backup
 
-`%APPDATA%\ScreenStickyNotes`
+- Data folder: `%APPDATA%\ScreenStickyNotes`
+- Each note is stored under `notes` with `meta.json`, `content.md`, and `assets`
+- "Export notes..." creates a zip backup
+- "Import notes..." adds notes without overwriting existing notes

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Text.Json;
 using ScreenStickyNotes.Models;
 using ScreenStickyNotes.Services;
@@ -37,6 +38,7 @@ public sealed class StorageServiceTests : IDisposable
             FoldedY = 34,
             FoldedWidth = 180,
             IsHidden = true,
+            IsReadOnly = true,
         };
 
         _storage.SaveNote(note);
@@ -60,6 +62,7 @@ public sealed class StorageServiceTests : IDisposable
         Assert.Equal(34, loadedNote.FoldedY);
         Assert.Equal(180, loadedNote.FoldedWidth);
         Assert.True(loadedNote.IsHidden);
+        Assert.True(loadedNote.IsReadOnly);
     }
 
     [Fact]
@@ -157,6 +160,111 @@ public sealed class StorageServiceTests : IDisposable
         _storage.DeleteNote(@"..\outside");
 
         Assert.True(Directory.Exists(outside));
+    }
+
+    [Fact]
+    public void ExportNotesToZip_WritesNotesFolderLayout()
+    {
+        var note = new StickyNote { Content = "body" };
+        _storage.SaveNote(note);
+        var assetsDir = _storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        File.WriteAllText(Path.Combine(assetsDir, "image.png"), "asset");
+        var zipPath = Path.Combine(_tempRoot, "export.zip");
+
+        _storage.ExportNotesToZip(zipPath);
+
+        using var archive = ZipFile.OpenRead(zipPath);
+        var entries = archive.Entries.Select(e => e.FullName).ToHashSet();
+        Assert.Contains($"notes/{note.Id}/meta.json", entries);
+        Assert.Contains($"notes/{note.Id}/content.md", entries);
+        Assert.Contains($"notes/{note.Id}/assets/image.png", entries);
+    }
+
+    [Fact]
+    public void ExportNotesToZip_WhenZipIsUnderNotesRoot_DoesNotIncludeItself()
+    {
+        var note = new StickyNote { Content = "body" };
+        _storage.SaveNote(note);
+        var zipPath = Path.Combine(_storage.NotesRoot, "export.zip");
+
+        _storage.ExportNotesToZip(zipPath);
+
+        using var archive = ZipFile.OpenRead(zipPath);
+        Assert.DoesNotContain(archive.Entries, e => e.FullName == "notes/export.zip");
+    }
+
+    [Fact]
+    public void ImportNotesFromZip_AddsNotesAndPreservesAssets()
+    {
+        var sourceRoot = Path.Combine(_tempRoot, "source");
+        var sourceStorage = new StorageService(sourceRoot);
+        var note = new StickyNote { Content = "imported", Title = "Imported", IsReadOnly = true };
+        sourceStorage.SaveNote(note);
+        var sourceAssets = sourceStorage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(sourceAssets);
+        File.WriteAllText(Path.Combine(sourceAssets, "asset.txt"), "asset");
+        var zipPath = Path.Combine(_tempRoot, "import.zip");
+        sourceStorage.ExportNotesToZip(zipPath);
+
+        var result = _storage.ImportNotesFromZip(zipPath);
+
+        Assert.Equal(1, result.ImportedCount);
+        Assert.Equal(0, result.SkippedCount);
+        var imported = Assert.Single(_storage.Load());
+        Assert.Equal(note.Id, imported.Id);
+        Assert.Equal("imported", imported.Content);
+        Assert.Equal("Imported", imported.Title);
+        Assert.True(imported.IsReadOnly);
+        Assert.True(File.Exists(Path.Combine(_storage.GetNoteAssetsDirectoryPath(imported.Id), "asset.txt")));
+    }
+
+    [Fact]
+    public void ImportNotesFromZip_DuplicateIdsAreImportedWithNewIds()
+    {
+        var existing = new StickyNote { Content = "existing" };
+        _storage.SaveNote(existing);
+
+        var sourceRoot = Path.Combine(_tempRoot, "source");
+        var sourceStorage = new StorageService(sourceRoot);
+        var duplicate = new StickyNote { Id = existing.Id, Content = "duplicate" };
+        sourceStorage.SaveNote(duplicate);
+        var zipPath = Path.Combine(_tempRoot, "duplicate.zip");
+        sourceStorage.ExportNotesToZip(zipPath);
+
+        var result = _storage.ImportNotesFromZip(zipPath);
+
+        Assert.Equal(1, result.ImportedCount);
+        var loaded = _storage.Load();
+        Assert.Equal(2, loaded.Count);
+        Assert.Contains(loaded, n => n.Id == existing.Id && n.Content == "existing");
+        Assert.Contains(loaded, n => n.Id != existing.Id && n.Content == "duplicate");
+    }
+
+    [Fact]
+    public void ImportNotesFromZip_IgnoresTraversalEntries()
+    {
+        var zipPath = Path.Combine(_tempRoot, "malicious.zip");
+        using (var archive = ZipFile.Open(zipPath, ZipArchiveMode.Create))
+        {
+            var malicious = archive.CreateEntry("../outside.txt");
+            using (var writer = new StreamWriter(malicious.Open()))
+                writer.Write("outside");
+
+            var note = new StickyNote { Content = "safe" };
+            var meta = archive.CreateEntry($"notes/{note.Id}/meta.json");
+            using (var writer = new StreamWriter(meta.Open()))
+                writer.Write(JsonSerializer.Serialize(note));
+            var content = archive.CreateEntry($"notes/{note.Id}/content.md");
+            using (var writer = new StreamWriter(content.Open()))
+                writer.Write("safe");
+        }
+
+        var result = _storage.ImportNotesFromZip(zipPath);
+
+        Assert.Equal(1, result.ImportedCount);
+        Assert.False(File.Exists(Path.Combine(_tempRoot, "outside.txt")));
+        Assert.Equal("safe", Assert.Single(_storage.Load()).Content);
     }
 
     [Fact]

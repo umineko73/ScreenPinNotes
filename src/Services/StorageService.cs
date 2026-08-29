@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 using System.IO;
+using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
 using ScreenStickyNotes.Models;
@@ -76,6 +77,8 @@ public class StorageService
     }
 
     public string NotesRoot => _notesDir;
+
+    public sealed record ImportResult(int ImportedCount, int SkippedCount);
 
     public StorageService WithNotesRoot(string notesRoot)
         => new(_root, notesRoot);
@@ -249,6 +252,91 @@ public class StorageService
             Directory.Delete(dir, recursive: true);
     }
 
+    public void ExportNotesToZip(string zipPath)
+    {
+        var fullZipPath = Path.GetFullPath(zipPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(fullZipPath)!);
+        if (File.Exists(fullZipPath))
+            File.Delete(fullZipPath);
+
+        using var archive = ZipFile.Open(fullZipPath, ZipArchiveMode.Create);
+        if (!Directory.Exists(_notesDir))
+            return;
+
+        foreach (var file in Directory.EnumerateFiles(_notesDir, "*", SearchOption.AllDirectories))
+        {
+            if (string.Equals(Path.GetFullPath(file), fullZipPath, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var relativePath = Path.GetRelativePath(_notesDir, file)
+                .Replace(Path.DirectorySeparatorChar, '/')
+                .Replace(Path.AltDirectorySeparatorChar, '/');
+            archive.CreateEntryFromFile(file, "notes/" + relativePath, CompressionLevel.Optimal);
+        }
+    }
+
+    public ImportResult ImportNotesFromZip(string zipPath)
+    {
+        var fullZipPath = Path.GetFullPath(zipPath);
+        var stagingRoot = Path.Combine(Path.GetTempPath(), "ScreenStickyNotesImport", Guid.NewGuid().ToString("N"));
+        var imported = 0;
+        var skipped = 0;
+
+        try
+        {
+            ExtractZipSafely(fullZipPath, stagingRoot);
+
+            var extractedNotesRoot = Directory.Exists(Path.Combine(stagingRoot, "notes"))
+                ? Path.Combine(stagingRoot, "notes")
+                : stagingRoot;
+            var stagingStorage = new StorageService(stagingRoot, extractedNotesRoot);
+            var notes = stagingStorage.Load();
+
+            Directory.CreateDirectory(_notesDir);
+            foreach (var note in notes)
+            {
+                if (!TryGetNoteDirectoryPath(note.Id, out var targetDir))
+                {
+                    skipped++;
+                    continue;
+                }
+
+                var sourceDir = stagingStorage.GetNoteDirectoryPath(note.Id);
+                if (!Directory.Exists(sourceDir))
+                {
+                    skipped++;
+                    continue;
+                }
+
+                if (Directory.Exists(targetDir))
+                {
+                    note.Id = Guid.NewGuid().ToString();
+                    targetDir = GetNoteDirectoryPath(note.Id);
+                }
+
+                try
+                {
+                    CopyDirectory(sourceDir, targetDir);
+                    WriteNote(note);
+                    imported++;
+                }
+                catch (Exception ex)
+                {
+                    skipped++;
+                    ErrorReporter.ReportNonFatal($"Import note {note.Id}", ex);
+                    if (Directory.Exists(targetDir))
+                        TryDeleteDirectory(targetDir);
+                }
+            }
+        }
+        finally
+        {
+            TryDeleteDirectory(stagingRoot);
+        }
+
+        return new ImportResult(imported, skipped);
+    }
+
     // ─── 内部：ファイル書き込み（アトミック） ───────────────────
 
     private void WriteNote(StickyNote note)
@@ -295,6 +383,70 @@ public class StorageService
         return id.IndexOfAny(Path.GetInvalidFileNameChars()) < 0 &&
                !id.Contains(Path.DirectorySeparatorChar) &&
                !id.Contains(Path.AltDirectorySeparatorChar);
+    }
+
+    private static void ExtractZipSafely(string zipPath, string destinationRoot)
+    {
+        Directory.CreateDirectory(destinationRoot);
+        var root = Path.GetFullPath(destinationRoot)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) +
+            Path.DirectorySeparatorChar;
+
+        using var archive = ZipFile.OpenRead(zipPath);
+        foreach (var entry in archive.Entries)
+        {
+            var normalizedName = entry.FullName.Replace('\\', '/');
+            if (string.IsNullOrWhiteSpace(normalizedName))
+                continue;
+            if (normalizedName.StartsWith("/", StringComparison.Ordinal) ||
+                normalizedName.Split('/').Any(part => part is "" or "." or ".."))
+            {
+                continue;
+            }
+
+            var relativePath = normalizedName.Replace('/', Path.DirectorySeparatorChar);
+            var fullPath = Path.GetFullPath(Path.Combine(destinationRoot, relativePath));
+            if (!fullPath.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (normalizedName.EndsWith("/", StringComparison.Ordinal))
+            {
+                Directory.CreateDirectory(fullPath);
+                continue;
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+            entry.ExtractToFile(fullPath, overwrite: true);
+        }
+    }
+
+    private static void CopyDirectory(string source, string target)
+    {
+        Directory.CreateDirectory(target);
+        foreach (var directory in Directory.EnumerateDirectories(source, "*", SearchOption.AllDirectories))
+        {
+            var relativePath = Path.GetRelativePath(source, directory);
+            Directory.CreateDirectory(Path.Combine(target, relativePath));
+        }
+
+        foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+        {
+            var relativePath = Path.GetRelativePath(source, file);
+            File.Copy(file, Path.Combine(target, relativePath), overwrite: false);
+        }
+    }
+
+    private static void TryDeleteDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+                Directory.Delete(path, recursive: true);
+        }
+        catch
+        {
+            // Temporary import cleanup failure is non-fatal.
+        }
     }
 
     // ─── 旧形式からの移行 ────────────────────────────────────────

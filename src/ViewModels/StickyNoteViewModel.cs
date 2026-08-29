@@ -142,6 +142,20 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         set { _model.IsTopmost = value; OnPropertyChanged(); }
     }
 
+    public bool IsReadOnly
+    {
+        get => _model.IsReadOnly;
+        set
+        {
+            _model.IsReadOnly = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(EditLockVisibility));
+        }
+    }
+
+    public Visibility EditLockVisibility =>
+        _model.IsReadOnly ? Visibility.Visible : Visibility.Collapsed;
+
     public bool IsFolded
     {
         get => _model.IsFolded;
@@ -176,8 +190,12 @@ public class StickyNoteViewModel : INotifyPropertyChanged
             _model.TitleFontSize = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(TitleBarHeight));
+            OnPropertyChanged(nameof(TitleIconSize));
         }
     }
+
+    public double TitleIconSize =>
+        Math.Clamp(Math.Ceiling(_model.TitleFontSize * 1.35), 17, 34);
 
     public int OpacityPercent
     {

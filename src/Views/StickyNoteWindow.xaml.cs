@@ -67,6 +67,7 @@ public partial class StickyNoteWindow : Window
     private Popup?     _colorPopup;
     private Popup?     _fontPopup;
     private bool       _isDragging;
+    private bool       _dragSeparatesFoldedPosition;
     private double     _dragOffsetX, _dragOffsetY;
     private bool       _dragMoved;               // しきい値を超えて実際に動かしたか
     private System.Drawing.Point _dragStartCursor; // ドラッグ開始時のカーソル位置（しきい値判定用）
@@ -119,6 +120,8 @@ public partial class StickyNoteWindow : Window
         {
             if (e.PropertyName is nameof(StickyNoteViewModel.Icon) or null)
                 UpdateIconImage();
+            if (e.PropertyName is nameof(StickyNoteViewModel.IsReadOnly) or null)
+                ApplyReadOnlyState();
         };
         UpdateIconImage();
 
@@ -185,6 +188,7 @@ public partial class StickyNoteWindow : Window
             // XAML の初期値（全辺 5px）のままになり、タイトルバー上端が
             // リサイズ枠として残ってしまう。
             SetResizeEnabled(!vm.IsFolded);
+            ApplyReadOnlyState();
             UpdateTitleBarButtonsVisibility();
             // 初期値設定はここまで。以降の SizeChanged/LocationChanged は
             // 通常どおりモデルに書き戻してよい。
@@ -273,8 +277,35 @@ public partial class StickyNoteWindow : Window
         AddNoteButton.ToolTip = LocalizationService.T("AddNoteTooltip");
         PinButton.ToolTip = LocalizationService.T("TopmostTooltip");
         FoldButton.ToolTip = LocalizationService.T("FoldTooltip");
-        ContentBox.ToolTip = LocalizationService.T("EditBodyTooltip");
+        ContentBox.ToolTip = GetContentBoxTooltip();
         UpdateToolbarTooltips();
+    }
+
+    private string GetContentBoxTooltip()
+        => ViewModel.IsReadOnly
+            ? LocalizationService.T("EditLockBodyTooltip")
+            : LocalizationService.T("EditBodyTooltip");
+
+    private void ApplyReadOnlyState()
+    {
+        if (!ViewModel.IsReadOnly)
+        {
+            ContentBox.ToolTip = GetContentBoxTooltip();
+            return;
+        }
+
+        ContentBox.IsReadOnly = true;
+        ContentBox.Cursor = WpfCursors.Arrow;
+        ContentBox.BorderThickness = new Thickness(0);
+        ContentBox.BorderBrush = WpfBrushes.Transparent;
+        TitleText.Visibility = Visibility.Visible;
+        TitleEditBox.Visibility = Visibility.Collapsed;
+        ContentBox.ToolTip = GetContentBoxTooltip();
+        HideEditToolbar();
+        _isEditMode = false;
+        ViewModel.SetForceOpaque(false);
+        LoadContent(ViewModel.Content);
+        Keyboard.ClearFocus();
     }
 
     private void UpdateToolbarTooltips()
@@ -375,17 +406,26 @@ public partial class StickyNoteWindow : Window
 
     private void SaveCurrentPositionToModel()
     {
+        var syncOtherState = !_dragSeparatesFoldedPosition && !IsShiftPressed();
         if (ViewModel.IsFolded)
         {
             ViewModel.Model.FoldedX = Left;
             ViewModel.Model.FoldedY = Top;
-            ViewModel.Model.X = Left;
-            ViewModel.Model.Y = Top;
+            if (syncOtherState)
+            {
+                ViewModel.Model.X = Left;
+                ViewModel.Model.Y = Top;
+            }
         }
         else
         {
             ViewModel.Model.X = Left;
             ViewModel.Model.Y = Top;
+            if (syncOtherState)
+            {
+                ViewModel.Model.FoldedX = Left;
+                ViewModel.Model.FoldedY = Top;
+            }
         }
     }
 

@@ -112,6 +112,8 @@ public partial class App : System.Windows.Application
 
         foreach (var note in notes)
             OpenNoteWindow(note);
+
+        RefreshTrayMenu();
     }
 
     private void EnsureStorageRootSelected()
@@ -301,6 +303,8 @@ public partial class App : System.Windows.Application
     {
         var settingsItem = new ToolStripMenuItem(LocalizationService.T("TraySettings"));
         settingsItem.DropDownItems.Add(BuildSelectNotesRootItem());
+        settingsItem.DropDownItems.Add(BuildExportNotesItem());
+        settingsItem.DropDownItems.Add(BuildImportNotesItem());
         settingsItem.DropDownItems.Add("-");
         settingsItem.DropDownItems.Add(startupItem);
         settingsItem.DropDownItems.Add(BuildTitlePreviewTooltipItem());
@@ -316,6 +320,117 @@ public partial class App : System.Windows.Application
         var item = new ToolStripMenuItem(LocalizationService.T("TraySelectNotesRoot"));
         item.Click += (_, _) => SelectNotesRootFromTray();
         return item;
+    }
+
+    private ToolStripMenuItem BuildExportNotesItem()
+    {
+        var item = new ToolStripMenuItem(LocalizationService.T("TrayExportNotes"));
+        item.Click += (_, _) => ExportNotesFromTray();
+        return item;
+    }
+
+    private ToolStripMenuItem BuildImportNotesItem()
+    {
+        var item = new ToolStripMenuItem(LocalizationService.T("TrayImportNotes"));
+        item.Click += (_, _) => ImportNotesFromTray();
+        return item;
+    }
+
+    private async void ExportNotesFromTray()
+    {
+        using var dialog = new SaveFileDialog
+        {
+            Title = LocalizationService.T("ExportNotesTitle"),
+            Filter = LocalizationService.T("NotesZipFilter"),
+            FileName = $"ScreenStickyNotes-{DateTime.Now:yyyyMMdd-HHmmss}.zip",
+            AddExtension = true,
+            DefaultExt = "zip",
+            OverwritePrompt = true,
+        };
+
+        if (dialog.ShowDialog() != DialogResult.OK)
+            return;
+
+        FlushAndSave();
+        SetNoteWindowsEnabled(false);
+        try
+        {
+            await Task.Run(() => _storage.ExportNotesToZip(dialog.FileName));
+            System.Windows.MessageBox.Show(
+                LocalizationService.T("ExportNotesCompletedMessage"),
+                LocalizationService.T("ExportNotesCompletedTitle"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            ErrorReporter.ReportNonFatal("Export notes", ex);
+            System.Windows.MessageBox.Show(
+                LocalizationService.T("ExportNotesFailedMessage"),
+                LocalizationService.T("ExportNotesFailedTitle"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            SetNoteWindowsEnabled(true);
+        }
+    }
+
+    private async void ImportNotesFromTray()
+    {
+        using var dialog = new OpenFileDialog
+        {
+            Title = LocalizationService.T("ImportNotesTitle"),
+            Filter = LocalizationService.T("NotesZipFilter"),
+            CheckFileExists = true,
+            Multiselect = false,
+        };
+
+        if (dialog.ShowDialog() != DialogResult.OK)
+            return;
+
+        var result = System.Windows.MessageBox.Show(
+            LocalizationService.T("ImportNotesConfirmMessage"),
+            LocalizationService.T("ImportNotesConfirmTitle"),
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+        if (result != MessageBoxResult.Yes)
+            return;
+
+        FlushAndSave();
+        SetNoteWindowsEnabled(false);
+        try
+        {
+            var importResult = await Task.Run(() => _storage.ImportNotesFromZip(dialog.FileName));
+            ReloadNoteWindowsFromStorage(showEmptyStorageMessage: false);
+            RefreshTrayMenu();
+
+            System.Windows.MessageBox.Show(
+                string.Format(
+                    LocalizationService.T("ImportNotesCompletedMessage"),
+                    importResult.ImportedCount,
+                    importResult.SkippedCount),
+                LocalizationService.T("ImportNotesCompletedTitle"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            ErrorReporter.ReportNonFatal("Import notes", ex);
+            System.Windows.MessageBox.Show(
+                LocalizationService.T("ImportNotesFailedMessage"),
+                LocalizationService.T("ImportNotesFailedTitle"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            SetNoteWindowsEnabled(true);
+        }
+    }
+
+    private void SetNoteWindowsEnabled(bool enabled)
+    {
+        foreach (var win in _windows)
+            win.IsEnabled = enabled;
     }
 
     private async void SelectNotesRootFromTray()
@@ -754,11 +869,16 @@ public partial class App : System.Windows.Application
             Path.GetFullPath(StorageService.DefaultStorageRoot),
             StringComparison.OrdinalIgnoreCase);
 
-    public void RemoveNote(string id)
+    public bool RemoveNote(string id)
     {
+        var note = _windows.FirstOrDefault(w => w.ViewModel.Model.Id == id)?.ViewModel.Model;
+        if (note?.IsReadOnly == true)
+            return false;
+
         _windows.RemoveAll(w => w.ViewModel.Model.Id == id);
         _storage.DeleteNote(id);   // 削除はここだけで行う
         SaveAll();
+        return true;
     }
 
     public void SaveAll()
