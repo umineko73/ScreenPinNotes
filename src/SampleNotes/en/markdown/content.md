@@ -1,7 +1,5 @@
 # Markdown Syntax List
 
-![Markdown and image overview](assets/markdown-image-guide.png)
-
 This note lists the Markdown syntax supported in the body. When editing is locked, checkboxes and the body/title/image display sizes can still be adjusted.
 
 ## Inline Syntax

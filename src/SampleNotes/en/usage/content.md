@@ -1,7 +1,5 @@
 # Usage Help
 
-![Fold and unfold position overview](assets/window-position-guide.png)
-
 This note has editing locked. The body text and title text are protected, but checkboxes, display sizes, position, color, and similar view settings can still be adjusted.
 
 ## Basics

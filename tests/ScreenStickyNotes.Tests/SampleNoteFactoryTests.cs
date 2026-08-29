@@ -30,7 +30,6 @@ public class SampleNoteFactoryTests
         Assert.Equal(645, markdownNote.Width);
         Assert.True(markdownNote.IsReadOnly);
         Assert.False(string.IsNullOrWhiteSpace(markdownNote.Content));
-        Assert.Contains("assets/markdown-image-guide.png", markdownNote.Content);
         Assert.Contains("## インライン記法", markdownNote.Content);
         Assert.Contains("## ブロック記法", markdownNote.Content);
         Assert.Contains("タイトルバー上で `Ctrl + マウスホイール`", markdownNote.Content);
@@ -43,7 +42,6 @@ public class SampleNoteFactoryTests
         Assert.Equal(825, usageNote.X);
         Assert.True(usageNote.IsReadOnly);
         Assert.False(string.IsNullOrWhiteSpace(usageNote.Content));
-        Assert.Contains("assets/window-position-guide.png", usageNote.Content);
         Assert.Contains("## 移動とスナップ", usageNote.Content);
         Assert.Contains("`Alt + Shift + ドラッグ`", usageNote.Content);
     }
@@ -62,10 +60,8 @@ public class SampleNoteFactoryTests
         Assert.Equal("Usage Help", notes[1].Title);
         Assert.All(notes, note => Assert.True(note.IsReadOnly));
         Assert.Contains("This note lists the Markdown syntax supported in the body.", notes[0].Content);
-        Assert.Contains("assets/markdown-image-guide.png", notes[0].Content);
         Assert.Contains("Double-click the body", notes[1].Content);
         Assert.Contains("Alt + Shift + drag", notes[1].Content);
-        Assert.Contains("assets/window-position-guide.png", notes[1].Content);
     }
 
     [Fact]
@@ -86,12 +82,6 @@ public class SampleNoteFactoryTests
             Assert.Equal("Usage Help", notes[1].Title);
             Assert.Contains("This note lists the Markdown syntax supported in the body.", notes[0].Content);
             Assert.Contains("Double-click the body", notes[1].Content);
-            Assert.True(File.Exists(Path.Combine(
-                storage.GetNoteAssetsDirectoryPath(notes[0].Id),
-                "markdown-image-guide.png")));
-            Assert.True(File.Exists(Path.Combine(
-                storage.GetNoteAssetsDirectoryPath(notes[1].Id),
-                "window-position-guide.png")));
         }
         finally
         {
@@ -110,24 +100,6 @@ public class SampleNoteFactoryTests
 
         Assert.NotEqual(notes[0].Id, notes[1].Id);
         Assert.True(notes[1].CreatedAt >= notes[0].CreatedAt);
-    }
-
-    [Fact]
-    public void CreateInitialNotes_CopiesSampleAssets()
-    {
-        using var temp = new TempDataDirectory();
-        var storage = new StorageService(temp.Path);
-        var settings = new AppSettings { Language = "ja" };
-
-        var notes = SampleNoteFactory.CreateInitialNotes(settings, storage);
-
-        Assert.Equal(2, notes.Count);
-        Assert.True(File.Exists(Path.Combine(
-            storage.GetNoteAssetsDirectoryPath(notes[0].Id),
-            "markdown-image-guide.png")));
-        Assert.True(File.Exists(Path.Combine(
-            storage.GetNoteAssetsDirectoryPath(notes[1].Id),
-            "window-position-guide.png")));
     }
 
     private sealed class TempDataDirectory : IDisposable

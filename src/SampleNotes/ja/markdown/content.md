@@ -1,7 +1,5 @@
 # Markdown 書式一覧
 
-![Markdownと画像の概要](assets/markdown-image-guide.png)
-
 本文で使える Markdown 記法を一覧にまとめます。編集ロック中でも、チェックボックスの切り替え、本文/タイトル/画像の表示サイズ変更はできます。
 
 ## インライン記法
