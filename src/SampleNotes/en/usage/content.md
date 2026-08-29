@@ -14,7 +14,7 @@
 - Click title bar: fold / unfold
 - Folded and unfolded positions and sizes are saved separately
 - Moving a folded note resets the next unfolded position automatically
-- Right-click title: edit title, z order, opacity, unfolded position, delete
+- Right-click title: edit title, z order, opacity, unfolded position, hide, delete
 
 ## Fold and Unfold
 
@@ -32,7 +32,7 @@
 ## Tray Icon
 
 - Left-click: show / hide all notes
-- Right-click: new note, language, dark mode, exit
+- Right-click: show hidden notes, new note, language, dark mode, exit
 
 ## Data Folder
 

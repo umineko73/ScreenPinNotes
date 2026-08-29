@@ -36,6 +36,7 @@ public sealed class StorageServiceTests : IDisposable
             FoldedX = 12,
             FoldedY = 34,
             FoldedWidth = 180,
+            IsHidden = true,
         };
 
         _storage.SaveNote(note);
@@ -58,6 +59,7 @@ public sealed class StorageServiceTests : IDisposable
         Assert.Equal(12, loadedNote.FoldedX);
         Assert.Equal(34, loadedNote.FoldedY);
         Assert.Equal(180, loadedNote.FoldedWidth);
+        Assert.True(loadedNote.IsHidden);
     }
 
     [Fact]

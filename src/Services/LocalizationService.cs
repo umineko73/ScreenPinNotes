@@ -21,6 +21,9 @@ public static class LocalizationService
         {
             "TrayShowAll" => english ? "Show all" : "全表示",
             "TrayHideAll" => english ? "Hide all" : "全非表示",
+            "TrayHiddenNotes" => english ? "Hidden notes" : "非表示の付箋",
+            "TrayShowAllHiddenNotes" => english ? "Show all hidden notes" : "非表示付箋の全表示",
+            "TrayNoHiddenNotes" => english ? "(None)" : "（なし）",
             "TrayNewNote" => english ? "New note" : "新規付箋作成",
             "TraySettings" => english ? "Settings" : "設定",
             "TraySelectNotesRoot" => english ? "Select note folder..." : "保存フォルダを選択...",
@@ -96,6 +99,7 @@ public static class LocalizationService
             "OpenLink" => english ? "Open link" : "リンクを開く",
             "ConvertLink" => english ? "Convert to Markdown link" : "Markdownリンクに変換",
             "Delete" => english ? "Delete note" : "付箋の削除",
+            "HideNote" => english ? "Hide note" : "付箋を非表示",
             "EditTitle" => english ? "Edit title" : "タイトルを編集",
             "ZOrder" => english ? "Z order" : "重なり順",
             "Opacity" => english ? "Opacity" : "透明度",

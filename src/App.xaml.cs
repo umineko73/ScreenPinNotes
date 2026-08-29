@@ -259,6 +259,7 @@ public partial class App : System.Windows.Application
         var menu = new ContextMenuStrip();
         menu.Items.Add(LocalizationService.T("TrayShowAll"), null, (_, _) => ShowAllNotes());
         menu.Items.Add(LocalizationService.T("TrayHideAll"), null, (_, _) => HideAllNotes());
+        menu.Items.Add(BuildHiddenNotesMenu());
         menu.Items.Add("-");
         menu.Items.Add(LocalizationService.T("TrayNewNote"), null, (_, _) => AddNewNote());
         menu.Items.Add("-");
@@ -267,6 +268,33 @@ public partial class App : System.Windows.Application
         menu.Items.Add(LocalizationService.T("TrayAbout"), null, (_, _) => ShowAboutWindow());
         menu.Items.Add(LocalizationService.T("TrayExit"), null, (_, _) => ExitApp());
         return menu;
+    }
+
+    private ToolStripMenuItem BuildHiddenNotesMenu()
+    {
+        var hiddenNotesItem = new ToolStripMenuItem(LocalizationService.T("TrayHiddenNotes"));
+        var hiddenWindows = _windows
+            .Where(w => w.ViewModel.Model.IsHidden)
+            .OrderBy(w => w.ViewModel.Model.CreatedAt)
+            .ToList();
+
+        if (hiddenWindows.Count == 0)
+        {
+            hiddenNotesItem.Enabled = false;
+            hiddenNotesItem.DropDownItems.Add(LocalizationService.T("TrayNoHiddenNotes"));
+            return hiddenNotesItem;
+        }
+
+        hiddenNotesItem.DropDownItems.Add(LocalizationService.T("TrayShowAllHiddenNotes"), null, (_, _) => ShowAllHiddenNotes());
+        hiddenNotesItem.DropDownItems.Add("-");
+
+        foreach (var win in hiddenWindows)
+        {
+            var noteId = win.ViewModel.Model.Id;
+            hiddenNotesItem.DropDownItems.Add(win.ViewModel.DisplayTitle, null, (_, _) => ShowHiddenNote(noteId));
+        }
+
+        return hiddenNotesItem;
     }
 
     private ToolStripMenuItem BuildSettingsMenu(ToolStripMenuItem startupItem)
@@ -567,7 +595,10 @@ public partial class App : System.Windows.Application
     public void ShowAllNotes()
     {
         foreach (var win in _windows)
-            win.Show();
+        {
+            if (!win.ViewModel.Model.IsHidden)
+                win.Show();
+        }
     }
 
     public void HideAllNotes()
@@ -642,7 +673,45 @@ public partial class App : System.Windows.Application
         var vm  = new StickyNoteViewModel(note, _settings);
         var win = new StickyNoteWindow(vm, _storage);
         _windows.Add(win);
+        if (!note.IsHidden)
+            win.Show();
+    }
+
+    public void HideNote(string id)
+    {
+        var win = _windows.FirstOrDefault(w => w.ViewModel.Model.Id == id);
+        if (win == null)
+            return;
+
+        win.ViewModel.Model.IsHidden = true;
+        win.Hide();
+        SaveAll();
+        RefreshTrayMenu();
+    }
+
+    private void ShowHiddenNote(string id)
+    {
+        var win = _windows.FirstOrDefault(w => w.ViewModel.Model.Id == id);
+        if (win == null)
+            return;
+
+        win.ViewModel.Model.IsHidden = false;
         win.Show();
+        win.Activate();
+        SaveAll();
+        RefreshTrayMenu();
+    }
+
+    private void ShowAllHiddenNotes()
+    {
+        foreach (var win in _windows.Where(w => w.ViewModel.Model.IsHidden))
+        {
+            win.ViewModel.Model.IsHidden = false;
+            win.Show();
+        }
+
+        SaveAll();
+        RefreshTrayMenu();
     }
 
     private void ReloadNoteWindowsFromStorage(bool showEmptyStorageMessage = true)

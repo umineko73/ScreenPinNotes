@@ -79,6 +79,9 @@ public partial class StickyNoteWindow
         cm.Items.Add(_openLinkItem);
         cm.Items.Add(_convertLinkItem);
         cm.Items.Add(new Separator());
+        var hideItem = new MenuItem { Header = LocalizationService.T("HideNote") };
+        hideItem.Click += (_, _) => App.Current.HideNote(ViewModel.Model.Id);
+        cm.Items.Add(hideItem);
         var deleteItem = new MenuItem { Header = LocalizationService.T("Delete") };
         deleteItem.Click += Close_Click;
         cm.Items.Add(deleteItem);
@@ -97,6 +100,7 @@ public partial class StickyNoteWindow
         var setUnfoldedPositionItem = new MenuItem { Header = LocalizationService.T("SetUnfoldedPositionHere") };
         var bringToFrontItem = new MenuItem { Header = LocalizationService.T("BringToFront") };
         var sendToBackItem = new MenuItem { Header = LocalizationService.T("SendToBack") };
+        var hideItem = new MenuItem { Header = LocalizationService.T("HideNote") };
         var deleteItem = new MenuItem { Header = LocalizationService.T("Delete") };
 
         editItem.Click += (_, _) => EnterTitleEditMode();
@@ -114,6 +118,7 @@ public partial class StickyNoteWindow
         setUnfoldedPositionItem.Click += (_, _) => SetUnfoldedPositionHere();
         bringToFrontItem.Click += (_, _) => MoveInZOrder(HwndTop);
         sendToBackItem.Click += (_, _) => MoveInZOrder(HwndBottom);
+        hideItem.Click += (_, _) => App.Current.HideNote(ViewModel.Model.Id);
         deleteItem.Click += Close_Click;
         zOrderItem.Items.Add(bringToFrontItem);
         zOrderItem.Items.Add(sendToBackItem);
@@ -130,6 +135,7 @@ public partial class StickyNoteWindow
         cm.Items.Add(opacityItem);
         cm.Items.Add(setUnfoldedPositionItem);
         cm.Items.Add(new Separator());
+        cm.Items.Add(hideItem);
         cm.Items.Add(deleteItem);
         cm.Opened += (_, _) =>
         {

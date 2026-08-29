@@ -227,7 +227,7 @@ public static class MarkdownRenderer
         if (start + 1 >= lines.Length ||
             !TrySplitTableRow(lines[start], out var headers) ||
             !TrySplitTableRow(lines[start + 1], out var separatorCells) ||
-            !IsTableSeparator(separatorCells))
+            !TryGetTableAlignments(separatorCells, out var alignments))
         {
             return false;
         }
@@ -250,8 +250,8 @@ public static class MarkdownRenderer
 
         var headerRow = new TableRow();
         group.Rows.Add(headerRow);
-        foreach (var header in headers)
-            headerRow.Cells.Add(CreateTableCell(header, createHyperlink, createImage, isHeader: true, darkMode));
+        for (var columnIndex = 0; columnIndex < columnCount; columnIndex++)
+            headerRow.Cells.Add(CreateTableCell(headers[columnIndex], createHyperlink, createImage, alignments[columnIndex], isHeader: true, darkMode));
 
         int rowIndex = start + 2;
         while (rowIndex < lines.Length && TrySplitTableRow(lines[rowIndex], out var cells))
@@ -261,8 +261,8 @@ public static class MarkdownRenderer
 
             var row = new TableRow();
             group.Rows.Add(row);
-            foreach (var cell in cells)
-                row.Cells.Add(CreateTableCell(cell, createHyperlink, createImage, isHeader: false, darkMode));
+            for (var columnIndex = 0; columnIndex < columnCount; columnIndex++)
+                row.Cells.Add(CreateTableCell(cells[columnIndex], createHyperlink, createImage, alignments[columnIndex], isHeader: false, darkMode));
 
             rowIndex++;
         }
@@ -275,10 +275,12 @@ public static class MarkdownRenderer
         string text,
         Func<string, string, Hyperlink> createHyperlink,
         Func<MarkdownImage, Inline>? createImage,
+        TextAlignment textAlignment,
         bool isHeader,
         bool darkMode)
     {
         var paragraph = CreateParagraph();
+        paragraph.TextAlignment = textAlignment;
         AddInlineContent(paragraph.Inlines, text.Trim(), -1, 0, createHyperlink, createImage, darkMode);
         if (isHeader)
             paragraph.FontWeight = FontWeights.Bold;
@@ -343,18 +345,44 @@ public static class MarkdownRenderer
     private static string UnescapeTableCell(string text)
         => text.Replace("\\|", "|");
 
-    private static bool IsTableSeparator(IReadOnlyList<string> cells)
-        => cells.Count >= 2 && cells.All(IsTableSeparatorCell);
-
-    private static bool IsTableSeparatorCell(string cell)
+    private static bool TryGetTableAlignments(IReadOnlyList<string> cells, out List<TextAlignment> alignments)
     {
+        alignments = [];
+        if (cells.Count < 2)
+            return false;
+
+        foreach (var cell in cells)
+        {
+            if (!TryGetTableAlignment(cell, out var alignment))
+                return false;
+
+            alignments.Add(alignment);
+        }
+
+        return true;
+    }
+
+    private static bool TryGetTableAlignment(string cell, out TextAlignment alignment)
+    {
+        alignment = TextAlignment.Left;
         var trimmed = cell.Trim();
-        if (trimmed.StartsWith(":"))
+        var leftAligned = trimmed.StartsWith(":", StringComparison.Ordinal);
+        var rightAligned = trimmed.EndsWith(":", StringComparison.Ordinal);
+        if (leftAligned)
             trimmed = trimmed[1..];
-        if (trimmed.EndsWith(":"))
+        if (rightAligned)
             trimmed = trimmed[..^1];
 
-        return trimmed.Length >= 3 && trimmed.All(c => c == '-');
+        if (trimmed.Length < 3 || !trimmed.All(c => c == '-'))
+            return false;
+
+        alignment = (leftAligned, rightAligned) switch
+        {
+            (true, true) => TextAlignment.Center,
+            (false, true) => TextAlignment.Right,
+            _ => TextAlignment.Left,
+        };
+        return true;
     }
 
     private static bool IsFence(string line)
@@ -471,9 +499,16 @@ public static class MarkdownRenderer
                 continue;
             }
 
+            if (TryGetEscapedMarkdownChar(text, pos, out var escapedChar))
+            {
+                yield return new Run(escapedChar.ToString());
+                pos += 2;
+                continue;
+            }
+
             if (text[pos] == '`')
             {
-                var end = text.IndexOf('`', pos + 1);
+                var end = FindUnescaped(text, "`", pos + 1);
                 if (end > pos)
                 {
                     yield return new Run(text[(pos + 1)..end])
@@ -486,30 +521,33 @@ public static class MarkdownRenderer
                 }
             }
 
-            if (pos + 1 < text.Length && text[pos] == '*' && text[pos + 1] == '*')
+            if (TryGetDelimitedText(text, pos, "**", out var boldText, out var boldLength) ||
+                TryGetDelimitedText(text, pos, "__", out boldText, out boldLength))
             {
-                var end = text.IndexOf("**", pos + 2, StringComparison.Ordinal);
-                if (end > pos)
-                {
-                    var span = new Span { FontWeight = FontWeights.Bold };
-                    AddInlineContent(span.Inlines, text[(pos + 2)..end], lineIndex, lineOffset + pos + 2, createHyperlink, createImage, darkMode);
-                    yield return span;
-                    pos = end + 2;
-                    continue;
-                }
+                var span = new Span { FontWeight = FontWeights.Bold };
+                AddInlineContent(span.Inlines, boldText, lineIndex, lineOffset + pos + 2, createHyperlink, createImage, darkMode);
+                yield return span;
+                pos += boldLength;
+                continue;
             }
 
-            if (text[pos] == '*')
+            if (TryGetDelimitedText(text, pos, "~~", out var strikeText, out var strikeLength))
             {
-                var end = text.IndexOf('*', pos + 1);
-                if (end > pos)
-                {
-                    var span = new Span { FontStyle = FontStyles.Italic };
-                    AddInlineContent(span.Inlines, text[(pos + 1)..end], lineIndex, lineOffset + pos + 1, createHyperlink, createImage, darkMode);
-                    yield return span;
-                    pos = end + 1;
-                    continue;
-                }
+                var span = new Span { TextDecorations = TextDecorations.Strikethrough };
+                AddInlineContent(span.Inlines, strikeText, lineIndex, lineOffset + pos + 2, createHyperlink, createImage, darkMode);
+                yield return span;
+                pos += strikeLength;
+                continue;
+            }
+
+            if (TryGetDelimitedText(text, pos, "*", out var italicText, out var italicLength) ||
+                TryGetDelimitedText(text, pos, "_", out italicText, out italicLength))
+            {
+                var span = new Span { FontStyle = FontStyles.Italic };
+                AddInlineContent(span.Inlines, italicText, lineIndex, lineOffset + pos + 1, createHyperlink, createImage, darkMode);
+                yield return span;
+                pos += italicLength;
+                continue;
             }
 
             if (TryGetMarkdownImage(text, pos, out var alt, out var imageTarget, out var imageLength, out var width, out var height))
@@ -529,6 +567,13 @@ public static class MarkdownRenderer
                 continue;
             }
 
+            if (TryGetAutolink(text, pos, out var autolinkTarget, out var autolinkLength))
+            {
+                yield return createHyperlink(autolinkTarget, autolinkTarget);
+                pos += autolinkLength;
+                continue;
+            }
+
             foreach (var inline in ParsePlainLinks(text[pos].ToString(), createHyperlink))
                 yield return inline;
             pos++;
@@ -537,15 +582,84 @@ public static class MarkdownRenderer
 
     private static int FindNextInlineMarker(string text, int start)
     {
-        var result = text.Length;
-        foreach (var marker in new[] { "`", "**", "*", "![", "[" })
+        for (var i = start; i < text.Length; i++)
         {
-            var index = text.IndexOf(marker, start, StringComparison.Ordinal);
-            if (index >= 0 && index < result)
-                result = index;
+            if (TryGetEscapedMarkdownChar(text, i, out _))
+                return i;
+
+            if (text[i] == '`' && FindUnescaped(text, "`", i + 1) > i)
+                return i;
+            if (TryGetDelimitedText(text, i, "~~", out _, out _) ||
+                TryGetDelimitedText(text, i, "**", out _, out _) ||
+                TryGetDelimitedText(text, i, "__", out _, out _) ||
+                TryGetDelimitedText(text, i, "*", out _, out _) ||
+                TryGetDelimitedText(text, i, "_", out _, out _) ||
+                text.AsSpan(i).StartsWith("![", StringComparison.Ordinal) ||
+                text[i] == '[' ||
+                text[i] == '<')
+            {
+                return i;
+            }
         }
-        return result;
+
+        return text.Length;
     }
+
+    private static bool TryGetDelimitedText(string text, int start, string marker, out string innerText, out int length)
+    {
+        innerText = "";
+        length = 0;
+        if (!text.AsSpan(start).StartsWith(marker, StringComparison.Ordinal))
+            return false;
+        if ((marker == "_" || marker == "__") && IsWordChar(GetCharOrDefault(text, start - 1)))
+            return false;
+
+        var end = FindUnescaped(text, marker, start + marker.Length);
+        if (end <= start + marker.Length)
+            return false;
+        if ((marker == "_" || marker == "__") && IsWordChar(GetCharOrDefault(text, end + marker.Length)))
+            return false;
+
+        innerText = text[(start + marker.Length)..end];
+        length = end - start + marker.Length;
+        return true;
+    }
+
+    private static int FindUnescaped(string text, string marker, int start)
+    {
+        for (var i = start; i <= text.Length - marker.Length; i++)
+        {
+            if (text[i] == '\\' && i + 1 < text.Length)
+            {
+                i++;
+                continue;
+            }
+
+            if (text.AsSpan(i).StartsWith(marker, StringComparison.Ordinal))
+                return i;
+        }
+
+        return -1;
+    }
+
+    private static bool TryGetEscapedMarkdownChar(string text, int start, out char escapedChar)
+    {
+        escapedChar = '\0';
+        if (start + 1 >= text.Length || text[start] != '\\' || !IsEscapableMarkdownChar(text[start + 1]))
+            return false;
+
+        escapedChar = text[start + 1];
+        return true;
+    }
+
+    private static bool IsEscapableMarkdownChar(char ch)
+        => ch is '\\' or '`' or '*' or '_' or '{' or '}' or '[' or ']' or '(' or ')' or '#' or '+' or '-' or '.' or '!' or '|' or '<' or '>' or '~';
+
+    private static bool IsWordChar(char ch)
+        => char.IsLetterOrDigit(ch) || ch == '_';
+
+    private static char GetCharOrDefault(string text, int index)
+        => index >= 0 && index < text.Length ? text[index] : '\0';
 
     private static bool TryGetMarkdownLink(
         string text,
@@ -658,9 +772,58 @@ public static class MarkdownRenderer
         out string target,
         out int length)
     {
-        target = text[(openParenIndex + 1)..closeParenIndex].Trim();
+        target = StripOptionalMarkdownTitle(text[(openParenIndex + 1)..closeParenIndex]);
         length = closeParenIndex - openParenIndex + 1;
         return target.Length > 0;
+    }
+
+    private static string StripOptionalMarkdownTitle(string rawTarget)
+    {
+        var value = rawTarget.Trim();
+        if (value.StartsWith("<", StringComparison.Ordinal) && value.IndexOf('>') is var angleEnd && angleEnd > 1)
+            return value[1..angleEnd].Trim();
+
+        var firstWhitespace = IndexOfWhitespace(value);
+        if (firstWhitespace < 0)
+            return value;
+
+        var possibleTitle = value[firstWhitespace..].TrimStart();
+        if (possibleTitle.Length >= 2 &&
+            (possibleTitle[0] == '"' && possibleTitle[^1] == '"' ||
+             possibleTitle[0] == '\'' && possibleTitle[^1] == '\'' ||
+             possibleTitle[0] == '(' && possibleTitle[^1] == ')'))
+        {
+            return value[..firstWhitespace].Trim();
+        }
+
+        return value;
+    }
+
+    private static int IndexOfWhitespace(string text)
+    {
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (char.IsWhiteSpace(text[i]))
+                return i;
+        }
+
+        return -1;
+    }
+
+    private static bool TryGetAutolink(string text, int start, out string target, out int length)
+    {
+        target = "";
+        length = 0;
+        if (text[start] != '<')
+            return false;
+
+        var end = text.IndexOf('>', start + 1);
+        if (end <= start + 1)
+            return false;
+
+        target = text[(start + 1)..end].Trim();
+        length = end - start + 1;
+        return LinkDetector.IsExactLink(target);
     }
 
     private static bool TryReadImageAttributes(

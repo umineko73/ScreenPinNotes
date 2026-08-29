@@ -49,6 +49,20 @@ public class MarkdownRendererTests
     }
 
     [Fact]
+    public void Render_Table_AppliesColumnAlignment()
+    {
+        var markdown = "| L | C | R |\n| :--- | :---: | ---: |\n| 1 | 2 | 3 |";
+
+        var blocks = MarkdownRenderer.Render(markdown, 13, CreateHyperlink).ToList();
+
+        var table = Assert.IsType<Table>(Assert.Single(blocks));
+        var row = Assert.Single(table.RowGroups).Rows[1];
+        Assert.Equal(TextAlignment.Left, GetOnlyCellParagraph(row.Cells[0]).TextAlignment);
+        Assert.Equal(TextAlignment.Center, GetOnlyCellParagraph(row.Cells[1]).TextAlignment);
+        Assert.Equal(TextAlignment.Right, GetOnlyCellParagraph(row.Cells[2]).TextAlignment);
+    }
+
+    [Fact]
     public void Render_MarkdownLink_InvokesHyperlinkCallbackWithLabelAndTarget()
     {
         var calls = new List<(string Label, string Target)>();
@@ -76,6 +90,36 @@ public class MarkdownRendererTests
         MarkdownRenderer.Render("[Example](https://example.com/files/report(1).html)", 13, Factory).ToList();
 
         Assert.Contains(("Example", "https://example.com/files/report(1).html"), calls);
+    }
+
+    [Fact]
+    public void Render_MarkdownLink_IgnoresOptionalTitle()
+    {
+        var calls = new List<(string Label, string Target)>();
+        Hyperlink Factory(string label, string target)
+        {
+            calls.Add((label, target));
+            return CreateHyperlink(label, target);
+        }
+
+        MarkdownRenderer.Render("[Example](https://example.com \"title\")", 13, Factory).ToList();
+
+        Assert.Contains(("Example", "https://example.com"), calls);
+    }
+
+    [Fact]
+    public void Render_AngleAutolink_InvokesHyperlinkCallback()
+    {
+        var calls = new List<(string Label, string Target)>();
+        Hyperlink Factory(string label, string target)
+        {
+            calls.Add((label, target));
+            return CreateHyperlink(label, target);
+        }
+
+        MarkdownRenderer.Render("<https://example.com>", 13, Factory).ToList();
+
+        Assert.Contains(("https://example.com", "https://example.com"), calls);
     }
 
     [Fact]
@@ -116,6 +160,41 @@ public class MarkdownRendererTests
         Assert.Equal(0, captured.Width);
     }
 
+    [Fact]
+    public void Render_UnderscoreEmphasis_ProducesBoldAndItalicSpans()
+    {
+        var blocks = MarkdownRenderer.Render("__bold__ and _italic_", 13, CreateHyperlink).ToList();
+
+        var para = Assert.IsType<Paragraph>(Assert.Single(blocks));
+        var spans = para.Inlines.OfType<Span>().ToList();
+        Assert.Equal(2, spans.Count);
+        Assert.Equal(FontWeights.Bold, spans[0].FontWeight);
+        Assert.Equal(FontStyles.Italic, spans[1].FontStyle);
+        Assert.Equal("bold and italic", GetInlineText(para.Inlines));
+    }
+
+    [Fact]
+    public void Render_Strikethrough_ProducesStrikethroughSpan()
+    {
+        var blocks = MarkdownRenderer.Render("~~deleted~~", 13, CreateHyperlink).ToList();
+
+        var para = Assert.IsType<Paragraph>(Assert.Single(blocks));
+        var span = Assert.IsType<Span>(Assert.Single(para.Inlines));
+        Assert.Same(TextDecorations.Strikethrough, span.TextDecorations);
+        Assert.Equal("deleted", GetInlineText(span.Inlines));
+    }
+
+    [Fact]
+    public void Render_EscapedMarkdownMarkers_RemainPlainText()
+    {
+        var blocks = MarkdownRenderer.Render(@"not \*italic\* and \[link\]", 13, CreateHyperlink).ToList();
+
+        var para = Assert.IsType<Paragraph>(Assert.Single(blocks));
+        Assert.Empty(para.Inlines.OfType<Span>());
+        Assert.Empty(para.Inlines.OfType<Hyperlink>());
+        Assert.Equal("not *italic* and [link]", GetInlineText(para.Inlines));
+    }
+
     // Constructing a System.Windows.Controls.CheckBox (a Control, unlike the plain
     // TextElement types the other tests use) requires an STA thread with a WPF
     // Dispatcher, which plain [Fact] doesn't provide.
@@ -142,5 +221,25 @@ public class MarkdownRendererTests
 
         var para = Assert.IsType<Paragraph>(Assert.Single(blocks));
         Assert.Empty(para.Inlines);
+    }
+
+    private static Paragraph GetOnlyCellParagraph(TableCell cell)
+        => Assert.IsType<Paragraph>(Assert.Single(cell.Blocks));
+
+    private static string GetInlineText(InlineCollection inlines)
+    {
+        var parts = new List<string>();
+        foreach (var inline in inlines)
+        {
+            parts.Add(inline switch
+            {
+                Run run => run.Text,
+                Hyperlink hyperlink => GetInlineText(hyperlink.Inlines),
+                Span span => GetInlineText(span.Inlines),
+                _ => "",
+            });
+        }
+
+        return string.Concat(parts);
     }
 }
