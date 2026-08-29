@@ -420,7 +420,7 @@ public class StorageService
         }
     }
 
-    private static void CopyDirectory(string source, string target)
+    internal static void CopyDirectory(string source, string target)
     {
         Directory.CreateDirectory(target);
         foreach (var directory in Directory.EnumerateDirectories(source, "*", SearchOption.AllDirectories))

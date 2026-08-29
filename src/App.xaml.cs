@@ -528,7 +528,7 @@ public partial class App : System.Windows.Application
         var staging = target + ".migrating-" + Guid.NewGuid().ToString("N");
         try
         {
-            CopyDirectory(source, staging);
+            StorageService.CopyDirectory(source, staging);
             Directory.Move(staging, target);
         }
         catch
@@ -539,22 +539,6 @@ public partial class App : System.Windows.Application
         }
 
         Directory.Delete(source, recursive: true);
-    }
-
-    private static void CopyDirectory(string source, string target)
-    {
-        Directory.CreateDirectory(target);
-        foreach (var directory in Directory.EnumerateDirectories(source, "*", SearchOption.AllDirectories))
-        {
-            var relativePath = Path.GetRelativePath(source, directory);
-            Directory.CreateDirectory(Path.Combine(target, relativePath));
-        }
-
-        foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
-        {
-            var relativePath = Path.GetRelativePath(source, file);
-            File.Copy(file, Path.Combine(target, relativePath), overwrite: false);
-        }
     }
 
     private ToolStripMenuItem BuildTitlePreviewTooltipItem()

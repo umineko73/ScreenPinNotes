@@ -86,6 +86,7 @@ public partial class StickyNoteWindow : Window
     private double     _imageScrollStartHorizontalOffset;
     private double     _imageScrollStartVerticalOffset;
     private readonly Dictionary<WpfImage, MarkdownImageContext> _markdownImageContexts = [];
+    private readonly Dictionary<string, (DateTime WriteTimeUtc, System.Windows.Media.Imaging.BitmapSource Bitmap)> _normalizedImageCache = [];
     private WrapPanel? _colorPanel;
 
     private readonly System.Windows.Threading.DispatcherTimer _overlayTimer =
@@ -379,7 +380,13 @@ public partial class StickyNoteWindow : Window
         if (!ViewModel.IsFolded)
             ViewModel.Model.Height = Height - _statusBarDelta;
         if (!_isEditMode && !ViewModel.IsFolded)
-            Dispatcher.BeginInvoke(() => LoadContent(ViewModel.Content), System.Windows.Threading.DispatcherPriority.Background);
+            Dispatcher.BeginInvoke(() =>
+            {
+                // 実行時点で編集モードに入っている可能性があるため再確認する
+                // （そうでないと編集中の内容が描画済みドキュメントで上書きされる）。
+                if (!_isEditMode && !ViewModel.IsFolded)
+                    LoadContent(ViewModel.Content);
+            }, System.Windows.Threading.DispatcherPriority.Background);
         RequestSave();
     }
 
@@ -454,11 +461,11 @@ public partial class StickyNoteWindow : Window
                     App.Current.SaveAll();
                 });
             }
-            catch (Exception ex) when (
-                ex is InvalidOperationException ||
-                ex is System.Threading.Tasks.TaskCanceledException ||
-                ex is System.ComponentModel.Win32Exception)
+            catch (Exception ex)
             {
+                // シャットダウン競合（InvalidOperationException/TaskCanceledException/
+                // Win32Exception）だけでなく、ディスクI/Oエラー等の保存失敗も
+                // ここで捕まえてアプリ全体のクラッシュを防ぐ。
                 ErrorReporter.ReportNonFatal("Deferred save", ex);
             }
         }, null, Settings.Timings.SaveDebounceMs, System.Threading.Timeout.Infinite);

@@ -197,6 +197,26 @@ public partial class StickyNoteWindow
         LoadContent(ViewModel.Content);
     }
 
+    // 同じ画像は再描画（リサイズ・編集/閲覧モード切替）のたびに
+    // ゼロアルファ正規化（全ピクセル走査）をやり直さないよう、
+    // ファイルパス＋更新日時をキーにキャッシュする。
+    private System.Windows.Media.Imaging.BitmapSource GetOrLoadNormalizedImage(string imagePath)
+    {
+        var writeTimeUtc = File.GetLastWriteTimeUtc(imagePath);
+        if (_normalizedImageCache.TryGetValue(imagePath, out var cached) && cached.WriteTimeUtc == writeTimeUtc)
+            return cached.Bitmap;
+
+        var loaded = new WpfBitmapImage();
+        loaded.BeginInit();
+        loaded.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+        loaded.UriSource = new Uri(imagePath, UriKind.Absolute);
+        loaded.EndInit();
+        loaded.Freeze();
+        var normalized = NormalizeZeroAlphaImage(loaded);
+        _normalizedImageCache[imagePath] = (writeTimeUtc, normalized);
+        return normalized;
+    }
+
     private Inline CreateMarkdownImage(MarkdownRenderer.MarkdownImage markdownImage)
     {
         var fallback = CreateMarkdownImageFallback(markdownImage);
@@ -210,13 +230,7 @@ public partial class StickyNoteWindow
             if (imagePath == null || !File.Exists(imagePath))
                 return fallback;
 
-            var loaded = new WpfBitmapImage();
-            loaded.BeginInit();
-            loaded.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
-            loaded.UriSource = new Uri(imagePath, UriKind.Absolute);
-            loaded.EndInit();
-            loaded.Freeze();
-            bitmap = NormalizeZeroAlphaImage(loaded);
+            bitmap = GetOrLoadNormalizedImage(imagePath);
         }
         catch (Exception ex)
         {
@@ -518,6 +532,11 @@ public partial class StickyNoteWindow
     {
         var width = 0.0;
         var height = 0.0;
+        // TransformToAncestor が失敗した画像は実際の描画位置が分からないため、
+        // 縦積みされる前提で高さを別途積算し、最後に height と Math.Max で合成する
+        // （height 自体に += してしまうと、他の画像の Math.Max 結果と混ざって
+        // 意味のない値になってしまう）。
+        var fallbackStackedHeight = 0.0;
         var scrollViewer = FindVisualChild<ScrollViewer>(ContentBox);
         var horizontalOffset = scrollViewer?.HorizontalOffset ?? 0;
         var verticalOffset = scrollViewer?.VerticalOffset ?? 0;
@@ -544,10 +563,11 @@ public partial class StickyNoteWindow
             catch (InvalidOperationException)
             {
                 width = Math.Max(width, actualWidth + ContentBox.Padding.Left + ContentBox.Padding.Right);
-                height += actualHeight + MarkdownImageVerticalMargin;
+                fallbackStackedHeight += actualHeight + MarkdownImageVerticalMargin;
             }
         }
 
+        height = Math.Max(height, fallbackStackedHeight);
         return new System.Windows.Size(Math.Max(1, width), Math.Max(1, height));
     }
 

@@ -93,7 +93,7 @@ public partial class StickyNoteWindow
         {
             var canEdit = !ViewModel.IsReadOnly;
             cutItem.IsEnabled = canEdit && _isEditMode && ContentBox.Selection.IsEmpty == false;
-            pasteItem.IsEnabled = canEdit && _isEditMode && TryGetClipboardText(out _);
+            pasteItem.IsEnabled = canEdit && _isEditMode && (TryGetClipboardText(out _) || ClipboardHasImage());
             readOnlyItem.IsChecked = ViewModel.IsReadOnly;
             deleteItem.IsEnabled = !ViewModel.IsReadOnly;
         };

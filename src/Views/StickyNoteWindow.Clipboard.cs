@@ -63,13 +63,17 @@ public partial class StickyNoteWindow
         if (TryGetPastedImage(e.DataObject, out var image))
         {
             e.CancelCommand();
-            if (!_isEditMode || ContentBox.IsReadOnly)
+            // すでに編集中だった場合はそのまま編集モードを維持する
+            // （そうしないと編集途中の内容が閲覧モードへ切り替わって失われる）。
+            var wasEditing = _isEditMode && !ContentBox.IsReadOnly;
+            if (!wasEditing)
                 EnterEditMode();
 
             var relativePath = SavePastedImage(image);
             var markdown = BuildImageMarkdown(relativePath);
             InsertTextAtSelection(markdown);
-            EnterViewMode();
+            if (!wasEditing)
+                EnterViewMode();
             return;
         }
 
@@ -160,6 +164,22 @@ public partial class StickyNoteWindow
 
             text = System.Windows.Clipboard.GetText();
             return true;
+        }
+        catch (System.Runtime.InteropServices.ExternalException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    private static bool ClipboardHasImage()
+    {
+        try
+        {
+            return System.Windows.Clipboard.ContainsImage();
         }
         catch (System.Runtime.InteropServices.ExternalException)
         {
