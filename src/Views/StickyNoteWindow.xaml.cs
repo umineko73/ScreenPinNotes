@@ -81,10 +81,13 @@ public partial class StickyNoteWindow : Window
     private double     _requiredMarkdownPageWidth;
     private PendingMarkdownImageResize? _pendingMarkdownImageResize;
     private bool       _isMarkdownImageResizeQueued;
-    private bool       _isImageScrollDragging;
-    private System.Windows.Point _imageScrollStartPoint;
-    private double     _imageScrollStartHorizontalOffset;
-    private double     _imageScrollStartVerticalOffset;
+    private bool       _isPaneScrollDragPending;
+    private bool       _isPaneScrollDragging;
+    private bool       _suppressNextContentContextMenu;
+    private FileSystemWatcher? _externalContentWatcher;
+    private System.Windows.Point _paneScrollStartPoint;
+    private double     _paneScrollStartHorizontalOffset;
+    private double     _paneScrollStartVerticalOffset;
     private readonly Dictionary<WpfImage, MarkdownImageContext> _markdownImageContexts = [];
     private readonly Dictionary<string, (DateTime WriteTimeUtc, System.Windows.Media.Imaging.BitmapSource Bitmap)> _normalizedImageCache = [];
     private WrapPanel? _colorPanel;
@@ -185,6 +188,7 @@ public partial class StickyNoteWindow : Window
                 ContentBox.Visibility = Visibility.Collapsed;
                 Height = FoldedHeight;
             }
+            ConfigureExternalContentWatcher();
             // 展開状態でも必ず通す。ここを通さないと WindowChrome が
             // XAML の初期値（全辺 5px）のままになり、タイトルバー上端が
             // リサイズ枠として残ってしまう。
@@ -195,6 +199,7 @@ public partial class StickyNoteWindow : Window
             // 通常どおりモデルに書き戻してよい。
             _isInitializing = false;
         };
+        Closed += (_, _) => DisposeExternalContentWatcher();
     }
 
     public void RefreshSettings()
@@ -283,13 +288,13 @@ public partial class StickyNoteWindow : Window
     }
 
     private string GetContentBoxTooltip()
-        => ViewModel.IsReadOnly
+        => IsContentReadOnly()
             ? LocalizationService.T("EditLockBodyTooltip")
             : LocalizationService.T("EditBodyTooltip");
 
     private void ApplyReadOnlyState()
     {
-        if (!ViewModel.IsReadOnly)
+        if (!IsContentReadOnly())
         {
             ContentBox.ToolTip = GetContentBoxTooltip();
             return;
@@ -308,6 +313,9 @@ public partial class StickyNoteWindow : Window
         LoadContent(ViewModel.Content);
         Keyboard.ClearFocus();
     }
+
+    private bool IsContentReadOnly()
+        => ViewModel.IsReadOnly || ViewModel.Model.IsExternalContent;
 
     private void UpdateToolbarTooltips()
     {
@@ -413,7 +421,7 @@ public partial class StickyNoteWindow : Window
 
     private void SaveCurrentPositionToModel()
     {
-        var syncOtherState = !_dragSeparatesFoldedPosition && !IsShiftPressed();
+        var syncOtherState = !_dragSeparatesFoldedPosition && !IsControlPressed();
         if (ViewModel.IsFolded)
         {
             ViewModel.Model.FoldedX = Left;

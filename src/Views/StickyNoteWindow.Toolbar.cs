@@ -177,6 +177,16 @@ public partial class StickyNoteWindow
         _overlayTimer.Start();                               // 連打のたびに表示時間を延長
     }
 
+    private void ShowDragMoveOverlay()
+    {
+        if (IsControlPressed() && IsAltPressed())
+            ShowSizeOverlay(LocalizationService.T("DragMoveSeparateNoSnap"));
+        else if (IsControlPressed())
+            ShowSizeOverlay(LocalizationService.T("DragMoveSeparate"));
+        else if (IsAltPressed())
+            ShowSizeOverlay(LocalizationService.T("DragMoveNoSnap"));
+    }
+
     private void FadeOutSizeOverlay()
     {
         _overlayTimer.Stop();
@@ -212,6 +222,9 @@ public partial class StickyNoteWindow
 
     private void Icon_Click(object sender, RoutedEventArgs e)
     {
+        if (ViewModel.Model.IsExternalContent)
+            return;
+
         if (_iconPopup == null) return;
         UpdateIconSelection();
         _iconPopup.PlacementTarget = (UIElement)sender;
@@ -229,7 +242,7 @@ public partial class StickyNoteWindow
 
     private void Close_Click(object sender, RoutedEventArgs e)
     {
-        if (ViewModel.IsReadOnly)
+        if (ViewModel.IsReadOnly && !ViewModel.Model.IsExternalContent)
         {
             System.Windows.MessageBox.Show(
                 LocalizationService.T("EditLockDeleteBlockedMessage"),
@@ -239,7 +252,9 @@ public partial class StickyNoteWindow
             return;
         }
 
-        var messageKey = HasNoteAssets()
+        var messageKey = ViewModel.Model.IsExternalContent
+            ? "UnlinkExternalConfirmMessage"
+            : HasNoteAssets()
             ? "DeleteConfirmMessageWithAssets"
             : "DeleteConfirmMessage";
         var result = System.Windows.MessageBox.Show(

@@ -34,6 +34,7 @@ public partial class App : System.Windows.Application
     private readonly List<StickyNoteWindow> _windows = [];
     private AppSettings _settings = new();
     private NotifyIcon? _trayIcon;
+    private NoteManagerWindow? _noteManagerWindow;
 
     public IReadOnlyList<StickyNoteWindow> NoteWindows => _windows;
     public AppSettings Settings => _settings;
@@ -264,6 +265,8 @@ public partial class App : System.Windows.Application
         menu.Items.Add(BuildHiddenNotesMenu());
         menu.Items.Add("-");
         menu.Items.Add(LocalizationService.T("TrayNewNote"), null, (_, _) => AddNewNote());
+        menu.Items.Add(LocalizationService.T("TrayOpenExternalNote"), null, (_, _) => AddExternalFileNoteFromDialog());
+        menu.Items.Add(LocalizationService.T("TrayNoteManager"), null, (_, _) => ShowNoteManager());
         menu.Items.Add("-");
         menu.Items.Add(BuildSettingsMenu(startupItem));
         menu.Items.Add("-");
@@ -767,6 +770,46 @@ public partial class App : System.Windows.Application
         SaveAll();
     }
 
+    private void AddExternalFileNoteFromDialog()
+    {
+        using var dialog = new OpenFileDialog
+        {
+            Title = LocalizationService.T("TrayOpenExternalNote"),
+            Filter = LocalizationService.T("ExternalNoteFileFilter"),
+            CheckFileExists = true,
+            Multiselect = false,
+        };
+
+        if (dialog.ShowDialog() == DialogResult.OK)
+            AddExternalFileNote(dialog.FileName);
+    }
+
+    public void AddExternalFileNote(string filePath)
+    {
+        var fullPath = Path.GetFullPath(filePath);
+        var now = DateTime.Now;
+        var layout = _settings.Layout;
+        var note = new StickyNote
+        {
+            X = layout.NewNoteBaseX + _windows.Count * layout.NewNoteCascadeStep,
+            Y = layout.NewNoteBaseY + _windows.Count * layout.NewNoteCascadeStep,
+            Width = layout.DefaultNoteWidth,
+            Height = layout.DefaultNoteHeight,
+            Title = Path.GetFileName(fullPath),
+            Icon = "🔗",
+            IsReadOnly = true,
+            ExternalContentPath = fullPath,
+            CreatedAt = now,
+            UpdatedAt = now,
+        };
+        note.Content = StorageService.ReadExternalContent(note);
+
+        OpenNoteWindow(note);
+        SaveAll();
+        RefreshTrayMenu();
+        _noteManagerWindow?.RefreshNotes();
+    }
+
     private void OpenNoteWindow(StickyNote note)
     {
         var vm  = new StickyNoteViewModel(note, _settings);
@@ -786,9 +829,13 @@ public partial class App : System.Windows.Application
         win.Hide();
         SaveAll();
         RefreshTrayMenu();
+        _noteManagerWindow?.RefreshNotes();
     }
 
     private void ShowHiddenNote(string id)
+        => ShowNote(id);
+
+    public void ShowNote(string id)
     {
         var win = _windows.FirstOrDefault(w => w.ViewModel.Model.Id == id);
         if (win == null)
@@ -799,6 +846,7 @@ public partial class App : System.Windows.Application
         win.Activate();
         SaveAll();
         RefreshTrayMenu();
+        _noteManagerWindow?.RefreshNotes();
     }
 
     private void ShowAllHiddenNotes()
@@ -811,6 +859,22 @@ public partial class App : System.Windows.Application
 
         SaveAll();
         RefreshTrayMenu();
+        _noteManagerWindow?.RefreshNotes();
+    }
+
+    private void ShowNoteManager()
+    {
+        if (_noteManagerWindow != null)
+        {
+            _noteManagerWindow.RefreshNotes();
+            _noteManagerWindow.Activate();
+            return;
+        }
+
+        _noteManagerWindow = new NoteManagerWindow();
+        _noteManagerWindow.Closed += (_, _) => _noteManagerWindow = null;
+        _noteManagerWindow.Show();
+        _noteManagerWindow.Activate();
     }
 
     private void ReloadNoteWindowsFromStorage(bool showEmptyStorageMessage = true)
@@ -856,12 +920,29 @@ public partial class App : System.Windows.Application
     public bool RemoveNote(string id)
     {
         var note = _windows.FirstOrDefault(w => w.ViewModel.Model.Id == id)?.ViewModel.Model;
-        if (note?.IsReadOnly == true)
+        if (note?.IsReadOnly == true && !note.IsExternalContent)
             return false;
 
         _windows.RemoveAll(w => w.ViewModel.Model.Id == id);
         _storage.DeleteNote(id);   // 削除はここだけで行う
         SaveAll();
+        return true;
+    }
+
+    public bool RemoveNoteFromManager(string id)
+    {
+        var win = _windows.FirstOrDefault(w => w.ViewModel.Model.Id == id);
+        if (win == null)
+            return false;
+        if (win.ViewModel.Model.IsReadOnly && !win.ViewModel.Model.IsExternalContent)
+            return false;
+
+        _windows.Remove(win);
+        _storage.DeleteNote(id);
+        win.Close();
+        SaveAll();
+        RefreshTrayMenu();
+        _noteManagerWindow?.RefreshNotes();
         return true;
     }
 

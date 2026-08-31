@@ -44,4 +44,20 @@ public class StickyNoteViewModelTests
 
         Assert.Equal(Visibility.Visible, vm.EditLockVisibility);
     }
+
+    [Fact]
+    public void TitleIconTooltip_FollowsExternalContentPath()
+    {
+        var vm = new StickyNoteViewModel(
+            new StickyNote { ExternalContentPath = @"D:\notes\todo.md" },
+            new AppSettings());
+
+        Assert.Contains(@"D:\notes\todo.md", vm.TitleIconTooltip);
+        Assert.Contains(@"D:\notes\todo.md", vm.TitleTooltip);
+
+        vm.ClearExternalContentPath();
+
+        Assert.Null(vm.TitleIconTooltip);
+        Assert.Null(vm.TitleTooltip);
+    }
 }

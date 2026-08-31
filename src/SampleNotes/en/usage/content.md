@@ -10,6 +10,7 @@ This note has editing locked. The body text and title text are protected, but ch
 - Drag the title bar: move the note
 - Click a link: open it
 - In edit mode, use `Ctrl + click` to open a link
+- Right-drag in a body pane with scrollbars: scroll the pane
 
 ## Mouse Wheel
 
@@ -26,9 +27,9 @@ This note has editing locked. The body text and title text are protected, but ch
 Left: unfolded (body text visible). Right: folded (only the title bar remains). Each state's position can be adjusted independently with the actions below.
 
 - Normal drag: keep folded and unfolded positions synchronized
-- `Shift + drag`: adjust folded and unfolded positions independently
+- `Ctrl + drag`: adjust only the current state
 - `Alt + drag`: disable snapping
-- `Alt + Shift + drag`: adjust only the current state without snapping
+- `Ctrl + Alt + drag`: adjust only the current state without snapping
 
 ## Title Context Menu
 
@@ -36,9 +37,10 @@ Left: unfolded (body text visible). Right: folded (only the title bar remains). 
 - Change z order
 - Change opacity
 - "Open here" while folded
+- For external-file notes, open the file / open its folder / convert to a normal note
 - Lock editing
 - Hide
-- Delete
+- Delete, or unlink for external-file notes
 
 While editing is locked, the title text cannot be edited and the note cannot be deleted.
 
@@ -50,11 +52,20 @@ While editing is locked, the title text cannot be edited and the note cannot be 
 - Open link
 - Convert to Markdown link
 - Fit window to images
+- External-file actions for external-file notes
 - Lock editing
 - Hide
-- Delete
+- Delete, or unlink for external-file notes
 
 While editing is locked, text input, paste, link conversion, image insertion, and image removal are disabled.
+
+## External-File Notes
+
+- Use "Open external file as note..." from the tray menu to show a `.md` / `.txt` file as a read-only note
+- Use "Note list..." from the tray menu to search titles, body text, and external file paths
+- External-file notes show `🔗` at the left of the title bar; hover the title or `🔗` to see the file path
+- Notes reload when the external file changes
+- Unlinking an external-file note removes only the note link; the original file is not deleted
 
 ## Title Bar Buttons
 
@@ -64,13 +75,14 @@ While editing is locked, text input, paste, link conversion, image insertion, an
 | 📌 | Always on top |
 | Up / Down | Fold / unfold |
 | 🔒 | Shows that editing is locked |
+| 🔗 | Shows an external-file note |
 
 The lock is only a status indicator. It is not clickable, so it does not interfere with dragging or folding.
 
 ## Tray Icon
 
 - Left-click: show / hide all notes
-- Right-click: show hidden notes, create a note, open settings, exit
+- Right-click: show hidden notes, create a note, open an external-file note, open the note list, open settings, exit
 - Settings: storage folder, export, import, language, dark mode, and more
 
 ## Storage and Backup

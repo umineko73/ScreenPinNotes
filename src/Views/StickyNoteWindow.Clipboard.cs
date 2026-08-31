@@ -53,7 +53,7 @@ public partial class StickyNoteWindow
 
     private void OnPaste(object sender, DataObjectPastingEventArgs e)
     {
-        if (ViewModel.IsReadOnly)
+        if (IsContentReadOnly())
         {
             e.CancelCommand();
             ShowSizeOverlay(LocalizationService.T("EditLockNotice"));
@@ -104,7 +104,7 @@ public partial class StickyNoteWindow
 
     private void InsertTextAtSelection(string text)
     {
-        if (ViewModel.IsReadOnly)
+        if (IsContentReadOnly())
             return;
 
         text = NormalizeLineEndings(text);
@@ -131,7 +131,7 @@ public partial class StickyNoteWindow
 
     private void PasteExcelTable(bool useFirstRowAsHeader)
     {
-        if (ViewModel.IsReadOnly)
+        if (IsContentReadOnly())
             return;
 
         if (!TryGetClipboardText(out var clipboard)) return;

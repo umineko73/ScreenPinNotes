@@ -13,6 +13,7 @@ A desktop sticky notes app for Windows 11.
 - View mode / edit mode
 - Markdown rendering
 - Hidden notes
+- Note list and full-note search
 - Snapping to screen edges and other notes
 - Per-note opacity
 - Color, icon, body font, and title font settings
@@ -26,6 +27,7 @@ A desktop sticky notes app for Windows 11.
 - Startup registration
 - Autosave
 - Configurable note storage folder
+- Read-only sticky display for external `.md` / `.txt` files
 
 ## Markdown syntax
 
@@ -48,7 +50,7 @@ Table separators `:---`, `:---:`, and `---:` set column alignment. Basic escapes
 
 Pasted images are saved as PNGs under the note's `assets` folder. Image size can be changed from 20% to 200% from the context menu or with the mouse wheel over the image. Images without an explicit width are fitted to the note width when they would overflow.
 
-When a zoomed image has scrollbars, left-drag over the image to scroll it. **Fit window to image** from an image context menu fits the note to that image. **Fit window to images** from the body context menu fits the note to all images in the note.
+When a zoomed image has scrollbars, right-drag anywhere in the body pane to scroll it. A simple right-click still opens the context menu. **Fit window to image** from an image context menu fits the note to that image. **Fit window to images** from the body context menu fits the note to all images in the note.
 
 Only local file images render inline — an `http(s)://` image URL converts to `![image](...)` syntax but won't preview.
 
@@ -83,12 +85,18 @@ Distributable zips: `powershell -ExecutionPolicy Bypass -File scripts/publish.ps
 | Double-click the body | Enter edit mode |
 | Escape | Return to view mode |
 | Drag / click the title bar | Move / fold-unfold |
-| Right-click the title | Edit title, z-order, opacity, unfolded position, hide, delete |
+| Right-click the title | Edit title, z-order, opacity, unfolded position, external-file actions, hide, delete/unlink |
 | Ctrl+wheel over body/image | Resize font / image |
-| Left-drag over a zoomed image | Scroll the image |
+| Right-drag in a scrollable body pane | Scroll the pane |
 | Tray icon left/right-click | Show all / open menu |
 
 Folded and unfolded positions/widths are saved separately. When a folded note near the bottom of the screen is unfolded, the app moves the window inside the screen. While folded, choose **Open here** from the title context menu to set the unfolded position to the current position.
+
+Use `Ctrl + drag` on the title bar to adjust only the current folded/unfolded state. Use `Alt + drag` to disable snapping. Use `Ctrl + Alt + drag` to move only the current state without snapping.
+
+Use **Note list...** from the tray menu to search all notes and manage visibility, deletion, and external-file actions. External-file notes are unlinked instead of deleted, and the original file is kept. Search covers titles, body text, and external file paths.
+
+Use **Open external file as note...** from the tray menu to display a `.md` or `.txt` file as a read-only sticky note. External-file notes show `🔗` at the left of the title bar, and hovering the title or `🔗` shows the file path. The note reloads when the external file changes. Relative image paths in external Markdown resolve from the external file's folder.
 
 Use **Hidden notes** in the tray menu to restore hidden notes individually or with **Show all hidden notes**. **Show all** only shows notes with `IsHidden=false`.
 
@@ -109,7 +117,7 @@ Saved at `%APPDATA%\ScreenStickyNotes\settings.json`. It contains `Language`, `T
 
 Notes are stored under `StorageRoot`. The storage folder can be changed from **Settings > Select note folder...** in the tray menu or set with the `SCREENSTICKYNOTES_DATA` environment variable before first run.
 
-Each note's `meta.json` stores position, size, folded position/width, hidden state, and other metadata. The body is stored in `content.md`. Images are stored under `assets`.
+Each note's `meta.json` stores position, size, folded position/width, hidden state, external-file links, and other metadata. The body is stored in `content.md`. Images are stored under `assets`.
 
 If the storage folder contains no notes, the app copies sample notes from `SampleNotes`. Japanese OS locales use Japanese samples. Other OS locales use English samples.
 

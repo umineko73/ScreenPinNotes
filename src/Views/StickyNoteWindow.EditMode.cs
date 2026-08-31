@@ -53,7 +53,7 @@ public partial class StickyNoteWindow
 
     private void EnterEditMode()
     {
-        if (ViewModel.IsReadOnly)
+        if (IsContentReadOnly())
         {
             ShowSizeOverlay(LocalizationService.T("EditLockNotice"));
             return;
@@ -62,7 +62,7 @@ public partial class StickyNoteWindow
         if (_isEditMode && !ContentBox.IsReadOnly) return;
         _isEditMode = true;
         ViewModel.SetForceOpaque(true);
-        LoadPlainContent(ViewModel.Content);
+        LoadPlainContent(ViewModel.Content, resetUndoHistory: true);
         ContentBox.IsReadOnly = false;
         EnableIme(ContentBox);
         ContentBox.Cursor = WpfCursors.IBeam;
@@ -81,7 +81,7 @@ public partial class StickyNoteWindow
 
     private void EnterTitleEditMode()
     {
-        if (ViewModel.IsReadOnly)
+        if (IsContentReadOnly())
         {
             ShowSizeOverlay(LocalizationService.T("EditLockNotice"));
             return;
@@ -180,6 +180,10 @@ public partial class StickyNoteWindow
     // 折りたたみ状態と編集モードの両方を考慮してステータスバーの表示を更新
     private void UpdateControlsVisibility()
     {
+        IconButton.Visibility = ViewModel.Model.IsExternalContent
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+
         if (_isEditMode && !ViewModel.IsFolded && ShouldKeepEditToolbarOpen())
             ShowEditToolbar();
         else
@@ -333,13 +337,67 @@ public partial class StickyNoteWindow
         }
     }
 
+    private void ContentBox_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        var scrollViewer = FindVisualChild<ScrollViewer>(ContentBox);
+        if (scrollViewer == null ||
+            scrollViewer.ScrollableWidth <= 0 && scrollViewer.ScrollableHeight <= 0)
+        {
+            return;
+        }
+
+        _isPaneScrollDragPending = true;
+        _paneScrollStartPoint = e.GetPosition(ContentBox);
+        _paneScrollStartHorizontalOffset = scrollViewer.HorizontalOffset;
+        _paneScrollStartVerticalOffset = scrollViewer.VerticalOffset;
+    }
+
+    private void ContentBox_PreviewMouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_isPaneScrollDragging)
+        {
+            _isPaneScrollDragPending = false;
+            return;
+        }
+
+        EndPaneScrollDrag();
+        e.Handled = true;
+    }
+
     // View モードでハイパーリンク上にカーソルが来たら Hand に切り替え
     private void ContentBox_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
     {
+        if (_isPaneScrollDragging)
+        {
+            UpdatePaneScrollDrag(e.GetPosition(ContentBox));
+            e.Handled = true;
+            return;
+        }
+
+        if (_isPaneScrollDragPending && e.RightButton == MouseButtonState.Pressed)
+        {
+            var current = e.GetPosition(ContentBox);
+            if (Math.Abs(current.X - _paneScrollStartPoint.X) >= SystemParameters.MinimumHorizontalDragDistance ||
+                Math.Abs(current.Y - _paneScrollStartPoint.Y) >= SystemParameters.MinimumVerticalDragDistance)
+            {
+                BeginPaneScrollDrag(_paneScrollStartPoint);
+                UpdatePaneScrollDrag(current);
+                e.Handled = true;
+                return;
+            }
+        }
+        else
+        {
+            _isPaneScrollDragPending = false;
+        }
+
         if (_isEditMode) return;
         var target = GetHyperlinkAt(e.GetPosition(ContentBox));
         ContentBox.Cursor = target != null ? WpfCursors.Hand : WpfCursors.Arrow;
     }
+
+    private void ContentBox_LostMouseCapture(object sender, System.Windows.Input.MouseEventArgs e)
+        => EndPaneScrollDrag();
 
     private void ContentBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
@@ -450,7 +508,7 @@ public partial class StickyNoteWindow
     // Title 自体の値は TwoWay バインディングが更新するので、ここでは保存の予約だけ行う
     private void TitleEditBox_TextChanged(object sender, TextChangedEventArgs e)
     {
-        if (!ViewModel.IsReadOnly)
+        if (!IsContentReadOnly())
             RequestSave();
     }
 

@@ -136,6 +136,13 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     public Visibility IconVisibility =>
         string.IsNullOrEmpty(_model.Icon) ? Visibility.Collapsed : Visibility.Visible;
 
+    public string? TitleIconTooltip =>
+        _model.IsExternalContent && !string.IsNullOrWhiteSpace(_model.ExternalContentPath)
+            ? $"{ExternalFileLabel()}:\n{_model.ExternalContentPath}"
+            : null;
+
+    public string? TitleTooltip => TitleIconTooltip;
+
     public bool IsTopmost
     {
         get => _model.IsTopmost;
@@ -154,7 +161,18 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     }
 
     public Visibility EditLockVisibility =>
-        _model.IsReadOnly ? Visibility.Visible : Visibility.Collapsed;
+        _model.IsReadOnly || _model.IsExternalContent ? Visibility.Visible : Visibility.Collapsed;
+
+    public bool IsExternalContent => _model.IsExternalContent;
+
+    public void ClearExternalContentPath()
+    {
+        _model.ExternalContentPath = null;
+        OnPropertyChanged(nameof(IsExternalContent));
+        OnPropertyChanged(nameof(EditLockVisibility));
+        OnPropertyChanged(nameof(TitleIconTooltip));
+        OnPropertyChanged(nameof(TitleTooltip));
+    }
 
     public bool IsFolded
     {
@@ -273,6 +291,8 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         UpdateBrushes();
         OnPropertyChanged(nameof(FirstLine));
         OnPropertyChanged(nameof(DisplayTitle));
+        OnPropertyChanged(nameof(TitleIconTooltip));
+        OnPropertyChanged(nameof(TitleTooltip));
     }
 
     private void UpdateBrushes()
@@ -326,6 +346,11 @@ public class StickyNoteViewModel : INotifyPropertyChanged
 
     private bool IsDarkTheme()
         => string.Equals(_settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase);
+
+    private string ExternalFileLabel()
+        => string.Equals(_settings.Language, "en", StringComparison.OrdinalIgnoreCase)
+            ? "External file"
+            : "外部ファイル";
 
     public event PropertyChangedEventHandler? PropertyChanged;
     protected void OnPropertyChanged([CallerMemberName] string? name = null)

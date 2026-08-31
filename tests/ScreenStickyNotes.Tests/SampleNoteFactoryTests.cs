@@ -44,7 +44,10 @@ public class SampleNoteFactoryTests
         Assert.False(string.IsNullOrWhiteSpace(usageNote.Content));
         Assert.Contains("assets/window-position-guide.png", usageNote.Content);
         Assert.Contains("## 移動とスナップ", usageNote.Content);
-        Assert.Contains("`Alt + Shift + ドラッグ`", usageNote.Content);
+        Assert.Contains("`Ctrl + ドラッグ`", usageNote.Content);
+        Assert.Contains("`Ctrl + Alt + ドラッグ`", usageNote.Content);
+        Assert.Contains("## 外部ファイル付箋", usageNote.Content);
+        Assert.Contains("リンク解除", usageNote.Content);
     }
 
     [Fact]
@@ -62,7 +65,10 @@ public class SampleNoteFactoryTests
         Assert.All(notes, note => Assert.True(note.IsReadOnly));
         Assert.Contains("This note lists the Markdown syntax supported in the body.", notes[0].Content);
         Assert.Contains("Double-click the body", notes[1].Content);
-        Assert.Contains("Alt + Shift + drag", notes[1].Content);
+        Assert.Contains("Ctrl + drag", notes[1].Content);
+        Assert.Contains("Ctrl + Alt + drag", notes[1].Content);
+        Assert.Contains("## External-File Notes", notes[1].Content);
+        Assert.Contains("unlink", notes[1].Content);
         Assert.Contains("assets/window-position-guide.png", notes[1].Content);
     }
 

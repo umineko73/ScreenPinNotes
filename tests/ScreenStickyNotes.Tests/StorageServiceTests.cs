@@ -80,6 +80,44 @@ public sealed class StorageServiceTests : IDisposable
     }
 
     [Fact]
+    public void Load_ExternalContentNote_ReadsLinkedFileInsteadOfCachedContent()
+    {
+        var externalPath = Path.Combine(_tempRoot, "external.md");
+        File.WriteAllText(externalPath, "# External\nbody");
+        var note = new StickyNote
+        {
+            Content = "cached",
+            ExternalContentPath = externalPath,
+            IsReadOnly = true,
+        };
+        _storage.SaveNote(note);
+
+        var loaded = _storage.Load();
+
+        var loadedNote = Assert.Single(loaded);
+        Assert.True(loadedNote.IsExternalContent);
+        Assert.True(loadedNote.IsReadOnly);
+        Assert.Equal(externalPath, loadedNote.ExternalContentPath);
+        Assert.Equal("# External\nbody", loadedNote.Content);
+    }
+
+    [Fact]
+    public void ReadExternalContent_WhenFileIsMissing_ReturnsReadableError()
+    {
+        var missingPath = Path.Combine(_tempRoot, "missing.md");
+        var note = new StickyNote
+        {
+            Content = "cached",
+            ExternalContentPath = missingPath,
+        };
+
+        var content = StorageService.ReadExternalContent(note);
+
+        Assert.Contains("External file not found", content);
+        Assert.Contains(missingPath, content);
+    }
+
+    [Fact]
     public void Load_SkipsNoteFolderWithCorruptMeta()
     {
         var good = new StickyNote();

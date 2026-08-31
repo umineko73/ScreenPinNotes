@@ -80,7 +80,8 @@
                        Height="{Binding TitleIconSize}"
                        Stretch="Uniform"
                        VerticalAlignment="Center"
-                       Margin="6,0,0,0"/>
+                       Margin="6,0,0,0"
+                       ToolTip="{Binding TitleIconTooltip}"/>
 
                 <!-- タイトル表示（Title があればそれを、無ければ本文1行目を表示）。
                      折りたたみ状態にかかわらず常に表示する -->
@@ -92,6 +93,7 @@
                            FontSize="{Binding TitleFontSize}"
                            VerticalAlignment="Center"
                            Margin="4,0,4,0"
+                           ToolTip="{Binding TitleTooltip}"
                            TextTrimming="CharacterEllipsis"/>
 
                 <!-- タイトル直接入力欄。編集モード中だけ表示する
@@ -179,8 +181,11 @@
                          TextChanged="ContentBox_TextChanged"
                          ContextMenuOpening="ContentBox_ContextMenuOpening"
                          PreviewMouseLeftButtonDown="ContentBox_PreviewMouseDown"
+                         PreviewMouseRightButtonDown="ContentBox_PreviewMouseRightButtonDown"
+                         PreviewMouseRightButtonUp="ContentBox_PreviewMouseRightButtonUp"
                          PreviewMouseWheel="ContentBox_PreviewMouseWheel"
                          MouseMove="ContentBox_MouseMove"
+                         LostMouseCapture="ContentBox_LostMouseCapture"
                          LostKeyboardFocus="ContentBox_LostKeyboardFocus"
                          PreviewKeyDown="ContentBox_PreviewKeyDown">
                 <RichTextBox.Resources>

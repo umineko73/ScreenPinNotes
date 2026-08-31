@@ -51,8 +51,13 @@ public class StickyNote
     public bool IsFolded { get; set; } = false;
     public bool IsHidden { get; set; } = false;
     public bool IsReadOnly { get; set; } = false;
+    public string? ExternalContentPath { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
+
+    [JsonIgnore]
+    public bool IsExternalContent =>
+        !string.IsNullOrWhiteSpace(ExternalContentPath);
 
     public static string CreateDefaultTitle(DateTime timestamp)
         => $"{timestamp:yyyy/MM/dd}({JapaneseDayNames[(int)timestamp.DayOfWeek]}) {timestamp:HH:mm:ss}";

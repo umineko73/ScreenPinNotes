@@ -68,7 +68,7 @@ public partial class StickyNoteWindow
 
         _isDragging      = true;
         _dragMoved       = false;
-        _dragSeparatesFoldedPosition = IsShiftPressed();
+        _dragSeparatesFoldedPosition = IsControlPressed();
         var (dpiX, dpiY) = GetDpi();
         var cur = System.Windows.Forms.Cursor.Position;
         _dragOffsetX     = cur.X / dpiX - Left;
@@ -81,7 +81,7 @@ public partial class StickyNoteWindow
     {
         if (!_isDragging) return;
         var cur = System.Windows.Forms.Cursor.Position;
-        _dragSeparatesFoldedPosition |= IsShiftPressed();
+        _dragSeparatesFoldedPosition |= IsControlPressed();
 
         if (!_dragMoved)
         {
@@ -91,12 +91,14 @@ public partial class StickyNoteWindow
             _dragMoved = true;
             _titlePreviewTimer.Stop();
             TitlePreviewPopup.IsOpen = false;
+            ShowDragMoveOverlay();
         }
 
         var (dpiX, dpiY) = GetDpi();
         Left = cur.X / dpiX - _dragOffsetX;
         Top  = cur.Y / dpiY - _dragOffsetY;
         SnapToAll();
+        ShowDragMoveOverlay();
     }
 
     private void TitleBar_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -396,7 +398,7 @@ public partial class StickyNoteWindow
     }
 
     private const int VK_MENU = 0x12;
-    private const int VK_SHIFT = 0x10;
+    private const int VK_CONTROL = 0x11;
     private static readonly IntPtr HwndTop = new(0);
     private static readonly IntPtr HwndBottom = new(1);
 
@@ -424,8 +426,8 @@ public partial class StickyNoteWindow
     private static bool IsAltPressed()
         => (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
 
-    private static bool IsShiftPressed()
-        => (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
+    private static bool IsControlPressed()
+        => (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
 
     private static bool TryNearest(double value, List<double> targets, out double snapped)
     {

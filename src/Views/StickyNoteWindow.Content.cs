@@ -58,12 +58,29 @@ public partial class StickyNoteWindow
     private void LoadContent(string text)
         => LoadMarkdownContent(text);
 
-    private void LoadPlainContent(string text)
+    public void ReloadExternalContent()
+    {
+        if (!ViewModel.Model.IsExternalContent)
+            return;
+
+        Dispatcher.BeginInvoke(() =>
+        {
+            ViewModel.Content = StorageService.ReadExternalContent(ViewModel.Model);
+            if (!_isEditMode)
+                LoadContent(ViewModel.Content);
+        });
+    }
+
+    private void LoadPlainContent(string text, bool resetUndoHistory = false)
     {
         text = NormalizeLineEndings(text);
         _suppressTextChange = true;
+        var restoreUndo = resetUndoHistory && ContentBox.IsUndoEnabled;
         try
         {
+            if (restoreUndo)
+                ContentBox.IsUndoEnabled = false;
+
             ContentBox.Document.Blocks.Clear();
             ContentBox.Document.PageWidth = double.NaN;
             var lines = string.IsNullOrEmpty(text) ? [""] : text.Split('\n');
@@ -77,7 +94,12 @@ public partial class StickyNoteWindow
             }
             ContentBox.Document.Blocks.Add(para);
         }
-        finally { _suppressTextChange = false; }
+        finally
+        {
+            if (restoreUndo)
+                ContentBox.IsUndoEnabled = true;
+            _suppressTextChange = false;
+        }
     }
 
     private void LoadMarkdownContent(string text)
@@ -106,7 +128,8 @@ public partial class StickyNoteWindow
 
     private void ApplyMarkdownPageWidth()
     {
-        ContentBox.Document.PageWidth = _requiredMarkdownPageWidth > 0
+        var availableWidth = GetMarkdownImageAvailableWidth();
+        ContentBox.Document.PageWidth = _requiredMarkdownPageWidth > availableWidth
             ? _requiredMarkdownPageWidth
             : double.NaN;
     }
@@ -290,10 +313,6 @@ public partial class StickyNoteWindow
                 displayHeight);
             _markdownImageContexts[image] = context;
             image.ContextMenu = BuildImageContextMenu(context);
-            image.PreviewMouseLeftButtonDown += MarkdownImage_PreviewMouseLeftButtonDown;
-            image.PreviewMouseLeftButtonUp += MarkdownImage_PreviewMouseLeftButtonUp;
-            image.MouseMove += MarkdownImage_MouseMove;
-            image.LostMouseCapture += MarkdownImage_LostMouseCapture;
             image.PreviewMouseWheel += (_, e) =>
             {
                 try
@@ -387,8 +406,8 @@ public partial class StickyNoteWindow
             foreach (var item in cm.Items.OfType<MenuItem>())
             {
                 if (item.Tag is string tag && tag == "ContentChange")
-                    item.IsEnabled = ViewModel.IsReadOnly
-                        ? item != detachItem && item != deleteFileItem
+                    item.IsEnabled = IsContentReadOnly()
+                        ? item == fitWindowItem
                         : item != deleteFileItem || IsImageFileInNoteAssets(context.Target);
             }
         };
@@ -595,11 +614,8 @@ public partial class StickyNoteWindow
         return (screen.WorkingArea.Width / dpiX, screen.WorkingArea.Height / dpiY);
     }
 
-    private void MarkdownImage_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private void BeginPaneScrollDrag(System.Windows.Point point)
     {
-        if (sender is not WpfImage image)
-            return;
-
         var scrollViewer = FindVisualChild<ScrollViewer>(ContentBox);
         if (scrollViewer == null ||
             scrollViewer.ScrollableWidth <= 0 && scrollViewer.ScrollableHeight <= 0)
@@ -607,48 +623,37 @@ public partial class StickyNoteWindow
             return;
         }
 
-        _isImageScrollDragging = true;
-        _imageScrollStartPoint = e.GetPosition(ContentBox);
-        _imageScrollStartHorizontalOffset = scrollViewer.HorizontalOffset;
-        _imageScrollStartVerticalOffset = scrollViewer.VerticalOffset;
-        image.CaptureMouse();
+        _isPaneScrollDragging = true;
+        _suppressNextContentContextMenu = true;
+        _paneScrollStartPoint = point;
+        _paneScrollStartHorizontalOffset = scrollViewer.HorizontalOffset;
+        _paneScrollStartVerticalOffset = scrollViewer.VerticalOffset;
+        ContentBox.CaptureMouse();
         ContentBox.Cursor = WpfCursors.SizeAll;
-        e.Handled = true;
     }
 
-    private void MarkdownImage_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    private void UpdatePaneScrollDrag(System.Windows.Point current)
     {
-        if (!_isImageScrollDragging)
-            return;
-
         var scrollViewer = FindVisualChild<ScrollViewer>(ContentBox);
         if (scrollViewer == null)
             return;
 
-        var current = e.GetPosition(ContentBox);
-        scrollViewer.ScrollToHorizontalOffset(_imageScrollStartHorizontalOffset - (current.X - _imageScrollStartPoint.X));
-        scrollViewer.ScrollToVerticalOffset(_imageScrollStartVerticalOffset - (current.Y - _imageScrollStartPoint.Y));
-        e.Handled = true;
+        scrollViewer.ScrollToHorizontalOffset(_paneScrollStartHorizontalOffset - (current.X - _paneScrollStartPoint.X));
+        scrollViewer.ScrollToVerticalOffset(_paneScrollStartVerticalOffset - (current.Y - _paneScrollStartPoint.Y));
     }
 
-    private void MarkdownImage_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    private void EndPaneScrollDrag()
     {
-        EndMarkdownImageScrollDrag(sender as WpfImage);
-        e.Handled = true;
-    }
-
-    private void MarkdownImage_LostMouseCapture(object sender, System.Windows.Input.MouseEventArgs e)
-        => EndMarkdownImageScrollDrag(sender as WpfImage);
-
-    private void EndMarkdownImageScrollDrag(WpfImage? image)
-    {
-        if (!_isImageScrollDragging)
+        if (!_isPaneScrollDragPending && !_isPaneScrollDragging)
             return;
 
-        _isImageScrollDragging = false;
-        if (image?.IsMouseCaptured == true)
-            image.ReleaseMouseCapture();
-        ContentBox.Cursor = WpfCursors.Arrow;
+        _isPaneScrollDragPending = false;
+        _isPaneScrollDragging = false;
+        if (ContentBox.IsMouseCaptured)
+            ContentBox.ReleaseMouseCapture();
+        ContentBox.Cursor = _isEditMode && !ContentBox.IsReadOnly
+            ? WpfCursors.IBeam
+            : WpfCursors.Arrow;
     }
 
     private static T? FindVisualChild<T>(DependencyObject parent)
@@ -670,6 +675,9 @@ public partial class StickyNoteWindow
 
     private void ReplaceMarkdownImage(MarkdownImageContext context, string replacement)
     {
+        if (ViewModel.Model.IsExternalContent)
+            return;
+
         var lines = ViewModel.Content.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
         if (context.LineIndex < 0 || context.LineIndex >= lines.Length)
             return;
@@ -694,7 +702,7 @@ public partial class StickyNoteWindow
 
     private void RemoveMarkdownImage(MarkdownImageContext context, bool deleteFile)
     {
-        if (ViewModel.IsReadOnly)
+        if (IsContentReadOnly())
             return;
 
         if (deleteFile)
@@ -797,7 +805,7 @@ public partial class StickyNoteWindow
         if (Path.IsPathRooted(target))
             return Path.GetFullPath(target);
 
-        var noteDir = _storage.GetNoteDirectoryPath(ViewModel.Model.Id);
+        var noteDir = GetMarkdownBaseDirectory();
         if ((target.Contains("://", StringComparison.Ordinal) ||
              target.StartsWith("file:", StringComparison.OrdinalIgnoreCase)) &&
             Uri.TryCreate(target, UriKind.Absolute, out var uri))
@@ -810,6 +818,18 @@ public partial class StickyNoteWindow
         return fullPath.StartsWith(noteRoot, StringComparison.OrdinalIgnoreCase)
             ? fullPath
             : null;
+    }
+
+    private string GetMarkdownBaseDirectory()
+    {
+        if (ViewModel.Model.IsExternalContent &&
+            !string.IsNullOrWhiteSpace(ViewModel.Model.ExternalContentPath))
+        {
+            var fullPath = Path.GetFullPath(ViewModel.Model.ExternalContentPath);
+            return Path.GetDirectoryName(fullPath) ?? _storage.GetNoteDirectoryPath(ViewModel.Model.Id);
+        }
+
+        return _storage.GetNoteDirectoryPath(ViewModel.Model.Id);
     }
 
     // ─── ハイパーリンク ──────────────────────────────────────────
@@ -844,6 +864,87 @@ public partial class StickyNoteWindow
         {
             ErrorReporter.ReportNonFatal("Open link target", ex);
         }
+    }
+
+    private void ConfigureExternalContentWatcher()
+    {
+        DisposeExternalContentWatcher();
+        if (!ViewModel.Model.IsExternalContent ||
+            string.IsNullOrWhiteSpace(ViewModel.Model.ExternalContentPath))
+            return;
+
+        try
+        {
+            var fullPath = Path.GetFullPath(ViewModel.Model.ExternalContentPath);
+            var directory = Path.GetDirectoryName(fullPath);
+            var fileName = Path.GetFileName(fullPath);
+            if (string.IsNullOrWhiteSpace(directory) || string.IsNullOrWhiteSpace(fileName))
+                return;
+
+            _externalContentWatcher = new FileSystemWatcher(directory, fileName)
+            {
+                NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size,
+                EnableRaisingEvents = true,
+            };
+            _externalContentWatcher.Changed += (_, _) => ReloadExternalContent();
+            _externalContentWatcher.Created += (_, _) => ReloadExternalContent();
+            _externalContentWatcher.Renamed += (_, _) => ReloadExternalContent();
+            _externalContentWatcher.Deleted += (_, _) => ReloadExternalContent();
+        }
+        catch (Exception ex)
+        {
+            ErrorReporter.ReportNonFatal("Watch external content", ex);
+        }
+    }
+
+    private void DisposeExternalContentWatcher()
+    {
+        if (_externalContentWatcher == null)
+            return;
+
+        _externalContentWatcher.Dispose();
+        _externalContentWatcher = null;
+    }
+
+    public void OpenExternalFile()
+    {
+        if (!ViewModel.Model.IsExternalContent ||
+            string.IsNullOrWhiteSpace(ViewModel.Model.ExternalContentPath))
+            return;
+
+        OpenTarget(Path.GetFullPath(ViewModel.Model.ExternalContentPath));
+    }
+
+    public void OpenExternalFolder()
+    {
+        if (!ViewModel.Model.IsExternalContent ||
+            string.IsNullOrWhiteSpace(ViewModel.Model.ExternalContentPath))
+            return;
+
+        var folder = Path.GetDirectoryName(Path.GetFullPath(ViewModel.Model.ExternalContentPath));
+        if (!string.IsNullOrWhiteSpace(folder))
+            OpenTarget(folder);
+    }
+
+    public void ConvertExternalToNormalNote()
+    {
+        if (!ViewModel.Model.IsExternalContent)
+            return;
+
+        DisposeExternalContentWatcher();
+        ViewModel.ClearExternalContentPath();
+        ViewModel.IsReadOnly = false;
+        ViewModel.Icon = "📝";
+        RequestSave();
+        ApplyReadOnlyState();
+        ConfigureContextMenus();
+    }
+
+    private sealed class RelayCommand(Action<object?> execute) : ICommand
+    {
+        public bool CanExecute(object? parameter) => true;
+        public void Execute(object? parameter) => execute(parameter);
+        public event EventHandler? CanExecuteChanged { add { } remove { } }
     }
 
 }

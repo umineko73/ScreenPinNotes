@@ -215,6 +215,8 @@ public class StorageService
                 note.Content = File.Exists(contentPath)
                     ? File.ReadAllText(contentPath, Encoding.UTF8)
                     : "";
+                if (note.IsExternalContent)
+                    note.Content = ReadExternalContent(note);
                 notes.Add(note);
             }
             catch { /* 壊れたノートはスキップ */ }
@@ -350,6 +352,25 @@ public class StorageService
 
         // content.md
         AtomicWrite(Path.Combine(dir, "content.md"), note.Content);
+    }
+
+    public static string ReadExternalContent(StickyNote note)
+    {
+        var path = note.ExternalContentPath;
+        if (string.IsNullOrWhiteSpace(path))
+            return note.Content;
+
+        try
+        {
+            var fullPath = Path.GetFullPath(path);
+            return File.Exists(fullPath)
+                ? File.ReadAllText(fullPath, Encoding.UTF8)
+                : $"External file not found:\n{fullPath}";
+        }
+        catch (Exception ex)
+        {
+            return $"External file could not be read:\n{path}\n\n{ex.Message}";
+        }
     }
 
     private static void AtomicWrite(string path, string content)

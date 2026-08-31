@@ -21,10 +21,12 @@ public static class LocalizationService
         {
             "TrayShowAll" => english ? "Show all" : "全表示",
             "TrayHideAll" => english ? "Hide all" : "全非表示",
+            "TrayNoteManager" => english ? "Note list..." : "付箋一覧...",
             "TrayHiddenNotes" => english ? "Hidden notes" : "非表示の付箋",
             "TrayShowAllHiddenNotes" => english ? "Show all hidden notes" : "非表示付箋の全表示",
             "TrayNoHiddenNotes" => english ? "(None)" : "（なし）",
             "TrayNewNote" => english ? "New note" : "新規付箋作成",
+            "TrayOpenExternalNote" => english ? "Open external file as note..." : "外部ファイルを付箋として開く...",
             "TraySettings" => english ? "Settings" : "設定",
             "TraySelectNotesRoot" => english ? "Select note folder..." : "保存フォルダを選択...",
             "TrayExportNotes" => english ? "Export notes..." : "付箋をエクスポート...",
@@ -82,6 +84,7 @@ public static class LocalizationService
             "ImportNotesFailedMessage" => english
                 ? "Notes could not be imported. The current notes were left unchanged. See the log for details."
                 : "付箋をインポートできませんでした。現在の付箋は変更していません。詳細はログを確認してください。",
+            "ExternalNoteFileFilter" => english ? "Markdown/text files (*.md;*.txt)|*.md;*.txt|All files (*.*)|*.*" : "Markdown/テキストファイル (*.md;*.txt)|*.md;*.txt|すべてのファイル (*.*)|*.*",
 
             "AboutTitle" => english ? "About ScreenStickyNotes" : "ScreenStickyNotes について",
             "AboutDescription" => english
@@ -131,11 +134,16 @@ public static class LocalizationService
             "OpenLink" => english ? "Open link" : "リンクを開く",
             "ConvertLink" => english ? "Convert to Markdown link" : "Markdownリンクに変換",
             "Delete" => english ? "Delete note" : "付箋の削除",
+            "UnlinkExternalNote" => english ? "Unlink external file" : "外部ファイルのリンク解除",
             "HideNote" => english ? "Hide note" : "付箋を非表示",
             "EditTitle" => english ? "Edit title" : "タイトルを編集",
             "ZOrder" => english ? "Z order" : "重なり順",
             "Opacity" => english ? "Opacity" : "透明度",
             "SetUnfoldedPositionHere" => english ? "Open here" : "展開位置をここにする",
+            "ExternalFile" => english ? "External file" : "外部ファイル",
+            "OpenExternalFile" => english ? "Open external file" : "外部ファイルを開く",
+            "OpenExternalFolder" => english ? "Open containing folder" : "外部ファイルのフォルダを開く",
+            "ConvertExternalToNormal" => english ? "Convert to normal note" : "通常付箋に変換",
             "BringToFront" => english ? "Bring to front" : "前面へ移動",
             "SendToBack" => english ? "Send to back" : "背面へ移動",
             "ImageSmaller" => english ? "Smaller image" : "画像を小さく",
@@ -156,11 +164,35 @@ public static class LocalizationService
 
             "BodySize" => english ? "Body {0:0}pt" : "本文 {0:0}pt",
             "TitleSize" => english ? "Title {0:0}pt" : "タイトル {0:0}pt",
+            "DragMoveNoSnap" => english ? "Move: snap off" : "移動: スナップなし",
+            "DragMoveSeparate" => english ? "Move: current state only" : "移動: 現在の状態のみ",
+            "DragMoveSeparateNoSnap" => english ? "Move: current state only, snap off" : "移動: 現在の状態のみ・スナップなし",
+            "NoteManagerTitle" => english ? "Notes" : "付箋一覧",
+            "NoteManagerSearch" => english ? "Search" : "検索",
+            "NoteManagerSearchPlaceholder" => english ? "Search title, body, or path" : "タイトル、本文、パスを検索",
+            "NoteManagerShow" => english ? "Show" : "表示",
+            "NoteManagerHide" => english ? "Hide" : "非表示",
+            "NoteManagerDelete" => english ? "Delete" : "削除",
+            "NoteManagerRefresh" => english ? "Refresh" : "更新",
+            "NoteManagerTypeNormal" => english ? "Normal" : "通常",
+            "NoteManagerTypeExternal" => english ? "External" : "外部",
+            "NoteManagerVisible" => english ? "Visible" : "表示",
+            "NoteManagerHidden" => english ? "Hidden" : "非表示",
+            "NoteManagerTitleColumn" => english ? "Title" : "タイトル",
+            "NoteManagerTypeColumn" => english ? "Type" : "種類",
+            "NoteManagerStateColumn" => english ? "State" : "状態",
+            "NoteManagerUpdatedColumn" => english ? "Updated" : "更新",
+            "NoteManagerSnippetColumn" => english ? "Snippet" : "本文",
+            "NoteManagerPathColumn" => english ? "Path" : "パス",
+            "NoteManagerNoSelection" => english ? "Select a note first." : "付箋を選択してください。",
             "DeleteConfirmTitle" => english ? "Confirm" : "確認",
             "DeleteConfirmMessage" => english ? "Delete this note?" : "この付箋を削除しますか？",
             "DeleteConfirmMessageWithAssets" => english
                 ? "Delete this note? Images stored in this note will also be deleted."
                 : "この付箋を削除しますか？この付箋内に保存された画像も一緒に削除されます。",
+            "UnlinkExternalConfirmMessage" => english
+                ? "Unlink this external-file note? The original file will not be deleted."
+                : "この外部ファイル付箋のリンクを解除しますか？元のファイルは削除されません。",
             _ => key,
         };
     }
