@@ -63,6 +63,7 @@ public partial class StickyNoteWindow
         var pasteItem = new MenuItem { Header = LocalizationService.T("Paste"), Command = ApplicationCommands.Paste, CommandTarget = ContentBox };
         var readOnlyItem = BuildReadOnlyMenuItem();
         var externalItem = BuildExternalContentMenuItem();
+        var reminderItem = BuildReminderMenuItem();
         var deleteItem = new MenuItem { Header = LocalizationService.T("Delete") };
         _openLinkItem.Click    += OpenLink_Click;
         _convertLinkItem.Click += ConvertLink_Click;
@@ -86,6 +87,7 @@ public partial class StickyNoteWindow
         cm.Items.Add(_convertLinkItem);
         cm.Items.Add(new Separator());
         cm.Items.Add(externalItem);
+        cm.Items.Add(reminderItem);
         var hideItem = new MenuItem { Header = LocalizationService.T("HideNote") };
         hideItem.Click += (_, _) => App.Current.HideNote(ViewModel.Model.Id);
         cm.Items.Add(hideItem);
@@ -96,6 +98,63 @@ public partial class StickyNoteWindow
             var canEdit = !IsContentReadOnly();
             cutItem.IsEnabled = canEdit && _isEditMode && ContentBox.Selection.IsEmpty == false;
             pasteItem.IsEnabled = canEdit && _isEditMode && (TryGetClipboardText(out _) || ClipboardHasImage());
+            readOnlyItem.IsChecked = ViewModel.IsReadOnly;
+            readOnlyItem.IsEnabled = !ViewModel.Model.IsExternalContent;
+            externalItem.Visibility = ViewModel.Model.IsExternalContent ? Visibility.Visible : Visibility.Collapsed;
+            deleteItem.Header = ViewModel.Model.IsExternalContent
+                ? LocalizationService.T("UnlinkExternalNote")
+                : LocalizationService.T("Delete");
+            deleteItem.IsEnabled = !ViewModel.IsReadOnly || ViewModel.Model.IsExternalContent;
+        };
+        return cm;
+    }
+
+    private ContextMenu BuildBodyEditContextMenu()
+    {
+        var pasteMarkdownLinkItem = new MenuItem { Header = LocalizationService.T("PasteMarkdownLink"), IsEnabled = false };
+        var pasteExcelTableItem = BuildPasteExcelTableMenuItem();
+        var cutItem = new MenuItem { Header = LocalizationService.T("Cut"), Command = ApplicationCommands.Cut, CommandTarget = BodyEditBox };
+        var copyItem = new MenuItem { Header = LocalizationService.T("Copy"), Command = ApplicationCommands.Copy, CommandTarget = BodyEditBox };
+        var pasteItem = new MenuItem { Header = LocalizationService.T("Paste") };
+        var readOnlyItem = BuildReadOnlyMenuItem();
+        var externalItem = BuildExternalContentMenuItem();
+        var reminderItem = BuildReminderMenuItem();
+        var hideItem = new MenuItem { Header = LocalizationService.T("HideNote") };
+        var deleteItem = new MenuItem { Header = LocalizationService.T("Delete") };
+
+        pasteItem.Click += (_, _) => PasteFromClipboard();
+        pasteMarkdownLinkItem.Click += PasteMarkdownLink_Click;
+        hideItem.Click += (_, _) => App.Current.HideNote(ViewModel.Model.Id);
+        deleteItem.Click += Close_Click;
+
+        var cm = new ContextMenu();
+        cm.Items.Add(cutItem);
+        cm.Items.Add(copyItem);
+        cm.Items.Add(pasteItem);
+        cm.Items.Add(pasteMarkdownLinkItem);
+        cm.Items.Add(new Separator());
+        cm.Items.Add(pasteExcelTableItem);
+        cm.Items.Add(new Separator());
+        cm.Items.Add(reminderItem);
+        cm.Items.Add(externalItem);
+        cm.Items.Add(readOnlyItem);
+        cm.Items.Add(new Separator());
+        cm.Items.Add(hideItem);
+        cm.Items.Add(deleteItem);
+        cm.Opened += (_, _) =>
+        {
+            var canEdit = !IsContentReadOnly();
+            cutItem.IsEnabled = canEdit && BodyEditBox.SelectionLength > 0;
+            copyItem.IsEnabled = BodyEditBox.SelectionLength > 0;
+            pasteItem.IsEnabled = canEdit && (TryGetClipboardText(out _) || ClipboardHasImage());
+            pasteMarkdownLinkItem.IsEnabled =
+                canEdit &&
+                TryGetClipboardText(out var clipboardText) &&
+                LinkDetector.IsExactLink(clipboardText.Trim());
+            pasteExcelTableItem.IsEnabled =
+                canEdit &&
+                TryGetClipboardText(out clipboardText) &&
+                MarkdownTableClipboard.TryTabularTextToMarkdownTable(clipboardText, useFirstRowAsHeader: true, out _);
             readOnlyItem.IsChecked = ViewModel.IsReadOnly;
             readOnlyItem.IsEnabled = !ViewModel.Model.IsExternalContent;
             externalItem.Visibility = ViewModel.Model.IsExternalContent ? Visibility.Visible : Visibility.Collapsed;
@@ -118,6 +177,7 @@ public partial class StickyNoteWindow
         var opacityItem = BuildOpacityMenuItem();
         var readOnlyItem = BuildReadOnlyMenuItem();
         var externalItem = BuildExternalContentMenuItem();
+        var reminderItem = BuildReminderMenuItem();
         var setUnfoldedPositionItem = new MenuItem { Header = LocalizationService.T("SetUnfoldedPositionHere") };
         var bringToFrontItem = new MenuItem { Header = LocalizationService.T("BringToFront") };
         var sendToBackItem = new MenuItem { Header = LocalizationService.T("SendToBack") };
@@ -156,6 +216,7 @@ public partial class StickyNoteWindow
         cm.Items.Add(zOrderItem);
         cm.Items.Add(opacityItem);
         cm.Items.Add(setUnfoldedPositionItem);
+        cm.Items.Add(reminderItem);
         cm.Items.Add(externalItem);
         cm.Items.Add(readOnlyItem);
         cm.Items.Add(new Separator());
@@ -238,6 +299,26 @@ public partial class StickyNoteWindow
             Command = new RelayCommand(_ => ConvertExternalToNormalNote()),
         });
         return item;
+    }
+
+    private MenuItem BuildReminderMenuItem()
+    {
+        var item = new MenuItem { Header = LocalizationService.T("ReminderMenu") };
+        item.Click += (_, _) => ShowReminderDialog();
+        return item;
+    }
+
+    public void ShowReminderDialog()
+    {
+        var result = ReminderDialog.ShowFor(this, ViewModel.Model.Reminder?.NextAt);
+        if (!result.Accepted)
+            return;
+
+        var nextAt = result.ClearRequested ? null : result.NextAt;
+        App.Current.SetReminder(ViewModel.Model.Id, nextAt);
+        ShowSizeOverlay(nextAt == null
+            ? LocalizationService.T("ReminderCleared")
+            : string.Format(LocalizationService.T("ReminderSetMessage"), nextAt.Value.ToString("yyyy/MM/dd HH:mm")));
     }
 
     private MenuItem BuildOpacityMenuItem()
@@ -333,6 +414,13 @@ public partial class StickyNoteWindow
             MarkdownTableClipboard.TryTabularTextToMarkdownTable(clipboardText, useFirstRowAsHeader: true, out _);
         _fitWindowToImagesItem.IsEnabled = !_isEditMode && _markdownImageContexts.Count > 0;
 
+        ShowEditToolbar();
+    }
+
+    private void BodyEditBox_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        _suppressViewMode = true;
+        _isContentContextMenuOpen = true;
         ShowEditToolbar();
     }
 

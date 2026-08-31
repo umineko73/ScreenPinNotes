@@ -67,6 +67,7 @@ public partial class StickyNoteWindow
             ViewModel.Model.FoldedWidth = Width;
 
             ContentBox.Visibility = Visibility.Visible;
+            BodyEditBox.Visibility = Visibility.Collapsed;
             ViewModel.IsFolded = false;
             UpdateTitleBarButtonsVisibility();
             ScheduleTitlePreview();
@@ -112,6 +113,7 @@ public partial class StickyNoteWindow
             RunFoldAnimation(Height, FoldedHeight, () =>
             {
                 ContentBox.Visibility = Visibility.Collapsed;
+                BodyEditBox.Visibility = Visibility.Collapsed;
                 ViewModel.Model.Height = _unfoldedHeight;
                 SetResizeEnabled(false); // タイトルバーのみの時はリサイズ不可
             });

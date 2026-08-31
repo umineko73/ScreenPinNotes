@@ -144,6 +144,31 @@ public static class LocalizationService
             "OpenExternalFile" => english ? "Open external file" : "外部ファイルを開く",
             "OpenExternalFolder" => english ? "Open containing folder" : "外部ファイルのフォルダを開く",
             "ConvertExternalToNormal" => english ? "Convert to normal note" : "通常付箋に変換",
+            "ReminderMenu" => english ? "Reminder..." : "リマインダー...",
+            "ReminderDialogTitle" => english ? "Reminder" : "リマインダー",
+            "ReminderDialogDescription" => english
+                ? "Set a one-time reminder for this note."
+                : "この付箋の単発リマインダーを設定します。",
+            "ReminderDate" => english ? "Date" : "日付",
+            "ReminderTime" => english ? "Time" : "時刻",
+            "ReminderAfter5" => english ? "In 5 min" : "5分後",
+            "ReminderAfter15" => english ? "In 15 min" : "15分後",
+            "ReminderAfter60" => english ? "In 1 hour" : "1時間後",
+            "ReminderTomorrow" => english ? "Tomorrow 9:00" : "明日 9:00",
+            "ReminderClear" => english ? "Clear" : "解除",
+            "ReminderInvalid" => english
+                ? "Enter a valid date and time."
+                : "正しい日付と時刻を入力してください。",
+            "ReminderCleared" => english ? "Reminder cleared" : "リマインダーを解除しました",
+            "ReminderSetMessage" => english ? "Reminder: {0}" : "リマインダー: {0}",
+            "ReminderDueTitle" => english ? "Reminder" : "リマインダー",
+            "ReminderDueMessage" => english
+                ? "Reminder time: {0}"
+                : "リマインダー時刻: {0}",
+            "ReminderDismiss" => english ? "Done" : "完了",
+            "ReminderSnooze5" => english ? "5 min" : "5分",
+            "ReminderSnooze15" => english ? "15 min" : "15分",
+            "ReminderSnooze60" => english ? "1 hour" : "1時間",
             "BringToFront" => english ? "Bring to front" : "前面へ移動",
             "SendToBack" => english ? "Send to back" : "背面へ移動",
             "ImageSmaller" => english ? "Smaller image" : "画像を小さく",
@@ -183,6 +208,7 @@ public static class LocalizationService
             "NoteManagerStateColumn" => english ? "State" : "状態",
             "NoteManagerUpdatedColumn" => english ? "Updated" : "更新",
             "NoteManagerSnippetColumn" => english ? "Snippet" : "本文",
+            "NoteManagerReminderColumn" => english ? "Reminder" : "リマインダー",
             "NoteManagerPathColumn" => english ? "Path" : "パス",
             "NoteManagerNoSelection" => english ? "Select a note first." : "付箋を選択してください。",
             "DeleteConfirmTitle" => english ? "Confirm" : "確認",

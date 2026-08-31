@@ -102,6 +102,48 @@ public sealed class StorageServiceTests : IDisposable
     }
 
     [Fact]
+    public void SaveNote_ThenLoad_RoundTripsReminder()
+    {
+        var nextAt = new DateTime(2026, 8, 31, 14, 30, 0);
+        var note = new StickyNote
+        {
+            Reminder = new ReminderSettings
+            {
+                NextAt = nextAt,
+                Recurrence = "None",
+                LastTriggeredAt = nextAt.AddMinutes(-10),
+            },
+        };
+
+        _storage.SaveNote(note);
+
+        var loadedNote = Assert.Single(_storage.Load());
+        Assert.NotNull(loadedNote.Reminder);
+        Assert.Equal(nextAt, loadedNote.Reminder.NextAt);
+        Assert.Equal("None", loadedNote.Reminder.Recurrence);
+        Assert.Equal(nextAt.AddMinutes(-10), loadedNote.Reminder.LastTriggeredAt);
+        Assert.True(loadedNote.HasReminder);
+    }
+
+    [Fact]
+    public void SaveNote_ThenLoad_RoundTripsExternalImageWidthOverrides()
+    {
+        var note = new StickyNote
+        {
+            ExternalImageWidthOverrides =
+            {
+                ["1:0:assets/screenshot.png"] = 480,
+            },
+        };
+
+        _storage.SaveNote(note);
+
+        var loadedNote = Assert.Single(_storage.Load());
+        Assert.True(loadedNote.ExternalImageWidthOverrides.TryGetValue("1:0:assets/screenshot.png", out var width));
+        Assert.Equal(480, width);
+    }
+
+    [Fact]
     public void ReadExternalContent_WhenFileIsMissing_ReturnsReadableError()
     {
         var missingPath = Path.Combine(_tempRoot, "missing.md");

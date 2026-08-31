@@ -143,6 +143,14 @@ public class StickyNoteViewModel : INotifyPropertyChanged
 
     public string? TitleTooltip => TitleIconTooltip;
 
+    public Visibility ReminderVisibility =>
+        _model.HasReminder ? Visibility.Visible : Visibility.Collapsed;
+
+    public string? ReminderTooltip =>
+        _model.Reminder?.NextAt is DateTime nextAt
+            ? $"{ReminderLabel()}:\n{FormatReminder(nextAt)}"
+            : null;
+
     public bool IsTopmost
     {
         get => _model.IsTopmost;
@@ -168,10 +176,35 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     public void ClearExternalContentPath()
     {
         _model.ExternalContentPath = null;
+        _model.ExternalImageWidthOverrides.Clear();
         OnPropertyChanged(nameof(IsExternalContent));
         OnPropertyChanged(nameof(EditLockVisibility));
         OnPropertyChanged(nameof(TitleIconTooltip));
         OnPropertyChanged(nameof(TitleTooltip));
+    }
+
+    public void SetReminder(DateTime? nextAt)
+    {
+        if (nextAt == null)
+        {
+            _model.Reminder = null;
+        }
+        else
+        {
+            _model.Reminder ??= new ReminderSettings();
+            _model.Reminder.NextAt = nextAt;
+            _model.Reminder.Recurrence = "None";
+            _model.Reminder.LastTriggeredAt = null;
+        }
+
+        _model.UpdatedAt = DateTime.Now;
+        RefreshReminder();
+    }
+
+    public void RefreshReminder()
+    {
+        OnPropertyChanged(nameof(ReminderVisibility));
+        OnPropertyChanged(nameof(ReminderTooltip));
     }
 
     public bool IsFolded
@@ -351,6 +384,19 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         => string.Equals(_settings.Language, "en", StringComparison.OrdinalIgnoreCase)
             ? "External file"
             : "外部ファイル";
+
+    private string ReminderLabel()
+        => string.Equals(_settings.Language, "en", StringComparison.OrdinalIgnoreCase)
+            ? "Reminder"
+            : "リマインダー";
+
+    private string FormatReminder(DateTime nextAt)
+    {
+        var format = string.Equals(_settings.Language, "en", StringComparison.OrdinalIgnoreCase)
+            ? "yyyy/MM/dd HH:mm"
+            : "yyyy/MM/dd HH:mm";
+        return nextAt.ToString(format);
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
     protected void OnPropertyChanged([CallerMemberName] string? name = null)

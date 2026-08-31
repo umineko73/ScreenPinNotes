@@ -150,6 +150,7 @@ public partial class StickyNoteWindow : Window
         TitleText.ContextMenuOpening += TitleContextMenuOpening;
         TitleEditBox.ContextMenuOpening += TitleContextMenuOpening;
         System.Windows.DataObject.AddPastingHandler(ContentBox, OnPaste);
+        System.Windows.DataObject.AddPastingHandler(BodyEditBox, OnPaste);
 
         // ポップアップ・コンテキストメニューは別HWNDのため開くとウィンドウが
         // 非アクティブになり、フォーカスもそちらへ移る。ContentBox 自身の
@@ -177,8 +178,9 @@ public partial class StickyNoteWindow : Window
             UpdateTitlePreviewVisibility();
         };
 
-        // アプリ切り替え時もビューモードへ
-        Deactivated += (_, _) => EnterViewMode();
+        // アプリ切り替え時もビューモードへ。IME の候補/変換ウィンドウで一時的に
+        // Deactivated になることがあるため、即時ではなく遅延して実フォーカスを見る。
+        Deactivated += (_, _) => ScheduleEnterViewModeIfFocusLeft();
 
         Loaded += (_, _) =>
         {
@@ -186,6 +188,7 @@ public partial class StickyNoteWindow : Window
             if (vm.IsFolded)
             {
                 ContentBox.Visibility = Visibility.Collapsed;
+                BodyEditBox.Visibility = Visibility.Collapsed;
                 Height = FoldedHeight;
             }
             ConfigureExternalContentWatcher();
@@ -217,9 +220,13 @@ public partial class StickyNoteWindow : Window
     {
         if (ContentBox.ContextMenu != null)
             ContentBox.ContextMenu.Closed -= ContentContextMenu_Closed;
+        if (BodyEditBox.ContextMenu != null)
+            BodyEditBox.ContextMenu.Closed -= ContentContextMenu_Closed;
 
         ContentBox.ContextMenu = BuildContentContextMenu();
         ContentBox.ContextMenu.Closed += ContentContextMenu_Closed;
+        BodyEditBox.ContextMenu = BuildBodyEditContextMenu();
+        BodyEditBox.ContextMenu.Closed += ContentContextMenu_Closed;
 
         var titleContextMenu = BuildTitleContextMenu();
         TitleText.ContextMenu = titleContextMenu;
@@ -301,6 +308,8 @@ public partial class StickyNoteWindow : Window
         }
 
         ContentBox.IsReadOnly = true;
+        BodyEditBox.Visibility = Visibility.Collapsed;
+        ContentBox.Visibility = ViewModel.IsFolded ? Visibility.Collapsed : Visibility.Visible;
         ContentBox.Cursor = WpfCursors.Arrow;
         ContentBox.BorderThickness = new Thickness(0);
         ContentBox.BorderBrush = WpfBrushes.Transparent;

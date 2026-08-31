@@ -59,25 +59,39 @@ public partial class StickyNoteWindow
             return;
         }
 
-        if (_isEditMode && !ContentBox.IsReadOnly) return;
+        if (_isEditMode && BodyEditBox.Visibility == Visibility.Visible) return;
         _isEditMode = true;
         ViewModel.SetForceOpaque(true);
-        LoadPlainContent(ViewModel.Content, resetUndoHistory: true);
-        ContentBox.IsReadOnly = false;
-        EnableIme(ContentBox);
-        ContentBox.Cursor = WpfCursors.IBeam;
-        ContentBox.BorderThickness = new Thickness(2);
-        ContentBox.BorderBrush = WpfBrushes.CornflowerBlue;
+        _suppressTextChange = true;
+        try
+        {
+            BodyEditBox.Text = ViewModel.Content;
+            BodyEditBox.Select(BodyEditBox.Text.Length, 0);
+        }
+        finally
+        {
+            _suppressTextChange = false;
+        }
+
+        ContentBox.Visibility = Visibility.Collapsed;
+        BodyEditBox.Visibility = Visibility.Visible;
+        EnableIme(BodyEditBox);
         ContentBox.ToolTip = null;
         // タイトルも同時に編集可能にする。フォーカスは本文に置いたままにし、
         // タイトルを直したい人だけ自分でクリックしてもらう。
         TitleText.Visibility    = Visibility.Collapsed;
         TitleEditBox.Visibility = Visibility.Visible;
         UpdateControlsVisibility();
-        if (!ContentBox.IsKeyboardFocusWithin)
-            ContentBox.Focus();
-        Dispatcher.BeginInvoke(() => EnableIme(ContentBox));
+        if (!BodyEditBox.IsKeyboardFocusWithin)
+        {
+            BodyEditBox.Focus();
+            Keyboard.Focus(BodyEditBox);
+        }
+        Dispatcher.BeginInvoke(() => EnableImeForFocusedControl(BodyEditBox));
     }
+
+    private bool IsBodyEditing()
+        => _isEditMode && BodyEditBox.Visibility == Visibility.Visible;
 
     private void EnterTitleEditMode()
     {
@@ -93,6 +107,8 @@ public partial class StickyNoteWindow
             _isEditMode = true;
             ContentBox.IsReadOnly = true;
             EnableIme(TitleEditBox);
+            BodyEditBox.Visibility = Visibility.Collapsed;
+            ContentBox.Visibility = Visibility.Visible;
             ContentBox.Cursor = WpfCursors.Arrow;
             ContentBox.BorderThickness = new Thickness(0);
             ContentBox.BorderBrush = WpfBrushes.Transparent;
@@ -103,8 +119,9 @@ public partial class StickyNoteWindow
         TitleEditBox.Visibility = Visibility.Visible;
         UpdateControlsVisibility();
         TitleEditBox.Focus();
+        Keyboard.Focus(TitleEditBox);
         TitleEditBox.SelectAll();
-        Dispatcher.BeginInvoke(() => EnableIme(TitleEditBox));
+        Dispatcher.BeginInvoke(() => EnableImeForFocusedControl(TitleEditBox));
     }
 
     private static void EnableIme(System.Windows.Controls.Control control)
@@ -114,14 +131,32 @@ public partial class StickyNoteWindow
         InputMethod.SetPreferredImeConversionMode(control, ImeConversionModeValues.Native);
     }
 
+    private static void EnableImeForFocusedControl(System.Windows.Controls.Control control)
+    {
+        EnableIme(control);
+        if (control.IsKeyboardFocusWithin)
+            InputMethod.Current.ImeState = InputMethodState.On;
+    }
+
+    private void EditableControl_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.Control control)
+            Dispatcher.BeginInvoke(() => EnableImeForFocusedControl(control));
+    }
+
     private void EnterViewMode()
     {
         if (!_isEditMode || _suppressViewMode) return;
+        if (BodyEditBox.Visibility == Visibility.Visible)
+            ViewModel.Content = NormalizeLineEndings(BodyEditBox.Text);
+
         _isEditMode = false;
         ViewModel.SetForceOpaque(false);
         // ドキュメントを再構築してMarkdown表示とリンクを正しく復元する
         LoadContent(ViewModel.Content);
         ContentBox.IsReadOnly = true;
+        BodyEditBox.Visibility = Visibility.Collapsed;
+        ContentBox.Visibility = ViewModel.IsFolded ? Visibility.Collapsed : Visibility.Visible;
         ContentBox.Cursor = WpfCursors.Arrow;
         ContentBox.BorderThickness = new Thickness(0);
         ContentBox.BorderBrush = WpfBrushes.Transparent;
@@ -131,6 +166,19 @@ public partial class StickyNoteWindow
         UpdateControlsVisibility();
         HideEditToolbar();
         Keyboard.ClearFocus();
+    }
+
+    private void ScheduleEnterViewModeIfFocusLeft()
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (!_isEditMode || _suppressViewMode)
+                return;
+            if (BodyEditBox.IsKeyboardFocusWithin || ContentBox.IsKeyboardFocusWithin || TitleEditBox.IsKeyboardFocusWithin)
+                return;
+
+            EnterViewMode();
+        }, System.Windows.Threading.DispatcherPriority.Background);
     }
 
     // リサイズ可否を切り替える。
@@ -406,7 +454,15 @@ public partial class StickyNoteWindow
         if (_suppressViewMode) return;
         if (IsDescendantOf(e.NewFocus as DependencyObject, StatusBar)) return;
         if (IsDescendantOf(e.NewFocus as DependencyObject, TitleEditBox)) return;
-        EnterViewMode();
+        ScheduleEnterViewModeIfFocusLeft();
+    }
+
+    private void BodyEditBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (_suppressViewMode) return;
+        if (IsDescendantOf(e.NewFocus as DependencyObject, StatusBar)) return;
+        if (IsDescendantOf(e.NewFocus as DependencyObject, TitleEditBox)) return;
+        ScheduleEnterViewModeIfFocusLeft();
     }
 
     private void TitleEditBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
@@ -419,7 +475,9 @@ public partial class StickyNoteWindow
                 EnterEditMode();
             return;
         }
-        EnterViewMode();
+        if (IsDescendantOf(e.NewFocus as DependencyObject, BodyEditBox))
+            return;
+        ScheduleEnterViewModeIfFocusLeft();
     }
 
     private static bool IsDescendantOf(DependencyObject? child, DependencyObject? ancestor)
@@ -456,6 +514,15 @@ public partial class StickyNoteWindow
 
     private void ContentBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
+        if (sender == BodyEditBox &&
+            e.Key == Key.V &&
+            (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+        {
+            PasteFromClipboard();
+            e.Handled = true;
+            return;
+        }
+
         if (sender == TitleEditBox && e.Key == Key.Enter && _isEditMode)
         {
             TitleEditBox.GetBindingExpression(System.Windows.Controls.TextBox.TextProperty)?.UpdateSource();
@@ -503,6 +570,15 @@ public partial class StickyNoteWindow
         {
             ErrorReporter.ReportNonFatal("Content text changed", ex);
         }
+    }
+
+    private void BodyEditBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_suppressTextChange) return;
+        if (!_isEditMode || BodyEditBox.Visibility != Visibility.Visible) return;
+
+        ViewModel.Content = NormalizeLineEndings(BodyEditBox.Text);
+        RequestSave();
     }
 
     // Title 自体の値は TwoWay バインディングが更新するので、ここでは保存の予約だけ行う

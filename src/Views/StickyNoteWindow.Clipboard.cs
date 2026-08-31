@@ -60,12 +60,35 @@ public partial class StickyNoteWindow
             return;
         }
 
-        if (TryGetPastedImage(e.DataObject, out var image))
+        if (sender == BodyEditBox)
         {
             e.CancelCommand();
+            PasteFromDataObject(e.DataObject);
+            return;
+        }
+
+        PasteFromDataObject(e.DataObject);
+        e.CancelCommand();
+    }
+
+    private void PasteFromClipboard()
+    {
+        if (IsContentReadOnly())
+        {
+            ShowSizeOverlay(LocalizationService.T("EditLockNotice"));
+            return;
+        }
+
+        PasteFromDataObject(System.Windows.Clipboard.GetDataObject());
+    }
+
+    private void PasteFromDataObject(System.Windows.IDataObject dataObject)
+    {
+        if (TryGetPastedImage(dataObject, out var image))
+        {
             // すでに編集中だった場合はそのまま編集モードを維持する
             // （そうしないと編集途中の内容が閲覧モードへ切り替わって失われる）。
-            var wasEditing = _isEditMode && !ContentBox.IsReadOnly;
+            var wasEditing = IsBodyEditing();
             if (!wasEditing)
                 EnterEditMode();
 
@@ -77,13 +100,12 @@ public partial class StickyNoteWindow
             return;
         }
 
-        if (!e.DataObject.GetDataPresent(WpfDataFormats.UnicodeText)) return;
-        e.CancelCommand();
+        if (!dataObject.GetDataPresent(WpfDataFormats.UnicodeText)) return;
 
-        if (!_isEditMode || ContentBox.IsReadOnly)
+        if (!IsBodyEditing())
             EnterEditMode();
 
-        if (!TryGetClipboardText(e.DataObject, out var clipboardText)) return;
+        if (!TryGetClipboardText(dataObject, out var clipboardText)) return;
         InsertTextAtSelection(clipboardText.TrimEnd('\n'));
     }
 
@@ -108,18 +130,27 @@ public partial class StickyNoteWindow
             return;
 
         text = NormalizeLineEndings(text);
+        if (IsBodyEditing())
+        {
+            var start = BodyEditBox.SelectionStart;
+            var length = BodyEditBox.SelectionLength;
+            var inserted = TextInsertion.InsertAtSelection(BodyEditBox.Text, start, length, text);
+            BodyEditBox.Text = inserted.Text;
+            BodyEditBox.Select(inserted.CaretIndex, 0);
+            ViewModel.Content = NormalizeLineEndings(inserted.Text);
+            RequestSave();
+            return;
+        }
+
         var plainText = GetPlainText();
         var startOff  = GetOffsetOfPointer(ContentBox.Selection.Start);
         var endOff    = GetOffsetOfPointer(ContentBox.Selection.End);
-        var beforeText = plainText[..startOff];
-        var afterText  = plainText[endOff..];
-        var newText    = beforeText + text + afterText;
-        var caretOff   = beforeText.Length + text.Length;
+        var insertedText = TextInsertion.InsertAtSelection(plainText, startOff, endOff - startOff, text);
 
-        LoadPlainContent(newText);
-        RestoreCaretAt(caretOff);
+        LoadPlainContent(insertedText.Text);
+        RestoreCaretAt(insertedText.CaretIndex);
 
-        ViewModel.Content = newText;
+        ViewModel.Content = insertedText.Text;
         RequestSave();
     }
 
@@ -145,9 +176,11 @@ public partial class StickyNoteWindow
 
     private void CopyExcelTable_Click(object sender, RoutedEventArgs e)
     {
-        var selectedText = ContentBox.Selection.IsEmpty
-            ? ""
-            : ContentBox.Selection.Text.Replace("\r\n", "\n").Replace("\r", "\n").Trim();
+        var selectedText = IsBodyEditing()
+            ? BodyEditBox.SelectedText.Replace("\r\n", "\n").Replace("\r", "\n").Trim()
+            : ContentBox.Selection.IsEmpty
+                ? ""
+                : ContentBox.Selection.Text.Replace("\r\n", "\n").Replace("\r", "\n").Trim();
         if (!MarkdownTableClipboard.TryCopyableTableTextToTabularText(selectedText, out var tabularText))
             return;
 
@@ -215,12 +248,16 @@ public partial class StickyNoteWindow
 
     private string BuildBlockMarkdown(string markdown)
     {
-        var plainText = GetPlainText();
-        var startOff = GetOffsetOfPointer(ContentBox.Selection.Start);
-        var endOff = GetOffsetOfPointer(ContentBox.Selection.End);
-        var prefix = startOff > 0 && plainText[startOff - 1] != '\n' ? "\n" : "";
-        var suffix = endOff < plainText.Length && plainText[endOff] != '\n' ? "\n" : "";
-        return $"{prefix}{markdown}{suffix}";
+        var plainText = IsBodyEditing()
+            ? NormalizeLineEndings(BodyEditBox.Text)
+            : GetPlainText();
+        var startOff = IsBodyEditing()
+            ? BodyEditBox.SelectionStart
+            : GetOffsetOfPointer(ContentBox.Selection.Start);
+        var endOff = IsBodyEditing()
+            ? BodyEditBox.SelectionStart + BodyEditBox.SelectionLength
+            : GetOffsetOfPointer(ContentBox.Selection.End);
+        return TextInsertion.BuildBlockInsertion(plainText, startOff, endOff - startOff, markdown);
     }
 
     private static bool TryGetPastedImage(
@@ -350,12 +387,16 @@ public partial class StickyNoteWindow
 
     private string BuildImageMarkdown(string relativePath)
     {
-        var plainText = GetPlainText();
-        var startOff = GetOffsetOfPointer(ContentBox.Selection.Start);
-        var endOff = GetOffsetOfPointer(ContentBox.Selection.End);
-        var prefix = startOff > 0 && plainText[startOff - 1] != '\n' ? "\n" : "";
-        var suffix = endOff < plainText.Length && plainText[endOff] != '\n' ? "\n" : "";
-        return $"{prefix}![image]({relativePath}){suffix}";
+        var plainText = IsBodyEditing()
+            ? NormalizeLineEndings(BodyEditBox.Text)
+            : GetPlainText();
+        var startOff = IsBodyEditing()
+            ? BodyEditBox.SelectionStart
+            : GetOffsetOfPointer(ContentBox.Selection.Start);
+        var endOff = IsBodyEditing()
+            ? BodyEditBox.SelectionStart + BodyEditBox.SelectionLength
+            : GetOffsetOfPointer(ContentBox.Selection.End);
+        return TextInsertion.BuildBlockInsertion(plainText, startOff, endOff - startOff, $"![image]({relativePath})");
     }
 
     // TextPointer が指す位置の、GetPlainText() が返す文字列上での文字オフセットを求める。

@@ -14,6 +14,7 @@ A desktop sticky notes app for Windows 11.
 - Markdown rendering
 - Hidden notes
 - Note list and full-note search
+- One-time reminders with snooze
 - Snapping to screen edges and other notes
 - Per-note opacity
 - Color, icon, body font, and title font settings
@@ -85,7 +86,7 @@ Distributable zips: `powershell -ExecutionPolicy Bypass -File scripts/publish.ps
 | Double-click the body | Enter edit mode |
 | Escape | Return to view mode |
 | Drag / click the title bar | Move / fold-unfold |
-| Right-click the title | Edit title, z-order, opacity, unfolded position, external-file actions, hide, delete/unlink |
+| Right-click the title | Edit title, z-order, opacity, unfolded position, reminder, external-file actions, hide, delete/unlink |
 | Ctrl+wheel over body/image | Resize font / image |
 | Right-drag in a scrollable body pane | Scroll the pane |
 | Tray icon left/right-click | Show all / open menu |
@@ -94,9 +95,11 @@ Folded and unfolded positions/widths are saved separately. When a folded note ne
 
 Use `Ctrl + drag` on the title bar to adjust only the current folded/unfolded state. Use `Alt + drag` to disable snapping. Use `Ctrl + Alt + drag` to move only the current state without snapping.
 
-Use **Note list...** from the tray menu to search all notes and manage visibility, deletion, and external-file actions. External-file notes are unlinked instead of deleted, and the original file is kept. Search covers titles, body text, and external file paths.
+Use **Note list...** from the tray menu to search all notes and manage visibility, reminders, deletion, and external-file actions. External-file notes are unlinked instead of deleted, and the original file is kept. Search covers titles, body text, reminders, and external file paths.
 
-Use **Open external file as note...** from the tray menu to display a `.md` or `.txt` file as a read-only sticky note. External-file notes show `🔗` at the left of the title bar, and hovering the title or `🔗` shows the file path. The note reloads when the external file changes. Relative image paths in external Markdown resolve from the external file's folder.
+Use **Reminder...** from a note's context menu or from **Note list...** to set a one-time reminder. Notes with reminders show `⏰` in the title bar; hovering it shows the scheduled time. When due, the note is shown and a reminder window offers Done, 5-minute, 15-minute, and 1-hour snooze actions.
+
+Use **Open external file as note...** from the tray menu to display a `.md` or `.txt` file as a read-only sticky note. External-file notes show `🔗` at the left of the title bar, and hovering the title or `🔗` shows the file path. The note reloads when the external file changes. Relative image paths in external Markdown resolve from the external file's folder. Image size changes in external-file notes are saved as note-local display settings; the external file is not modified.
 
 Use **Hidden notes** in the tray menu to restore hidden notes individually or with **Show all hidden notes**. **Show all** only shows notes with `IsHidden=false`.
 
@@ -117,7 +120,7 @@ Saved at `%APPDATA%\ScreenStickyNotes\settings.json`. It contains `Language`, `T
 
 Notes are stored under `StorageRoot`. The storage folder can be changed from **Settings > Select note folder...** in the tray menu or set with the `SCREENSTICKYNOTES_DATA` environment variable before first run.
 
-Each note's `meta.json` stores position, size, folded position/width, hidden state, external-file links, and other metadata. The body is stored in `content.md`. Images are stored under `assets`.
+Each note's `meta.json` stores position, size, folded position/width, hidden state, reminder settings, external-file links, and other metadata. The body is stored in `content.md`. Images are stored under `assets`.
 
 If the storage folder contains no notes, the app copies sample notes from `SampleNotes`. Japanese OS locales use Japanese samples. Other OS locales use English samples.
 

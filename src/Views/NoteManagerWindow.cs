@@ -31,6 +31,7 @@ public sealed class NoteManagerWindow : Window
     private readonly WpfButton _openExternalButton = new();
     private readonly WpfButton _openFolderButton = new();
     private readonly WpfButton _convertButton = new();
+    private readonly WpfButton _reminderButton = new();
     private List<NoteRow> _allRows = [];
 
     public NoteManagerWindow()
@@ -80,6 +81,7 @@ public sealed class NoteManagerWindow : Window
         AddButton(buttons, _openExternalButton, LocalizationService.T("OpenExternalFile"), (_, _) => SelectedWindow()?.OpenExternalFile());
         AddButton(buttons, _openFolderButton, LocalizationService.T("OpenExternalFolder"), (_, _) => SelectedWindow()?.OpenExternalFolder());
         AddButton(buttons, _convertButton, LocalizationService.T("ConvertExternalToNormal"), (_, _) => ConvertSelectedExternalNote());
+        AddButton(buttons, _reminderButton, LocalizationService.T("ReminderMenu"), (_, _) => SetSelectedReminder());
         AddButton(buttons, new WpfButton(), LocalizationService.T("TrayOpenExternalNote"), (_, _) => OpenExternalNoteFromDialog());
         AddButton(buttons, new WpfButton(), LocalizationService.T("NoteManagerRefresh"), (_, _) => RefreshNotes());
 
@@ -108,6 +110,7 @@ public sealed class NoteManagerWindow : Window
         AddColumn(grid, LocalizationService.T("NoteManagerTypeColumn"), nameof(NoteRow.Type), 70);
         AddColumn(grid, LocalizationService.T("NoteManagerTitleColumn"), nameof(NoteRow.Title), 180);
         AddColumn(grid, LocalizationService.T("NoteManagerSnippetColumn"), nameof(NoteRow.Snippet), 260);
+        AddColumn(grid, LocalizationService.T("NoteManagerReminderColumn"), nameof(NoteRow.Reminder), 130);
         AddColumn(grid, LocalizationService.T("NoteManagerUpdatedColumn"), nameof(NoteRow.UpdatedAt), 130);
         AddColumn(grid, LocalizationService.T("NoteManagerPathColumn"), nameof(NoteRow.Path), 260);
         return grid;
@@ -196,6 +199,20 @@ public sealed class NoteManagerWindow : Window
         RefreshNotes();
     }
 
+    private void SetSelectedReminder()
+    {
+        if (_listView.SelectedItem is not NoteRow row)
+            return;
+
+        var currentAt = SelectedWindow()?.ViewModel.Model.Reminder?.NextAt;
+        var result = ReminderDialog.ShowFor(this, currentAt);
+        if (!result.Accepted)
+            return;
+
+        App.Current.SetReminder(row.Id, result.ClearRequested ? null : result.NextAt);
+        RefreshNotes();
+    }
+
     private void OpenExternalNoteFromDialog()
     {
         using var dialog = new System.Windows.Forms.OpenFileDialog
@@ -226,6 +243,7 @@ public sealed class NoteManagerWindow : Window
         _openExternalButton.IsEnabled = external;
         _openFolderButton.IsEnabled = external;
         _convertButton.IsEnabled = external;
+        _reminderButton.IsEnabled = hasSelection;
         _showHideButton.Content = selected?.IsHidden == true
             ? LocalizationService.T("NoteManagerShow")
             : LocalizationService.T("NoteManagerHide");
@@ -237,6 +255,7 @@ public sealed class NoteManagerWindow : Window
         string Type,
         string Title,
         string Snippet,
+        string Reminder,
         string UpdatedAt,
         string Path,
         DateTime CreatedAtValue,
@@ -261,6 +280,7 @@ public sealed class NoteManagerWindow : Window
                 note.IsExternalContent ? LocalizationService.T("NoteManagerTypeExternal") : LocalizationService.T("NoteManagerTypeNormal"),
                 window.ViewModel.DisplayTitle,
                 snippet,
+                note.Reminder?.NextAt?.ToString("yyyy/MM/dd HH:mm") ?? "",
                 note.UpdatedAt.ToString("yyyy/MM/dd HH:mm"),
                 note.ExternalContentPath ?? "",
                 note.CreatedAt,
@@ -274,6 +294,7 @@ public sealed class NoteManagerWindow : Window
         {
             return Title.Contains(query, StringComparison.OrdinalIgnoreCase) ||
                    Snippet.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                   Reminder.Contains(query, StringComparison.OrdinalIgnoreCase) ||
                    SearchText.Contains(query, StringComparison.OrdinalIgnoreCase) ||
                    Path.Contains(query, StringComparison.OrdinalIgnoreCase);
         }

@@ -273,14 +273,15 @@ public partial class StickyNoteWindow
             Margin = new Thickness(0, 3, 0, 3),
         };
 
-        var displayWidth = markdownImage.Width ?? originalWidth;
+        var externalWidthOverride = GetExternalMarkdownImageWidthOverride(markdownImage);
+        var displayWidth = externalWidthOverride ?? markdownImage.Width ?? originalWidth;
         var displayHeight = markdownImage.Height ?? originalHeight;
-        if (markdownImage.Width.HasValue && !markdownImage.Height.HasValue)
-            displayHeight = originalHeight * markdownImage.Width.Value / originalWidth;
+        if ((externalWidthOverride.HasValue || markdownImage.Width.HasValue) && !markdownImage.Height.HasValue)
+            displayHeight = originalHeight * displayWidth / originalWidth;
         else if (!markdownImage.Width.HasValue && markdownImage.Height.HasValue)
             displayWidth = originalWidth * markdownImage.Height.Value / originalHeight;
 
-        if (!hasExplicitWidth)
+        if (!hasExplicitWidth && !externalWidthOverride.HasValue)
         {
             var naturalWidth = markdownImage.Height.HasValue
                 ? originalWidth * markdownImage.Height.Value / originalHeight
@@ -295,6 +296,11 @@ public partial class StickyNoteWindow
         {
             image.Width = markdownImage.Width.Value;
             _requiredMarkdownPageWidth = Math.Max(_requiredMarkdownPageWidth, markdownImage.Width.Value);
+        }
+        if (externalWidthOverride.HasValue)
+        {
+            image.Width = externalWidthOverride.Value;
+            _requiredMarkdownPageWidth = Math.Max(_requiredMarkdownPageWidth, externalWidthOverride.Value);
         }
         if (markdownImage.Height.HasValue)
             image.Height = markdownImage.Height.Value;
@@ -370,13 +376,13 @@ public partial class StickyNoteWindow
         var cm = new ContextMenu();
         for (var percent = MarkdownImageMinPercent; percent <= MarkdownImageMaxPercent; percent += 20)
         {
-            var percentItem = new MenuItem { Header = $"{percent}%", Tag = "ContentChange" };
+            var percentItem = new MenuItem { Header = $"{percent}%", Tag = "ImageResize" };
             var selectedPercent = percent;
             percentItem.Click += (_, _) => ResizeMarkdownImage(context, selectedPercent);
             cm.Items.Add(percentItem);
         }
         cm.Items.Add(new Separator());
-        var removeWidthItem = new MenuItem { Header = LocalizationService.T("RemoveImageWidth"), Tag = "ContentChange" };
+        var removeWidthItem = new MenuItem { Header = LocalizationService.T("RemoveImageWidth"), Tag = "ImageResize" };
         removeWidthItem.Click += (_, _) => RemoveMarkdownImageWidth(context);
         cm.Items.Add(removeWidthItem);
 
@@ -405,7 +411,9 @@ public partial class StickyNoteWindow
             _isContentContextMenuOpen = true;
             foreach (var item in cm.Items.OfType<MenuItem>())
             {
-                if (item.Tag is string tag && tag == "ContentChange")
+                if (item.Tag is string tag && tag == "ImageResize")
+                    item.IsEnabled = CanResizeMarkdownImage();
+                if (item.Tag is string contentTag && contentTag == "ContentChange")
                     item.IsEnabled = IsContentReadOnly()
                         ? item == fitWindowItem
                         : item != deleteFileItem || IsImageFileInNoteAssets(context.Target);
@@ -415,8 +423,17 @@ public partial class StickyNoteWindow
         return cm;
     }
 
+    private bool CanResizeMarkdownImage()
+        => !ViewModel.IsReadOnly || ViewModel.Model.IsExternalContent;
+
     private void RemoveMarkdownImageWidth(MarkdownImageContext context)
     {
+        if (ViewModel.Model.IsExternalContent)
+        {
+            ClearExternalMarkdownImageWidthOverride(context);
+            return;
+        }
+
         ReplaceMarkdownImage(context, BuildMarkdownImageText(context, null));
     }
 
@@ -439,6 +456,12 @@ public partial class StickyNoteWindow
 
     private void QueueNextMarkdownImageResize(MarkdownImageContext context, WpfImage image, int wheelDelta)
     {
+        if (!CanResizeMarkdownImage())
+        {
+            ShowSizeOverlay(LocalizationService.T("EditLockNotice"));
+            return;
+        }
+
         var currentPercent = GetCurrentMarkdownImagePercent(context, image);
         var nextPercent = Math.Clamp(
             currentPercent + (wheelDelta > 0 ? 20 : -20),
@@ -503,8 +526,46 @@ public partial class StickyNoteWindow
     {
         percent = Math.Clamp(percent, MarkdownImageMinPercent, MarkdownImageMaxPercent);
         var width = Math.Clamp(Math.Round(context.OriginalWidth * percent / 100.0), 1, 2000);
+        if (ViewModel.Model.IsExternalContent)
+        {
+            SetExternalMarkdownImageWidthOverride(context, width);
+            return;
+        }
+
         ReplaceMarkdownImage(context, BuildMarkdownImageText(context, width));
     }
+
+    private double? GetExternalMarkdownImageWidthOverride(MarkdownRenderer.MarkdownImage markdownImage)
+    {
+        if (!ViewModel.Model.IsExternalContent)
+            return null;
+
+        return ViewModel.Model.ExternalImageWidthOverrides.TryGetValue(GetMarkdownImageOverrideKey(markdownImage), out var width)
+            ? width
+            : null;
+    }
+
+    private void SetExternalMarkdownImageWidthOverride(MarkdownImageContext context, double width)
+    {
+        ViewModel.Model.ExternalImageWidthOverrides[GetMarkdownImageOverrideKey(context)] = width;
+        ViewModel.Model.UpdatedAt = DateTime.Now;
+        RequestSave();
+        LoadContent(ViewModel.Content);
+    }
+
+    private void ClearExternalMarkdownImageWidthOverride(MarkdownImageContext context)
+    {
+        ViewModel.Model.ExternalImageWidthOverrides.Remove(GetMarkdownImageOverrideKey(context));
+        ViewModel.Model.UpdatedAt = DateTime.Now;
+        RequestSave();
+        LoadContent(ViewModel.Content);
+    }
+
+    private static string GetMarkdownImageOverrideKey(MarkdownRenderer.MarkdownImage image)
+        => $"{image.LineIndex}:{image.Start}:{image.Target}";
+
+    private static string GetMarkdownImageOverrideKey(MarkdownImageContext context)
+        => $"{context.LineIndex}:{context.Start}:{context.Target}";
 
     private void FitWindowToMarkdownImage(MarkdownImageContext context)
     {
@@ -651,7 +712,7 @@ public partial class StickyNoteWindow
         _isPaneScrollDragging = false;
         if (ContentBox.IsMouseCaptured)
             ContentBox.ReleaseMouseCapture();
-        ContentBox.Cursor = _isEditMode && !ContentBox.IsReadOnly
+        ContentBox.Cursor = IsBodyEditing()
             ? WpfCursors.IBeam
             : WpfCursors.Arrow;
     }

@@ -52,12 +52,18 @@ public class StickyNote
     public bool IsHidden { get; set; } = false;
     public bool IsReadOnly { get; set; } = false;
     public string? ExternalContentPath { get; set; }
+    public ReminderSettings? Reminder { get; set; }
+    public Dictionary<string, double> ExternalImageWidthOverrides { get; set; } = [];
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
     [JsonIgnore]
     public bool IsExternalContent =>
         !string.IsNullOrWhiteSpace(ExternalContentPath);
+
+    [JsonIgnore]
+    public bool HasReminder =>
+        Reminder?.NextAt != null;
 
     public static string CreateDefaultTitle(DateTime timestamp)
         => $"{timestamp:yyyy/MM/dd}({JapaneseDayNames[(int)timestamp.DayOfWeek]}) {timestamp:HH:mm:ss}";
@@ -66,4 +72,11 @@ public class StickyNote
         => english
             ? $"{timestamp:yyyy/MM/dd}({EnglishDayNames[(int)timestamp.DayOfWeek]}) {timestamp:HH:mm:ss}"
             : CreateDefaultTitle(timestamp);
+}
+
+public sealed class ReminderSettings
+{
+    public DateTime? NextAt { get; set; }
+    public string Recurrence { get; set; } = "None";
+    public DateTime? LastTriggeredAt { get; set; }
 }

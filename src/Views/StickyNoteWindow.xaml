@@ -31,7 +31,7 @@
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="/Resources/Styles.xaml"/>
+                <ResourceDictionary Source="pack://application:,,,/ScreenStickyNotes;component/Resources/Styles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Window.Resources>
@@ -65,6 +65,7 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
@@ -117,13 +118,26 @@
                          InputMethod.PreferredImeState="On"
                          InputMethod.PreferredImeConversionMode="Native"
                          ToolTip="空欄なら本文の1行目を表示します"
+                         GotKeyboardFocus="EditableControl_GotKeyboardFocus"
                          TextChanged="TitleEditBox_TextChanged"
                          LostKeyboardFocus="TitleEditBox_LostKeyboardFocus"
                          PreviewKeyDown="ContentBox_PreviewKeyDown"/>
 
+                <!-- リマインダー設定中の状態表示。ホバーで予定時刻を確認できる。 -->
+                <TextBlock Grid.Column="2"
+                           Text="⏰"
+                           Visibility="{Binding ReminderVisibility}"
+                           ToolTip="{Binding ReminderTooltip}"
+                           Foreground="{Binding TitleBarForeground}"
+                           Opacity="0.82"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"
+                           FontSize="12"
+                           Margin="2,0,3,0"/>
+
                 <!-- 編集ロック中の状態表示。クリック対象にしないことで、
                      タイトルバーのドラッグ/折りたたみ操作を邪魔しない。 -->
-                <TextBlock Grid.Column="2"
+                <TextBlock Grid.Column="3"
                            Text="🔒"
                            Visibility="{Binding EditLockVisibility}"
                            Foreground="{Binding TitleBarForeground}"
@@ -136,7 +150,7 @@
 
                 <!-- 新規作成。閲覧モードのままでも付箋を増やせるようにする -->
                 <Button x:Name="AddNoteButton"
-                        Grid.Column="3" Content="＋"
+                        Grid.Column="4" Content="＋"
                         Style="{StaticResource TitleBarButtonOnLight}"
                         ToolTip="新しい付箋を追加"
                         Click="AddNote_Click"/>
@@ -144,7 +158,7 @@
                 <!-- 常に最前面。閲覧モードや折りたたみ時も状態が見えるよう
                      ステータスバーではなくタイトルバーに置く -->
                 <ToggleButton x:Name="PinButton"
-                              Grid.Column="4"
+                              Grid.Column="5"
                               IsChecked="{Binding IsTopmost, Mode=TwoWay}"
                               Style="{StaticResource TitleBarToggleOnLight}"
                               ToolTip="常に最前面"
@@ -152,7 +166,7 @@
                               Checked="Pin_Changed" Unchecked="Pin_Changed"/>
 
                 <Button x:Name="FoldButton"
-                        Grid.Column="5" Content="{Binding FoldIcon}"
+                        Grid.Column="6" Content="{Binding FoldIcon}"
                         Margin="0,0,2,0"
                         Style="{StaticResource TitleBarButtonOnLight}"
                         ToolTip="折りたたみ / 展開"
@@ -180,6 +194,7 @@
                          HorizontalScrollBarVisibility="Auto"
                          TextChanged="ContentBox_TextChanged"
                          ContextMenuOpening="ContentBox_ContextMenuOpening"
+                         GotKeyboardFocus="EditableControl_GotKeyboardFocus"
                          PreviewMouseLeftButtonDown="ContentBox_PreviewMouseDown"
                          PreviewMouseRightButtonDown="ContentBox_PreviewMouseRightButtonDown"
                          PreviewMouseRightButtonUp="ContentBox_PreviewMouseRightButtonUp"
@@ -194,6 +209,30 @@
                     </Style>
                 </RichTextBox.Resources>
             </RichTextBox>
+
+            <TextBox x:Name="BodyEditBox"
+                     Grid.Row="1"
+                     FontFamily="{Binding FontFamily}"
+                     FontSize="{Binding FontSize}"
+                     Foreground="{Binding TextForeground}"
+                     Background="Transparent"
+                     BorderThickness="2"
+                     BorderBrush="CornflowerBlue"
+                     Padding="8"
+                     AcceptsReturn="True"
+                     AcceptsTab="True"
+                     TextWrapping="NoWrap"
+                     VerticalScrollBarVisibility="Auto"
+                     HorizontalScrollBarVisibility="Auto"
+                     Visibility="Collapsed"
+                     InputMethod.IsInputMethodEnabled="True"
+                     InputMethod.PreferredImeState="On"
+                     InputMethod.PreferredImeConversionMode="Native"
+                     GotKeyboardFocus="EditableControl_GotKeyboardFocus"
+                     TextChanged="BodyEditBox_TextChanged"
+                     ContextMenuOpening="BodyEditBox_ContextMenuOpening"
+                     LostKeyboardFocus="BodyEditBox_LostKeyboardFocus"
+                     PreviewKeyDown="ContentBox_PreviewKeyDown"/>
 
             <!-- フォントサイズ変更時だけ現れて消える表示。
                  ContentBox より後に置いて手前に重ねる -->

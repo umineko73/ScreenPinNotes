@@ -19,6 +19,7 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
+using System.Windows.Threading;
 using ScreenStickyNotes.Models;
 using ScreenStickyNotes.Services;
 using ScreenStickyNotes.ViewModels;
@@ -35,6 +36,8 @@ public partial class App : System.Windows.Application
     private AppSettings _settings = new();
     private NotifyIcon? _trayIcon;
     private NoteManagerWindow? _noteManagerWindow;
+    private readonly DispatcherTimer _reminderTimer = new();
+    private readonly HashSet<string> _activeReminderAlerts = [];
 
     public IReadOnlyList<StickyNoteWindow> NoteWindows => _windows;
     public AppSettings Settings => _settings;
@@ -115,6 +118,7 @@ public partial class App : System.Windows.Application
             OpenNoteWindow(note);
 
         RefreshTrayMenu();
+        StartReminderTimer();
     }
 
     private void EnsureStorageRootSelected()
@@ -849,6 +853,17 @@ public partial class App : System.Windows.Application
         _noteManagerWindow?.RefreshNotes();
     }
 
+    public void SetReminder(string id, DateTime? nextAt)
+    {
+        var win = _windows.FirstOrDefault(w => w.ViewModel.Model.Id == id);
+        if (win == null)
+            return;
+
+        win.ViewModel.SetReminder(nextAt);
+        SaveAll();
+        _noteManagerWindow?.RefreshNotes();
+    }
+
     private void ShowAllHiddenNotes()
     {
         foreach (var win in _windows.Where(w => w.ViewModel.Model.IsHidden))
@@ -952,6 +967,62 @@ public partial class App : System.Windows.Application
         _storage.Save(notes);
     }
 
+    private void StartReminderTimer()
+    {
+        _reminderTimer.Interval = TimeSpan.FromSeconds(20);
+        _reminderTimer.Tick += (_, _) => CheckDueReminders();
+        _reminderTimer.Start();
+        Dispatcher.BeginInvoke(CheckDueReminders);
+    }
+
+    private void CheckDueReminders()
+    {
+        var now = DateTime.Now;
+        foreach (var win in _windows.ToList())
+        {
+            var note = win.ViewModel.Model;
+            if (note.Reminder?.NextAt is not DateTime nextAt)
+                continue;
+            if (nextAt > now)
+                continue;
+            if (_activeReminderAlerts.Contains(note.Id))
+                continue;
+
+            TriggerReminder(win, nextAt);
+        }
+    }
+
+    private void TriggerReminder(StickyNoteWindow win, DateTime dueAt)
+    {
+        var note = win.ViewModel.Model;
+        _activeReminderAlerts.Add(note.Id);
+        try
+        {
+            note.Reminder ??= new ReminderSettings();
+            note.Reminder.LastTriggeredAt = DateTime.Now;
+            ShowNote(note.Id);
+            System.Media.SystemSounds.Exclamation.Play();
+
+            var result = ReminderAlertWindow.ShowFor(win, win.ViewModel.DisplayTitle, dueAt);
+            if (result.Snoozed && result.SnoozeDelay is TimeSpan delay)
+            {
+                win.ViewModel.SetReminder(DateTime.Now.Add(delay));
+            }
+            else
+            {
+                note.Reminder.NextAt = null;
+                note.UpdatedAt = DateTime.Now;
+                win.ViewModel.RefreshReminder();
+            }
+            SaveAll();
+            _noteManagerWindow?.RefreshNotes();
+        }
+        finally
+        {
+            _activeReminderAlerts.Remove(note.Id);
+        }
+    }
+
     /// 保留中の保存をすべて確定させてからディスクに書き出す
     public void FlushAndSave()
     {
@@ -969,6 +1040,8 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _reminderTimer.Stop();
+
         // Mutex を持つ本来のインスタンスのときだけ保存する。
         // 二重起動をブロックされた側は _instanceMutex が null で、
         // 空の _windows で上書きしてしまわないようにする。

@@ -37,6 +37,7 @@ Left: unfolded (body text visible). Right: folded (only the title bar remains). 
 - Change z order
 - Change opacity
 - "Open here" while folded
+- Set / clear a reminder
 - For external-file notes, open the file / open its folder / convert to a normal note
 - Lock editing
 - Hide
@@ -52,6 +53,7 @@ While editing is locked, the title text cannot be edited and the note cannot be 
 - Open link
 - Convert to Markdown link
 - Fit window to images
+- Set / clear a reminder
 - External-file actions for external-file notes
 - Lock editing
 - Hide
@@ -65,7 +67,15 @@ While editing is locked, text input, paste, link conversion, image insertion, an
 - Use "Note list..." from the tray menu to search titles, body text, and external file paths
 - External-file notes show `🔗` at the left of the title bar; hover the title or `🔗` to see the file path
 - Notes reload when the external file changes
+- Image size changes in external-file notes are saved as note-local display settings; the original file is not modified
 - Unlinking an external-file note removes only the note link; the original file is not deleted
+
+## Reminders
+
+- Set a one-time reminder from a note context menu or from "Note list..."
+- Notes with reminders show `⏰` in the title bar
+- Hover `⏰` to see the scheduled time
+- When due, the note is shown and you can choose Done, 5 minutes, 15 minutes, or 1 hour snooze
 
 ## Title Bar Buttons
 
@@ -76,6 +86,7 @@ While editing is locked, text input, paste, link conversion, image insertion, an
 | Up / Down | Fold / unfold |
 | 🔒 | Shows that editing is locked |
 | 🔗 | Shows an external-file note |
+| ⏰ | Shows that a reminder is set |
 
 The lock is only a status indicator. It is not clickable, so it does not interfere with dragging or folding.
 
