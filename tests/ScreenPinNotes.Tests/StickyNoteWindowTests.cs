@@ -3,12 +3,12 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Reflection;
-using ScreenStickyNotes.Models;
-using ScreenStickyNotes.Services;
-using ScreenStickyNotes.ViewModels;
-using ScreenStickyNotes.Views;
+using ScreenPinNotes.Models;
+using ScreenPinNotes.Services;
+using ScreenPinNotes.ViewModels;
+using ScreenPinNotes.Views;
 
-namespace ScreenStickyNotes.Tests;
+namespace ScreenPinNotes.Tests;
 
 public class StickyNoteWindowTests
 {
@@ -121,7 +121,7 @@ public class StickyNoteWindowTests
     {
         public string Path { get; } = System.IO.Path.Combine(
             System.IO.Path.GetTempPath(),
-            "ScreenStickyNotes.Tests",
+            "ScreenPinNotes.Tests",
             Guid.NewGuid().ToString("N"));
 
         public void Dispose()

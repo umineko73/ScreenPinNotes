@@ -5,11 +5,11 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScreenStickyNotes", "src\ScreenStickyNotes.csproj", "{3AAAF93F-0B1F-4041-933E-8BD14621EF49}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScreenPinNotes", "src\ScreenPinNotes.csproj", "{3AAAF93F-0B1F-4041-933E-8BD14621EF49}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScreenStickyNotes.Tests", "tests\ScreenStickyNotes.Tests\ScreenStickyNotes.Tests.csproj", "{F3C00E81-F2B6-4A3B-97E6-EBFC0EC8DF5D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScreenPinNotes.Tests", "tests\ScreenPinNotes.Tests\ScreenPinNotes.Tests.csproj", "{F3C00E81-F2B6-4A3B-97E6-EBFC0EC8DF5D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

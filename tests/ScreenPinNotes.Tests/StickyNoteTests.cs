@@ -1,6 +1,6 @@
-using ScreenStickyNotes.Models;
+using ScreenPinNotes.Models;
 
-namespace ScreenStickyNotes.Tests;
+namespace ScreenPinNotes.Tests;
 
 public class StickyNoteTests
 {

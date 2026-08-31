@@ -1,8 +1,8 @@
-using ScreenStickyNotes.Models;
-using ScreenStickyNotes.ViewModels;
+using ScreenPinNotes.Models;
+using ScreenPinNotes.ViewModels;
 using System.Windows;
 
-namespace ScreenStickyNotes.Tests;
+namespace ScreenPinNotes.Tests;
 
 public class StickyNoteViewModelTests
 {

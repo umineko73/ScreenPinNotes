@@ -1,4 +1,4 @@
-// ScreenStickyNotes - a desktop sticky notes app for Windows 11
+// ScreenPinNotes - a desktop sticky notes app for Windows 11
 // Copyright (C) 2026 umineko73
 //
 // This program is free software: you can redistribute it and/or modify
@@ -18,15 +18,15 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Input;
-using ScreenStickyNotes.Models;
-using ScreenStickyNotes.Services;
+using ScreenPinNotes.Models;
+using ScreenPinNotes.Services;
 using WpfBrush = System.Windows.Media.Brush;
 using WpfBrushes = System.Windows.Media.Brushes;
 using WpfColor = System.Windows.Media.Color;
 using WpfColorConverter = System.Windows.Media.ColorConverter;
 using WpfSolidBrush = System.Windows.Media.SolidColorBrush;
 
-namespace ScreenStickyNotes.ViewModels;
+namespace ScreenPinNotes.ViewModels;
 
 public class StickyNoteViewModel : INotifyPropertyChanged
 {

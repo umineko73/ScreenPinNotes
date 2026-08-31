@@ -1,4 +1,4 @@
-// ScreenStickyNotes - a desktop sticky notes app for Windows 11
+// ScreenPinNotes - a desktop sticky notes app for Windows 11
 // Copyright (C) 2026 umineko73
 //
 // This program is free software: you can redistribute it and/or modify
@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-namespace ScreenStickyNotes.Services;
+namespace ScreenPinNotes.Services;
 
 // Excel などからコピーしたタブ区切りテキストと Markdown テーブルの相互変換。
 // クリップボード I/O は呼び出し側（StickyNoteWindow）が担当し、ここでは

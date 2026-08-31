@@ -1,13 +1,13 @@
 using System.IO;
 using System.Globalization;
-using ScreenStickyNotes.Models;
-using ScreenStickyNotes.Services;
+using ScreenPinNotes.Models;
+using ScreenPinNotes.Services;
 
-namespace ScreenStickyNotes.Tests;
+namespace ScreenPinNotes.Tests;
 
 // SampleNoteFactory reads from AppContext.BaseDirectory\SampleNotes, which MSBuild
 // copies into this test project's own output too (ProjectReference to
-// src/ScreenStickyNotes.csproj carries its CopyToOutputDirectory items). So unlike
+// src/ScreenPinNotes.csproj carries its CopyToOutputDirectory items). So unlike
 // a bare "exe copied out on its own" scenario, SampleNotes is actually present here
 // -- these tests cover the real load path instead.
 public class SampleNoteFactoryTests
@@ -123,7 +123,7 @@ public class SampleNoteFactoryTests
     {
         public string Path { get; } = System.IO.Path.Combine(
             System.IO.Path.GetTempPath(),
-            "ScreenStickyNotes.Tests",
+            "ScreenPinNotes.Tests",
             Guid.NewGuid().ToString("N"));
 
         public void Dispose()

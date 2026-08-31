@@ -1,10 +1,10 @@
-# ScreenStickyNotes
+# ScreenPinNotes
 
 English | [日本語](README.ja.md)
 
 A desktop sticky notes app for Windows 11.
 
-![ScreenStickyNotes screenshot](docs/screenshot-en.png)
+![ScreenPinNotes screenshot](docs/screenshot-en.png)
 
 ## Features
 
@@ -57,12 +57,12 @@ Only local file images render inline — an `http(s)://` image URL converts to `
 
 ## Download
 
-Download a zip from [Releases](https://github.com/umineko73/ScreenStickyNotes/releases) and extract it. Installation is not required.
+Download a zip from [Releases](https://github.com/umineko73/ScreenPinNotes/releases) and extract it. Installation is not required.
 
 | File | Requires |
 |----------|-----------|
-| `ScreenStickyNotes-x.y.z-win-x64.zip` (~68MB) | Nothing |
-| `ScreenStickyNotes-x.y.z-win-x64-runtime.zip` (~11MB) | [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) |
+| `ScreenPinNotes-x.y.z-win-x64.zip` (~68MB) | Nothing |
+| `ScreenPinNotes-x.y.z-win-x64-runtime.zip` (~11MB) | [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) |
 
 ## Requirements
 
@@ -71,8 +71,8 @@ Windows 10 or later (rounded corners require Windows 11), x64. Building requires
 ## Build and run
 
 ```bash
-git clone https://github.com/umineko73/ScreenStickyNotes.git
-cd ScreenStickyNotes
+git clone https://github.com/umineko73/ScreenPinNotes.git
+cd ScreenPinNotes
 dotnet build
 dotnet run --project src
 ```
@@ -107,18 +107,18 @@ The tray menu's Settings submenu contains startup, storage folder, dark mode, la
 
 ## settings.json
 
-Saved at `%APPDATA%\ScreenStickyNotes\settings.json`. It contains `Language`, `Theme`, `StorageRoot`, UI toggles, and timing settings. When no settings file exists, the initial `Language` is chosen from the OS UI locale. Restart the app after editing the file directly.
+Saved at `%APPDATA%\ScreenPinNotes\settings.json`. It contains `Language`, `Theme`, `StorageRoot`, UI toggles, and timing settings. When no settings file exists, the initial `Language` is chosen from the OS UI locale. Restart the app after editing the file directly.
 
 ## Data location
 
 ```
-%AppData%\ScreenStickyNotes\
+%AppData%\ScreenPinNotes\
   settings.json
   logs\app.log
   notes\{note id}\meta.json, content.md, assets\
 ```
 
-Notes are stored under `StorageRoot`. The storage folder can be changed from **Settings > Select note folder...** in the tray menu or set with the `SCREENSTICKYNOTES_DATA` environment variable before first run.
+Notes are stored under `StorageRoot`. The storage folder can be changed from **Settings > Select note folder...** in the tray menu or set with the `SCREENPINNOTES_DATA` environment variable before first run.
 
 Each note's `meta.json` stores position, size, folded position/width, hidden state, reminder settings, external-file links, and other metadata. The body is stored in `content.md`. Images are stored under `assets`.
 

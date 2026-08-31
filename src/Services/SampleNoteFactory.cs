@@ -1,4 +1,4 @@
-// ScreenStickyNotes - a desktop sticky notes app for Windows 11
+// ScreenPinNotes - a desktop sticky notes app for Windows 11
 // Copyright (C) 2026 umineko73
 //
 // This program is free software: you can redistribute it and/or modify
@@ -9,15 +9,15 @@
 using System.IO;
 using System.Text;
 using System.Text.Json;
-using ScreenStickyNotes.Models;
+using ScreenPinNotes.Models;
 
-namespace ScreenStickyNotes.Services;
+namespace ScreenPinNotes.Services;
 
 // 初回起動時に作成するサンプル付箋。中身は通常のノートと同じ形式
 // （meta.json + content.md、将来的な画像などは assets\）で
 // SampleNotes\{ja|en}\{markdown|usage}\ に実ファイルとして置き、
 // ビルド・publish のたびに exe と同じフォルダへコピーしている
-// （ScreenStickyNotes.csproj 参照）。座標・色・アイコン・タイトルは
+// （ScreenPinNotes.csproj 参照）。座標・色・アイコン・タイトルは
 // その meta.json の値をそのまま使う（Id・CreatedAt・UpdatedAt だけ
 // ここで新規に発行する）。
 //

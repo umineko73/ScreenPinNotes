@@ -2,13 +2,13 @@ using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Text.Json;
-using ScreenStickyNotes.Models;
-using ScreenStickyNotes.Services;
+using ScreenPinNotes.Models;
+using ScreenPinNotes.Services;
 
-namespace ScreenStickyNotes.Tests;
+namespace ScreenPinNotes.Tests;
 
 // StorageService(dataRoot) を使うことで、実ユーザーの %APPDATA% や
-// 環境変数 SCREENSTICKYNOTES_DATA に触れずにテストごとの一時フォルダで完結させる。
+// 環境変数 SCREENPINNOTES_DATA に触れずにテストごとの一時フォルダで完結させる。
 public sealed class StorageServiceTests : IDisposable
 {
     private readonly string _tempRoot;
@@ -16,7 +16,7 @@ public sealed class StorageServiceTests : IDisposable
 
     public StorageServiceTests()
     {
-        _tempRoot = Path.Combine(Path.GetTempPath(), "ScreenStickyNotesTests", Guid.NewGuid().ToString());
+        _tempRoot = Path.Combine(Path.GetTempPath(), "ScreenPinNotesTests", Guid.NewGuid().ToString());
         Directory.CreateDirectory(_tempRoot);
         _storage = new StorageService(_tempRoot);
     }
@@ -504,19 +504,19 @@ public sealed class StorageServiceTests : IDisposable
     }
 
     [Fact]
-    public void GetStorageRootFromSelectedFolder_AppendsScreenStickyNotesFolder()
+    public void GetStorageRootFromSelectedFolder_AppendsScreenPinNotesFolder()
     {
         var selectedFolder = Path.Combine(_tempRoot, "selected");
 
         var storageRoot = StorageService.GetStorageRootFromSelectedFolder(selectedFolder);
 
-        Assert.Equal(Path.Combine(selectedFolder, "ScreenStickyNotes"), storageRoot);
+        Assert.Equal(Path.Combine(selectedFolder, "ScreenPinNotes"), storageRoot);
     }
 
     [Fact]
-    public void GetStorageRootFromSelectedFolder_DoesNotAppendDuplicateScreenStickyNotesFolder()
+    public void GetStorageRootFromSelectedFolder_DoesNotAppendDuplicateScreenPinNotesFolder()
     {
-        var selectedFolder = Path.Combine(_tempRoot, "selected", "ScreenStickyNotes");
+        var selectedFolder = Path.Combine(_tempRoot, "selected", "ScreenPinNotes");
 
         var storageRoot = StorageService.GetStorageRootFromSelectedFolder(selectedFolder);
 
@@ -524,9 +524,9 @@ public sealed class StorageServiceTests : IDisposable
     }
 
     [Fact]
-    public void GetSelectableFolderFromStorageRoot_UsesParentForScreenStickyNotesFolder()
+    public void GetSelectableFolderFromStorageRoot_UsesParentForScreenPinNotesFolder()
     {
-        var storageRoot = Path.Combine(_tempRoot, "selected", "ScreenStickyNotes");
+        var storageRoot = Path.Combine(_tempRoot, "selected", "ScreenPinNotes");
 
         var selectedFolder = StorageService.GetSelectableFolderFromStorageRoot(storageRoot);
 
@@ -536,11 +536,11 @@ public sealed class StorageServiceTests : IDisposable
     [Fact]
     public void GetStorageRootFromLegacyNotesRoot_UsesParentWhenFolderIsNotes()
     {
-        var legacyNotesRoot = Path.Combine(_tempRoot, "ScreenStickyNotes", "notes");
+        var legacyNotesRoot = Path.Combine(_tempRoot, "ScreenPinNotes", "notes");
 
         var storageRoot = StorageService.GetStorageRootFromLegacyNotesRoot(legacyNotesRoot);
 
-        Assert.Equal(Path.Combine(_tempRoot, "ScreenStickyNotes"), storageRoot);
+        Assert.Equal(Path.Combine(_tempRoot, "ScreenPinNotes"), storageRoot);
     }
 
     [Fact]

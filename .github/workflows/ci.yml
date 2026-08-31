@@ -23,10 +23,10 @@ jobs:
           dotnet-version: "8.0.x"
 
       - name: Restore
-        run: dotnet restore ScreenStickyNotes.sln
+        run: dotnet restore ScreenPinNotes.sln
 
       - name: Build
-        run: dotnet build ScreenStickyNotes.sln -c Release --no-restore
+        run: dotnet build ScreenPinNotes.sln -c Release --no-restore
 
       - name: Test
-        run: dotnet test ScreenStickyNotes.sln -c Release --no-build
+        run: dotnet test ScreenPinNotes.sln -c Release --no-build

@@ -1,6 +1,6 @@
-using ScreenStickyNotes.Services;
+using ScreenPinNotes.Services;
 
-namespace ScreenStickyNotes.Tests;
+namespace ScreenPinNotes.Tests;
 
 public class LinkDetectorTests
 {

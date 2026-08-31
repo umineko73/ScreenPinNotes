@@ -98,7 +98,7 @@
 
 ## 保存とバックアップ
 
-- 保存場所: `%APPDATA%\ScreenStickyNotes`
+- 保存場所: `%APPDATA%\ScreenPinNotes`
 - 付箋は `notes` フォルダ内に、1枚ずつ `meta.json`、`content.md`、`assets` として保存されます
 - 「付箋をエクスポート...」で zip バックアップを作成できます
 - 「付箋をインポート...」は既存付箋を上書きせず、追加として取り込みます

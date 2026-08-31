@@ -21,7 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\ScreenStickyNotes.csproj" />
+    <ProjectReference Include="..\..\src\ScreenPinNotes.csproj" />
   </ItemGroup>
 
 </Project>

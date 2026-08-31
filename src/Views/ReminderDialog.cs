@@ -1,4 +1,4 @@
-// ScreenStickyNotes - a desktop sticky notes app for Windows 11
+// ScreenPinNotes - a desktop sticky notes app for Windows 11
 // Copyright (C) 2026 umineko73
 //
 // This program is free software: you can redistribute it and/or modify
@@ -9,12 +9,12 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
-using ScreenStickyNotes.Services;
+using ScreenPinNotes.Services;
 using WpfButton = System.Windows.Controls.Button;
 using WpfPanel = System.Windows.Controls.Panel;
 using WpfTextBox = System.Windows.Controls.TextBox;
 
-namespace ScreenStickyNotes.Views;
+namespace ScreenPinNotes.Views;
 
 public sealed class ReminderDialog : Window
 {

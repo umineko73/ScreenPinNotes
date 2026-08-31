@@ -1,4 +1,4 @@
-// ScreenStickyNotes - a desktop sticky notes app for Windows 11
+// ScreenPinNotes - a desktop sticky notes app for Windows 11
 // Copyright (C) 2026 umineko73
 //
 // This program is free software: you can redistribute it and/or modify
@@ -18,15 +18,18 @@ using System.IO;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
-using ScreenStickyNotes.Models;
+using ScreenPinNotes.Models;
 
-namespace ScreenStickyNotes.Services;
+namespace ScreenPinNotes.Services;
 
 public class StorageService
 {
-    // 環境変数 SCREENSTICKYNOTES_DATA でデータ保存先を差し替えられる。
+    // 環境変数 SCREENPINNOTES_DATA でデータ保存先を差し替えられる。
     // テストを実ユーザーのデータから隔離するために使う。
-    public const string DataDirEnvVar = "SCREENSTICKYNOTES_DATA";
+    // 旧アプリ名（ScreenStickyNotes）時代の SCREENSTICKYNOTES_DATA も
+    // 後方互換のため読む（新しい名前が優先）。
+    public const string DataDirEnvVar = "SCREENPINNOTES_DATA";
+    private const string LegacyDataDirEnvVar = "SCREENSTICKYNOTES_DATA";
 
     private static readonly string AppRoot = ResolveAppRoot();
 
@@ -44,13 +47,24 @@ public class StorageService
 
     private static string ResolveAppRoot()
     {
-        var custom = Environment.GetEnvironmentVariable(DataDirEnvVar);
+        var custom = Environment.GetEnvironmentVariable(DataDirEnvVar)
+            ?? Environment.GetEnvironmentVariable(LegacyDataDirEnvVar);
         if (!string.IsNullOrWhiteSpace(custom))
             return Path.GetFullPath(custom);
 
-        return Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "ScreenStickyNotes");
+        var appDataDir = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var newRoot = Path.Combine(appDataDir, "ScreenPinNotes");
+        var legacyRoot = Path.Combine(appDataDir, "ScreenStickyNotes");
+
+        // 旧アプリ名（ScreenStickyNotes）時代のデータフォルダが残っていて
+        // 新フォルダがまだ無ければ、初回起動時だけそのまま引き継ぐ。
+        if (!Directory.Exists(newRoot) && Directory.Exists(legacyRoot))
+        {
+            try { Directory.Move(legacyRoot, newRoot); }
+            catch { /* 移行に失敗しても新フォルダとして続行する（旧データは残る） */ }
+        }
+
+        return newRoot;
     }
 
     private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
@@ -92,15 +106,15 @@ public class StorageService
     public static string GetStorageRootFromSelectedFolder(string selectedFolder)
     {
         var fullPath = Path.GetFullPath(selectedFolder);
-        return string.Equals(Path.GetFileName(fullPath), "ScreenStickyNotes", StringComparison.OrdinalIgnoreCase)
+        return string.Equals(Path.GetFileName(fullPath), "ScreenPinNotes", StringComparison.OrdinalIgnoreCase)
             ? fullPath
-            : Path.Combine(fullPath, "ScreenStickyNotes");
+            : Path.Combine(fullPath, "ScreenPinNotes");
     }
 
     public static string GetSelectableFolderFromStorageRoot(string storageRoot)
     {
         var fullPath = Path.GetFullPath(storageRoot);
-        return string.Equals(Path.GetFileName(fullPath), "ScreenStickyNotes", StringComparison.OrdinalIgnoreCase)
+        return string.Equals(Path.GetFileName(fullPath), "ScreenPinNotes", StringComparison.OrdinalIgnoreCase)
             ? Path.GetDirectoryName(fullPath) ?? fullPath
             : fullPath;
     }
@@ -282,7 +296,7 @@ public class StorageService
     public ImportResult ImportNotesFromZip(string zipPath)
     {
         var fullZipPath = Path.GetFullPath(zipPath);
-        var stagingRoot = Path.Combine(Path.GetTempPath(), "ScreenStickyNotesImport", Guid.NewGuid().ToString("N"));
+        var stagingRoot = Path.Combine(Path.GetTempPath(), "ScreenPinNotesImport", Guid.NewGuid().ToString("N"));
         var imported = 0;
         var skipped = 0;
 

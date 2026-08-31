@@ -5,10 +5,10 @@
 .DESCRIPTION
     artifacts/ に以下を出力します。
 
-      ScreenStickyNotes-<version>-win-x64.zip            自己完結型（約68MB）
-      ScreenStickyNotes-<version>-win-x64-runtime.zip    ランタイム必須（約11MB）
+      ScreenPinNotes-<version>-win-x64.zip            自己完結型（約68MB）
+      ScreenPinNotes-<version>-win-x64-runtime.zip    ランタイム必須（約11MB）
 
-    それぞれの zip の中身は publish 出力一式（ScreenStickyNotes.exe、
+    それぞれの zip の中身は publish 出力一式（ScreenPinNotes.exe、
     ネイティブ DLL など）と、初回起動時に
     サンプル付箋としてコピーされる SampleNotes\ フォルダです
     （SampleNoteFactory.cs 参照）。展開してそのまま使えるように、
@@ -35,7 +35,7 @@ $outDir  = Join-Path $root "artifacts"
 
 # バージョン指定がなければ csproj の <Version> を使う
 if (-not $Version) {
-    $csproj = Get-Content (Join-Path $project "ScreenStickyNotes.csproj") -Raw
+    $csproj = Get-Content (Join-Path $project "ScreenPinNotes.csproj") -Raw
     if ($csproj -match '<Version>([^<]+)</Version>') { $Version = $Matches[1] }
     else { $Version = "0.0.0" }
 }
@@ -63,10 +63,10 @@ function Publish-Variant {
     & dotnet @args | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "publish failed: $Name" }
 
-    $exe = Join-Path $stage "ScreenStickyNotes.exe"
+    $exe = Join-Path $stage "ScreenPinNotes.exe"
     if (-not (Test-Path $exe)) { throw "exe not produced: $Name" }
 
-    $zipName = "ScreenStickyNotes-{0}-{1}{2}.zip" -f $Version, $Runtime, $Suffix
+    $zipName = "ScreenPinNotes-{0}-{1}{2}.zip" -f $Version, $Runtime, $Suffix
     $zipPath = Join-Path $outDir $zipName
     $zipItems = Get-ChildItem $stage | Where-Object { $_.Extension -ne ".pdb" } | Select-Object -ExpandProperty FullName
     if ($zipItems.Count -eq 0) { throw "no publish output to zip: $Name" }

@@ -6,8 +6,8 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>ScreenStickyNotes</AssemblyName>
-    <RootNamespace>ScreenStickyNotes</RootNamespace>
+    <AssemblyName>ScreenPinNotes</AssemblyName>
+    <RootNamespace>ScreenPinNotes</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>
@@ -15,11 +15,11 @@
   <PropertyGroup>
     <Version>0.1.3</Version>
     <Authors>umineko73</Authors>
-    <Product>ScreenStickyNotes</Product>
+    <Product>ScreenPinNotes</Product>
     <Description>Windows 11 向けのデスクトップ付箋アプリ</Description>
     <Copyright>Copyright (C) 2026 umineko73</Copyright>
     <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
-    <RepositoryUrl>https://github.com/umineko73/ScreenStickyNotes</RepositoryUrl>
+    <RepositoryUrl>https://github.com/umineko73/ScreenPinNotes</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>

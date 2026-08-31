@@ -1,9 +1,9 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
-using ScreenStickyNotes.Services;
+using ScreenPinNotes.Services;
 
-namespace ScreenStickyNotes.Tests;
+namespace ScreenPinNotes.Tests;
 
 // MarkdownRenderer.Render は WPF の FlowDocument 要素 (Block/Inline) を直接生成する
 // ハンドロールパーサー。ライブの Window/Dispatcher なしで構築できる部分のみ

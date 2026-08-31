@@ -1,4 +1,4 @@
-// ScreenStickyNotes - a desktop sticky notes app for Windows 11
+// ScreenPinNotes - a desktop sticky notes app for Windows 11
 // Copyright (C) 2026 umineko73
 //
 // This program is free software: you can redistribute it and/or modify
@@ -20,12 +20,12 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Threading;
-using ScreenStickyNotes.Models;
-using ScreenStickyNotes.Services;
-using ScreenStickyNotes.ViewModels;
-using ScreenStickyNotes.Views;
+using ScreenPinNotes.Models;
+using ScreenPinNotes.Services;
+using ScreenPinNotes.ViewModels;
+using ScreenPinNotes.Views;
 
-namespace ScreenStickyNotes;
+namespace ScreenPinNotes;
 
 public partial class App : System.Windows.Application
 {
@@ -80,8 +80,8 @@ public partial class App : System.Windows.Application
         ConfigureExceptionHandling();
 
         _instanceKey = ResolveInstanceKey();
-        _mutexName = "ScreenStickyNotes.SingleInstance." + _instanceKey;
-        _showAllMessage = RegisterWindowMessage("ScreenStickyNotes.ShowAll." + _instanceKey);
+        _mutexName = "ScreenPinNotes.SingleInstance." + _instanceKey;
+        _showAllMessage = RegisterWindowMessage("ScreenPinNotes.ShowAll." + _instanceKey);
 
         _instanceMutex = new Mutex(initiallyOwned: true, _mutexName, out bool isFirstInstance);
         if (!isFirstInstance)
@@ -188,7 +188,7 @@ public partial class App : System.Windows.Application
         {
             _trayIcon.ShowBalloonTip(
                 3000,
-                "ScreenStickyNotes",
+                "ScreenPinNotes",
                 $"処理中にエラーが発生しました。詳細はログを確認してください。\n{ErrorReporter.LogPath}",
                 ToolTipIcon.Warning);
         }
@@ -203,7 +203,7 @@ public partial class App : System.Windows.Application
     // メッセージ専用ウィンドウ（HWND_MESSAGE）は使えない。
     private void InitIpcWindow()
     {
-        var parameters = new System.Windows.Interop.HwndSourceParameters("ScreenStickyNotesIpc")
+        var parameters = new System.Windows.Interop.HwndSourceParameters("ScreenPinNotesIpc")
         {
             Width = 0,
             Height = 0,
@@ -226,7 +226,7 @@ public partial class App : System.Windows.Application
         _trayIcon = new NotifyIcon
         {
             Icon = LoadTrayIcon(),
-            Text = "ScreenStickyNotes",
+            Text = "ScreenPinNotes",
             Visible = true,
         };
         _trayIcon.ContextMenuStrip = BuildTrayMenu();
@@ -349,7 +349,7 @@ public partial class App : System.Windows.Application
         {
             Title = LocalizationService.T("ExportNotesTitle"),
             Filter = LocalizationService.T("NotesZipFilter"),
-            FileName = $"ScreenStickyNotes-{DateTime.Now:yyyyMMdd-HHmmss}.zip",
+            FileName = $"ScreenPinNotes-{DateTime.Now:yyyyMMdd-HHmmss}.zip",
             AddExtension = true,
             DefaultExt = "zip",
             OverwritePrompt = true,

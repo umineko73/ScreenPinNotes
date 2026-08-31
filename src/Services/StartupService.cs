@@ -1,4 +1,4 @@
-// ScreenStickyNotes - a desktop sticky notes app for Windows 11
+// ScreenPinNotes - a desktop sticky notes app for Windows 11
 // Copyright (C) 2026 umineko73
 //
 // This program is free software: you can redistribute it and/or modify
@@ -16,11 +16,11 @@
 
 using Microsoft.Win32;
 
-namespace ScreenStickyNotes.Services;
+namespace ScreenPinNotes.Services;
 
 public static class StartupService
 {
-    private const string AppName = "ScreenStickyNotes";
+    private const string AppName = "ScreenPinNotes";
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
     public static bool IsRegistered

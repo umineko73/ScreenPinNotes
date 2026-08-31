@@ -98,7 +98,7 @@ The lock is only a status indicator. It is not clickable, so it does not interfe
 
 ## Storage and Backup
 
-- Data folder: `%APPDATA%\ScreenStickyNotes`
+- Data folder: `%APPDATA%\ScreenPinNotes`
 - Each note is stored under `notes` with `meta.json`, `content.md`, and `assets`
 - "Export notes..." creates a zip backup
 - "Import notes..." adds notes without overwriting existing notes

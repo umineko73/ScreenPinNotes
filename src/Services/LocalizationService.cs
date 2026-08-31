@@ -1,4 +1,4 @@
-// ScreenStickyNotes - a desktop sticky notes app for Windows 11
+// ScreenPinNotes - a desktop sticky notes app for Windows 11
 // Copyright (C) 2026 umineko73
 //
 // This program is free software: you can redistribute it and/or modify
@@ -6,9 +6,9 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-using ScreenStickyNotes.Models;
+using ScreenPinNotes.Models;
 
-namespace ScreenStickyNotes.Services;
+namespace ScreenPinNotes.Services;
 
 public static class LocalizationService
 {
@@ -39,29 +39,29 @@ public static class LocalizationService
             "TrayLanguageJapanese" => english ? "Japanese" : "日本語",
             "TrayLanguageEnglish" => english ? "English" : "英語",
             "TrayDarkMode" => english ? "Dark mode" : "ダークモード",
-            "TrayAbout" => english ? "About ScreenStickyNotes" : "ScreenStickyNotes について",
+            "TrayAbout" => english ? "About ScreenPinNotes" : "ScreenPinNotes について",
             "TrayExit" => english ? "Exit" : "終了",
             "SelectNotesRootTitle" => english ? "Select note folder" : "ノート保存フォルダの選択",
             "SelectNotesRootDescription" => english
-                ? "Select the parent folder. A ScreenStickyNotes folder and its notes folder will be created inside it."
-                : "親フォルダを選択してください。選択したフォルダ内に ScreenStickyNotes フォルダと notes フォルダを作成します。",
+                ? "Select the parent folder. A ScreenPinNotes folder and its notes folder will be created inside it."
+                : "親フォルダを選択してください。選択したフォルダ内に ScreenPinNotes フォルダと notes フォルダを作成します。",
             "SelectNotesRootChangedTitle" => english ? "Note folder changed" : "保存フォルダを変更しました",
             "SelectNotesRootChangedMessage" => english
-                ? "The storage folder has been changed. Notes from its ScreenStickyNotes\\notes folder are now loaded."
-                : "保存フォルダを変更しました。選択したフォルダ内の ScreenStickyNotes\\notes フォルダから付箋を読み込みました。",
+                ? "The storage folder has been changed. Notes from its ScreenPinNotes\\notes folder are now loaded."
+                : "保存フォルダを変更しました。選択したフォルダ内の ScreenPinNotes\\notes フォルダから付箋を読み込みました。",
             "InitializeEmptyStorageTitle" => english ? "No notes found" : "付箋データがありません",
             "InitializeEmptyStorageMessage" => english
                 ? "No notes were found in the selected storage folder. The app will create initial notes and start with them."
                 : "選択した保存フォルダに付箋データがありません。初期ノートを作成して起動します。",
             "MoveNotesConfirmTitle" => english ? "Move existing notes?" : "既存の付箋を移動しますか？",
             "MoveNotesConfirmMessage" => english
-                ? "The selected folder does not contain ScreenStickyNotes\\notes.\n\nYes: move the current notes folder to the selected folder.\nNo: create initial notes in the selected folder. The current notes folder will remain unchanged."
-                : "選択したフォルダに ScreenStickyNotes\\notes フォルダがありません。\n\nはい: 現在の notes フォルダを選択したフォルダへ移動します。\nいいえ: 選択したフォルダに初期ノートを作成します。現在の notes フォルダはそのまま残ります。",
+                ? "The selected folder does not contain ScreenPinNotes\\notes.\n\nYes: move the current notes folder to the selected folder.\nNo: create initial notes in the selected folder. The current notes folder will remain unchanged."
+                : "選択したフォルダに ScreenPinNotes\\notes フォルダがありません。\n\nはい: 現在の notes フォルダを選択したフォルダへ移動します。\nいいえ: 選択したフォルダに初期ノートを作成します。現在の notes フォルダはそのまま残ります。",
             "MoveNotesFailedTitle" => english ? "Move failed" : "移動に失敗しました",
             "MoveNotesFailedMessage" => english
                 ? "The notes folder could not be moved. The storage folder was not changed. See the log for details."
                 : "notes フォルダを移動できませんでした。保存フォルダは変更していません。詳細はログを確認してください。",
-            "NotesZipFilter" => english ? "ScreenStickyNotes zip (*.zip)|*.zip" : "ScreenStickyNotes zip (*.zip)|*.zip",
+            "NotesZipFilter" => english ? "ScreenPinNotes zip (*.zip)|*.zip" : "ScreenPinNotes zip (*.zip)|*.zip",
             "ExportNotesTitle" => english ? "Export notes" : "付箋のエクスポート",
             "ExportNotesCompletedTitle" => english ? "Export complete" : "エクスポート完了",
             "ExportNotesCompletedMessage" => english
@@ -90,7 +90,7 @@ public static class LocalizationService
                 ? "This file is too large to open as a note (limit: 20 MB)."
                 : "このファイルは大きすぎるため付箋として開けません（上限: 20MB）。",
 
-            "AboutTitle" => english ? "About ScreenStickyNotes" : "ScreenStickyNotes について",
+            "AboutTitle" => english ? "About ScreenPinNotes" : "ScreenPinNotes について",
             "AboutDescription" => english
                 ? "A desktop sticky notes app for Windows 11."
                 : "Windows 11 向けのデスクトップ付箋アプリです。",

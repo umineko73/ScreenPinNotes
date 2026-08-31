@@ -1,10 +1,10 @@
-# ScreenStickyNotes
+# ScreenPinNotes
 
 [English](README.md) | 日本語
 
 Windows 11 向けのデスクトップ付箋アプリです。
 
-![ScreenStickyNotes のスクリーンショット](docs/screenshot.png)
+![ScreenPinNotes のスクリーンショット](docs/screenshot.png)
 
 ## 特徴
 
@@ -57,12 +57,12 @@ Windows 11 向けのデスクトップ付箋アプリです。
 
 ## ダウンロード
 
-[Releases](https://github.com/umineko73/ScreenStickyNotes/releases) からzipを取得して展開します。インストールは不要です。
+[Releases](https://github.com/umineko73/ScreenPinNotes/releases) からzipを取得して展開します。インストールは不要です。
 
 | ファイル | 必要なもの |
 |----------|-----------|
-| `ScreenStickyNotes-x.y.z-win-x64.zip`（約68MB） | なし |
-| `ScreenStickyNotes-x.y.z-win-x64-runtime.zip`（約11MB） | [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) |
+| `ScreenPinNotes-x.y.z-win-x64.zip`（約68MB） | なし |
+| `ScreenPinNotes-x.y.z-win-x64-runtime.zip`（約11MB） | [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) |
 
 ## 動作環境
 
@@ -71,8 +71,8 @@ Windows 10 以降（角丸表示は Windows 11 のみ）、x64。ビルドには
 ## ビルドと実行
 
 ```bash
-git clone https://github.com/umineko73/ScreenStickyNotes.git
-cd ScreenStickyNotes
+git clone https://github.com/umineko73/ScreenPinNotes.git
+cd ScreenPinNotes
 dotnet build
 dotnet run --project src
 ```
@@ -107,18 +107,18 @@ dotnet run --project src
 
 ## settings.json
 
-`%APPDATA%\ScreenStickyNotes\settings.json` に保存されます。`Language`、`Theme`、`StorageRoot`、UIトグル、タイミング設定を含みます。設定ファイルが無い場合は、OSのUIロケールから `Language` の初期値を決めます。直接編集した場合はアプリの再起動が必要です。
+`%APPDATA%\ScreenPinNotes\settings.json` に保存されます。`Language`、`Theme`、`StorageRoot`、UIトグル、タイミング設定を含みます。設定ファイルが無い場合は、OSのUIロケールから `Language` の初期値を決めます。直接編集した場合はアプリの再起動が必要です。
 
 ## データの保存場所
 
 ```
-%AppData%\ScreenStickyNotes\
+%AppData%\ScreenPinNotes\
   settings.json
   logs\app.log
   notes\{付箋ID}\meta.json, content.md, assets\
 ```
 
-ノート本体は `StorageRoot` 配下に保存されます。各付箋の `meta.json` には位置、サイズ、折りたたみ時の位置/幅、非表示状態、リマインダー設定、外部ファイル付箋のリンク先などが保存されます。本文は `content.md`、画像は `assets` に保存されます。保存フォルダはタスクトレイの **設定 > 保存フォルダを選択...** または初回起動前の環境変数 `SCREENSTICKYNOTES_DATA` で指定できます。
+ノート本体は `StorageRoot` 配下に保存されます。各付箋の `meta.json` には位置、サイズ、折りたたみ時の位置/幅、非表示状態、リマインダー設定、外部ファイル付箋のリンク先などが保存されます。本文は `content.md`、画像は `assets` に保存されます。保存フォルダはタスクトレイの **設定 > 保存フォルダを選択...** または初回起動前の環境変数 `SCREENPINNOTES_DATA` で指定できます。
 
 保存先に付箋が無い場合は `SampleNotes` からサンプル付箋をコピーします。日本語OSでは日本語サンプル、日本語以外のOSでは英語サンプルを使います。
 
