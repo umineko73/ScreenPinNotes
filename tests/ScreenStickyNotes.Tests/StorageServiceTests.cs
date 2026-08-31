@@ -160,6 +160,41 @@ public sealed class StorageServiceTests : IDisposable
     }
 
     [Fact]
+    public void Load_ExternalContentNote_WhenFileTransientlyMissing_KeepsCachedContent()
+    {
+        // 起動時に外部ファイルへ一時的にアクセスできない場合、
+        // 直前に content.md へキャッシュされていた内容を保持し、
+        // エラー文言で上書きしてはいけない。
+        var externalPath = Path.Combine(_tempRoot, "external.md");
+        File.WriteAllText(externalPath, "# External\ncached body");
+        var note = new StickyNote
+        {
+            Content = "# External\ncached body",
+            ExternalContentPath = externalPath,
+            IsReadOnly = true,
+        };
+        _storage.SaveNote(note);
+        File.Delete(externalPath);
+
+        var loaded = _storage.Load();
+
+        var loadedNote = Assert.Single(loaded);
+        Assert.Equal("# External\ncached body", loadedNote.Content);
+    }
+
+    [Fact]
+    public void TryReadExternalContent_WhenFileIsMissing_ReturnsFalseAndDoesNotThrow()
+    {
+        var missingPath = Path.Combine(_tempRoot, "missing.md");
+        var note = new StickyNote { Content = "cached", ExternalContentPath = missingPath };
+
+        var success = StorageService.TryReadExternalContent(note, out var content);
+
+        Assert.False(success);
+        Assert.Equal("", content);
+    }
+
+    [Fact]
     public void Load_SkipsNoteFolderWithCorruptMeta()
     {
         var good = new StickyNote();
@@ -297,6 +332,45 @@ public sealed class StorageServiceTests : IDisposable
         Assert.Equal("Imported", imported.Title);
         Assert.True(imported.IsReadOnly);
         Assert.True(File.Exists(Path.Combine(_storage.GetNoteAssetsDirectoryPath(imported.Id), "asset.txt")));
+    }
+
+    [Fact]
+    public void ImportNotesFromZip_ExternalContentNote_PreservesExportedContentOnDiskInsteadOfReresolvingLocally()
+    {
+        // エクスポート元マシンの外部ファイルパスが、たまたまインポート先マシンの
+        // 別内容のファイルと同じパスを指していても、インポートされたノートの
+        // content.md は zip に入っていたスナップショットのまま保持されるべきで、
+        // インポート処理中にインポート先でそのパスを再解決した（無関係な）
+        // 内容で上書きされてはいけない。
+        var sourceRoot = Path.Combine(_tempRoot, "source");
+        var sourceStorage = new StorageService(sourceRoot);
+        var sharedPath = Path.Combine(_tempRoot, "shared-external.md");
+        File.WriteAllText(sharedPath, "content on the exporting machine");
+        var note = new StickyNote
+        {
+            Content = "content on the exporting machine",
+            ExternalContentPath = sharedPath,
+            IsReadOnly = true,
+        };
+        sourceStorage.SaveNote(note);
+        var zipPath = Path.Combine(_tempRoot, "external-import.zip");
+        sourceStorage.ExportNotesToZip(zipPath);
+
+        // インポート先マシンでは、同じ絶対パスに全く別の内容のファイルが存在する
+        // （インポート処理中はこのファイルが「解決」されてしまう状況を再現）。
+        File.WriteAllText(sharedPath, "unrelated content on the importing machine");
+
+        var result = _storage.ImportNotesFromZip(zipPath);
+        Assert.Equal(1, result.ImportedCount);
+        var importedId = Assert.Single(_storage.Load()).Id;
+
+        // その後リンク先ファイルが消えても、content.md に永続化されていた
+        // スナップショットはエクスポート時点の内容のままであるべき。
+        File.Delete(sharedPath);
+        var reloaded = Assert.Single(_storage.Load());
+
+        Assert.Equal(importedId, reloaded.Id);
+        Assert.Equal("content on the exporting machine", reloaded.Content);
     }
 
     [Fact]

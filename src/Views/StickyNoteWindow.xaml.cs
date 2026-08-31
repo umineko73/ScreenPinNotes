@@ -84,6 +84,7 @@ public partial class StickyNoteWindow : Window
     private bool       _isPaneScrollDragPending;
     private bool       _isPaneScrollDragging;
     private bool       _suppressNextContentContextMenu;
+    private bool       _isClosed;
     private FileSystemWatcher? _externalContentWatcher;
     private System.Windows.Point _paneScrollStartPoint;
     private double     _paneScrollStartHorizontalOffset;
@@ -202,7 +203,11 @@ public partial class StickyNoteWindow : Window
             // 通常どおりモデルに書き戻してよい。
             _isInitializing = false;
         };
-        Closed += (_, _) => DisposeExternalContentWatcher();
+        Closed += (_, _) =>
+        {
+            _isClosed = true;
+            DisposeExternalContentWatcher();
+        };
     }
 
     public void RefreshSettings()

@@ -85,6 +85,10 @@ public static class LocalizationService
                 ? "Notes could not be imported. The current notes were left unchanged. See the log for details."
                 : "付箋をインポートできませんでした。現在の付箋は変更していません。詳細はログを確認してください。",
             "ExternalNoteFileFilter" => english ? "Markdown/text files (*.md;*.txt)|*.md;*.txt|All files (*.*)|*.*" : "Markdown/テキストファイル (*.md;*.txt)|*.md;*.txt|すべてのファイル (*.*)|*.*",
+            "ExternalNoteFileTooLargeTitle" => english ? "File too large" : "ファイルサイズが大きすぎます",
+            "ExternalNoteFileTooLargeMessage" => english
+                ? "This file is too large to open as a note (limit: 20 MB)."
+                : "このファイルは大きすぎるため付箋として開けません（上限: 20MB）。",
 
             "AboutTitle" => english ? "About ScreenStickyNotes" : "ScreenStickyNotes について",
             "AboutDescription" => english

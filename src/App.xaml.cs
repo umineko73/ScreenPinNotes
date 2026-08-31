@@ -788,9 +788,25 @@ public partial class App : System.Windows.Application
             AddExternalFileNote(dialog.FileName);
     }
 
+    private const long MaxExternalNoteFileSizeBytes = 20 * 1024 * 1024; // 20 MB
+
     public void AddExternalFileNote(string filePath)
     {
         var fullPath = Path.GetFullPath(filePath);
+
+        // ファイル選択ダイアログは「すべてのファイル」も許容するため、
+        // 巨大・バイナリファイルを選んでUIスレッドが固まるのを防ぐ。
+        var info = new FileInfo(fullPath);
+        if (info.Exists && info.Length > MaxExternalNoteFileSizeBytes)
+        {
+            System.Windows.MessageBox.Show(
+                LocalizationService.T("ExternalNoteFileTooLargeMessage"),
+                LocalizationService.T("ExternalNoteFileTooLargeTitle"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
         var now = DateTime.Now;
         var layout = _settings.Layout;
         var note = new StickyNote
@@ -941,6 +957,8 @@ public partial class App : System.Windows.Application
         _windows.RemoveAll(w => w.ViewModel.Model.Id == id);
         _storage.DeleteNote(id);   // 削除はここだけで行う
         SaveAll();
+        RefreshTrayMenu();
+        _noteManagerWindow?.RefreshNotes();
         return true;
     }
 

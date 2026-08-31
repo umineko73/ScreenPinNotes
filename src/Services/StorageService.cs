@@ -215,8 +215,10 @@ public class StorageService
                 note.Content = File.Exists(contentPath)
                     ? File.ReadAllText(contentPath, Encoding.UTF8)
                     : "";
-                if (note.IsExternalContent)
-                    note.Content = ReadExternalContent(note);
+                // 外部ファイルが一時的に読めない場合は content.md のキャッシュを
+                // エラー文言で潰さず、直前の内容を保持する。
+                if (note.IsExternalContent && TryReadExternalContent(note, out var externalContent))
+                    note.Content = externalContent;
                 notes.Add(note);
             }
             catch { /* 壊れたノートはスキップ */ }
@@ -318,8 +320,11 @@ public class StorageService
 
                 try
                 {
+                    // content.md はここで既に正しくコピーされているので、
+                    // 外部ファイルノートの内容をインポート先マシンで再解決して
+                    // 上書きしないよう meta.json だけを書き直す。
                     CopyDirectory(sourceDir, targetDir);
-                    WriteNote(note);
+                    WriteNoteMetaOnly(targetDir, note);
                     imported++;
                 }
                 catch (Exception ex)
@@ -346,12 +351,19 @@ public class StorageService
         var dir = GetNoteDirectoryPath(note.Id);
         Directory.CreateDirectory(dir);
 
-        // meta.json（Content は [JsonIgnore] により除外される）
-        AtomicWrite(Path.Combine(dir, "meta.json"),
-            JsonSerializer.Serialize(note, JsonOpts));
+        WriteNoteMetaOnly(dir, note);
 
         // content.md
         AtomicWrite(Path.Combine(dir, "content.md"), note.Content);
+    }
+
+    private static void WriteNoteMetaOnly(string dir, StickyNote note)
+    {
+        Directory.CreateDirectory(dir);
+
+        // meta.json（Content は [JsonIgnore] により除外される）
+        AtomicWrite(Path.Combine(dir, "meta.json"),
+            JsonSerializer.Serialize(note, JsonOpts));
     }
 
     public static string ReadExternalContent(StickyNote note)
@@ -370,6 +382,37 @@ public class StorageService
         catch (Exception ex)
         {
             return $"External file could not be read:\n{path}\n\n{ex.Message}";
+        }
+    }
+
+    // 読み込みに失敗しても直前のキャッシュを壊さないための Try 版。
+    // 一時的にファイルが読めない場合でも content.md 上のキャッシュを
+    // エラー文言で上書きしないよう、呼び出し側は成功時のみ内容を反映する。
+    public static bool TryReadExternalContent(StickyNote note, out string content)
+    {
+        var path = note.ExternalContentPath;
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            content = "";
+            return false;
+        }
+
+        try
+        {
+            var fullPath = Path.GetFullPath(path);
+            if (!File.Exists(fullPath))
+            {
+                content = "";
+                return false;
+            }
+
+            content = File.ReadAllText(fullPath, Encoding.UTF8);
+            return true;
+        }
+        catch
+        {
+            content = "";
+            return false;
         }
     }
 

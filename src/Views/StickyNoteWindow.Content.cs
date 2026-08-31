@@ -65,9 +65,18 @@ public partial class StickyNoteWindow
 
         Dispatcher.BeginInvoke(() =>
         {
-            ViewModel.Content = StorageService.ReadExternalContent(ViewModel.Model);
-            if (!_isEditMode)
-                LoadContent(ViewModel.Content);
+            // ウォッチャーのイベント発火後にウィンドウが閉じられている場合は何もしない。
+            if (_isClosed)
+                return;
+
+            // 一時的にファイルが読めない場合は表示中の内容を維持する
+            // （エラー文言で上書きしてキャッシュを壊さない）。
+            if (StorageService.TryReadExternalContent(ViewModel.Model, out var content))
+            {
+                ViewModel.Content = content;
+                if (!_isEditMode)
+                    LoadContent(ViewModel.Content);
+            }
         });
     }
 
@@ -991,6 +1000,11 @@ public partial class StickyNoteWindow
     {
         if (!ViewModel.Model.IsExternalContent)
             return;
+
+        // 変換前に最新の内容を取り直す。読めない場合は表示中の内容
+        // （直前に読めていた内容）をそのまま引き継ぐ。
+        if (StorageService.TryReadExternalContent(ViewModel.Model, out var freshContent))
+            ViewModel.Content = freshContent;
 
         DisposeExternalContentWatcher();
         ViewModel.ClearExternalContentPath();
