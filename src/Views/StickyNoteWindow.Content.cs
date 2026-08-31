@@ -52,6 +52,7 @@ public partial class StickyNoteWindow
     private const int MarkdownImageMinPercent = 20;
     private const int MarkdownImageMaxPercent = 200;
     private const double MarkdownImageVerticalMargin = 6;
+    private const double MarkdownImageMinDisplayWidth = 80;
 
     // ─── FlowDocument ↔ プレーンテキスト / Markdown ──────────────
 
@@ -364,7 +365,7 @@ public partial class StickyNoteWindow
         var padding = ContentBox.Padding.Left + ContentBox.Padding.Right;
         var border = ContentBox.BorderThickness.Left + ContentBox.BorderThickness.Right;
         const double ScrollbarAllowance = 18;
-        return Math.Max(1, boxWidth - padding - border - ScrollbarAllowance);
+        return Math.Max(MarkdownImageMinDisplayWidth, boxWidth - padding - border - ScrollbarAllowance);
     }
 
     private sealed record MarkdownImageContext(
@@ -604,6 +605,10 @@ public partial class StickyNoteWindow
 
         SuppressWindowBoundsSave(() =>
         {
+            // 折りたたみアニメーションが Height プロパティを掴んだままだと、
+            // 直接代入がその場では効いても次のレイアウトパスで
+            // アニメーションの最終値に上書きされてしまう。先に解除する。
+            BeginAnimation(HeightProperty, null);
             Width = targetWidth;
             Height = targetHeight;
             KeepInsideWorkArea(Width, Height);

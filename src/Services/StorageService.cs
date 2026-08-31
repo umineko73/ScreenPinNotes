@@ -182,7 +182,7 @@ public class StorageService
         {
             var settings = JsonSerializer.Deserialize<AppSettings>(
                 File.ReadAllText(_settingsPath, Encoding.UTF8), JsonOpts)
-                ?? new AppSettings();
+                ?? AppSettings.CreateDefault();
             settings.Normalize();
             return settings;
         }

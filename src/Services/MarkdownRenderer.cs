@@ -751,7 +751,8 @@ public static class MarkdownRenderer
             if (ch != ')')
                 continue;
 
-            fallbackEnd = i;
+            if (fallbackEnd < 0)
+                fallbackEnd = i; // 深さが0に戻らない不正な入力では、最初の ')' を採用する
             if (depth > 0)
             {
                 depth--;

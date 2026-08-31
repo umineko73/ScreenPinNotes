@@ -268,17 +268,19 @@ public partial class StickyNoteWindow
         if (!dataObject.GetDataPresent(WpfDataFormats.Bitmap, autoConvert: true))
             return false;
 
-        var bitmap = dataObject.GetData(WpfDataFormats.Bitmap, autoConvert: true)
-            as System.Windows.Media.Imaging.BitmapSource;
-        if (bitmap != null)
+        var data = dataObject.GetData(WpfDataFormats.Bitmap, autoConvert: true);
+        if (data is System.Windows.Media.Imaging.BitmapSource bitmap)
         {
             image = bitmap;
             return true;
         }
 
-        if (dataObject.GetData(WpfDataFormats.Bitmap, autoConvert: true) is System.Drawing.Bitmap drawingBitmap)
+        if (data is System.Drawing.Bitmap drawingBitmap)
         {
-            image = ConvertDrawingBitmapToBitmapSource(drawingBitmap);
+            using (drawingBitmap)
+            {
+                image = ConvertDrawingBitmapToBitmapSource(drawingBitmap);
+            }
             return true;
         }
 
