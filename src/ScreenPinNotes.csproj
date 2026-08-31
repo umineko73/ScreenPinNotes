@@ -13,7 +13,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <Version>0.1.3</Version>
+    <Version>0.1.4</Version>
     <Authors>umineko73</Authors>
     <Product>ScreenPinNotes</Product>
     <Description>Windows 11 向けのデスクトップ付箋アプリ</Description>
