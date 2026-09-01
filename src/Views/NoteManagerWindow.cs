@@ -181,6 +181,7 @@ public sealed class NoteManagerWindow : Window
             return;
 
         var result = WpfMessageBox.Show(
+            this,
             LocalizationService.T(row.IsExternal ? "UnlinkExternalConfirmMessage" : "DeleteConfirmMessage"),
             LocalizationService.T("DeleteConfirmTitle"),
             MessageBoxButton.YesNo,

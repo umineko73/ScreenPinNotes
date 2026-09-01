@@ -150,10 +150,10 @@ public partial class StickyNoteWindow
         ViewModel.TitleFontSize = newSize;
         SetResizeEnabled(!ViewModel.IsFolded);
 
-        // 折りたたみ中はウィンドウ高さ＝タイトルバー高さなので追従させる
+        // 閉じた表示ではウィンドウ高さ＝タイトルバー高さなので追従させる
         if (ViewModel.IsFolded)
         {
-            BeginAnimation(HeightProperty, null);   // 折りたたみアニメの保持を解除
+            BeginAnimation(HeightProperty, null);   // 表示切り替えアニメーションの保持を解除
             Height = FoldedHeight;
         }
         ShowSizeOverlay(string.Format(LocalizationService.T("TitleSize"), ViewModel.TitleFontSize));
@@ -245,6 +245,7 @@ public partial class StickyNoteWindow
         if (ViewModel.IsReadOnly && !ViewModel.Model.IsExternalContent)
         {
             System.Windows.MessageBox.Show(
+                this,
                 LocalizationService.T("EditLockDeleteBlockedMessage"),
                 LocalizationService.T("EditLockDeleteBlockedTitle"),
                 MessageBoxButton.OK,
@@ -258,6 +259,7 @@ public partial class StickyNoteWindow
             ? "DeleteConfirmMessageWithAssets"
             : "DeleteConfirmMessage";
         var result = System.Windows.MessageBox.Show(
+            this,
             LocalizationService.T(messageKey),
             LocalizationService.T("DeleteConfirmTitle"),
             MessageBoxButton.YesNo, MessageBoxImage.Question);
