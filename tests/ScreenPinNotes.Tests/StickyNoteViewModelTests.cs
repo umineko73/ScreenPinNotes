@@ -46,6 +46,18 @@ public class StickyNoteViewModelTests
     }
 
     [Fact]
+    public void PositionSeparatedVisibility_FollowsSeparatedState()
+    {
+        var vm = new StickyNoteViewModel(new StickyNote(), new AppSettings());
+
+        Assert.Equal(Visibility.Collapsed, vm.PositionSeparatedVisibility);
+
+        vm.IsPositionSeparated = true;
+
+        Assert.Equal(Visibility.Visible, vm.PositionSeparatedVisibility);
+    }
+
+    [Fact]
     public void TitleIconTooltip_FollowsExternalContentPath()
     {
         var note = new StickyNote { ExternalContentPath = @"D:\notes\todo.md" };

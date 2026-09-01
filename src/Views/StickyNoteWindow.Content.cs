@@ -225,8 +225,8 @@ public partial class StickyNoteWindow
             (isChecked ? "[x]" : "[ ]") +
             line[(markerIndex + 3)..];
 
-        ViewModel.Content = string.Join('\n', lines);
-        RequestSave();
+        if (!TrySetNoteContent(string.Join('\n', lines)))
+            return;
         LoadContent(ViewModel.Content);
     }
 
@@ -283,20 +283,22 @@ public partial class StickyNoteWindow
             Margin = new Thickness(0, 3, 0, 3),
         };
 
-        var externalWidthOverride = GetExternalMarkdownImageWidthOverride(markdownImage);
-        var displayWidth = externalWidthOverride ?? markdownImage.Width ?? originalWidth;
+        var widthOverride = GetMarkdownImageWidthOverride(markdownImage);
+        var displayWidth = widthOverride ?? markdownImage.Width ?? originalWidth;
         var displayHeight = markdownImage.Height ?? originalHeight;
-        if ((externalWidthOverride.HasValue || markdownImage.Width.HasValue) && !markdownImage.Height.HasValue)
+        if ((widthOverride.HasValue || markdownImage.Width.HasValue) && !markdownImage.Height.HasValue)
             displayHeight = originalHeight * displayWidth / originalWidth;
         else if (!markdownImage.Width.HasValue && markdownImage.Height.HasValue)
             displayWidth = originalWidth * markdownImage.Height.Value / originalHeight;
 
-        if (!hasExplicitWidth && !externalWidthOverride.HasValue)
+        if (!hasExplicitWidth && !widthOverride.HasValue)
         {
             var naturalWidth = markdownImage.Height.HasValue
                 ? originalWidth * markdownImage.Height.Value / originalHeight
                 : originalWidth;
-            displayWidth = Math.Min(naturalWidth, GetMarkdownImageAvailableWidth());
+            displayWidth = ShouldUseImageWidthOverrides()
+                ? GetMarkdownImageAvailableWidth()
+                : Math.Min(naturalWidth, GetMarkdownImageAvailableWidth());
             displayHeight = originalHeight * displayWidth / originalWidth;
             image.Width = displayWidth;
             image.Height = originalHeight * displayWidth / originalWidth;
@@ -307,10 +309,10 @@ public partial class StickyNoteWindow
             image.Width = markdownImage.Width.Value;
             _requiredMarkdownPageWidth = Math.Max(_requiredMarkdownPageWidth, markdownImage.Width.Value);
         }
-        if (externalWidthOverride.HasValue)
+        if (widthOverride.HasValue)
         {
-            image.Width = externalWidthOverride.Value;
-            _requiredMarkdownPageWidth = Math.Max(_requiredMarkdownPageWidth, externalWidthOverride.Value);
+            image.Width = widthOverride.Value;
+            _requiredMarkdownPageWidth = Math.Max(_requiredMarkdownPageWidth, widthOverride.Value);
         }
         if (markdownImage.Height.HasValue)
             image.Height = markdownImage.Height.Value;
@@ -434,13 +436,13 @@ public partial class StickyNoteWindow
     }
 
     private bool CanResizeMarkdownImage()
-        => !ViewModel.IsReadOnly || ViewModel.Model.IsExternalContent;
+        => true;
 
     private void RemoveMarkdownImageWidth(MarkdownImageContext context)
     {
-        if (ViewModel.Model.IsExternalContent)
+        if (ShouldUseImageWidthOverrides())
         {
-            ClearExternalMarkdownImageWidthOverride(context);
+            ClearMarkdownImageWidthOverride(context);
             return;
         }
 
@@ -536,18 +538,21 @@ public partial class StickyNoteWindow
     {
         percent = Math.Clamp(percent, MarkdownImageMinPercent, MarkdownImageMaxPercent);
         var width = Math.Clamp(Math.Round(context.OriginalWidth * percent / 100.0), 1, 2000);
-        if (ViewModel.Model.IsExternalContent)
+        if (ShouldUseImageWidthOverrides())
         {
-            SetExternalMarkdownImageWidthOverride(context, width);
+            SetMarkdownImageWidthOverride(context, width);
             return;
         }
 
         ReplaceMarkdownImage(context, BuildMarkdownImageText(context, width));
     }
 
-    private double? GetExternalMarkdownImageWidthOverride(MarkdownRenderer.MarkdownImage markdownImage)
+    private bool ShouldUseImageWidthOverrides()
+        => ViewModel.IsReadOnly || ViewModel.Model.IsExternalContent;
+
+    private double? GetMarkdownImageWidthOverride(MarkdownRenderer.MarkdownImage markdownImage)
     {
-        if (!ViewModel.Model.IsExternalContent)
+        if (!ShouldUseImageWidthOverrides())
             return null;
 
         return ViewModel.Model.ExternalImageWidthOverrides.TryGetValue(GetMarkdownImageOverrideKey(markdownImage), out var width)
@@ -555,7 +560,7 @@ public partial class StickyNoteWindow
             : null;
     }
 
-    private void SetExternalMarkdownImageWidthOverride(MarkdownImageContext context, double width)
+    private void SetMarkdownImageWidthOverride(MarkdownImageContext context, double width)
     {
         ViewModel.Model.ExternalImageWidthOverrides[GetMarkdownImageOverrideKey(context)] = width;
         ViewModel.Model.UpdatedAt = DateTime.Now;
@@ -563,7 +568,7 @@ public partial class StickyNoteWindow
         LoadContent(ViewModel.Content);
     }
 
-    private void ClearExternalMarkdownImageWidthOverride(MarkdownImageContext context)
+    private void ClearMarkdownImageWidthOverride(MarkdownImageContext context)
     {
         ViewModel.Model.ExternalImageWidthOverrides.Remove(GetMarkdownImageOverrideKey(context));
         ViewModel.Model.UpdatedAt = DateTime.Now;
@@ -605,7 +610,7 @@ public partial class StickyNoteWindow
 
         SuppressWindowBoundsSave(() =>
         {
-            // 折りたたみアニメーションが Height プロパティを掴んだままだと、
+            // 表示切り替えアニメーションが Height プロパティを掴んだままだと、
             // 直接代入がその場では効いても次のレイアウトパスで
             // アニメーションの最終値に上書きされてしまう。先に解除する。
             BeginAnimation(HeightProperty, null);
@@ -618,6 +623,7 @@ public partial class StickyNoteWindow
         ViewModel.Model.Height = Height - _statusBarDelta;
         ViewModel.Model.X = Left;
         ViewModel.Model.Y = Top;
+        MarkPositionSeparatedIfOpenViewMovedAwayFromClosedView();
         RequestSave();
         LoadContent(ViewModel.Content);
     }
@@ -770,8 +776,8 @@ public partial class StickyNoteWindow
             replacement +
             line[(context.Start + context.Length)..];
 
-        ViewModel.Content = string.Join('\n', lines);
-        RequestSave();
+        if (!TrySetNoteContent(string.Join('\n', lines)))
+            return;
         LoadContent(ViewModel.Content);
     }
 
@@ -818,8 +824,8 @@ public partial class StickyNoteWindow
         else
             lines[context.LineIndex] = before + after;
 
-        ViewModel.Content = string.Join('\n', lines);
-        RequestSave();
+        if (!TrySetNoteContent(string.Join('\n', lines)))
+            return;
         LoadContent(ViewModel.Content);
     }
 
@@ -1009,7 +1015,17 @@ public partial class StickyNoteWindow
         // 変換前に最新の内容を取り直す。読めない場合は表示中の内容
         // （直前に読めていた内容）をそのまま引き継ぐ。
         if (StorageService.TryReadExternalContent(ViewModel.Model, out var freshContent))
+        {
+            if (!CanAcceptNoteContent(freshContent))
+            {
+                ShowSizeOverlay(string.Format(
+                    LocalizationService.T("NoteContentTooLarge"),
+                    FormatByteSize(Settings.MaxNoteContentBytes)));
+                return;
+            }
+
             ViewModel.Content = freshContent;
+        }
 
         DisposeExternalContentWatcher();
         ViewModel.ClearExternalContentPath();

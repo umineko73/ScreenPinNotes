@@ -6,7 +6,7 @@ This note has editing locked. The body text and title text are protected, but ch
 
 - Double-click the body: switch to edit mode
 - `Esc`: return to view mode
-- Click the title bar: fold / unfold
+- Double-click the title bar: closed view / open view
 - Drag the title bar: move the note
 - Click a link: open it
 - In edit mode, use `Ctrl + click` to open a link
@@ -22,21 +22,23 @@ This note has editing locked. The body text and title text are protected, but ch
 
 ## Moving and Snapping
 
-![Unfolded vs. folded appearance](assets/window-position-guide.png)
+![Open view vs. closed view appearance](assets/window-position-guide.png)
 
-Left: unfolded (body text visible). Right: folded (only the title bar remains). Each state's position can be adjusted independently with the actions below.
+Left: open view (body text visible). Right: closed view (only the title bar remains). Each view's position can be adjusted independently with the actions below.
 
-- Normal drag: keep folded and unfolded positions synchronized
-- `Ctrl + drag`: adjust only the current state
+- Normal drag: keep closed view and open view positions synchronized
+- `Ctrl + drag`: adjust only the current view
 - `Alt + drag`: disable snapping
-- `Ctrl + Alt + drag`: adjust only the current state without snapping
+- `Ctrl + Alt + drag`: adjust only the current view without snapping
+- Notes with separated closed view and open view positions show `⛓️‍💥` in the title bar
+- A setting can restore single-click switching
 
 ## Title Context Menu
 
 - Edit title
 - Change z order
 - Change opacity
-- "Open here" while folded
+- Reconnect closed/open view positions
 - Set / clear a reminder
 - For external-file notes, open the file / open its folder / convert to a normal note
 - Lock editing
@@ -83,12 +85,13 @@ While editing is locked, text input, paste, link conversion, image insertion, an
 | --- | --- |
 | + | Add a note using this note's color, icon, and font |
 | 📌 | Always on top |
-| Up / Down | Fold / unfold |
+| Up / Down | Closed view / Open view |
 | 🔒 | Shows that editing is locked |
+| ⛓️‍💥 | Shows that closed view and open view positions are separated |
 | 🔗 | Shows an external-file note |
 | ⏰ | Shows that a reminder is set |
 
-The lock is only a status indicator. It is not clickable, so it does not interfere with dragging or folding.
+The lock is only a status indicator. It is not clickable, so it does not interfere with dragging or switching closed/open view.
 
 ## Tray Icon
 

@@ -53,7 +53,7 @@
                 <RowDefinition Height="*"/>    <!-- コンテンツ -->
             </Grid.RowDefinitions>
 
-            <!-- タイトルバー：折りたたみボタン + 折りたたみ時タイトル -->
+            <!-- タイトルバー：閉じた表示/開いた表示ボタン + タイトル -->
             <Grid x:Name="TitleBar"
                   Grid.Row="0" Height="{Binding TitleBarHeight}" Background="{Binding TitleBarBrush}"
                   MouseLeftButtonDown="TitleBar_MouseLeftButtonDown"
@@ -65,6 +65,7 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
@@ -85,7 +86,7 @@
                        ToolTip="{Binding TitleIconTooltip}"/>
 
                 <!-- タイトル表示（Title があればそれを、無ければ本文1行目を表示）。
-                     折りたたみ状態にかかわらず常に表示する -->
+                     閉じた表示/開いた表示にかかわらず常に表示する -->
                 <TextBlock x:Name="TitleText"
                            Grid.Column="1"
                            Text="{Binding DisplayTitle}"
@@ -136,7 +137,7 @@
                            Margin="2,0,3,0"/>
 
                 <!-- 編集ロック中の状態表示。クリック対象にしないことで、
-                     タイトルバーのドラッグ/折りたたみ操作を邪魔しない。 -->
+                     タイトルバーのドラッグや表示切り替え操作を邪魔しない。 -->
                 <TextBlock Grid.Column="3"
                            Text="🔒"
                            Visibility="{Binding EditLockVisibility}"
@@ -148,17 +149,29 @@
                            Margin="2,0,3,0"
                            IsHitTestVisible="False"/>
 
+                <TextBlock Grid.Column="4"
+                           Text="⛓️‍💥"
+                           Visibility="{Binding PositionSeparatedVisibility}"
+                           ToolTip="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=PositionSeparatedTooltip}"
+                           Foreground="{Binding TitleBarForeground}"
+                           Opacity="0.82"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"
+                           FontSize="12"
+                           Margin="2,0,3,0"
+                           IsHitTestVisible="False"/>
+
                 <!-- 新規作成。閲覧モードのままでも付箋を増やせるようにする -->
                 <Button x:Name="AddNoteButton"
-                        Grid.Column="4" Content="＋"
+                        Grid.Column="5" Content="＋"
                         Style="{StaticResource TitleBarButtonOnLight}"
                         ToolTip="新しい付箋を追加"
                         Click="AddNote_Click"/>
 
-                <!-- 常に最前面。閲覧モードや折りたたみ時も状態が見えるよう
+                <!-- 常に最前面。閲覧モードや閉じた表示でも状態が見えるよう
                      ステータスバーではなくタイトルバーに置く -->
                 <ToggleButton x:Name="PinButton"
-                              Grid.Column="5"
+                              Grid.Column="6"
                               IsChecked="{Binding IsTopmost, Mode=TwoWay}"
                               Style="{StaticResource TitleBarToggleOnLight}"
                               ToolTip="常に最前面"
@@ -166,10 +179,10 @@
                               Checked="Pin_Changed" Unchecked="Pin_Changed"/>
 
                 <Button x:Name="FoldButton"
-                        Grid.Column="6" Content="{Binding FoldIcon}"
+                        Grid.Column="7" Content="{Binding FoldIcon}"
                         Margin="0,0,2,0"
                         Style="{StaticResource TitleBarButtonOnLight}"
-                        ToolTip="折りたたみ / 展開"
+                        ToolTip="閉じた表示 / 開いた表示"
                         Click="Fold_Click"/>
             </Grid>
 
@@ -294,7 +307,7 @@
                 </Border>
             </Popup>
 
-            <!-- 折りたたみ時、タイトルバーにホバーすると本文を確認できるプレビュー -->
+            <!-- 閉じた表示でタイトルバーにホバーすると本文を確認できるプレビュー -->
             <Popup x:Name="TitlePreviewPopup"
                    PlacementTarget="{Binding ElementName=TitleBar}"
                    Placement="Bottom"

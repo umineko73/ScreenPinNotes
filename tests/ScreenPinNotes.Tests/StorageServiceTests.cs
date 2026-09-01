@@ -39,6 +39,7 @@ public sealed class StorageServiceTests : IDisposable
             FoldedWidth = 180,
             IsHidden = true,
             IsReadOnly = true,
+            IsPositionSeparated = true,
         };
 
         _storage.SaveNote(note);
@@ -63,6 +64,7 @@ public sealed class StorageServiceTests : IDisposable
         Assert.Equal(180, loadedNote.FoldedWidth);
         Assert.True(loadedNote.IsHidden);
         Assert.True(loadedNote.IsReadOnly);
+        Assert.True(loadedNote.IsPositionSeparated);
     }
 
     [Fact]

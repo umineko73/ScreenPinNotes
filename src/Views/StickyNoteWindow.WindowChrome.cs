@@ -54,8 +54,8 @@ public partial class StickyNoteWindow
     // タイトルバーは「動かさなければクリック、動かせばドラッグ」で
     // 意味が変わる。押した瞬間はまだどちらか分からないので、
     // MouseMove でしきい値を超えて初めてドラッグ確定として扱い、
-    // 超えなければ MouseUp 時点で折りたたみ／展開する。
-    //   クリック → 折りたたみ／展開
+    // 超えなければ MouseUp 時点で閉じた表示/開いた表示を切り替える。
+    //   クリックまたはダブルクリック → 閉じた表示/開いた表示（設定で選択）
     //   ドラッグ → ウィンドウ移動（従来どおり）
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -65,6 +65,16 @@ public partial class StickyNoteWindow
         // ウィンドウが動いたり編集欄が閉じたりしないようにする。
         if (_isEditMode && e.OriginalSource is DependencyObject src && IsDescendantOf(src, TitleEditBox))
             return;
+
+        if (ShouldToggleViewOnMouseDown(e.ClickCount))
+        {
+            _isDragging = false;
+            _dragMoved = false;
+            _dragSeparatesFoldedPosition = false;
+            e.Handled = true;
+            ToggleFold();
+            return;
+        }
 
         _isDragging      = true;
         _dragMoved       = false;
@@ -115,10 +125,16 @@ public partial class StickyNoteWindow
             return;
         }
 
-        // 動かなかった＝クリックとして扱う。
         _dragSeparatesFoldedPosition = false;
-        ToggleFold();
+        if (ShouldToggleViewOnMouseUp(e.ClickCount))
+            ToggleFold();
     }
+
+    private bool ShouldToggleViewOnMouseDown(int clickCount)
+        => Settings.DoubleClickToToggleView && clickCount >= 2;
+
+    private bool ShouldToggleViewOnMouseUp(int clickCount)
+        => !Settings.DoubleClickToToggleView && clickCount == 1;
 
     private void TitleBar_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
@@ -312,8 +328,8 @@ public partial class StickyNoteWindow
             }
         }
 
-        // 折りたたみ中でも幅の変更（左右辺）だけは許可している。上下辺は
-        // SetResizeEnabled が常に 0 にしているため、折りたたみ中に届く
+        // 閉じた表示でも幅の変更（左右辺）だけは許可している。上下辺は
+        // SetResizeEnabled が常に 0 にしているため、閉じた表示中に届く
         // WM_SIZING は自然と左右辺のみになる。
         if (msg != WM_SIZING) return IntPtr.Zero;
 

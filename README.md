@@ -8,8 +8,8 @@ A desktop sticky notes app for Windows 11.
 
 ## Features
 
-- Folded display
-- Separate folded/unfolded positions and widths
+- Closed view
+- Separate closed view/open view positions and widths
 - View mode / edit mode
 - Markdown rendering
 - Hidden notes
@@ -85,15 +85,15 @@ Distributable zips: `powershell -ExecutionPolicy Bypass -File scripts/publish.ps
 |------|------|
 | Double-click the body | Enter edit mode |
 | Escape | Return to view mode |
-| Drag / click the title bar | Move / fold-unfold |
-| Right-click the title | Edit title, z-order, opacity, unfolded position, reminder, external-file actions, hide, delete/unlink |
+| Drag / double-click the title bar | Move / switch closed view/open view |
+| Right-click the title | Edit title, z-order, opacity, open view position, reminder, external-file actions, hide, delete/unlink |
 | Ctrl+wheel over body/image | Resize font / image |
 | Right-drag in a scrollable body pane | Scroll the pane |
 | Tray icon left/right-click | Show all / open menu |
 
-Folded and unfolded positions/widths are saved separately. When a folded note near the bottom of the screen is unfolded, the app moves the window inside the screen. While folded, choose **Open here** from the title context menu to set the unfolded position to the current position.
+Closed view and open view positions/widths are saved separately. When a note in closed view near the bottom of the screen switches to open view, the app moves the window inside the screen. Notes with separated positions show `⛓️‍💥` in the title bar; **Reconnect closed/open view positions** aligns both positions to the closed view position.
 
-Use `Ctrl + drag` on the title bar to adjust only the current folded/unfolded state. Use `Alt + drag` to disable snapping. Use `Ctrl + Alt + drag` to move only the current state without snapping.
+Use `Ctrl + drag` on the title bar to adjust only the current closed/open view. Use `Alt + drag` to disable snapping. Use `Ctrl + Alt + drag` to move only the current view without snapping. A setting can restore single-click switching.
 
 Use **Note list...** from the tray menu to search all notes and manage visibility, reminders, deletion, and external-file actions. External-file notes are unlinked instead of deleted, and the original file is kept. Search covers titles, body text, reminders, and external file paths.
 
@@ -103,11 +103,11 @@ Use **Open external file as note...** from the tray menu to display a `.md` or `
 
 Use **Hidden notes** in the tray menu to restore hidden notes individually or with **Show all hidden notes**. **Show all** only shows notes with `IsHidden=false`.
 
-The tray menu's Settings submenu contains startup, storage folder, dark mode, language, title preview, fold animation, and fold button settings.
+The tray menu's Settings submenu contains startup, storage folder, dark mode, language, title preview, closed/open view animation, and closed/open view button settings.
 
 ## settings.json
 
-Saved at `%APPDATA%\ScreenPinNotes\settings.json`. It contains `Language`, `Theme`, `StorageRoot`, UI toggles, and timing settings. When no settings file exists, the initial `Language` is chosen from the OS UI locale. Restart the app after editing the file directly.
+Saved at `%APPDATA%\ScreenPinNotes\settings.json`. It contains `Language`, `Theme`, `StorageRoot`, `MaxNoteContentBytes`, UI toggles, and timing settings. `MaxNoteContentBytes` limits the note body `content.md`; the default is 1048576 bytes (1 MB). When no settings file exists, the initial `Language` is chosen from the OS UI locale. Restart the app after editing the file directly.
 
 ## Data location
 
@@ -120,7 +120,7 @@ Saved at `%APPDATA%\ScreenPinNotes\settings.json`. It contains `Language`, `Them
 
 Notes are stored under `StorageRoot`. The storage folder can be changed from **Settings > Select note folder...** in the tray menu or set with the `SCREENPINNOTES_DATA` environment variable before first run.
 
-Each note's `meta.json` stores position, size, folded position/width, hidden state, reminder settings, external-file links, and other metadata. The body is stored in `content.md`. Images are stored under `assets`.
+Each note's `meta.json` stores position, size, closed view position/width, hidden state, reminder settings, external-file links, and other metadata. The body is stored in `content.md`. Images are stored under `assets`.
 
 If the storage folder contains no notes, the app copies sample notes from `SampleNotes`. Japanese OS locales use Japanese samples. Other OS locales use English samples.
 

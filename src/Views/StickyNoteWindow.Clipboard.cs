@@ -135,10 +135,16 @@ public partial class StickyNoteWindow
             var start = BodyEditBox.SelectionStart;
             var length = BodyEditBox.SelectionLength;
             var inserted = TextInsertion.InsertAtSelection(BodyEditBox.Text, start, length, text);
+            if (!CanAcceptNoteContent(inserted.Text))
+            {
+                ShowSizeOverlay(string.Format(
+                    LocalizationService.T("NoteContentTooLarge"),
+                    FormatByteSize(Settings.MaxNoteContentBytes)));
+                return;
+            }
+
             BodyEditBox.Text = inserted.Text;
             BodyEditBox.Select(inserted.CaretIndex, 0);
-            ViewModel.Content = NormalizeLineEndings(inserted.Text);
-            RequestSave();
             return;
         }
 
@@ -146,12 +152,11 @@ public partial class StickyNoteWindow
         var startOff  = GetOffsetOfPointer(ContentBox.Selection.Start);
         var endOff    = GetOffsetOfPointer(ContentBox.Selection.End);
         var insertedText = TextInsertion.InsertAtSelection(plainText, startOff, endOff - startOff, text);
+        if (!TrySetNoteContent(insertedText.Text))
+            return;
 
         LoadPlainContent(insertedText.Text);
         RestoreCaretAt(insertedText.CaretIndex);
-
-        ViewModel.Content = insertedText.Text;
-        RequestSave();
     }
 
     private void PasteExcelTable_Click(object sender, RoutedEventArgs e)

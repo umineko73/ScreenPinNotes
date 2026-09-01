@@ -317,6 +317,7 @@ public partial class App : System.Windows.Application
         settingsItem.DropDownItems.Add(BuildTitlePreviewTooltipItem());
         settingsItem.DropDownItems.Add(BuildFoldAnimationItem());
         settingsItem.DropDownItems.Add(BuildFoldButtonItem());
+        settingsItem.DropDownItems.Add(BuildDoubleClickToToggleViewItem());
         settingsItem.DropDownItems.Add(BuildDarkModeItem());
         settingsItem.DropDownItems.Add(BuildLanguageMenu());
         return settingsItem;
@@ -581,6 +582,17 @@ public partial class App : System.Windows.Application
         return item;
     }
 
+    private ToolStripMenuItem BuildDoubleClickToToggleViewItem()
+    {
+        var item = new ToolStripMenuItem(LocalizationService.T("TrayDoubleClickToToggleView"))
+        {
+            Checked = _settings.DoubleClickToToggleView,
+            CheckOnClick = false,
+        };
+        item.Click += (_, _) => SetDoubleClickToToggleView(!_settings.DoubleClickToToggleView);
+        return item;
+    }
+
     private ToolStripMenuItem BuildLanguageMenu()
     {
         var languageItem = new ToolStripMenuItem(LocalizationService.T("TrayLanguage"));
@@ -655,6 +667,15 @@ public partial class App : System.Windows.Application
             return;
 
         _settings.ShowFoldButton = visible;
+        ApplySettingsChange();
+    }
+
+    private void SetDoubleClickToToggleView(bool enabled)
+    {
+        if (_settings.DoubleClickToToggleView == enabled)
+            return;
+
+        _settings.DoubleClickToToggleView = enabled;
         ApplySettingsChange();
     }
 

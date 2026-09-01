@@ -178,7 +178,7 @@ public partial class StickyNoteWindow
         var readOnlyItem = BuildReadOnlyMenuItem();
         var externalItem = BuildExternalContentMenuItem();
         var reminderItem = BuildReminderMenuItem();
-        var setUnfoldedPositionItem = new MenuItem { Header = LocalizationService.T("SetUnfoldedPositionHere") };
+        var resetPositionSeparationItem = new MenuItem { Header = LocalizationService.T("ResetPositionSeparation") };
         var bringToFrontItem = new MenuItem { Header = LocalizationService.T("BringToFront") };
         var sendToBackItem = new MenuItem { Header = LocalizationService.T("SendToBack") };
         var hideItem = new MenuItem { Header = LocalizationService.T("HideNote") };
@@ -197,7 +197,7 @@ public partial class StickyNoteWindow
         };
         pasteItem.Click += (_, _) => TitleEditBox.Paste();
         selectAllItem.Click += (_, _) => TitleEditBox.SelectAll();
-        setUnfoldedPositionItem.Click += (_, _) => SetUnfoldedPositionHere();
+        resetPositionSeparationItem.Click += (_, _) => ResetPositionSeparation();
         bringToFrontItem.Click += (_, _) => MoveInZOrder(HwndTop);
         sendToBackItem.Click += (_, _) => MoveInZOrder(HwndBottom);
         hideItem.Click += (_, _) => App.Current.HideNote(ViewModel.Model.Id);
@@ -215,7 +215,7 @@ public partial class StickyNoteWindow
         cm.Items.Add(new Separator());
         cm.Items.Add(zOrderItem);
         cm.Items.Add(opacityItem);
-        cm.Items.Add(setUnfoldedPositionItem);
+        cm.Items.Add(resetPositionSeparationItem);
         cm.Items.Add(reminderItem);
         cm.Items.Add(externalItem);
         cm.Items.Add(readOnlyItem);
@@ -236,7 +236,7 @@ public partial class StickyNoteWindow
                 : !string.IsNullOrEmpty(ViewModel.DisplayTitle);
             cutItem.IsEnabled = canEdit && TitleEditBox.SelectionLength > 0;
             pasteItem.IsEnabled = canEdit && TryGetClipboardText(out _);
-            setUnfoldedPositionItem.IsEnabled = ViewModel.IsFolded;
+            resetPositionSeparationItem.IsEnabled = ViewModel.IsPositionSeparated;
             readOnlyItem.IsChecked = ViewModel.IsReadOnly;
             readOnlyItem.IsEnabled = !ViewModel.Model.IsExternalContent;
             externalItem.Visibility = ViewModel.Model.IsExternalContent ? Visibility.Visible : Visibility.Collapsed;
@@ -357,10 +357,21 @@ public partial class StickyNoteWindow
         RequestSave();
     }
 
-    private void SetUnfoldedPositionHere()
+    private void ResetPositionSeparation()
     {
+        var titleBarLeft = ViewModel.IsFolded ? Left : ViewModel.Model.FoldedX ?? Left;
+        var titleBarTop = ViewModel.IsFolded ? Top : ViewModel.Model.FoldedY ?? Top;
+        SuppressWindowBoundsSave(() =>
+        {
+            Left = titleBarLeft;
+            Top = titleBarTop;
+            KeepInsideWorkArea(Width, Height);
+        });
         ViewModel.Model.X = Left;
         ViewModel.Model.Y = Top;
+        ViewModel.Model.FoldedX = Left;
+        ViewModel.Model.FoldedY = Top;
+        ViewModel.IsPositionSeparated = false;
         RequestSave();
     }
 
@@ -488,11 +499,11 @@ public partial class StickyNoteWindow
         var newText  = before + markdown + after;
         var caretOff = before.Length + markdown.Length;
 
+        if (!TrySetNoteContent(newText))
+            return;
+
         LoadPlainContent(newText);
         RestoreCaretAt(caretOff);
-
-        ViewModel.Content = newText;
-        RequestSave();
     }
 
     private string? ShowMarkdownLinkLabelDialog(string defaultLabel)

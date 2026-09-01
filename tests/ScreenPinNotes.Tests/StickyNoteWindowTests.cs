@@ -80,14 +80,423 @@ public class StickyNoteWindowTests
         }
     }
 
+    [WpfFact]
+    public void LoadContent_ReadOnlyMarkdownImageWithoutWidth_FitsNoteWidth()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote
+        {
+            Width = 420,
+            Height = 320,
+            IsReadOnly = true,
+            Content = "![image](assets/pasted.png)",
+        };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        SavePng(System.IO.Path.Combine(assetsDir, "pasted.png"), CreateBitmapSource());
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            InvokePrivate(window, "LoadContent", note.Content);
+            var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            var image = Assert.Single(EnumerateImages(contentBox.Document));
+
+            Assert.True(image.Width > 300);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
+    public void ResizeMarkdownImage_ReadOnlyNote_SavesDisplayOverrideWithoutChangingContent()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote
+        {
+            IsReadOnly = true,
+            Content = "![image](assets/pasted.png)",
+        };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        SavePng(System.IO.Path.Combine(assetsDir, "pasted.png"), CreateBitmapSource());
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            InvokePrivate(window, "LoadContent", note.Content);
+            var contexts = (System.Collections.IDictionary)window.GetType()
+                .GetField("_markdownImageContexts", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .GetValue(window)!;
+            var context = Assert.Single(contexts.Values.Cast<object>());
+
+            InvokePrivate(window, "ResizeMarkdownImage", context, 200);
+
+            Assert.Equal("![image](assets/pasted.png)", note.Content);
+            Assert.Contains(note.ExternalImageWidthOverrides, pair => pair.Key.EndsWith(":assets/pasted.png") && pair.Value > 0);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
+    public void ResizeMarkdownImage_WhenWidthAttributeIsDuplicated_ReplacesAllWidthAttributes()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote
+        {
+            Content = "![image](assets/pasted.png){width=238}{width=1190}",
+        };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        SavePng(System.IO.Path.Combine(assetsDir, "pasted.png"), CreateBitmapSource());
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            InvokePrivate(window, "LoadContent", note.Content);
+            var contexts = (System.Collections.IDictionary)window.GetType()
+                .GetField("_markdownImageContexts", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .GetValue(window)!;
+            var context = Assert.Single(contexts.Values.Cast<object>());
+
+            InvokePrivate(window, "ResizeMarkdownImage", context, 200);
+
+            Assert.Equal("![image](assets/pasted.png){width=4}", note.Content);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
+    public void ToggleFold_ReadOnlyImageLoadedWhileFolded_RefitsImageAfterUnfold()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote
+        {
+            Width = 420,
+            FoldedWidth = 180,
+            Height = 320,
+            IsReadOnly = true,
+            IsFolded = true,
+            Content = "![image](assets/pasted.png)",
+        };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        SavePng(System.IO.Path.Combine(assetsDir, "pasted.png"), CreateBitmapSource());
+        var vm = new StickyNoteViewModel(note, new AppSettings { EnableFoldAnimation = false });
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            InvokePrivate(window, "LoadContent", note.Content);
+            var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            var foldedImage = Assert.Single(EnumerateImages(contentBox.Document));
+
+            InvokePrivate(window, "ToggleFold", (object?)null);
+            var unfoldedImage = Assert.Single(EnumerateImages(contentBox.Document));
+
+            Assert.True(foldedImage.Width < 220);
+            Assert.True(unfoldedImage.Width > 300);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
+    public void SaveCurrentPositionToModel_WhenPositionSeparated_DoesNotResyncOtherState()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote
+        {
+            X = 100,
+            Y = 110,
+            FoldedX = 10,
+            FoldedY = 20,
+            IsPositionSeparated = true,
+        };
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            window.Left = 240;
+            window.Top = 260;
+
+            InvokePrivate(window, "SaveCurrentPositionToModel");
+
+            Assert.Equal(240, note.X);
+            Assert.Equal(260, note.Y);
+            Assert.Equal(10, note.FoldedX);
+            Assert.Equal(20, note.FoldedY);
+            Assert.True(note.IsPositionSeparated);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
+    public void SaveCurrentPositionToModel_WhenDragSeparatesPosition_EntersSeparatedState()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote { X = 100, Y = 110, FoldedX = 10, FoldedY = 20 };
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            window.Left = 240;
+            window.Top = 260;
+            SetPrivateField(window, "_dragSeparatesFoldedPosition", true);
+
+            InvokePrivate(window, "SaveCurrentPositionToModel");
+
+            Assert.True(note.IsPositionSeparated);
+            Assert.Equal(10, note.FoldedX);
+            Assert.Equal(20, note.FoldedY);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
+    public void MarkPositionSeparatedIfOpenViewMovedAwayFromClosedView_WhenClosedPositionDiffers_EntersSeparatedState()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote
+        {
+            X = 100,
+            Y = 110,
+            FoldedX = 10,
+            FoldedY = 20,
+            IsPositionSeparated = false,
+        };
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            window.Left = 240;
+            window.Top = 260;
+
+            InvokePrivate(window, "MarkPositionSeparatedIfOpenViewMovedAwayFromClosedView");
+
+            Assert.True(note.IsPositionSeparated);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
+    public void ResetPositionSeparation_WhileUnfolded_ReconnectsToTitleBarPosition()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote
+        {
+            X = 100,
+            Y = 110,
+            FoldedX = 10,
+            FoldedY = 20,
+            IsPositionSeparated = true,
+        };
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            window.Left = 240;
+            window.Top = 260;
+
+            InvokePrivate(window, "ResetPositionSeparation");
+
+            Assert.False(note.IsPositionSeparated);
+            Assert.Equal(10, window.Left);
+            Assert.Equal(20, window.Top);
+            Assert.Equal(10, note.X);
+            Assert.Equal(20, note.Y);
+            Assert.Equal(10, note.FoldedX);
+            Assert.Equal(20, note.FoldedY);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
+    public void ToggleFold_ToClosedView_AppliesClosedViewBounds()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote
+        {
+            X = 240,
+            Y = 260,
+            Width = 420,
+            Height = 320,
+            FoldedX = 10,
+            FoldedY = 20,
+            FoldedWidth = 180,
+        };
+        var vm = new StickyNoteViewModel(note, new AppSettings { EnableFoldAnimation = false });
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            window.Left = note.X;
+            window.Top = note.Y;
+            window.Width = note.Width;
+            window.Height = note.Height;
+
+            InvokePrivate(window, "ToggleFold", (object?)null);
+
+            Assert.True(note.IsFolded);
+            Assert.Equal(10, window.Left);
+            Assert.Equal(20, window.Top);
+            Assert.Equal(180, window.Width);
+            Assert.Equal(10, note.FoldedX);
+            Assert.Equal(20, note.FoldedY);
+            Assert.Equal(180, note.FoldedWidth);
+            Assert.Equal(320, note.Height);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
+    public void ShouldToggleView_Default_TogglesOnSecondMouseDown()
+    {
+        EnsureApplication();
+        App.Current.Settings.DoubleClickToToggleView = true;
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var vm = new StickyNoteViewModel(new StickyNote(), new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            Assert.False((bool)InvokePrivateWithResult(window, "ShouldToggleViewOnMouseDown", 1)!);
+            Assert.True((bool)InvokePrivateWithResult(window, "ShouldToggleViewOnMouseDown", 2)!);
+            Assert.False((bool)InvokePrivateWithResult(window, "ShouldToggleViewOnMouseUp", 1)!);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
+    public void ShouldToggleViewForClick_WhenSingleClickConfigured_UsesSingleClick()
+    {
+        EnsureApplication();
+        App.Current.Settings.DoubleClickToToggleView = false;
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var vm = new StickyNoteViewModel(new StickyNote(), new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            Assert.False((bool)InvokePrivateWithResult(window, "ShouldToggleViewOnMouseDown", 2)!);
+            Assert.True((bool)InvokePrivateWithResult(window, "ShouldToggleViewOnMouseUp", 1)!);
+            Assert.False((bool)InvokePrivateWithResult(window, "ShouldToggleViewOnMouseUp", 2)!);
+        }
+        finally
+        {
+            App.Current.Settings.DoubleClickToToggleView = true;
+            window.Close();
+        }
+    }
+
+    [WpfFact]
+    public void CanAcceptNoteContent_RejectsNewContentOverConfiguredLimit()
+    {
+        EnsureApplication();
+        App.Current.Settings.MaxNoteContentBytes = 12;
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var vm = new StickyNoteViewModel(new StickyNote { Content = "short" }, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            Assert.True((bool)InvokePrivateWithResult(window, "CanAcceptNoteContent", "123456789012")!);
+            Assert.False((bool)InvokePrivateWithResult(window, "CanAcceptNoteContent", "1234567890123")!);
+        }
+        finally
+        {
+            App.Current.Settings.MaxNoteContentBytes = 1024 * 1024;
+            window.Close();
+        }
+    }
+
+    [WpfFact]
+    public void CanAcceptNoteContent_AllowsShrinkingExistingOversizedContent()
+    {
+        EnsureApplication();
+        App.Current.Settings.MaxNoteContentBytes = 12;
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var vm = new StickyNoteViewModel(new StickyNote { Content = "123456789012345" }, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            Assert.True((bool)InvokePrivateWithResult(window, "CanAcceptNoteContent", "12345678901234")!);
+            Assert.False((bool)InvokePrivateWithResult(window, "CanAcceptNoteContent", "1234567890123456")!);
+        }
+        finally
+        {
+            App.Current.Settings.MaxNoteContentBytes = 1024 * 1024;
+            window.Close();
+        }
+    }
+
     private static void InvokePrivate(object target, string methodName)
         => InvokePrivate(target, methodName, []);
 
-    private static void InvokePrivate(object target, string methodName, params object[] args)
+    private static void InvokePrivate(object target, string methodName, params object?[] args)
     {
         var method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.NotNull(method);
         method.Invoke(target, args);
+    }
+
+    private static object? InvokePrivateWithResult(object target, string methodName, params object?[] args)
+    {
+        var method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        return method.Invoke(target, args);
+    }
+
+    private static void SetPrivateField(object target, string fieldName, object? value)
+    {
+        var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(field);
+        field.SetValue(target, value);
     }
 
     private static System.Windows.Media.Imaging.BitmapSource CreateBitmapSource()
@@ -110,11 +519,46 @@ public class StickyNoteWindowTests
             8);
     }
 
+    private static void SavePng(string path, System.Windows.Media.Imaging.BitmapSource bitmap)
+    {
+        using var stream = File.Create(path);
+        var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+        encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+        encoder.Save(stream);
+    }
+
+    private static IEnumerable<Image> EnumerateImages(FlowDocument document)
+    {
+        foreach (var block in document.Blocks)
+        {
+            if (block is Paragraph paragraph)
+            {
+                foreach (var embeddedImage in EnumerateImages(paragraph.Inlines))
+                    yield return embeddedImage;
+            }
+        }
+    }
+
+    private static IEnumerable<Image> EnumerateImages(InlineCollection inlines)
+    {
+        foreach (var inline in inlines)
+        {
+            if (inline is InlineUIContainer { Child: Image embeddedImage })
+                yield return embeddedImage;
+            else if (inline is Span span)
+            {
+                foreach (var nestedImage in EnumerateImages(span.Inlines))
+                    yield return nestedImage;
+            }
+        }
+    }
+
     private static void EnsureApplication()
     {
         if (Application.Current == null)
             _ = new App();
-        Application.Current!.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        if (Application.Current!.Dispatcher.CheckAccess())
+            Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
     }
 
     private sealed class TempDataDirectory : IDisposable

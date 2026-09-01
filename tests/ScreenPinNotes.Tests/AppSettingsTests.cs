@@ -18,6 +18,32 @@ public class AppSettingsTests
         Assert.Equal(0, settings.Timings.SaveDebounceMs);
     }
 
+    [Fact]
+    public void Defaults_TitleBarViewToggleUsesDoubleClick()
+    {
+        var settings = new AppSettings();
+
+        Assert.True(settings.DoubleClickToToggleView);
+    }
+
+    [Fact]
+    public void Defaults_MaxNoteContentBytes_IsOneMegabyte()
+    {
+        var settings = new AppSettings();
+
+        Assert.Equal(1024 * 1024, settings.MaxNoteContentBytes);
+    }
+
+    [Fact]
+    public void Normalize_MaxNoteContentBytes_AtLeastOneKilobyte()
+    {
+        var settings = new AppSettings { MaxNoteContentBytes = 10 };
+
+        settings.Normalize();
+
+        Assert.Equal(1024, settings.MaxNoteContentBytes);
+    }
+
     [Theory]
     [InlineData("en", "en")]
     [InlineData("EN", "EN")] // matches "en" case-insensitively, so it's left as-is (not lowercased)

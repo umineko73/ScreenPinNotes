@@ -713,8 +713,14 @@ public static class MarkdownRenderer
 
         alt = text[(start + 2)..altEnd];
         length = altEnd + 1 + targetLength - start;
-        if (TryReadImageAttributes(text, start + length, out var attrLength, out width, out height))
+        while (TryReadImageAttributes(text, start + length, out var attrLength, out var attrWidth, out var attrHeight))
+        {
             length += attrLength;
+            if (attrWidth.HasValue)
+                width = attrWidth;
+            if (attrHeight.HasValue)
+                height = attrHeight;
+        }
 
         return target.Length > 0;
     }

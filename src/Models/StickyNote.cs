@@ -51,6 +51,7 @@ public class StickyNote
     public bool IsFolded { get; set; } = false;
     public bool IsHidden { get; set; } = false;
     public bool IsReadOnly { get; set; } = false;
+    public bool IsPositionSeparated { get; set; } = false;
     public string? ExternalContentPath { get; set; }
     public ReminderSettings? Reminder { get; set; }
     public Dictionary<string, double> ExternalImageWidthOverrides { get; set; } = [];

@@ -116,6 +116,8 @@ public partial class StickyNoteWindow : Window
 
     public StickyNoteViewModel ViewModel => (StickyNoteViewModel)DataContext;
 
+    public string PositionSeparatedTooltip => LocalizationService.T("PositionSeparatedTooltip");
+
     public StickyNoteWindow(StickyNoteViewModel vm, StorageService? storage = null)
     {
         InitializeComponent();
@@ -131,10 +133,10 @@ public partial class StickyNoteWindow : Window
         UpdateIconImage();
 
         // コンストラクタ・Loaded での初期値設定は SizeChanged/LocationChanged を
-        // 発火させる。ガードしないと、例えば折りたたみ状態で開いたときに
-        // 「Width = vm.Model.Width（展開時の幅）」という初期代入だけで
+        // 発火させる。ガードしないと、例えば閉じた表示で起動したときに
+        // 「Width = vm.Model.Width（開いた表示の幅）」という初期代入だけで
         // SizeChanged が走り、IsFolded==true 判定から Model.FoldedWidth が
-        // 展開時の幅で上書きされてしまう（初期化の途中でモデルを汚染する）。
+        // 開いた表示の幅で上書きされてしまう（初期化の途中でモデルを汚染する）。
         _isInitializing = true;
 
         Left    = vm.IsFolded ? vm.Model.FoldedX ?? vm.Model.X : vm.Model.X;
@@ -193,7 +195,7 @@ public partial class StickyNoteWindow : Window
                 Height = FoldedHeight;
             }
             ConfigureExternalContentWatcher();
-            // 展開状態でも必ず通す。ここを通さないと WindowChrome が
+            // 開いた表示でも必ず通す。ここを通さないと WindowChrome が
             // XAML の初期値（全辺 5px）のままになり、タイトルバー上端が
             // リサイズ枠として残ってしまう。
             SetResizeEnabled(!vm.IsFolded);
@@ -389,11 +391,11 @@ public partial class StickyNoteWindow : Window
     {
         if (_isInitializing) return; // コンストラクタ〜Loaded の初期値設定はモデルに書き戻さない
         if (_suppressWindowBoundsSave) return;
-        if (_isFoldAnimationRunning) return; // アニメーション途中の高さを展開時サイズとして保存しない
-        // 幅は展開時/折りたたみ時で別々のフィールドに保存する
+        if (_isFoldAnimationRunning) return; // アニメーション途中の高さを開いた表示サイズとして保存しない
+        // 幅は開いた表示/閉じた表示で別々のフィールドに保存する
         // （ToggleFold() が状態切り替え時にどちらか一方へスナップする）。
-        // 高さは折りたたみ中は見た目上の折りたたみ高さでしかないため、
-        // 展開時のみ保存する（編集モードで一時的に伸ばしたぶんも除く）。
+        // 高さは閉じた表示中は見た目上のタイトルバー高さでしかないため、
+        // 開いた表示のみ保存する（編集モードで一時的に伸ばしたぶんも除く）。
         if (ViewModel.IsFolded)
             ViewModel.Model.FoldedWidth = Width;
         else
@@ -435,7 +437,9 @@ public partial class StickyNoteWindow : Window
 
     private void SaveCurrentPositionToModel()
     {
-        var syncOtherState = !_dragSeparatesFoldedPosition && !IsControlPressed();
+        if (_dragSeparatesFoldedPosition || IsControlPressed())
+            ViewModel.IsPositionSeparated = true;
+        var syncOtherState = !ViewModel.IsPositionSeparated;
         if (ViewModel.IsFolded)
         {
             ViewModel.Model.FoldedX = Left;
@@ -455,6 +459,21 @@ public partial class StickyNoteWindow : Window
                 ViewModel.Model.FoldedX = Left;
                 ViewModel.Model.FoldedY = Top;
             }
+        }
+    }
+
+    private void MarkPositionSeparatedIfOpenViewMovedAwayFromClosedView()
+    {
+        if (ViewModel.IsFolded || ViewModel.IsPositionSeparated)
+            return;
+        if (!ViewModel.Model.FoldedX.HasValue || !ViewModel.Model.FoldedY.HasValue)
+            return;
+
+        const double PositionTolerance = 0.5;
+        if (Math.Abs(ViewModel.Model.FoldedX.Value - Left) > PositionTolerance ||
+            Math.Abs(ViewModel.Model.FoldedY.Value - Top) > PositionTolerance)
+        {
+            ViewModel.IsPositionSeparated = true;
         }
     }
 

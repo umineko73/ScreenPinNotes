@@ -33,8 +33,9 @@ public static class LocalizationService
             "TrayImportNotes" => english ? "Import notes..." : "付箋をインポート...",
             "TrayStartup" => english ? "Start with Windows" : "Windows 起動時に開始",
             "TrayTitlePreviewTooltip" => english ? "Title hover preview" : "タイトルのツールチップ",
-            "TrayFoldAnimation" => english ? "Fold animation" : "折りたたみアニメーション",
-            "TrayFoldButton" => english ? "Show fold button" : "折りたたみボタンを表示",
+            "TrayFoldAnimation" => english ? "Closed/open view animation" : "閉じた表示/開いた表示アニメーション",
+            "TrayFoldButton" => english ? "Show closed/open view button" : "閉じた表示/開いた表示ボタンを表示",
+            "TrayDoubleClickToToggleView" => english ? "Double-click title bar to switch closed/open view" : "タイトルバーのダブルクリックで閉じた表示/開いた表示を切り替え",
             "TrayLanguage" => english ? "Language" : "言語",
             "TrayLanguageJapanese" => english ? "Japanese" : "日本語",
             "TrayLanguageEnglish" => english ? "English" : "英語",
@@ -109,12 +110,15 @@ public static class LocalizationService
             "EditLockDeleteBlockedMessage" => english
                 ? "This note is locked and cannot be deleted."
                 : "この付箋は編集ロック中のため削除できません。",
+            "NoteContentTooLarge" => english
+                ? "Body size limit: {0}"
+                : "本文サイズ上限: {0}",
             "TitleFallbackTooltip" => english
                 ? "Leave blank to show the first body line"
                 : "空欄なら本文の1行目を表示します",
             "AddNoteTooltip" => english ? "Add a new note" : "新しい付箋を追加",
             "TopmostTooltip" => english ? "Always on top" : "常に最前面",
-            "FoldTooltip" => english ? "Fold / unfold" : "折りたたみ / 展開",
+            "FoldTooltip" => english ? "Closed view / Open view" : "閉じた表示 / 開いた表示",
             "FontSmallerTooltip" => english ? "Smaller body font (current {0}pt)" : "本文のフォントを小さく (現在 {0}pt)",
             "FontLargerTooltip" => english ? "Larger body font (current {0}pt)" : "本文のフォントを大きく (現在 {0}pt)",
             "TitleSmallerTooltip" => english ? "Smaller title font (current {0}pt)" : "タイトルのフォントを小さく (現在 {0}pt)",
@@ -143,7 +147,8 @@ public static class LocalizationService
             "EditTitle" => english ? "Edit title" : "タイトルを編集",
             "ZOrder" => english ? "Z order" : "重なり順",
             "Opacity" => english ? "Opacity" : "透明度",
-            "SetUnfoldedPositionHere" => english ? "Open here" : "展開位置をここにする",
+            "ResetPositionSeparation" => english ? "Reconnect closed/open view positions" : "閉じた表示と開いた表示の位置を戻す",
+            "PositionSeparatedTooltip" => english ? "Closed view and open view positions are separated" : "閉じた表示と開いた表示の位置が分離中",
             "ExternalFile" => english ? "External file" : "外部ファイル",
             "OpenExternalFile" => english ? "Open external file" : "外部ファイルを開く",
             "OpenExternalFolder" => english ? "Open containing folder" : "外部ファイルのフォルダを開く",

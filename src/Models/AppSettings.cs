@@ -17,7 +17,9 @@ public sealed class AppSettings
     public bool ShowTitlePreviewTooltip { get; set; }
     public bool EnableFoldAnimation { get; set; }
     public bool ShowFoldButton { get; set; }
+    public bool DoubleClickToToggleView { get; set; } = true;
     public int HoverOpacityBoostPercent { get; set; } = 10;
+    public int MaxNoteContentBytes { get; set; } = 1024 * 1024;
     public string StorageRoot { get; set; } = "";
     public string NotesRoot { get; set; } = "";
     public string Language { get; set; } = "ja";
@@ -71,6 +73,7 @@ public sealed class AppSettings
         Timings.SaveDebounceMs = Math.Max(0, Timings.SaveDebounceMs);
 
         HoverOpacityBoostPercent = Math.Clamp(HoverOpacityBoostPercent, 0, 90);
+        MaxNoteContentBytes = Math.Max(1024, MaxNoteContentBytes);
 
         Interaction.SnapDistance = Math.Max(0, Interaction.SnapDistance);
         Interaction.ClickDragThresholdPx = Math.Max(0, Interaction.ClickDragThresholdPx);

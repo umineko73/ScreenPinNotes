@@ -171,6 +171,20 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     public Visibility EditLockVisibility =>
         _model.IsReadOnly || _model.IsExternalContent ? Visibility.Visible : Visibility.Collapsed;
 
+    public bool IsPositionSeparated
+    {
+        get => _model.IsPositionSeparated;
+        set
+        {
+            _model.IsPositionSeparated = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(PositionSeparatedVisibility));
+        }
+    }
+
+    public Visibility PositionSeparatedVisibility =>
+        _model.IsPositionSeparated ? Visibility.Visible : Visibility.Collapsed;
+
     public bool IsExternalContent => _model.IsExternalContent;
 
     public void ClearExternalContentPath()

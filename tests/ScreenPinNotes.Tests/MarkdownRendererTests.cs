@@ -161,6 +161,27 @@ public class MarkdownRendererTests
     }
 
     [Fact]
+    public void Render_MarkdownImage_ConsumesDuplicateWidthAttributesAndUsesLastValue()
+    {
+        MarkdownRenderer.MarkdownImage? captured = null;
+
+        var blocks = MarkdownRenderer.Render(
+            "![image](assets/pasted.png){width=238}{width=1190}",
+            13,
+            CreateHyperlink,
+            createImage: image =>
+            {
+                captured = image;
+                return new Run("");
+            }).ToList();
+
+        var paragraph = Assert.IsType<Paragraph>(Assert.Single(blocks));
+        Assert.NotNull(captured);
+        Assert.Equal(1190, captured.Width);
+        Assert.Equal("", GetInlineText(paragraph.Inlines));
+    }
+
+    [Fact]
     public void Render_UnderscoreEmphasis_ProducesBoldAndItalicSpans()
     {
         var blocks = MarkdownRenderer.Render("__bold__ and _italic_", 13, CreateHyperlink).ToList();

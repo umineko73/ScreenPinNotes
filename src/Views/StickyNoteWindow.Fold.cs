@@ -49,12 +49,12 @@ namespace ScreenPinNotes.Views;
 
 public partial class StickyNoteWindow
 {
-    // ─── 折りたたみ ──────────────────────────────────────────────
+    // ─── 閉じた表示 / 開いた表示 ────────────────────────────────
 
     private void Fold_Click(object sender, RoutedEventArgs e) => ToggleFold();
 
-    // onUnfolded: 展開アニメーション完了後に呼ぶコールバック（省略可）。
-    // 畳んだ状態から「展開して編集モードに入る」ような、アニメーション完了を
+    // onUnfolded: 開いた表示へのアニメーション完了後に呼ぶコールバック（省略可）。
+    // 閉じた表示から「開いた表示にして編集モードに入る」ような、アニメーション完了を
     // 待ってから続けたい処理のために用意している。アニメーション実行中に
     // Height へ直接代入する処理（EnterEditMode 経由の GrowForStatusBar 等）を
     // 呼んでしまうと、進行中のアニメーションが中途半端な値で凍結されてしまう。
@@ -66,14 +66,13 @@ public partial class StickyNoteWindow
             ViewModel.Model.FoldedY = Top;
             ViewModel.Model.FoldedWidth = Width;
 
-            ContentBox.Visibility = Visibility.Visible;
             BodyEditBox.Visibility = Visibility.Collapsed;
             ViewModel.IsFolded = false;
             UpdateTitleBarButtonsVisibility();
             ScheduleTitlePreview();
             SuppressWindowBoundsSave(() =>
             {
-                Width = ViewModel.Model.Width; // 展開時専用の幅に戻す
+                Width = ViewModel.Model.Width; // 開いた表示専用の幅に戻す
                 Left = ViewModel.Model.X;
                 Top = ViewModel.Model.Y;
                 KeepInsideWorkArea(Width, _unfoldedHeight);
@@ -81,15 +80,18 @@ public partial class StickyNoteWindow
             ViewModel.Model.X = Left;
             ViewModel.Model.Y = Top;
             SetResizeEnabled(true);
+            ContentBox.Visibility = Visibility.Visible;
             RunFoldAnimation(FoldedHeight, _unfoldedHeight, () =>
             {
                 ViewModel.Model.Height = _unfoldedHeight;
+                if (!_isEditMode)
+                    LoadContent(ViewModel.Content);
                 onUnfolded?.Invoke();
             });
         }
         else
         {
-            if (_isEditMode) EnterViewMode(); // 折りたたみ時は閲覧モードに戻す
+            if (_isEditMode) EnterViewMode(); // 閉じた表示では閲覧モードに戻す
             ViewModel.Model.X = Left;
             ViewModel.Model.Y = Top;
             ViewModel.Model.Width = Width;
@@ -100,20 +102,23 @@ public partial class StickyNoteWindow
             UpdateTitleBarButtonsVisibility();
             ScheduleTitlePreview();
             HideEditToolbar();
-            // 折りたたみ時専用の幅へスナップ（未設定なら現在の幅のまま）
-            SuppressWindowBoundsSave(() =>
-            {
-                Left = ViewModel.Model.FoldedX ?? Left;
-                Top = ViewModel.Model.FoldedY ?? Top;
-                Width = ViewModel.Model.FoldedWidth ?? Width;
-            });
-            ViewModel.Model.FoldedX = Left;
-            ViewModel.Model.FoldedY = Top;
-            ViewModel.Model.FoldedWidth = Width;
+            var foldedLeft = ViewModel.Model.FoldedX ?? Left;
+            var foldedTop = ViewModel.Model.FoldedY ?? Top;
+            var foldedWidth = ViewModel.Model.FoldedWidth ?? Width;
+            // 閉じた表示専用の幅へスナップ（未設定なら現在の幅のまま）
             RunFoldAnimation(Height, FoldedHeight, () =>
             {
                 ContentBox.Visibility = Visibility.Collapsed;
                 BodyEditBox.Visibility = Visibility.Collapsed;
+                SuppressWindowBoundsSave(() =>
+                {
+                    Left = foldedLeft;
+                    Top = foldedTop;
+                    Width = foldedWidth;
+                });
+                ViewModel.Model.FoldedX = Left;
+                ViewModel.Model.FoldedY = Top;
+                ViewModel.Model.FoldedWidth = Width;
                 ViewModel.Model.Height = _unfoldedHeight;
                 SetResizeEnabled(false); // タイトルバーのみの時はリサイズ不可
             });
@@ -139,7 +144,7 @@ public partial class StickyNoteWindow
         AnimateHeight(from, to, () =>
         {
             // アニメーション後も Height のベース値を最終値に固定する。
-            // これをしないと、後続の BeginAnimation(..., null) で折りたたみ高さへ戻ることがある。
+            // これをしないと、後続の BeginAnimation(..., null) で閉じた表示の高さへ戻ることがある。
             Height = to;
             BeginAnimation(HeightProperty, null);
             _isFoldAnimationRunning = false;

@@ -147,8 +147,8 @@ public partial class StickyNoteWindow
     private void EnterViewMode()
     {
         if (!_isEditMode || _suppressViewMode) return;
-        if (BodyEditBox.Visibility == Visibility.Visible)
-            ViewModel.Content = NormalizeLineEndings(BodyEditBox.Text);
+        if (BodyEditBox.Visibility == Visibility.Visible && !TrySetNoteContent(BodyEditBox.Text))
+            return;
 
         _isEditMode = false;
         ViewModel.SetForceOpaque(false);
@@ -191,8 +191,8 @@ public partial class StickyNoteWindow
     //   1. WindowChrome.ResizeBorderThickness = 0 … 当たり判定を消す
     //   2. Min/Max を現在値で固定           … 寸法変更そのものを封じる
     //
-    // 折りたたみ時（enabled=false）でも幅だけは変更できるようにしている。
-    // 上下だけ 0 にして左右は残す。展開中の上下リサイズは許可し、
+    // 閉じた表示（enabled=false）でも幅だけは変更できるようにしている。
+    // 上下だけ 0 にして左右は残す。開いた表示の上下リサイズは許可し、
     // 上下枠のダブルクリックによる Windows 標準の縦方向最大化だけは
     // WndProc 側で抑止する。
     private void SetResizeEnabled(bool enabled)
@@ -225,7 +225,7 @@ public partial class StickyNoteWindow
         }
     }
 
-    // 折りたたみ状態と編集モードの両方を考慮してステータスバーの表示を更新
+    // 閉じた表示と編集モードの両方を考慮してステータスバーの表示を更新
     private void UpdateControlsVisibility()
     {
         IconButton.Visibility = ViewModel.Model.IsExternalContent
@@ -303,12 +303,12 @@ public partial class StickyNoteWindow
 
         _statusBarDelta = barHeight;
 
-        // 折りたたみアニメーションが Height プロパティを掴んだままだと、
+        // 表示切り替えアニメーションが Height プロパティを掴んだままだと、
         // 以下の直接代入がその場では効いても次のレイアウトパスで
         // アニメーションの最終値に上書きされてしまう。先に解除する。
         BeginAnimation(HeightProperty, null);
 
-        // 伸ばす前に上下の制限を緩めておく（折りたたみ用の固定が残っていることがある）
+        // 伸ばす前に上下の制限を緩めておく（閉じた表示用の固定が残っていることがある）
         MaxHeight = double.PositiveInfinity;
         Height += barHeight;
 
@@ -563,8 +563,8 @@ public partial class StickyNoteWindow
         if (!_isEditMode || ContentBox.IsReadOnly) return;
         try
         {
-            ViewModel.Content = GetPlainText();
-            RequestSave();
+            if (!TrySetNoteContent(GetPlainText()))
+                LoadPlainContent(ViewModel.Content);
         }
         catch (Exception ex)
         {
@@ -577,8 +577,58 @@ public partial class StickyNoteWindow
         if (_suppressTextChange) return;
         if (!_isEditMode || BodyEditBox.Visibility != Visibility.Visible) return;
 
-        ViewModel.Content = NormalizeLineEndings(BodyEditBox.Text);
+        if (!TrySetNoteContent(BodyEditBox.Text))
+            RevertBodyEditBoxToCurrentContent();
+    }
+
+    private bool TrySetNoteContent(string text)
+    {
+        var normalized = NormalizeLineEndings(text);
+        if (!CanAcceptNoteContent(normalized))
+        {
+            ShowSizeOverlay(string.Format(
+                LocalizationService.T("NoteContentTooLarge"),
+                FormatByteSize(Settings.MaxNoteContentBytes)));
+            return false;
+        }
+
+        ViewModel.Content = normalized;
         RequestSave();
+        return true;
+    }
+
+    private bool CanAcceptNoteContent(string text)
+    {
+        var nextBytes = Encoding.UTF8.GetByteCount(NormalizeLineEndings(text));
+        if (nextBytes <= Settings.MaxNoteContentBytes)
+            return true;
+
+        var currentBytes = Encoding.UTF8.GetByteCount(NormalizeLineEndings(ViewModel.Content));
+        return currentBytes > Settings.MaxNoteContentBytes && nextBytes <= currentBytes;
+    }
+
+    private void RevertBodyEditBoxToCurrentContent()
+    {
+        var caret = Math.Min(BodyEditBox.SelectionStart, ViewModel.Content.Length);
+        _suppressTextChange = true;
+        try
+        {
+            BodyEditBox.Text = ViewModel.Content;
+            BodyEditBox.Select(caret, 0);
+        }
+        finally
+        {
+            _suppressTextChange = false;
+        }
+    }
+
+    private static string FormatByteSize(int bytes)
+    {
+        if (bytes >= 1024 * 1024)
+            return FormattableString.Invariant($"{bytes / 1024.0 / 1024.0:0.#} MB");
+        if (bytes >= 1024)
+            return FormattableString.Invariant($"{bytes / 1024.0:0.#} KB");
+        return FormattableString.Invariant($"{bytes} B");
     }
 
     // Title 自体の値は TwoWay バインディングが更新するので、ここでは保存の予約だけ行う
