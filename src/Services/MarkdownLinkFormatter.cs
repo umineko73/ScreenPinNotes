@@ -11,11 +11,9 @@ namespace ScreenPinNotes.Services;
 public static class MarkdownLinkFormatter
 {
     public static string Build(string label, string target)
-        => $"[{EscapeLabel(label)}]({EscapeTarget(target)})";
+        => $"[{EscapeLabel(label)}](<{target}>)";
 
     private static string EscapeLabel(string value)
         => value.Replace("\\", "\\\\").Replace("[", "\\[").Replace("]", "\\]");
 
-    private static string EscapeTarget(string value)
-        => value.Replace("\\", "\\\\").Replace("(", "\\(").Replace(")", "\\)");
 }

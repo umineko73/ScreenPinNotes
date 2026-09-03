@@ -19,6 +19,8 @@ public static class LocalizationService
         var english = string.Equals(Settings.Language, "en", StringComparison.OrdinalIgnoreCase);
         return key switch
         {
+            "Yes" => english ? "Yes" : "はい",
+            "No" => english ? "No" : "いいえ",
             "TrayShowAll" => english ? "Show all notes" : "付箋をすべて表示",
             "TrayHideAll" => english ? "Hide all notes" : "付箋をすべて非表示",
             "TrayNoteManager" => english ? "Note list..." : "付箋一覧...",
@@ -124,6 +126,8 @@ public static class LocalizationService
             "TitleSmallerTooltip" => english ? "Smaller title font (current {0}pt)" : "タイトルのフォントを小さく (現在 {0}pt)",
             "TitleLargerTooltip" => english ? "Larger title font (current {0}pt)" : "タイトルのフォントを大きく (現在 {0}pt)",
             "FontTooltip" => english ? "Change font" : "フォントを変更",
+            "ChangeIcon" => english ? "Change icon" : "アイコンを変更",
+            "ChangeColor" => english ? "Change color" : "色を変更",
             "IconTooltip" => english ? "Change icon" : "アイコンを変更",
             "NoIconTooltip" => english ? "No icon" : "アイコンなし",
             "ColorTooltip" => english ? "Change color" : "色を変更",

@@ -813,12 +813,11 @@ public partial class StickyNoteWindow
 
         if (deleteFile)
         {
-            var result = System.Windows.MessageBox.Show(
+            var confirmed = ConfirmationDialog.ShowFor(
+                this,
                 LocalizationService.T("DeleteImageFileConfirmMessage"),
-                LocalizationService.T("DeleteImageFileConfirmTitle"),
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
-            if (result != MessageBoxResult.Yes)
+                LocalizationService.T("DeleteImageFileConfirmTitle"));
+            if (!confirmed)
                 return;
 
             if (!DeleteImageFileIfOwnedByNote(context.Target))

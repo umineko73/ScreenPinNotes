@@ -96,7 +96,7 @@ public partial class StickyNoteWindow
                 Background = PopupBackgroundBrush(), BorderBrush = PopupBorderBrush(),
                 BorderThickness = new Thickness(1), Padding = new Thickness(4), Child = panel,
             },
-            Placement = PlacementMode.Bottom, StaysOpen = true,
+            Placement = PlacementMode.Bottom, StaysOpen = false,
         };
     }
 
@@ -161,7 +161,7 @@ public partial class StickyNoteWindow
                 Background = PopupBackgroundBrush(), BorderBrush = PopupBorderBrush(),
                 BorderThickness = new Thickness(1), Padding = new Thickness(4), Child = panel,
             },
-            Placement = PlacementMode.Bottom, StaysOpen = true,
+            Placement = PlacementMode.Bottom, StaysOpen = false,
         };
     }
 

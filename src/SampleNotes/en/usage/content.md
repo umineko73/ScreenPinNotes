@@ -36,6 +36,7 @@ Left: expanded view (body text visible). Right: collapsed view (only the title b
 ## Title Context Menu
 
 - Edit title
+- Change icon and color
 - Change stacking order
 - Change opacity
 - Align to collapsed position
@@ -49,6 +50,7 @@ While editing is locked, the title text cannot be edited and the note cannot be 
 
 ## Body Context Menu
 
+- Change icon and color
 - Cut / copy / paste
 - Paste as Markdown link
 - Paste / copy Excel tables

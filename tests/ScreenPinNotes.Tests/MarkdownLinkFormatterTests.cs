@@ -7,6 +7,7 @@ public class MarkdownLinkFormatterTests
 {
     [Theory]
     [InlineData("Docs] [v2", "https://example.com/reports/(draft)")]
+    [InlineData("Wikipedia", "https://en.wikipedia.org/wiki/Function_%28mathematics%29")]
     [InlineData("notes.txt", @"C:\\Users\\me\\My Notes\\notes.txt")]
     public void Build_RoundTripsLabelAndTargetThroughRenderer(string label, string target)
     {
@@ -28,11 +29,23 @@ public class MarkdownLinkFormatterTests
     }
 
     [Fact]
-    public void Build_EscapesMarkdownDelimiters()
+    public void Build_UsesAngleWrappedTargetWithoutEscapingUrlCharacters()
     {
         var markdown = MarkdownLinkFormatter.Build("a[b]\\c", "https://example.com/a(b)\\c");
 
-        Assert.Equal(@"[a\[b\]\\c](https://example.com/a\(b\)\\c)", markdown);
+        Assert.Equal(@"[a\[b\]\\c](<https://example.com/a(b)\c>)", markdown);
+    }
+
+    [Fact]
+    public void Build_PreservesPercentEncodedUrl()
+    {
+        var markdown = MarkdownLinkFormatter.Build(
+            "Wikipedia",
+            "https://en.wikipedia.org/wiki/Function_%28mathematics%29");
+
+        Assert.Equal(
+            "[Wikipedia](<https://en.wikipedia.org/wiki/Function_%28mathematics%29>)",
+            markdown);
     }
 
     [Fact]

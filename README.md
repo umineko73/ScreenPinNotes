@@ -86,7 +86,8 @@ Distributable zips: `powershell -ExecutionPolicy Bypass -File scripts/publish.ps
 | Double-click the body | Enter edit mode |
 | Escape | Return to view mode |
 | Drag / double-click the title bar | Move / switch collapsed view/expanded view |
-| Right-click the title | Edit title, stacking order, opacity, expanded-view position, reminder, external-file actions, hide, delete note |
+| Right-click the title | Edit title, icon/color, stacking order, opacity, expanded-view position, reminder, external-file actions, hide, delete note |
+| Right-click the body | Change icon/color, edit text, work with links/tables, resize to images, set reminders, manage external files, hide, or delete the note |
 | Ctrl+wheel over body/image | Resize font / image |
 | Right-drag in a scrollable body pane | Scroll the pane |
 | Tray icon left/right-click | Show all / open menu |

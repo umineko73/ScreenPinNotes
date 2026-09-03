@@ -221,6 +221,15 @@ public partial class StickyNoteWindow
     }
 
     private void Color_Click(object sender, RoutedEventArgs e)
+        => OpenColorPicker((UIElement)sender);
+
+    private void OpenColorPicker(UIElement placementTarget)
+        => OpenColorPicker(placementTarget, PlacementMode.Bottom, 0, 0);
+
+    private void OpenColorPickerAtMouse()
+        => OpenColorPicker(null, PlacementMode.MousePoint, 12, 12);
+
+    private void OpenColorPicker(UIElement? placementTarget, PlacementMode placement, double horizontalOffset, double verticalOffset)
     {
         if (_colorPopup == null) return;
 
@@ -232,11 +241,26 @@ public partial class StickyNoteWindow
 
         ClosePickerPopups(except: _colorPopup);
         UpdateColorSelection();
-        _colorPopup.PlacementTarget = (UIElement)sender;
+        _colorPopup.PlacementTarget = placementTarget;
+        _colorPopup.Placement = placement;
+        _colorPopup.HorizontalOffset = horizontalOffset;
+        _colorPopup.VerticalOffset = verticalOffset;
         _colorPopup.IsOpen = true;
     }
 
     private void Icon_Click(object sender, RoutedEventArgs e)
+        => OpenIconPicker((UIElement)sender);
+
+    private void OpenPickerAfterContextMenuClosed(Action openPicker)
+        => Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, openPicker);
+
+    private void OpenIconPicker(UIElement placementTarget)
+        => OpenIconPicker(placementTarget, PlacementMode.Bottom, 0, 0);
+
+    private void OpenIconPickerAtMouse()
+        => OpenIconPicker(null, PlacementMode.MousePoint, 12, 12);
+
+    private void OpenIconPicker(UIElement? placementTarget, PlacementMode placement, double horizontalOffset, double verticalOffset)
     {
         if (ViewModel.Model.IsExternalContent)
             return;
@@ -251,7 +275,10 @@ public partial class StickyNoteWindow
 
         ClosePickerPopups(except: _iconPopup);
         UpdateIconSelection();
-        _iconPopup.PlacementTarget = (UIElement)sender;
+        _iconPopup.PlacementTarget = placementTarget;
+        _iconPopup.Placement = placement;
+        _iconPopup.HorizontalOffset = horizontalOffset;
+        _iconPopup.VerticalOffset = verticalOffset;
         _iconPopup.IsOpen = true;
     }
 
@@ -292,12 +319,11 @@ public partial class StickyNoteWindow
             : HasNoteAssets()
             ? "DeleteConfirmMessageWithAssets"
             : "DeleteConfirmMessage";
-        var result = System.Windows.MessageBox.Show(
+        var confirmed = ConfirmationDialog.ShowFor(
             this,
             LocalizationService.T(messageKey),
-            LocalizationService.T("DeleteConfirmTitle"),
-            MessageBoxButton.YesNo, MessageBoxImage.Question);
-        if (result == MessageBoxResult.Yes)
+            LocalizationService.T("DeleteConfirmTitle"));
+        if (confirmed)
         {
             if (App.Current.RemoveNote(ViewModel.Model.Id))
                 Close();

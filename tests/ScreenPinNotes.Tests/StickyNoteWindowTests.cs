@@ -88,6 +88,7 @@ public class StickyNoteWindowTests
             var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
 
             Assert.NotNull(bodyEditBox.ContextMenu);
+            Assert.NotNull(contentBox.ContextMenu);
             Assert.Contains(
                 bodyEditBox.ContextMenu.Items.OfType<MenuItem>(),
                 item => Equals(item.Header, "貼り付け") || Equals(item.Header, "Paste"));
@@ -97,6 +98,8 @@ public class StickyNoteWindowTests
             Assert.Contains(
                 bodyEditBox.ContextMenu.Items.OfType<MenuItem>(),
                 item => Equals(item.Header, "リマインダー...") || Equals(item.Header, "Reminder..."));
+            AssertMenuHasIconAndColorOptions(bodyEditBox.ContextMenu);
+            AssertMenuHasIconAndColorOptions(contentBox.ContextMenu);
 
             InvokePrivate(window, "EnterEditMode");
 
@@ -138,6 +141,16 @@ public class StickyNoteWindowTests
         {
             window.Close();
         }
+    }
+
+    private static void AssertMenuHasIconAndColorOptions(ContextMenu contextMenu)
+    {
+        Assert.Contains(
+            contextMenu.Items.OfType<MenuItem>(),
+            item => Equals(item.Header, "アイコンを変更") || Equals(item.Header, "Change icon"));
+        Assert.Contains(
+            contextMenu.Items.OfType<MenuItem>(),
+            item => Equals(item.Header, "色を変更") || Equals(item.Header, "Change color"));
     }
 
     [WpfFact]

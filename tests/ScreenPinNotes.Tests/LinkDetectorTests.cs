@@ -39,6 +39,8 @@ public class LinkDetectorTests
     [Theory]
     [InlineData("https://example.com")]
     [InlineData("http://example.com/path?query=1")]
+    [InlineData("https://en.wikipedia.org/wiki/Function_%28mathematics%29")]
+    [InlineData("https://example.com/files/My%20Notes%5Ctoday")]
     [InlineData(@"C:\Users\me")]
     [InlineData(@"\\server\share")]
     public void IsLink_RecognizedFormats_ReturnsTrue(string text)

@@ -737,6 +737,21 @@ public static class MarkdownRenderer
             return false;
 
         var start = openParenIndex + 1;
+        if (start < text.Length && text[start] == '<')
+        {
+            var closeAngleIndex = text.IndexOf('>', start + 1);
+            if (closeAngleIndex > start + 1 &&
+                closeAngleIndex + 1 < text.Length &&
+                text[closeAngleIndex + 1] == ')')
+            {
+                // <...> で囲まれたリンク先は、括弧やバックスラッシュを
+                // Markdown エスケープとして扱わず、そのままURLとして渡す。
+                target = text[(start + 1)..closeAngleIndex];
+                length = closeAngleIndex + 2 - openParenIndex;
+                return true;
+            }
+        }
+
         var depth = 0;
         var fallbackEnd = -1;
         for (var i = start; i < text.Length; i++)
