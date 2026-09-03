@@ -192,6 +192,50 @@ public partial class StickyNoteWindow
         }
     }
 
+    // ─── クイックアクション行（Excel 風のミニツールバー） ────────
+    //
+    // 別ポップアップとして開くと、直後に開くコンテキストメニューが
+    // マウスキャプチャを取るため即座に閉じてしまう。メニュー自身の
+    // 先頭項目として持たせることで、クリックが確実に届く。
+
+    private MenuItem BuildQuickActionsRow(out WpfButton iconButton)
+    {
+        WpfButton MakeButton(string content, string tooltip, Action onClick)
+        {
+            var btn = new WpfButton
+            {
+                Content = content,
+                Width = 30, Height = 30,
+                Margin = new Thickness(1, 0, 1, 0),
+                Padding = new Thickness(0),
+                FontSize = 15,
+                Background = WpfBrushes.Transparent,
+                BorderThickness = new Thickness(1),
+                BorderBrush = PopupBorderBrush(),
+                Cursor = WpfCursors.Hand,
+                ToolTip = tooltip,
+                // マウス専用のショートカット。フォーカスは受け取らない。
+                Focusable = false,
+            };
+            btn.Click += (_, _) => onClick();
+            return btn;
+        }
+
+        var colorButton = MakeButton("🎨", LocalizationService.T("ColorTooltip"),
+            () => RunQuickAction(OpenColorPickerAtMouse));
+        iconButton = MakeButton("😀", LocalizationService.T("IconTooltip"),
+            () => RunQuickAction(OpenIconPickerAtMouse));
+
+        var panel = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
+        panel.Children.Add(colorButton);
+        panel.Children.Add(iconButton);
+
+        // StaysOpenOnClick: ボタン以外の余白を押してもメニューを閉じない。
+        // Focusable=false: 押しても何も起きない行なので、矢印キーの移動先に
+        // しない。キーボードからは「アイコンを変更」「色を変更」の項目を使う。
+        return new MenuItem { Header = panel, StaysOpenOnClick = true, Focusable = false };
+    }
+
     // ─── フォントピッカー ────────────────────────────────────────
 
     private Popup BuildFontPopup()

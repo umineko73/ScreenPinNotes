@@ -76,7 +76,11 @@ public partial class StickyNoteWindow
         colorItem.Click += (_, _) => OpenPickerAfterContextMenuClosed(OpenColorPickerAtMouse);
         deleteItem.Click += Close_Click;
 
+        var quickRow = BuildQuickActionsRow(out var quickIconButton);
+
         var cm = new ContextMenu();
+        cm.Items.Add(quickRow);
+        cm.Items.Add(new Separator());
         cm.Items.Add(cutItem);
         cm.Items.Add(new MenuItem { Header = LocalizationService.T("Copy"), Command = ApplicationCommands.Copy, CommandTarget = ContentBox });
         cm.Items.Add(pasteItem);
@@ -105,6 +109,7 @@ public partial class StickyNoteWindow
             var canEdit = !IsContentReadOnly();
             cutItem.IsEnabled = canEdit && _isEditMode && ContentBox.Selection.IsEmpty == false;
             pasteItem.IsEnabled = canEdit && _isEditMode && (TryGetClipboardText(out _) || ClipboardHasImage());
+            quickIconButton.IsEnabled = !ViewModel.Model.IsExternalContent;
             iconItem.IsEnabled = !ViewModel.Model.IsExternalContent;
             colorItem.IsEnabled = true;
             readOnlyItem.IsChecked = ViewModel.IsReadOnly;
@@ -140,7 +145,11 @@ public partial class StickyNoteWindow
         hideItem.Click += (_, _) => App.Current.HideNote(ViewModel.Model.Id);
         deleteItem.Click += Close_Click;
 
+        var quickRow = BuildQuickActionsRow(out var quickIconButton);
+
         var cm = new ContextMenu();
+        cm.Items.Add(quickRow);
+        cm.Items.Add(new Separator());
         cm.Items.Add(cutItem);
         cm.Items.Add(copyItem);
         cm.Items.Add(pasteItem);
@@ -163,6 +172,7 @@ public partial class StickyNoteWindow
             cutItem.IsEnabled = canEdit && BodyEditBox.SelectionLength > 0;
             copyItem.IsEnabled = BodyEditBox.SelectionLength > 0;
             pasteItem.IsEnabled = canEdit && (TryGetClipboardText(out _) || ClipboardHasImage());
+            quickIconButton.IsEnabled = !ViewModel.Model.IsExternalContent;
             iconItem.IsEnabled = !ViewModel.Model.IsExternalContent;
             colorItem.IsEnabled = true;
             pasteMarkdownLinkItem.IsEnabled =
@@ -231,7 +241,11 @@ public partial class StickyNoteWindow
         zOrderItem.Items.Add(bringToFrontItem);
         zOrderItem.Items.Add(sendToBackItem);
 
+        var quickRow = BuildQuickActionsRow(out var quickIconButton);
+
         var cm = new ContextMenu();
+        cm.Items.Add(quickRow);
+        cm.Items.Add(new Separator());
         cm.Items.Add(editItem);
         cm.Items.Add(editSeparator);
         cm.Items.Add(cutItem);
@@ -259,6 +273,7 @@ public partial class StickyNoteWindow
             cutItem.Visibility = editing && canEdit ? Visibility.Visible : Visibility.Collapsed;
             pasteItem.Visibility = editing && canEdit ? Visibility.Visible : Visibility.Collapsed;
             selectAllItem.Visibility = editing ? Visibility.Visible : Visibility.Collapsed;
+            quickIconButton.IsEnabled = !ViewModel.Model.IsExternalContent;
             iconItem.IsEnabled = !ViewModel.Model.IsExternalContent;
             colorItem.IsEnabled = true;
             copyItem.IsEnabled = editing

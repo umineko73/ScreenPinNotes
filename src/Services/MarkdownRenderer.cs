@@ -746,9 +746,14 @@ public static class MarkdownRenderer
             {
                 // <...> で囲まれたリンク先は、括弧やバックスラッシュを
                 // Markdown エスケープとして扱わず、そのままURLとして渡す。
-                target = text[(start + 1)..closeAngleIndex];
-                length = closeAngleIndex + 2 - openParenIndex;
-                return true;
+                // 前後の空白だけは落とす（付けたまま渡すと起動に失敗する）。
+                var angleTarget = text[(start + 1)..closeAngleIndex].Trim();
+                if (angleTarget.Length > 0)
+                {
+                    target = angleTarget;
+                    length = closeAngleIndex + 2 - openParenIndex;
+                    return true;
+                }
             }
         }
 

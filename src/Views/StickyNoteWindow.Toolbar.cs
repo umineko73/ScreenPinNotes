@@ -251,8 +251,15 @@ public partial class StickyNoteWindow
     private void Icon_Click(object sender, RoutedEventArgs e)
         => OpenIconPicker((UIElement)sender);
 
+    // メニューが閉じきってから開くために遅延させる。その間に付箋が
+    // 非表示・破棄されることがあり、そのまま開くと所有者のいない
+    // ポップアップだけが画面に残るため、実行時にもう一度確認する。
     private void OpenPickerAfterContextMenuClosed(Action openPicker)
-        => Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, openPicker);
+        => Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, () =>
+        {
+            if (!_isClosed && IsVisible)
+                openPicker();
+        });
 
     private void OpenIconPicker(UIElement placementTarget)
         => OpenIconPicker(placementTarget, PlacementMode.Bottom, 0, 0);
@@ -287,6 +294,21 @@ public partial class StickyNoteWindow
         if (_colorPopup != except) ClosePopup(_colorPopup);
         if (_fontPopup != except) ClosePopup(_fontPopup);
         if (_iconPopup != except) ClosePopup(_iconPopup);
+    }
+
+    // Excel のミニツールバーと同様、コンテキストメニュー先頭のボタン列から
+    // 直接ピッカーを開く。メニューを閉じてから開くのは既存の項目と同じ。
+    private void RunQuickAction(Action openPicker)
+    {
+        CloseAnyOpenContextMenu();
+        OpenPickerAfterContextMenuClosed(openPicker);
+    }
+
+    private void CloseAnyOpenContextMenu()
+    {
+        if (ContentBox.ContextMenu?.IsOpen == true) ContentBox.ContextMenu.IsOpen = false;
+        if (BodyEditBox.ContextMenu?.IsOpen == true) BodyEditBox.ContextMenu.IsOpen = false;
+        if (TitleText.ContextMenu?.IsOpen == true) TitleText.ContextMenu.IsOpen = false;
     }
 
     private void DoneEditing_Click(object sender, RoutedEventArgs e)

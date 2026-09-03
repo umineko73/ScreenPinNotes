@@ -69,4 +69,41 @@ public class MarkdownLinkFormatterTests
             [("First", "https://example.com/first"), ("Second", "https://example.com/second")],
             renderedLinks);
     }
+
+    // 手書きの <...> は前後に空白が入りうる。そのまま渡すと
+    // Process.Start が失敗してリンクを押しても何も起きない。
+    [Theory]
+    [InlineData("[docs](< https://example.com >)", "https://example.com")]
+    [InlineData("[docs](<https://example.com>)", "https://example.com")]
+    public void Render_AngleWrappedTarget_TrimsSurroundingWhitespace(string markdown, string expected)
+    {
+        string? renderedTarget = null;
+
+        Hyperlink Factory(string label, string target)
+        {
+            renderedTarget = target;
+            return new Hyperlink(new Run(label));
+        }
+
+        MarkdownRenderer.Render(markdown, 13, Factory).ToList();
+
+        Assert.Equal(expected, renderedTarget);
+    }
+
+    // 空の <> はリンクにしない（従来の括弧経路へ委ねる）。
+    [Fact]
+    public void Render_AngleWrappedTargetWithOnlyWhitespace_IsNotRenderedAsLink()
+    {
+        var rendered = false;
+
+        Hyperlink Factory(string label, string target)
+        {
+            rendered = true;
+            return new Hyperlink(new Run(label));
+        }
+
+        MarkdownRenderer.Render("[docs](<   >)", 13, Factory).ToList();
+
+        Assert.False(rendered);
+    }
 }

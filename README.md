@@ -92,6 +92,8 @@ Distributable zips: `powershell -ExecutionPolicy Bypass -File scripts/publish.ps
 | Right-drag in a scrollable body pane | Scroll the pane |
 | Tray icon left/right-click | Show all / open menu |
 
+Every right-click menu starts with a 🎨 (color) and 😀 (icon) button row, so the palettes open without walking the menu. The same actions remain available as the **Change color** / **Change icon** items, which is what keyboard navigation uses.
+
 Collapsed view and expanded view positions/widths are saved separately. When a note in collapsed view near the bottom of the screen switches to expanded view, the app moves the window inside the screen. Notes with separated positions show `⛓️‍💥` in the title bar; **Align to collapsed position** aligns both positions to the collapsed view position.
 
 Use `Ctrl + drag` on the title bar to adjust only the current collapsed/expanded view. Use `Alt + drag` to disable snapping. Use `Ctrl + Alt + drag` to move only the current view without snapping. A setting can restore single-click switching.

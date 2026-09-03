@@ -143,6 +143,45 @@ public class StickyNoteWindowTests
         }
     }
 
+    // クイックアクション行は押しても何も起きないので、矢印キーの
+    // 移動先にしない。キーボードからは通常のメニュー項目を使う。
+    [WpfFact]
+    public void ContextMenus_QuickActionsRow_IsNotAKeyboardStop()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var vm = new StickyNoteViewModel(
+            new StickyNote { Content = "body" },
+            new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            var bodyEditBox = Assert.IsType<TextBox>(window.FindName("BodyEditBox"));
+            var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            var titleText = Assert.IsType<TextBlock>(window.FindName("TitleText"));
+
+            foreach (var contextMenu in new[]
+                     {
+                         contentBox.ContextMenu, bodyEditBox.ContextMenu, titleText.ContextMenu,
+                     })
+            {
+                Assert.NotNull(contextMenu);
+                var row = Assert.IsType<MenuItem>(contextMenu.Items[0]);
+                var panel = Assert.IsType<StackPanel>(row.Header);
+                Assert.False(row.Focusable);
+                Assert.Equal(2, panel.Children.Count);
+                Assert.All(
+                    panel.Children.OfType<Button>(),
+                    button => Assert.False(button.Focusable));
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     private static void AssertMenuHasIconAndColorOptions(ContextMenu contextMenu)
     {
         Assert.Contains(
