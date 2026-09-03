@@ -1,7 +1,10 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
+using System.Windows.Input;
+using System.Windows.Threading;
 using System.Reflection;
 using ScreenPinNotes.Models;
 using ScreenPinNotes.Services;
@@ -12,6 +15,63 @@ namespace ScreenPinNotes.Tests;
 
 public class StickyNoteWindowTests
 {
+    [WpfFact]
+    public void ReloadExternalContent_FromBackgroundThread_UpdatesOnlyThroughUiDispatcher()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        Directory.CreateDirectory(temp.Path);
+        var storage = new StorageService(temp.Path);
+        var externalPath = Path.Combine(temp.Path, "external.md");
+        File.WriteAllText(externalPath, "updated externally");
+        var vm = new StickyNoteViewModel(
+            new StickyNote
+            {
+                Content = "cached content",
+                ExternalContentPath = externalPath,
+                IsReadOnly = true,
+            },
+            new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            Task.Run(window.ReloadExternalContent).GetAwaiter().GetResult();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+
+            Assert.Equal("updated externally", vm.Content);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
+    public void SetBodyFontSize_ViewModeRecalculatesMarkdownHeadingSize()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var vm = new StickyNoteViewModel(new StickyNote { Content = "# Heading\n\nBody", FontSize = 13 }, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            window.Show();
+            var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            var before = Assert.IsType<Paragraph>(contentBox.Document.Blocks.First());
+            Assert.Equal(21, before.FontSize);
+
+            InvokePrivate(window, "SetBodyFontSize", 20d);
+
+            var after = Assert.IsType<Paragraph>(contentBox.Document.Blocks.First());
+            Assert.Equal(28, after.FontSize);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [WpfFact]
     public void BodyEditBox_EditModeContextMenuAndViewModeRoundTrip_WorkTogether()
     {
@@ -81,7 +141,7 @@ public class StickyNoteWindowTests
     }
 
     [WpfFact]
-    public void LoadContent_ReadOnlyMarkdownImageWithoutWidth_FitsNoteWidth()
+    public void LoadContent_ReadOnlyMarkdownImageWithoutWidth_DoesNotUpscaleNaturalSize()
     {
         EnsureApplication();
         using var temp = new TempDataDirectory();
@@ -104,7 +164,206 @@ public class StickyNoteWindowTests
             var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
             var image = Assert.Single(EnumerateImages(contentBox.Document));
 
-            Assert.True(image.Width > 300);
+            Assert.Equal(2, image.Width);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
+    public void LoadContent_MarkdownImageTooltipShowsResolvedFilePath()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote
+        {
+            Content = "![説明](assets/pasted.png)",
+        };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        var imagePath = System.IO.Path.GetFullPath(System.IO.Path.Combine(assetsDir, "pasted.png"));
+        SavePng(imagePath, CreateBitmapSource());
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            InvokePrivate(window, "LoadContent", note.Content);
+            var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            var image = Assert.Single(EnumerateImages(contentBox.Document));
+
+            Assert.Equal(imagePath, Assert.IsType<string>(image.ToolTip));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
+    public void EnterEditMode_PrefersFullWidthNativeIme()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var vm = new StickyNoteViewModel(new StickyNote { Content = "本文" }, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            InvokePrivate(window, "EnterEditMode");
+            var bodyEditBox = Assert.IsType<TextBox>(window.FindName("BodyEditBox"));
+            var conversionMode = InputMethod.GetPreferredImeConversionMode(bodyEditBox);
+
+            Assert.True((conversionMode & ImeConversionModeValues.Native) != 0);
+            Assert.True((conversionMode & ImeConversionModeValues.FullShape) != 0);
+            Assert.False((conversionMode & ImeConversionModeValues.Katakana) != 0);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
+    public void BodyEditBox_LostKeyboardFocus_KeepsEditMode()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var vm = new StickyNoteViewModel(new StickyNote { Content = "body" }, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            InvokePrivate(window, "EnterEditMode");
+            var bodyEditBox = Assert.IsType<TextBox>(window.FindName("BodyEditBox"));
+            var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+
+            InvokePrivate(window, "BodyEditBox_LostKeyboardFocus", bodyEditBox, null);
+
+            Assert.Equal(Visibility.Visible, bodyEditBox.Visibility);
+            Assert.Equal(Visibility.Collapsed, contentBox.Visibility);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
+    public void DoneEditing_Click_LeavesEditMode()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var vm = new StickyNoteViewModel(new StickyNote { Content = "body" }, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            InvokePrivate(window, "EnterEditMode");
+            var doneButton = Assert.IsType<Button>(window.FindName("DoneEditingButton"));
+            var bodyEditBox = Assert.IsType<TextBox>(window.FindName("BodyEditBox"));
+            var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+
+            InvokePrivate(window, "DoneEditing_Click", doneButton, new RoutedEventArgs());
+
+            Assert.Equal(Visibility.Collapsed, bodyEditBox.Visibility);
+            Assert.Equal(Visibility.Visible, contentBox.Visibility);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
+    public void EnterEditMode_KeepsEditToolbarOpen()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var vm = new StickyNoteViewModel(new StickyNote { Content = "body" }, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            window.Show();
+            InvokePrivate(window, "EnterEditMode");
+            var toolbar = Assert.IsType<Popup>(window.FindName("EditToolbarPopup"));
+
+            Assert.True(toolbar.IsOpen);
+
+            InvokePrivate(window, "ScheduleHideEditToolbar");
+
+            Assert.True(toolbar.IsOpen);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
+    public void ColorAndIconButtons_ToggleTheirPalettes()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var vm = new StickyNoteViewModel(new StickyNote { Content = "body" }, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            window.Show();
+            InvokePrivate(window, "EnterEditMode");
+            var colorButton = Assert.IsType<Button>(window.FindName("ColorButton"));
+            var iconButton = Assert.IsType<Button>(window.FindName("IconButton"));
+            var colorPopup = GetPrivateField<Popup>(window, "_colorPopup");
+            var iconPopup = GetPrivateField<Popup>(window, "_iconPopup");
+
+            InvokePrivate(window, "Color_Click", colorButton, new RoutedEventArgs());
+            Assert.True(colorPopup.IsOpen);
+            InvokePrivate(window, "Color_Click", colorButton, new RoutedEventArgs());
+            Assert.False(colorPopup.IsOpen);
+
+            InvokePrivate(window, "Color_Click", colorButton, new RoutedEventArgs());
+            Assert.True(colorPopup.IsOpen);
+
+            InvokePrivate(window, "Icon_Click", iconButton, new RoutedEventArgs());
+            Assert.True(iconPopup.IsOpen);
+            Assert.False(colorPopup.IsOpen);
+            InvokePrivate(window, "Icon_Click", iconButton, new RoutedEventArgs());
+            Assert.False(iconPopup.IsOpen);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
+    public void Hide_ClosesTransientPopups()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var vm = new StickyNoteViewModel(new StickyNote { Content = "body" }, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            window.Show();
+            InvokePrivate(window, "EnterEditMode");
+            var colorButton = Assert.IsType<Button>(window.FindName("ColorButton"));
+            var colorPopup = GetPrivateField<Popup>(window, "_colorPopup");
+            var toolbar = Assert.IsType<Popup>(window.FindName("EditToolbarPopup"));
+
+            InvokePrivate(window, "Color_Click", colorButton, new RoutedEventArgs());
+            Assert.True(colorPopup.IsOpen);
+            Assert.True(toolbar.IsOpen);
+
+            window.Hide();
+
+            Assert.False(colorPopup.IsOpen);
+            Assert.False(toolbar.IsOpen);
         }
         finally
         {
@@ -181,7 +440,75 @@ public class StickyNoteWindowTests
     }
 
     [WpfFact]
-    public void ToggleFold_ReadOnlyImageLoadedWhileFolded_RefitsImageAfterUnfold()
+    public void RemoveMarkdownImageReference_WithUndoRestoresDetachedImage()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote
+        {
+            Content = "before\n![image](assets/pasted.png)\nafter",
+        };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        SavePng(System.IO.Path.Combine(assetsDir, "pasted.png"), CreateBitmapSource());
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            InvokePrivate(window, "LoadContent", note.Content);
+            var context = GetOnlyMarkdownImageContext(window);
+
+            InvokePrivate(window, "RemoveMarkdownImageReference", context, true);
+            Assert.Equal("before\nafter", note.Content);
+
+            var undone = Assert.IsType<bool>(InvokePrivateWithResult(window, "TryUndoLastContentChange", window.FindName("ContentBox"))!);
+
+            Assert.True(undone);
+            Assert.Equal("before\n![image](assets/pasted.png)\nafter", note.Content);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
+    public void RemoveMarkdownImageReference_UndoDoesNotOverwriteLaterContent()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote
+        {
+            Content = "before\n![image](assets/pasted.png)\nafter",
+        };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        SavePng(System.IO.Path.Combine(assetsDir, "pasted.png"), CreateBitmapSource());
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            InvokePrivate(window, "LoadContent", note.Content);
+            var context = GetOnlyMarkdownImageContext(window);
+
+            InvokePrivate(window, "RemoveMarkdownImageReference", context, true);
+            vm.Content = "later edit";
+
+            var undone = Assert.IsType<bool>(InvokePrivateWithResult(window, "TryUndoLastContentChange", window.FindName("ContentBox"))!);
+
+            Assert.False(undone);
+            Assert.Equal("later edit", note.Content);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
+    public void ToggleFold_ReadOnlyImageWithoutWidth_KeepsNaturalSizeAfterUnfold()
     {
         EnsureApplication();
         using var temp = new TempDataDirectory();
@@ -209,8 +536,8 @@ public class StickyNoteWindowTests
             InvokePrivate(window, "ToggleFold", (object?)null);
             var unfoldedImage = Assert.Single(EnumerateImages(contentBox.Document));
 
-            Assert.True(foldedImage.Width < 220);
-            Assert.True(unfoldedImage.Width > 300);
+            Assert.Equal(2, foldedImage.Width);
+            Assert.Equal(2, unfoldedImage.Width);
         }
         finally
         {
@@ -497,6 +824,21 @@ public class StickyNoteWindowTests
         var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.NotNull(field);
         field.SetValue(target, value);
+    }
+
+    private static T GetPrivateField<T>(object target, string fieldName)
+    {
+        var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(field);
+        return Assert.IsType<T>(field.GetValue(target));
+    }
+
+    private static object GetOnlyMarkdownImageContext(StickyNoteWindow window)
+    {
+        var contexts = (System.Collections.IDictionary)window.GetType()
+            .GetField("_markdownImageContexts", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(window)!;
+        return Assert.Single(contexts.Values.Cast<object>());
     }
 
     private static System.Windows.Media.Imaging.BitmapSource CreateBitmapSource()

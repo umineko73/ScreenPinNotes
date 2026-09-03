@@ -128,14 +128,17 @@ public partial class StickyNoteWindow
     {
         InputMethod.SetIsInputMethodEnabled(control, true);
         InputMethod.SetPreferredImeState(control, InputMethodState.On);
-        InputMethod.SetPreferredImeConversionMode(control, ImeConversionModeValues.Native);
+        InputMethod.SetPreferredImeConversionMode(control, ImeConversionModeValues.Native | ImeConversionModeValues.FullShape);
     }
 
     private static void EnableImeForFocusedControl(System.Windows.Controls.Control control)
     {
         EnableIme(control);
         if (control.IsKeyboardFocusWithin)
+        {
             InputMethod.Current.ImeState = InputMethodState.On;
+            InputMethod.Current.ImeConversionMode = ImeConversionModeValues.Native | ImeConversionModeValues.FullShape;
+        }
     }
 
     private void EditableControl_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
@@ -166,19 +169,6 @@ public partial class StickyNoteWindow
         UpdateControlsVisibility();
         HideEditToolbar();
         Keyboard.ClearFocus();
-    }
-
-    private void ScheduleEnterViewModeIfFocusLeft()
-    {
-        Dispatcher.BeginInvoke(() =>
-        {
-            if (!_isEditMode || _suppressViewMode)
-                return;
-            if (BodyEditBox.IsKeyboardFocusWithin || ContentBox.IsKeyboardFocusWithin || TitleEditBox.IsKeyboardFocusWithin)
-                return;
-
-            EnterViewMode();
-        }, System.Windows.Threading.DispatcherPriority.Background);
     }
 
     // リサイズ可否を切り替える。
@@ -232,7 +222,7 @@ public partial class StickyNoteWindow
             ? Visibility.Collapsed
             : Visibility.Visible;
 
-        if (_isEditMode && !ViewModel.IsFolded && ShouldKeepEditToolbarOpen())
+        if (_isEditMode && !ViewModel.IsFolded)
             ShowEditToolbar();
         else
             HideEditToolbar();
@@ -270,6 +260,9 @@ public partial class StickyNoteWindow
 
     private void ScheduleHideEditToolbar()
     {
+        if (_isEditMode && !ViewModel.IsFolded)
+            return;
+
         _toolbarHideTimer.Stop();
         _toolbarHideTimer.Start();
     }
@@ -449,20 +442,12 @@ public partial class StickyNoteWindow
 
     private void ContentBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
-        // ステータスバー・タイトル編集欄への移動は編集モードを維持する。
-        // ここで Focus() を呼び戻すとボタンのマウスキャプチャを奪い Click が発火しなくなる。
-        if (_suppressViewMode) return;
-        if (IsDescendantOf(e.NewFocus as DependencyObject, StatusBar)) return;
-        if (IsDescendantOf(e.NewFocus as DependencyObject, TitleEditBox)) return;
-        ScheduleEnterViewModeIfFocusLeft();
+        // フォーカスが外れても編集モードは維持する。本文の確定は明示操作で行う。
     }
 
     private void BodyEditBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
-        if (_suppressViewMode) return;
-        if (IsDescendantOf(e.NewFocus as DependencyObject, StatusBar)) return;
-        if (IsDescendantOf(e.NewFocus as DependencyObject, TitleEditBox)) return;
-        ScheduleEnterViewModeIfFocusLeft();
+        // フォーカスが外れても編集モードは維持する。本文の確定は明示操作で行う。
     }
 
     private void TitleEditBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
@@ -477,7 +462,7 @@ public partial class StickyNoteWindow
         }
         if (IsDescendantOf(e.NewFocus as DependencyObject, BodyEditBox))
             return;
-        ScheduleEnterViewModeIfFocusLeft();
+        // フォーカスが外れても編集モードは維持する。タイトルの確定は明示操作で行う。
     }
 
     private static bool IsDescendantOf(DependencyObject? child, DependencyObject? ancestor)
@@ -514,6 +499,23 @@ public partial class StickyNoteWindow
 
     private void ContentBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
+        if (e.Key == Key.Enter &&
+            (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control &&
+            _isEditMode)
+        {
+            EnterViewMode();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Z &&
+            (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control &&
+            TryUndoLastContentChange(sender))
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (sender == BodyEditBox &&
             e.Key == Key.V &&
             (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
@@ -538,6 +540,35 @@ public partial class StickyNoteWindow
             EnterViewMode();
             e.Handled = true;
         }
+    }
+
+    private bool TryUndoLastContentChange(object sender)
+    {
+        if (sender == BodyEditBox && BodyEditBox.CanUndo)
+            return false;
+        if (sender == TitleEditBox && TitleEditBox.CanUndo)
+            return false;
+        if (_contentUndoStack.Count == 0)
+            return false;
+
+        var entry = _contentUndoStack.Peek();
+        if (!string.Equals(ViewModel.Content, entry.After, StringComparison.Ordinal))
+            return false;
+
+        _contentUndoStack.Pop();
+        ViewModel.Content = entry.Before;
+        RequestSave();
+        if (IsBodyEditing())
+        {
+            BodyEditBox.Text = entry.Before;
+            BodyEditBox.Select(BodyEditBox.Text.Length, 0);
+        }
+        else
+        {
+            LoadContent(ViewModel.Content);
+            ContentBox.Focus();
+        }
+        return true;
     }
 
     // テキストポインタを辿りハイパーリンクを探す（ヒットテストのコア）

@@ -126,6 +126,10 @@ public partial class StickyNoteWindow
             return;
 
         ViewModel.FontSize = newSize;
+        // Markdown の見出しは本文サイズから個別に算出した FontSize を持つ。
+        // 本文のバインディングだけでは追従しないため、表示中は再描画する。
+        if (!_isEditMode)
+            LoadContent(ViewModel.Content);
         RequestSave();
         ShowSizeOverlay(string.Format(LocalizationService.T("BodySize"), ViewModel.FontSize));
         UpdateToolbarTooltips();
@@ -209,12 +213,24 @@ public partial class StickyNoteWindow
 
     private void Font_Click(object sender, RoutedEventArgs e)
     {
-        if (_fontPopup != null) { _fontPopup.PlacementTarget = (UIElement)sender; _fontPopup.IsOpen = true; }
+        if (_fontPopup == null) return;
+
+        ClosePickerPopups(except: _fontPopup);
+        _fontPopup.PlacementTarget = (UIElement)sender;
+        _fontPopup.IsOpen = true;
     }
 
     private void Color_Click(object sender, RoutedEventArgs e)
     {
         if (_colorPopup == null) return;
+
+        if (_colorPopup.IsOpen)
+        {
+            _colorPopup.IsOpen = false;
+            return;
+        }
+
+        ClosePickerPopups(except: _colorPopup);
         UpdateColorSelection();
         _colorPopup.PlacementTarget = (UIElement)sender;
         _colorPopup.IsOpen = true;
@@ -226,10 +242,28 @@ public partial class StickyNoteWindow
             return;
 
         if (_iconPopup == null) return;
+
+        if (_iconPopup.IsOpen)
+        {
+            _iconPopup.IsOpen = false;
+            return;
+        }
+
+        ClosePickerPopups(except: _iconPopup);
         UpdateIconSelection();
         _iconPopup.PlacementTarget = (UIElement)sender;
         _iconPopup.IsOpen = true;
     }
+
+    private void ClosePickerPopups(Popup? except = null)
+    {
+        if (_colorPopup != except) ClosePopup(_colorPopup);
+        if (_fontPopup != except) ClosePopup(_fontPopup);
+        if (_iconPopup != except) ClosePopup(_iconPopup);
+    }
+
+    private void DoneEditing_Click(object sender, RoutedEventArgs e)
+        => EnterViewMode();
 
     // 現在の色にだけチェックを表示する
     private void UpdateColorSelection()

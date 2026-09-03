@@ -674,14 +674,14 @@ public static class MarkdownRenderer
 
         if (text[start] != '[') return false;
 
-        var labelEnd = text.IndexOf(']', start + 1);
+        var labelEnd = FindUnescaped(text, "]", start + 1);
         if (labelEnd <= start || labelEnd + 1 >= text.Length || text[labelEnd + 1] != '(')
             return false;
 
         if (!TryReadMarkdownTarget(text, labelEnd + 1, out target, out var targetLength))
             return false;
 
-        label = text[(start + 1)..labelEnd];
+        label = UnescapeMarkdownText(text[(start + 1)..labelEnd]);
         length = labelEnd + 1 + targetLength - start;
         return LinkDetector.IsLink(target);
     }
@@ -779,7 +779,7 @@ public static class MarkdownRenderer
         out string target,
         out int length)
     {
-        target = StripOptionalMarkdownTitle(text[(openParenIndex + 1)..closeParenIndex]);
+        target = UnescapeMarkdownText(StripOptionalMarkdownTitle(text[(openParenIndex + 1)..closeParenIndex]));
         length = closeParenIndex - openParenIndex + 1;
         return target.Length > 0;
     }
@@ -804,6 +804,23 @@ public static class MarkdownRenderer
         }
 
         return value;
+    }
+
+    private static string UnescapeMarkdownText(string text)
+    {
+        var result = new System.Text.StringBuilder(text.Length);
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (text[i] == '\\' && i + 1 < text.Length && IsEscapableMarkdownChar(text[i + 1]))
+            {
+                result.Append(text[++i]);
+                continue;
+            }
+
+            result.Append(text[i]);
+        }
+
+        return result.ToString();
     }
 
     private static int IndexOfWhitespace(string text)

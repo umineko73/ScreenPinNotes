@@ -47,7 +47,7 @@ public class SampleNoteFactoryTests
         Assert.Contains("`Ctrl + ドラッグ`", usageNote.Content);
         Assert.Contains("`Ctrl + Alt + ドラッグ`", usageNote.Content);
         Assert.Contains("## 外部ファイル付箋", usageNote.Content);
-        Assert.Contains("リンク解除", usageNote.Content);
+        Assert.Contains("付箋を削除（元のファイルは残す）", usageNote.Content);
         Assert.Contains("画像サイズ変更", usageNote.Content);
         Assert.Contains("## リマインダー", usageNote.Content);
         Assert.Contains("スヌーズ", usageNote.Content);
@@ -71,7 +71,7 @@ public class SampleNoteFactoryTests
         Assert.Contains("Ctrl + drag", notes[1].Content);
         Assert.Contains("Ctrl + Alt + drag", notes[1].Content);
         Assert.Contains("## External-File Notes", notes[1].Content);
-        Assert.Contains("unlink", notes[1].Content);
+        Assert.Contains("Delete note (keep original file)", notes[1].Content);
         Assert.Contains("Image size changes", notes[1].Content);
         Assert.Contains("## Reminders", notes[1].Content);
         Assert.Contains("snooze", notes[1].Content);

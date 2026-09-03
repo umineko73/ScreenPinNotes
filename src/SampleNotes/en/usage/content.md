@@ -6,7 +6,7 @@ This note has editing locked. The body text and title text are protected, but ch
 
 - Double-click the body: switch to edit mode
 - `Esc`: return to view mode
-- Double-click the title bar: closed view / open view
+- Double-click the title bar: collapsed view / expanded view
 - Drag the title bar: move the note
 - Click a link: open it
 - In edit mode, use `Ctrl + click` to open a link
@@ -22,28 +22,28 @@ This note has editing locked. The body text and title text are protected, but ch
 
 ## Moving and Snapping
 
-![Open view vs. closed view appearance](assets/window-position-guide.png)
+![Expanded view vs. collapsed view appearance](assets/window-position-guide.png)
 
-Left: open view (body text visible). Right: closed view (only the title bar remains). Each view's position can be adjusted independently with the actions below.
+Left: expanded view (body text visible). Right: collapsed view (only the title bar remains). Each view's position can be adjusted independently with the actions below.
 
-- Normal drag: keep closed view and open view positions synchronized
+- Normal drag: keep collapsed view and expanded view positions synchronized
 - `Ctrl + drag`: adjust only the current view
 - `Alt + drag`: disable snapping
 - `Ctrl + Alt + drag`: adjust only the current view without snapping
-- Notes with separated closed view and open view positions show `⛓️‍💥` in the title bar
+- Notes with separated collapsed view and expanded view positions show `⛓️‍💥` in the title bar
 - A setting can restore single-click switching
 
 ## Title Context Menu
 
 - Edit title
-- Change z order
+- Change stacking order
 - Change opacity
-- Reconnect closed/open view positions
+- Align to collapsed position
 - Set / clear a reminder
-- For external-file notes, open the file / open its folder / convert to a normal note
+- For external-file notes, open the file / open its folder / convert to an editable note
 - Lock editing
 - Hide
-- Delete, or unlink for external-file notes
+- Delete note (keep original file for external-file notes)
 
 While editing is locked, the title text cannot be edited and the note cannot be deleted.
 
@@ -54,12 +54,12 @@ While editing is locked, the title text cannot be edited and the note cannot be 
 - Paste / copy Excel tables
 - Open link
 - Convert to Markdown link
-- Fit window to images
+- Resize note to fit images
 - Set / clear a reminder
 - External-file actions for external-file notes
 - Lock editing
 - Hide
-- Delete, or unlink for external-file notes
+- Delete note (keep original file for external-file notes)
 
 While editing is locked, text input, paste, link conversion, image insertion, and image removal are disabled.
 
@@ -70,7 +70,8 @@ While editing is locked, text input, paste, link conversion, image insertion, an
 - External-file notes show `🔗` at the left of the title bar; hover the title or `🔗` to see the file path
 - Notes reload when the external file changes
 - Image size changes in external-file notes are saved as note-local display settings; the original file is not modified
-- Unlinking an external-file note removes only the note link; the original file is not deleted
+- "Convert to editable note" keeps the content in the note and stops following the external file. The original file is kept
+- "Delete note (keep original file)" deletes only the note, leaving the original file intact
 
 ## Reminders
 
@@ -85,13 +86,13 @@ While editing is locked, text input, paste, link conversion, image insertion, an
 | --- | --- |
 | + | Add a note using this note's color, icon, and font |
 | 📌 | Always on top |
-| Up / Down | Closed view / Open view |
+| Up / Down | Collapsed view / Expanded view |
 | 🔒 | Shows that editing is locked |
-| ⛓️‍💥 | Shows that closed view and open view positions are separated |
+| ⛓️‍💥 | Shows that collapsed view and expanded view positions are separated |
 | 🔗 | Shows an external-file note |
 | ⏰ | Shows that a reminder is set |
 
-The lock is only a status indicator. It is not clickable, so it does not interfere with dragging or switching closed/open view.
+The lock is only a status indicator. It is not clickable, so it does not interfere with dragging or switching collapsed/expanded view.
 
 ## Tray Icon
 

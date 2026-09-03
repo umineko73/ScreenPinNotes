@@ -178,7 +178,11 @@ public partial class StickyNoteWindow
         var readOnlyItem = BuildReadOnlyMenuItem();
         var externalItem = BuildExternalContentMenuItem();
         var reminderItem = BuildReminderMenuItem();
-        var resetPositionSeparationItem = new MenuItem { Header = LocalizationService.T("ResetPositionSeparation") };
+        var resetPositionSeparationItem = new MenuItem
+        {
+            Header = LocalizationService.T("ResetPositionSeparation"),
+            ToolTip = LocalizationService.T("ResetPositionSeparationTooltip"),
+        };
         var bringToFrontItem = new MenuItem { Header = LocalizationService.T("BringToFront") };
         var sendToBackItem = new MenuItem { Header = LocalizationService.T("SendToBack") };
         var hideItem = new MenuItem { Header = LocalizationService.T("HideNote") };
@@ -296,6 +300,7 @@ public partial class StickyNoteWindow
         item.Items.Add(new MenuItem
         {
             Header = LocalizationService.T("ConvertExternalToNormal"),
+            ToolTip = LocalizationService.T("ConvertExternalToNormalTooltip"),
             Command = new RelayCommand(_ => ConvertExternalToNormalNote()),
         });
         return item;
@@ -323,7 +328,11 @@ public partial class StickyNoteWindow
 
     private MenuItem BuildOpacityMenuItem()
     {
-        var opacityItem = new MenuItem { Header = LocalizationService.T("Opacity") };
+        var opacityItem = new MenuItem
+        {
+            Header = LocalizationService.T("Opacity"),
+            ToolTip = LocalizationService.T("OpacityTooltip"),
+        };
         for (var percent = 10; percent <= 100; percent += 10)
         {
             var percentItem = new MenuItem
@@ -577,12 +586,9 @@ public partial class StickyNoteWindow
     }
 
     private static string BuildMarkdownLink(string label, string target)
-        => $"[{EscapeMarkdownLinkLabel(label)}]({target})";
+        => MarkdownLinkFormatter.Build(label, target);
 
     private static string BuildMarkdownImage(string target)
         => $"![image]({target})";
-
-    private static string EscapeMarkdownLinkLabel(string label)
-        => label.Replace("\\", "\\\\").Replace("]", "\\]");
 
 }

@@ -117,7 +117,7 @@
                          Padding="0"
                          InputMethod.IsInputMethodEnabled="True"
                          InputMethod.PreferredImeState="On"
-                         InputMethod.PreferredImeConversionMode="Native"
+                         InputMethod.PreferredImeConversionMode="Native, FullShape"
                          ToolTip="空欄なら本文の1行目を表示します"
                          GotKeyboardFocus="EditableControl_GotKeyboardFocus"
                          TextChanged="TitleEditBox_TextChanged"
@@ -182,7 +182,7 @@
                         Grid.Column="7" Content="{Binding FoldIcon}"
                         Margin="0,0,2,0"
                         Style="{StaticResource TitleBarButtonOnLight}"
-                        ToolTip="閉じた表示 / 開いた表示"
+                        ToolTip="折りたたむ / 展開する"
                         Click="Fold_Click"/>
             </Grid>
 
@@ -201,7 +201,7 @@
                          IsDocumentEnabled="True"
                          InputMethod.IsInputMethodEnabled="True"
                          InputMethod.PreferredImeState="On"
-                         InputMethod.PreferredImeConversionMode="Native"
+                         InputMethod.PreferredImeConversionMode="Native, FullShape"
                          Cursor="Arrow"
                          VerticalScrollBarVisibility="Auto"
                          HorizontalScrollBarVisibility="Auto"
@@ -240,7 +240,7 @@
                      Visibility="Collapsed"
                      InputMethod.IsInputMethodEnabled="True"
                      InputMethod.PreferredImeState="On"
-                     InputMethod.PreferredImeConversionMode="Native"
+                     InputMethod.PreferredImeConversionMode="Native, FullShape"
                      GotKeyboardFocus="EditableControl_GotKeyboardFocus"
                      TextChanged="BodyEditBox_TextChanged"
                      ContextMenuOpening="BodyEditBox_ContextMenuOpening"
@@ -264,7 +264,7 @@
                            FontWeight="SemiBold"/>
             </Border>
 
-            <!-- 編集ツールバー。編集モード中のホバー時や右クリックメニュー表示時だけ浮かせて出す -->
+            <!-- 編集ツールバー。編集モード中は常に表示する -->
             <Popup x:Name="EditToolbarPopup"
                    PlacementTarget="{Binding ElementName=RootBorder}"
                    Placement="Bottom"
@@ -278,7 +278,7 @@
                         BorderBrush="#33000000"
                         BorderThickness="1"
                         CornerRadius="4"
-                        Padding="2"
+                        Padding="3"
                         MouseEnter="EditToolbar_MouseEnter"
                         MouseLeave="EditToolbar_MouseLeave">
                     <StackPanel Orientation="Horizontal">
@@ -299,10 +299,15 @@
                                 ToolTip="フォントを変更" Click="Font_Click"/>
                         <Button x:Name="IconButton" Content="😀"
                                 Style="{StaticResource EditToolbarButton}"
-                                ToolTip="アイコンを変更" Click="Icon_Click"/>
+                                ToolTip="アイコンを変更"
+                                Click="Icon_Click"/>
                         <Button x:Name="ColorButton" Content="🎨"
                                 Style="{StaticResource EditToolbarButton}"
-                                ToolTip="色を変更" Click="Color_Click"/>
+                                ToolTip="色を変更"
+                                Click="Color_Click"/>
+                        <Button x:Name="DoneEditingButton" Content="✓"
+                                Style="{StaticResource DoneEditingToolbarButton}"
+                                ToolTip="編集を確定" Click="DoneEditing_Click"/>
                     </StackPanel>
                 </Border>
             </Popup>

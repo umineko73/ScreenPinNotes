@@ -74,9 +74,39 @@
         </Setter>
     </Style>
 
-    <!-- 編集ツールバー用。ボタンの大きさは変えず、表示する記号だけ少し大きくする -->
+    <!-- 編集ツールバー用。タイトルバーより一段大きく、操作しやすくする -->
     <Style x:Key="EditToolbarButton" TargetType="Button" BasedOn="{StaticResource TitleBarButton}">
-        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="Width" Value="30"/>
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="FontSize" Value="15"/>
+    </Style>
+
+    <Style x:Key="DoneEditingToolbarButton" TargetType="Button" BasedOn="{StaticResource EditToolbarButton}">
+        <Setter Property="Width" Value="34"/>
+        <Setter Property="Foreground" Value="#8A4B00"/>
+        <Setter Property="FontFamily" Value="Segoe UI Symbol"/>
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Background" Value="#FFF2C2"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                            BorderBrush="#D49A2A" BorderThickness="1"
+                            CornerRadius="3" Margin="1">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#FFE69A"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#FFD66B"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <!-- 閉じるボタン -->

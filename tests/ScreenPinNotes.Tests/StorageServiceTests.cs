@@ -197,6 +197,33 @@ public sealed class StorageServiceTests : IDisposable
     }
 
     [Fact]
+    public void Load_ExternalContentNote_WhenFileIsLocked_KeepsCachedContent()
+    {
+        var externalPath = Path.Combine(_tempRoot, "external.md");
+        File.WriteAllText(externalPath, "latest content");
+        var note = new StickyNote
+        {
+            Content = "cached content",
+            ExternalContentPath = externalPath,
+            IsReadOnly = true,
+        };
+        _storage.SaveNote(note);
+
+        using var fileLock = new FileStream(
+            externalPath,
+            FileMode.Open,
+            FileAccess.ReadWrite,
+            FileShare.None);
+
+        var readable = StorageService.TryReadExternalContent(note, out var content);
+        var loadedNote = Assert.Single(_storage.Load());
+
+        Assert.False(readable);
+        Assert.Equal("", content);
+        Assert.Equal("cached content", loadedNote.Content);
+    }
+
+    [Fact]
     public void Load_SkipsNoteFolderWithCorruptMeta()
     {
         var good = new StickyNote();

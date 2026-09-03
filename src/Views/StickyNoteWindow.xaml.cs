@@ -91,6 +91,7 @@ public partial class StickyNoteWindow : Window
     private double     _paneScrollStartVerticalOffset;
     private readonly Dictionary<WpfImage, MarkdownImageContext> _markdownImageContexts = [];
     private readonly Dictionary<string, (DateTime WriteTimeUtc, System.Windows.Media.Imaging.BitmapSource Bitmap)> _normalizedImageCache = [];
+    private readonly Stack<ContentUndoEntry> _contentUndoStack = [];
     private WrapPanel? _colorPanel;
 
     private readonly System.Windows.Threading.DispatcherTimer _overlayTimer =
@@ -113,14 +114,18 @@ public partial class StickyNoteWindow : Window
     private MenuItem   _copyExcelTableItem = new();
     private MenuItem   _fitWindowToImagesItem = new();
     private readonly StorageService _storage;
+    private readonly System.Windows.Threading.Dispatcher _uiDispatcher;
 
     public StickyNoteViewModel ViewModel => (StickyNoteViewModel)DataContext;
 
     public string PositionSeparatedTooltip => LocalizationService.T("PositionSeparatedTooltip");
 
+    private sealed record ContentUndoEntry(string Before, string After);
+
     public StickyNoteWindow(StickyNoteViewModel vm, StorageService? storage = null)
     {
         InitializeComponent();
+        _uiDispatcher = Dispatcher;
         DataContext = vm;
         _storage = storage ?? new StorageService();
         vm.PropertyChanged += (_, e) =>
@@ -147,6 +152,11 @@ public partial class StickyNoteWindow : Window
         _unfoldedHeight = vm.Model.Height;
 
         ConfigurePopups();
+        IsVisibleChanged += (_, _) =>
+        {
+            if (!IsVisible)
+                HideTransientPopups();
+        };
         ApplySettings();
         ApplyLocalizedText();
         ConfigureContextMenus();
@@ -180,10 +190,6 @@ public partial class StickyNoteWindow : Window
             _titlePreviewTimer.Stop();
             UpdateTitlePreviewVisibility();
         };
-
-        // アプリ切り替え時もビューモードへ。IME の候補/変換ウィンドウで一時的に
-        // Deactivated になることがあるため、即時ではなく遅延して実フォーカスを見る。
-        Deactivated += (_, _) => ScheduleEnterViewModeIfFocusLeft();
 
         Loaded += (_, _) =>
         {
@@ -272,8 +278,19 @@ public partial class StickyNoteWindow : Window
     private void Popup_Closed(object? sender, EventArgs e)
     {
         _suppressViewMode = false;
-        if (_isEditMode) Dispatcher.BeginInvoke(() => ContentBox.Focus());
+        if (_isEditMode && IsVisible) Dispatcher.BeginInvoke(() => ContentBox.Focus());
         ScheduleHideEditToolbar();
+    }
+
+    // Popup は別ウィンドウなので、親の付箋を Hide しても自動では消えない。
+    private void HideTransientPopups()
+    {
+        _toolbarHideTimer.Stop();
+        ClosePopup(_colorPopup);
+        ClosePopup(_fontPopup);
+        ClosePopup(_iconPopup);
+        TitlePreviewPopup.IsOpen = false;
+        EditToolbarPopup.IsOpen = false;
     }
 
     private void ContentContextMenu_Closed(object? sender, RoutedEventArgs e)
@@ -342,6 +359,7 @@ public partial class StickyNoteWindow : Window
         FontButton.ToolTip = LocalizationService.T("FontTooltip");
         IconButton.ToolTip = LocalizationService.T("IconTooltip");
         ColorButton.ToolTip = LocalizationService.T("ColorTooltip");
+        DoneEditingButton.ToolTip = LocalizationService.T("DoneEditingTooltip");
     }
 
     // WPFはSegoe UI Emojiのカラーフォントを直接描画できないため、

@@ -61,13 +61,32 @@ public partial class StickyNoteWindow
 
     public void ReloadExternalContent()
     {
-        if (!ViewModel.Model.IsExternalContent)
-            return;
+        try
+        {
+            if (_uiDispatcher.HasShutdownStarted || _uiDispatcher.HasShutdownFinished)
+                return;
 
-        Dispatcher.BeginInvoke(() =>
+            // FileSystemWatcher はワーカースレッドで発火する。ここでは WPF の
+            // Window/コントロール/ViewModel には触れず、UI スレッドだけで処理する。
+            _uiDispatcher.BeginInvoke(ReloadExternalContentOnUiThread);
+        }
+        // FileSystemWatcher のイベントがウィンドウ終了後に届く場合がある。
+        // 終了済み Dispatcher へキューできなくても、アプリ全体を終了させない。
+        catch (InvalidOperationException)
+        {
+        }
+        catch (Exception ex)
+        {
+            ErrorReporter.ReportNonFatal("Queue external content reload", ex);
+        }
+    }
+
+    private void ReloadExternalContentOnUiThread()
+    {
+        try
         {
             // ウォッチャーのイベント発火後にウィンドウが閉じられている場合は何もしない。
-            if (_isClosed)
+            if (_isClosed || !ViewModel.Model.IsExternalContent)
                 return;
 
             // 一時的にファイルが読めない場合は表示中の内容を維持する
@@ -78,7 +97,11 @@ public partial class StickyNoteWindow
                 if (!_isEditMode)
                     LoadContent(ViewModel.Content);
             }
-        });
+        }
+        catch (Exception ex)
+        {
+            ErrorReporter.ReportNonFatal("Reload external content", ex);
+        }
     }
 
     private void LoadPlainContent(string text, bool resetUndoHistory = false)
@@ -257,12 +280,14 @@ public partial class StickyNoteWindow
             return fallback;
 
         System.Windows.Media.Imaging.BitmapSource bitmap;
+        string imagePath;
         try
         {
-            var imagePath = ResolveImagePath(markdownImage.Target);
-            if (imagePath == null || !File.Exists(imagePath))
+            var resolvedImagePath = ResolveImagePath(markdownImage.Target);
+            if (resolvedImagePath == null || !File.Exists(resolvedImagePath))
                 return fallback;
 
+            imagePath = Path.GetFullPath(resolvedImagePath);
             bitmap = GetOrLoadNormalizedImage(imagePath);
         }
         catch (Exception ex)
@@ -279,7 +304,7 @@ public partial class StickyNoteWindow
         {
             Source = bitmap,
             Stretch = Stretch.Uniform,
-            ToolTip = string.IsNullOrWhiteSpace(markdownImage.Alt) ? markdownImage.Target : markdownImage.Alt,
+            ToolTip = imagePath,
             Margin = new Thickness(0, 3, 0, 3),
         };
 
@@ -296,9 +321,9 @@ public partial class StickyNoteWindow
             var naturalWidth = markdownImage.Height.HasValue
                 ? originalWidth * markdownImage.Height.Value / originalHeight
                 : originalWidth;
-            displayWidth = ShouldUseImageWidthOverrides()
-                ? GetMarkdownImageAvailableWidth()
-                : Math.Min(naturalWidth, GetMarkdownImageAvailableWidth());
+            // サイズ未指定の画像は、付箋に収まる範囲でだけ縮小する。
+            // 元のピクセル寸法より拡大すると、低解像度画像がぼやけてしまう。
+            displayWidth = Math.Min(naturalWidth, GetMarkdownImageAvailableWidth());
             displayHeight = originalHeight * displayWidth / originalWidth;
             image.Width = displayWidth;
             image.Height = originalHeight * displayWidth / originalWidth;
@@ -800,11 +825,12 @@ public partial class StickyNoteWindow
                 return;
         }
 
-        RemoveMarkdownImageReference(context);
+        RemoveMarkdownImageReference(context, recordUndo: !deleteFile);
     }
 
-    private void RemoveMarkdownImageReference(MarkdownImageContext context)
+    private void RemoveMarkdownImageReference(MarkdownImageContext context, bool recordUndo)
     {
+        var previousContent = ViewModel.Content;
         var lines = ViewModel.Content.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n').ToList();
         if (context.LineIndex < 0 || context.LineIndex >= lines.Count)
             return;
@@ -824,9 +850,13 @@ public partial class StickyNoteWindow
         else
             lines[context.LineIndex] = before + after;
 
-        if (!TrySetNoteContent(string.Join('\n', lines)))
+        var nextContent = string.Join('\n', lines);
+        if (!TrySetNoteContent(nextContent))
             return;
+        if (recordUndo)
+            _contentUndoStack.Push(new ContentUndoEntry(previousContent, nextContent));
         LoadContent(ViewModel.Content);
+        ContentBox.Focus();
     }
 
     private bool DeleteImageFileIfOwnedByNote(string target)
