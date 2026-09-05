@@ -72,7 +72,7 @@ public partial class StickyNoteWindow
         _fitWindowToImagesItem.Click += (_, _) => FitWindowToMarkdownImages();
         deleteItem.Click += Close_Click;
 
-        var quickRow = BuildQuickActionsRow(out var quickIconButton);
+        var quickRow = BuildQuickActionsRow(out var quickIconButton, out var quickTitleSizeButtons);
 
         var cm = new ContextMenu { Tag = quickRow, Template = (ControlTemplate)FindResource("NoteContextMenuTemplate"), Background = PopupBackgroundBrush(), Foreground = ViewModel.TextForeground, BorderBrush = PopupBorderBrush() };
         cm.Resources[typeof(MenuItem)] = new Style(typeof(MenuItem))
@@ -112,6 +112,9 @@ public partial class StickyNoteWindow
             cutItem.IsEnabled = canEdit && _isEditMode && ContentBox.Selection.IsEmpty == false;
             pasteItem.IsEnabled = canEdit && _isEditMode && (TryGetClipboardText(out _) || ClipboardHasImage());
             quickIconButton.IsEnabled = !ViewModel.Model.IsExternalContent;
+            // タイトルバーを隠していると、変えたサイズが見える場所が無い。
+            foreach (var titleSizeButton in quickTitleSizeButtons)
+                titleSizeButton.IsEnabled = !ViewModel.IsTitleBarHidden;
             readOnlyItem.IsChecked = ViewModel.IsReadOnly;
             readOnlyItem.IsEnabled = !ViewModel.Model.IsExternalContent;
             externalItem.Visibility = ViewModel.Model.IsExternalContent ? Visibility.Visible : Visibility.Collapsed;
@@ -150,7 +153,7 @@ public partial class StickyNoteWindow
             OpenPickerAfterContextMenuClosed(() => EditMarkdownLink(link));
         };
 
-        var quickRow = BuildQuickActionsRow(out var quickIconButton);
+        var quickRow = BuildQuickActionsRow(out var quickIconButton, out var quickTitleSizeButtons);
 
         var cm = new ContextMenu { Tag = quickRow, Template = (ControlTemplate)FindResource("NoteContextMenuTemplate"), Background = PopupBackgroundBrush(), Foreground = ViewModel.TextForeground, BorderBrush = PopupBorderBrush() };        cm.Resources[typeof(MenuItem)] = new Style(typeof(MenuItem))
         {
@@ -186,6 +189,9 @@ public partial class StickyNoteWindow
             copyItem.IsEnabled = BodyEditBox.SelectionLength > 0;
             pasteItem.IsEnabled = canEdit && (TryGetClipboardText(out _) || ClipboardHasImage());
             quickIconButton.IsEnabled = !ViewModel.Model.IsExternalContent;
+            // タイトルバーを隠していると、変えたサイズが見える場所が無い。
+            foreach (var titleSizeButton in quickTitleSizeButtons)
+                titleSizeButton.IsEnabled = !ViewModel.IsTitleBarHidden;
             pasteMarkdownLinkItem.IsEnabled =
                 canEdit &&
                 TryGetClipboardText(out var clipboardText) &&
@@ -279,7 +285,7 @@ public partial class StickyNoteWindow
         zOrderItem.Items.Add(bringToFrontItem);
         zOrderItem.Items.Add(sendToBackItem);
 
-        var quickRow = BuildQuickActionsRow(out var quickIconButton);
+        var quickRow = BuildQuickActionsRow(out var quickIconButton, out var quickTitleSizeButtons);
 
         var cm = new ContextMenu { Tag = quickRow, Template = (ControlTemplate)FindResource("NoteContextMenuTemplate"), Background = PopupBackgroundBrush(), Foreground = ViewModel.TextForeground, BorderBrush = PopupBorderBrush() };        cm.Resources[typeof(MenuItem)] = new Style(typeof(MenuItem))
         {
@@ -312,6 +318,9 @@ public partial class StickyNoteWindow
             pasteItem.Visibility = editing && canEdit ? Visibility.Visible : Visibility.Collapsed;
             selectAllItem.Visibility = editing ? Visibility.Visible : Visibility.Collapsed;
             quickIconButton.IsEnabled = !ViewModel.Model.IsExternalContent;
+            // タイトルバーを隠していると、変えたサイズが見える場所が無い。
+            foreach (var titleSizeButton in quickTitleSizeButtons)
+                titleSizeButton.IsEnabled = !ViewModel.IsTitleBarHidden;
             copyItem.IsEnabled = editing
                 ? TitleEditBox.SelectionLength > 0
                 : !string.IsNullOrEmpty(ViewModel.DisplayTitle);
@@ -355,6 +364,7 @@ public partial class StickyNoteWindow
     {
         ViewModel.IsTitleBarHidden = !ViewModel.IsTitleBarHidden;
         ApplyTitleBarVisibility();
+        UpdateToolbarTooltips();
         if (ViewModel.IsFolded)
         {
             ApplyFoldedContentPresentation();

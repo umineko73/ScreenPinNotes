@@ -218,8 +218,9 @@ public partial class StickyNoteWindow
     }
 
     // メニューと同じ Popup 内に置き、マウスキャプチャを共有する。
-    private Border BuildQuickActionsRow(out WpfButton iconButton)
+    private Border BuildQuickActionsRow(out WpfButton iconButton, out WpfButton[] titleSizeButtons)
     {
+        var titleButtons = new List<WpfButton>();
         WpfButton MakeButton(string content, string tooltip, Action onClick)
         {
             var btn = new WpfButton
@@ -254,6 +255,7 @@ public partial class StickyNoteWindow
             {
                 Source = ViewModel, StringFormat = LocalizationService.T(key),
             });
+            if (title) titleButtons.Add(button);
             panel.Children.Add(button);
         }
         panel.Children.Add(MakeButton("Aa", LocalizationService.T("FontTooltip"),
@@ -265,6 +267,7 @@ public partial class StickyNoteWindow
                 _fontPopup.Placement = PlacementMode.MousePoint;
                 _fontPopup.IsOpen = true;
             })));
+        titleSizeButtons = titleButtons.ToArray();
         iconButton = MakeButton(IconPickerGlyph, LocalizationService.T("IconTooltip"),
             () => RunQuickAction(OpenIconPickerAtMouse));
         panel.Children.Add(iconButton);
