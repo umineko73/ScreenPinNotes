@@ -19,6 +19,28 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # publish.ps1 は zip 名をタグではなく csproj の <Version> から作る。
+      # <Version> の更新を忘れたままタグを打つと、中身は新しいのにファイル名は
+      # 古いバージョンという zip が出来上がるので、ビルドの前に食い違いを止める。
+      # 手動実行（workflow_dispatch）にはタグが無いので、タグ push のときだけ見る。
+      - name: Check the tag matches the project version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          $csproj = Get-Content src/ScreenPinNotes.csproj -Raw
+          if ($csproj -notmatch '<Version>([^<]+)</Version>') {
+            Write-Host "::error::src/ScreenPinNotes.csproj has no <Version> element."
+            exit 1
+          }
+          $version = $Matches[1]
+          if ($env:TAG -ne "v$version") {
+            Write-Host "::error::Tag $($env:TAG) does not match <Version> $version in src/ScreenPinNotes.csproj. Bump the csproj, commit it, then tag that commit."
+            exit 1
+          }
+          Write-Host "tag $($env:TAG) matches <Version> $version"
+
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: "8.0.x"

@@ -38,7 +38,7 @@ powershell -ExecutionPolicy Bypass -File scripts/publish.ps1            # uses <
 powershell -ExecutionPolicy Bypass -File scripts/publish.ps1 -Version 0.2.0
 ```
 
-Releases are also built by CI: pushing a `v*` tag triggers `.github/workflows/release.yml`, which runs the same `publish.ps1` and attaches both zips to a **draft** GitHub release — publish it manually afterward.
+Releases are also built by CI: pushing a `v*` tag triggers `.github/workflows/release.yml`, which runs the same `publish.ps1` and attaches both zips to a **draft** GitHub release — publish it manually afterward. Because `publish.ps1` names the zips from the csproj `<Version>` rather than the tag, that workflow first fails the run unless the tag equals `v` + `<Version>`; bump the csproj, commit it, then tag that commit.
 
 ## Architecture
 
