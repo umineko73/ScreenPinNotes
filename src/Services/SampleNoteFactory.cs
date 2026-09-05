@@ -33,17 +33,22 @@ public static class SampleNoteFactory
     {
         storage ??= new StorageService();
         var now = DateTime.Now;
-        var lang = UsesEnglishLanguage(settings) ? "en" : "ja";
+        var lang = LocalizationService.ResolveLanguage(settings.Language);
         var notes = new List<StickyNote>();
 
         foreach (var name in new[] { "markdown", "usage" })
         {
-            if (!TryLoadSample(lang, name, out var note))
+            var sampleLanguage = lang;
+            if (!TryLoadSample(sampleLanguage, name, out var note))
+            {
+                sampleLanguage = "en";
+                if (!TryLoadSample(sampleLanguage, name, out note))
                 continue;
+            }
 
             note.CreatedAt = now;
             note.UpdatedAt = now;
-            CopyAssets(Path.Combine(SampleRoot, lang, name, "assets"), note.Id, storage);
+            CopyAssets(Path.Combine(SampleRoot, sampleLanguage, name, "assets"), note.Id, storage);
             notes.Add(note);
             now = now.AddMilliseconds(1); // 読み込み順を作成日時に反映する
         }
@@ -89,6 +94,4 @@ public static class SampleNoteFactory
             File.Copy(file, Path.Combine(destDir, Path.GetFileName(file)), overwrite: true);
     }
 
-    private static bool UsesEnglishLanguage(AppSettings settings)
-        => string.Equals(settings.Language, "en", StringComparison.OrdinalIgnoreCase);
 }

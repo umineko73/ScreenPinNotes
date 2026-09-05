@@ -39,9 +39,7 @@ public sealed class AppSettings
         => new() { Language = GetDefaultLanguage(CultureInfo.CurrentUICulture) };
 
     public static string GetDefaultLanguage(CultureInfo culture)
-        => culture.Name.StartsWith("ja", StringComparison.OrdinalIgnoreCase)
-            ? "ja"
-            : "en";
+        => ScreenPinNotes.Services.LocalizationService.ResolveLanguage(culture.Name);
 
     public static readonly (string Key, string[] Icons)[] IconGroups =
     [
@@ -70,8 +68,7 @@ public sealed class AppSettings
 
     public void Normalize()
     {
-        if (!string.Equals(Language, "en", StringComparison.OrdinalIgnoreCase))
-            Language = "ja";
+        Language = ScreenPinNotes.Services.LocalizationService.ResolveLanguage(Language, "ja");
         Theme = string.Equals(Theme, "Dark", StringComparison.OrdinalIgnoreCase) ? "Dark" : "Light";
         StorageRoot = StorageRoot?.Trim() ?? "";
         NotesRoot = NotesRoot?.Trim() ?? "";

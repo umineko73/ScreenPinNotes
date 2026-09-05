@@ -404,21 +404,14 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     public bool UsesDarkNoteColors => IsDarkTheme() || _model.ColorKey.StartsWith("dark-", StringComparison.Ordinal);
 
     private string ExternalFileLabel()
-        => string.Equals(_settings.Language, "en", StringComparison.OrdinalIgnoreCase)
-            ? "External file"
-            : "外部ファイル";
+        => LocalizationService.T("ExternalFile", _settings.Language);
 
     private string ReminderLabel()
-        => string.Equals(_settings.Language, "en", StringComparison.OrdinalIgnoreCase)
-            ? "Reminder"
-            : "リマインダー";
+        => LocalizationService.T("ReminderDialogTitle", _settings.Language);
 
     private string FormatReminder(DateTime nextAt)
     {
-        var format = string.Equals(_settings.Language, "en", StringComparison.OrdinalIgnoreCase)
-            ? "yyyy/MM/dd HH:mm"
-            : "yyyy/MM/dd HH:mm";
-        return nextAt.ToString(format);
+        return nextAt.ToString("yyyy/MM/dd HH:mm", System.Globalization.CultureInfo.GetCultureInfo(_settings.Language));
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

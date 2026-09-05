@@ -123,6 +123,9 @@ public partial class StickyNoteWindow : Window
             ? new WpfSolidBrush(WpfColor.FromRgb(31, 41, 55))
             : new WpfSolidBrush(WpfColor.FromRgb(255, 255, 255));
 
+    // Keep the toolbar edge identical to context-menu edges in every theme.
+    public System.Windows.Media.Brush ToolbarBorderBrush => PopupBorderBrush();
+
     public string PositionSeparatedTooltip => LocalizationService.T("PositionSeparatedTooltip");
 
     private sealed record ContentUndoEntry(string Before, string After);

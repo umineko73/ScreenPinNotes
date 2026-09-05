@@ -1,0 +1,594 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <data name="EditMarkdownLink" xml:space="preserve">
+    <value>リンクを編集...</value>
+  </data>
+  <data name="LinkDisplayText" xml:space="preserve">
+    <value>表示テキスト</value>
+  </data>
+  <data name="InvalidLinkTarget" xml:space="preserve">
+    <value>改行や山括弧を含まない有効なリンクを入力してください。</value>
+  </data>
+  <data name="IconColors" xml:space="preserve">
+    <value>色・記号</value>
+  </data>
+  <data name="IconPriority" xml:space="preserve">
+    <value>緊急・優先度</value>
+  </data>
+  <data name="IconStatus" xml:space="preserve">
+    <value>状態・進捗</value>
+  </data>
+  <data name="IconNotes" xml:space="preserve">
+    <value>メモ・資料</value>
+  </data>
+  <data name="IconIdeas" xml:space="preserve">
+    <value>発想・調査</value>
+  </data>
+  <data name="IconSchedule" xml:space="preserve">
+    <value>予定・連絡</value>
+  </data>
+  <data name="IconWork" xml:space="preserve">
+    <value>仕事・開発</value>
+  </data>
+  <data name="IconDaily" xml:space="preserve">
+    <value>日常</value>
+  </data>
+  <data name="IconAnimals" xml:space="preserve">
+    <value>動物</value>
+  </data>
+  <data name="IconOther" xml:space="preserve">
+    <value>その他</value>
+  </data>
+  <data name="MarkdownFormatting" xml:space="preserve">
+    <value>Markdown書式</value>
+  </data>
+  <data name="FormatBold" xml:space="preserve">
+    <value>太字</value>
+  </data>
+  <data name="FormatStrike" xml:space="preserve">
+    <value>取り消し線</value>
+  </data>
+  <data name="FormatCode" xml:space="preserve">
+    <value>インラインコード</value>
+  </data>
+  <data name="FormatHeading1" xml:space="preserve">
+    <value>見出し1</value>
+  </data>
+  <data name="FormatHeading2" xml:space="preserve">
+    <value>見出し2</value>
+  </data>
+  <data name="FormatHeading3" xml:space="preserve">
+    <value>見出し3</value>
+  </data>
+  <data name="FormatBullets" xml:space="preserve">
+    <value>箇条書き</value>
+  </data>
+  <data name="FormatTasks" xml:space="preserve">
+    <value>チェックリスト</value>
+  </data>
+  <data name="FormatLink" xml:space="preserve">
+    <value>リンクを挿入・編集...</value>
+  </data>
+  <data name="Yes" xml:space="preserve">
+    <value>はい</value>
+  </data>
+  <data name="Retry" xml:space="preserve">
+    <value>再試行</value>
+  </data>
+  <data name="FontsLoadFailed" xml:space="preserve">
+    <value>フォントを読み込めませんでした。再試行してください。</value>
+  </data>
+  <data name="FontsLoading" xml:space="preserve">
+    <value>フォントを読み込み中…</value>
+  </data>
+  <data name="No" xml:space="preserve">
+    <value>いいえ</value>
+  </data>
+  <data name="TrayShowAll" xml:space="preserve">
+    <value>付箋をすべて表示</value>
+  </data>
+  <data name="TrayHideAll" xml:space="preserve">
+    <value>付箋をすべて非表示</value>
+  </data>
+  <data name="TrayNoteManager" xml:space="preserve">
+    <value>付箋一覧...</value>
+  </data>
+  <data name="TrayHiddenNotes" xml:space="preserve">
+    <value>非表示の付箋</value>
+  </data>
+  <data name="TrayShowAllHiddenNotes" xml:space="preserve">
+    <value>非表示の付箋をすべて表示</value>
+  </data>
+  <data name="TrayNoHiddenNotes" xml:space="preserve">
+    <value>（なし）</value>
+  </data>
+  <data name="TrayNewNote" xml:space="preserve">
+    <value>新しい付箋を作成</value>
+  </data>
+  <data name="TrayOpenExternalNote" xml:space="preserve">
+    <value>外部ファイルを付箋として開く...</value>
+  </data>
+  <data name="TraySettings" xml:space="preserve">
+    <value>設定</value>
+  </data>
+  <data name="TraySelectNotesRoot" xml:space="preserve">
+    <value>保存フォルダを選択...</value>
+  </data>
+  <data name="TrayExportNotes" xml:space="preserve">
+    <value>付箋をエクスポート...</value>
+  </data>
+  <data name="TrayImportNotes" xml:space="preserve">
+    <value>付箋をインポート...</value>
+  </data>
+  <data name="TrayStartup" xml:space="preserve">
+    <value>Windows 起動時に自動起動</value>
+  </data>
+  <data name="TrayTitlePreviewTooltip" xml:space="preserve">
+    <value>折りたたみ中にマウスを重ねて本文を表示</value>
+  </data>
+  <data name="TrayFoldAnimation" xml:space="preserve">
+    <value>折りたたみ・展開のアニメーション</value>
+  </data>
+  <data name="TrayFoldButton" xml:space="preserve">
+    <value>折りたたみ・展開ボタンを表示</value>
+  </data>
+  <data name="TrayDoubleClickToToggleView" xml:space="preserve">
+    <value>タイトルバーのダブルクリックで折りたたみ・展開</value>
+  </data>
+  <data name="TrayLanguage" xml:space="preserve">
+    <value>言語</value>
+  </data>
+  <data name="TrayLanguageJapanese" xml:space="preserve">
+    <value>日本語</value>
+  </data>
+  <data name="TrayLanguageEnglish" xml:space="preserve">
+    <value>英語</value>
+  </data>
+  <data name="TrayDarkMode" xml:space="preserve">
+    <value>ダークモード</value>
+  </data>
+  <data name="TrayAbout" xml:space="preserve">
+    <value>ScreenPinNotes について</value>
+  </data>
+  <data name="TrayExit" xml:space="preserve">
+    <value>終了</value>
+  </data>
+  <data name="SelectNotesRootTitle" xml:space="preserve">
+    <value>ノート保存フォルダの選択</value>
+  </data>
+  <data name="SelectNotesRootDescription" xml:space="preserve">
+    <value>親フォルダを選択してください。選択したフォルダ内に ScreenPinNotes フォルダと notes フォルダを作成します。</value>
+  </data>
+  <data name="SelectNotesRootChangedTitle" xml:space="preserve">
+    <value>保存フォルダを変更しました</value>
+  </data>
+  <data name="SelectNotesRootChangedMessage" xml:space="preserve">
+    <value>保存フォルダを変更しました。選択したフォルダ内の ScreenPinNotes\notes フォルダから付箋を読み込みました。</value>
+  </data>
+  <data name="InitializeEmptyStorageTitle" xml:space="preserve">
+    <value>付箋データがありません</value>
+  </data>
+  <data name="InitializeEmptyStorageMessage" xml:space="preserve">
+    <value>選択した保存フォルダに付箋データがありません。初期ノートを作成して起動します。</value>
+  </data>
+  <data name="MoveNotesConfirmTitle" xml:space="preserve">
+    <value>既存の付箋を移動しますか？</value>
+  </data>
+  <data name="MoveNotesConfirmMessage" xml:space="preserve">
+    <value>選択したフォルダに ScreenPinNotes\notes フォルダがありません。
+
+はい: 現在の notes フォルダを選択したフォルダへ移動します。
+いいえ: 選択したフォルダに初期ノートを作成します。現在の notes フォルダはそのまま残ります。</value>
+  </data>
+  <data name="MoveNotesFailedTitle" xml:space="preserve">
+    <value>移動に失敗しました</value>
+  </data>
+  <data name="MoveNotesFailedMessage" xml:space="preserve">
+    <value>notes フォルダを移動できませんでした。保存フォルダは変更していません。詳細はログを確認してください。</value>
+  </data>
+  <data name="NotesZipFilter" xml:space="preserve">
+    <value>ScreenPinNotes zip (*.zip)|*.zip</value>
+  </data>
+  <data name="ExportNotesTitle" xml:space="preserve">
+    <value>付箋のエクスポート</value>
+  </data>
+  <data name="ExportNotesCompletedTitle" xml:space="preserve">
+    <value>エクスポート完了</value>
+  </data>
+  <data name="ExportNotesCompletedMessage" xml:space="preserve">
+    <value>付箋をエクスポートしました。</value>
+  </data>
+  <data name="ExportNotesFailedTitle" xml:space="preserve">
+    <value>エクスポートに失敗しました</value>
+  </data>
+  <data name="ExportNotesFailedMessage" xml:space="preserve">
+    <value>付箋をエクスポートできませんでした。詳細はログを確認してください。</value>
+  </data>
+  <data name="ImportNotesTitle" xml:space="preserve">
+    <value>付箋のインポート</value>
+  </data>
+  <data name="ImportNotesConfirmTitle" xml:space="preserve">
+    <value>付箋をインポートしますか？</value>
+  </data>
+  <data name="ImportNotesConfirmMessage" xml:space="preserve">
+    <value>選択した zip の付箋を追加します。既存の付箋は上書きせず、ID が重複する付箋は新しい ID で取り込みます。</value>
+  </data>
+  <data name="ImportNotesCompletedTitle" xml:space="preserve">
+    <value>インポート完了</value>
+  </data>
+  <data name="ImportNotesCompletedMessage" xml:space="preserve">
+    <value>{0} 件の付箋をインポートしました。{1} 件をスキップしました。</value>
+  </data>
+  <data name="ImportNotesFailedTitle" xml:space="preserve">
+    <value>インポートに失敗しました</value>
+  </data>
+  <data name="ImportNotesFailedMessage" xml:space="preserve">
+    <value>付箋をインポートできませんでした。現在の付箋は変更していません。詳細はログを確認してください。</value>
+  </data>
+  <data name="ExternalNoteFileFilter" xml:space="preserve">
+    <value>Markdown/テキストファイル (*.md;*.txt)|*.md;*.txt|すべてのファイル (*.*)|*.*</value>
+  </data>
+  <data name="ExternalNoteFileTooLargeTitle" xml:space="preserve">
+    <value>ファイルサイズが大きすぎます</value>
+  </data>
+  <data name="ExternalNoteFileTooLargeMessage" xml:space="preserve">
+    <value>このファイルは大きすぎるため付箋として開けません（上限: 20MB）。</value>
+  </data>
+  <data name="AboutTitle" xml:space="preserve">
+    <value>ScreenPinNotes について</value>
+  </data>
+  <data name="AboutDescription" xml:space="preserve">
+    <value>Windows 11 向けのデスクトップ付箋アプリです。</value>
+  </data>
+  <data name="AboutLicense" xml:space="preserve">
+    <value>ライセンス: GNU General Public License v3.0 以降</value>
+  </data>
+  <data name="Close" xml:space="preserve">
+    <value>閉じる</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>キャンセル</value>
+  </data>
+  <data name="NoMemo" xml:space="preserve">
+    <value>（メモなし）</value>
+  </data>
+  <data name="EditBodyTooltip" xml:space="preserve">
+    <value>ダブルクリックして編集</value>
+  </data>
+  <data name="EditLockBodyTooltip" xml:space="preserve">
+    <value>編集がロックされています</value>
+  </data>
+  <data name="EditLock" xml:space="preserve">
+    <value>編集をロック</value>
+  </data>
+  <data name="EditLockNotice" xml:space="preserve">
+    <value>編集がロックされています</value>
+  </data>
+  <data name="EditLockDeleteBlockedTitle" xml:space="preserve">
+    <value>編集ロック中</value>
+  </data>
+  <data name="EditLockDeleteBlockedMessage" xml:space="preserve">
+    <value>この付箋は編集ロック中のため削除できません。</value>
+  </data>
+  <data name="NoteContentTooLarge" xml:space="preserve">
+    <value>本文サイズ上限: {0}</value>
+  </data>
+  <data name="TitleFallbackTooltip" xml:space="preserve">
+    <value>空欄なら本文の1行目を表示します</value>
+  </data>
+  <data name="AddNoteTooltip" xml:space="preserve">
+    <value>新しい付箋を追加</value>
+  </data>
+  <data name="TopmostTooltip" xml:space="preserve">
+    <value>常に最前面</value>
+  </data>
+  <data name="FoldTooltip" xml:space="preserve">
+    <value>折りたたむ / 展開する</value>
+  </data>
+  <data name="FontSmallerTooltip" xml:space="preserve">
+    <value>本文のフォントを小さく (現在 {0}pt)</value>
+  </data>
+  <data name="FontLargerTooltip" xml:space="preserve">
+    <value>本文のフォントを大きく (現在 {0}pt)</value>
+  </data>
+  <data name="TitleSmallerTooltip" xml:space="preserve">
+    <value>タイトルのフォントを小さく (現在 {0}pt)</value>
+  </data>
+  <data name="TitleLargerTooltip" xml:space="preserve">
+    <value>タイトルのフォントを大きく (現在 {0}pt)</value>
+  </data>
+  <data name="FontTooltip" xml:space="preserve">
+    <value>フォントを変更</value>
+  </data>
+  <data name="ChangeIcon" xml:space="preserve">
+    <value>アイコンを変更</value>
+  </data>
+  <data name="ChangeColor" xml:space="preserve">
+    <value>色を変更</value>
+  </data>
+  <data name="IconTooltip" xml:space="preserve">
+    <value>アイコンを変更</value>
+  </data>
+  <data name="NoIconTooltip" xml:space="preserve">
+    <value>アイコンなし</value>
+  </data>
+  <data name="ColorTooltip" xml:space="preserve">
+    <value>色を変更</value>
+  </data>
+  <data name="DoneEditingLabel" xml:space="preserve">
+    <value>✓ 完了</value>
+  </data>
+  <data name="DoneEditingTooltip" xml:space="preserve">
+    <value>編集を確定 (Ctrl+Enter)</value>
+  </data>
+  <data name="Cut" xml:space="preserve">
+    <value>切り取り</value>
+  </data>
+  <data name="Copy" xml:space="preserve">
+    <value>コピー</value>
+  </data>
+  <data name="Paste" xml:space="preserve">
+    <value>貼り付け</value>
+  </data>
+  <data name="PasteMarkdownLink" xml:space="preserve">
+    <value>Markdownリンクとして貼り付け</value>
+  </data>
+  <data name="MarkdownLinkLabelTitle" xml:space="preserve">
+    <value>Markdownリンク</value>
+  </data>
+  <data name="MarkdownLinkLabelPrompt" xml:space="preserve">
+    <value>リンクの表示名:</value>
+  </data>
+  <data name="PasteExcelTable" xml:space="preserve">
+    <value>Excelから表を貼り付け</value>
+  </data>
+  <data name="PasteExcelTableWithHeader" xml:space="preserve">
+    <value>1行目を見出しにする</value>
+  </data>
+  <data name="PasteExcelTableWithoutHeader" xml:space="preserve">
+    <value>見出しなし</value>
+  </data>
+  <data name="CopyExcelTable" xml:space="preserve">
+    <value>Excelに貼り付けられる形式で表をコピー</value>
+  </data>
+  <data name="SelectAll" xml:space="preserve">
+    <value>すべて選択</value>
+  </data>
+  <data name="OpenLink" xml:space="preserve">
+    <value>リンクを開く</value>
+  </data>
+  <data name="ConvertLink" xml:space="preserve">
+    <value>Markdownリンクに変換</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>付箋を削除</value>
+  </data>
+  <data name="UnlinkExternalNote" xml:space="preserve">
+    <value>付箋を削除（元のファイルは残す）</value>
+  </data>
+  <data name="HideNote" xml:space="preserve">
+    <value>付箋を非表示</value>
+  </data>
+  <data name="EditTitle" xml:space="preserve">
+    <value>タイトルを編集</value>
+  </data>
+  <data name="ZOrder" xml:space="preserve">
+    <value>重なり順</value>
+  </data>
+  <data name="Opacity" xml:space="preserve">
+    <value>不透明度</value>
+  </data>
+  <data name="OpacityTooltip" xml:space="preserve">
+    <value>100%で不透明になります。数値を下げるほど背景が透けます。</value>
+  </data>
+  <data name="ResetPositionSeparation" xml:space="preserve">
+    <value>折りたたみ時の位置にそろえる</value>
+  </data>
+  <data name="ResetPositionSeparationTooltip" xml:space="preserve">
+    <value>展開時の位置を折りたたみ時の位置にそろえ、以後は両方の位置を連動させます。</value>
+  </data>
+  <data name="PositionSeparatedTooltip" xml:space="preserve">
+    <value>折りたたみ時と展開時の位置を別々に記憶しています</value>
+  </data>
+  <data name="ExternalFile" xml:space="preserve">
+    <value>外部ファイル</value>
+  </data>
+  <data name="OpenExternalFile" xml:space="preserve">
+    <value>外部ファイルを開く</value>
+  </data>
+  <data name="OpenExternalFolder" xml:space="preserve">
+    <value>ファイルの保存先フォルダを開く</value>
+  </data>
+  <data name="ConvertExternalToNormal" xml:space="preserve">
+    <value>編集できる付箋に変換</value>
+  </data>
+  <data name="ConvertExternalToNormalTooltip" xml:space="preserve">
+    <value>内容を付箋に取り込み、外部ファイルとの連動を解除します。元のファイルは残ります。</value>
+  </data>
+  <data name="ReminderMenu" xml:space="preserve">
+    <value>リマインダー...</value>
+  </data>
+  <data name="ReminderDialogTitle" xml:space="preserve">
+    <value>リマインダー</value>
+  </data>
+  <data name="ReminderDialogDescription" xml:space="preserve">
+    <value>この付箋の単発リマインダーを設定します。</value>
+  </data>
+  <data name="ReminderDate" xml:space="preserve">
+    <value>日付</value>
+  </data>
+  <data name="ReminderTime" xml:space="preserve">
+    <value>時刻</value>
+  </data>
+  <data name="ReminderAfter5" xml:space="preserve">
+    <value>5分後</value>
+  </data>
+  <data name="ReminderAfter15" xml:space="preserve">
+    <value>15分後</value>
+  </data>
+  <data name="ReminderAfter60" xml:space="preserve">
+    <value>1時間後</value>
+  </data>
+  <data name="ReminderTomorrow" xml:space="preserve">
+    <value>明日 9:00</value>
+  </data>
+  <data name="ReminderClear" xml:space="preserve">
+    <value>解除</value>
+  </data>
+  <data name="ReminderInvalid" xml:space="preserve">
+    <value>正しい日付と時刻を入力してください。</value>
+  </data>
+  <data name="ReminderCleared" xml:space="preserve">
+    <value>リマインダーを解除しました</value>
+  </data>
+  <data name="ReminderSetMessage" xml:space="preserve">
+    <value>リマインダー: {0}</value>
+  </data>
+  <data name="ReminderDueTitle" xml:space="preserve">
+    <value>リマインダー</value>
+  </data>
+  <data name="ReminderDueMessage" xml:space="preserve">
+    <value>リマインダー時刻: {0}</value>
+  </data>
+  <data name="ReminderDismiss" xml:space="preserve">
+    <value>完了</value>
+  </data>
+  <data name="ReminderSnooze5" xml:space="preserve">
+    <value>5分</value>
+  </data>
+  <data name="ReminderSnooze15" xml:space="preserve">
+    <value>15分</value>
+  </data>
+  <data name="ReminderSnooze60" xml:space="preserve">
+    <value>1時間</value>
+  </data>
+  <data name="BringToFront" xml:space="preserve">
+    <value>前面へ移動</value>
+  </data>
+  <data name="SendToBack" xml:space="preserve">
+    <value>背面へ移動</value>
+  </data>
+  <data name="ImageSmaller" xml:space="preserve">
+    <value>画像を小さく</value>
+  </data>
+  <data name="ImageLarger" xml:space="preserve">
+    <value>画像を大きく</value>
+  </data>
+  <data name="ImageOriginal" xml:space="preserve">
+    <value>元のサイズ（100%）</value>
+  </data>
+  <data name="RemoveImageWidth" xml:space="preserve">
+    <value>画像サイズを自動調整に戻す</value>
+  </data>
+  <data name="FitWindowToImage" xml:space="preserve">
+    <value>画像に合わせて付箋のサイズを調整</value>
+  </data>
+  <data name="FitWindowToImages" xml:space="preserve">
+    <value>画像に合わせて付箋のサイズを調整</value>
+  </data>
+  <data name="DetachImageFromNote" xml:space="preserve">
+    <value>付箋から画像を外す</value>
+  </data>
+  <data name="DeleteImageFile" xml:space="preserve">
+    <value>画像ファイルごと削除</value>
+  </data>
+  <data name="DeleteImageFileConfirmTitle" xml:space="preserve">
+    <value>確認</value>
+  </data>
+  <data name="DeleteImageFileConfirmMessage" xml:space="preserve">
+    <value>この画像を付箋から外し、画像ファイルも削除しますか？</value>
+  </data>
+  <data name="DeleteExternalImageFileBlocked" xml:space="preserve">
+    <value>この付箋内に保存された画像ファイルのみ削除できます。</value>
+  </data>
+  <data name="BodySize" xml:space="preserve">
+    <value>本文 {0:0}pt</value>
+  </data>
+  <data name="TitleSize" xml:space="preserve">
+    <value>タイトル {0:0}pt</value>
+  </data>
+  <data name="DragMoveNoSnap" xml:space="preserve">
+    <value>移動: スナップなし</value>
+  </data>
+  <data name="DragMoveSeparate" xml:space="preserve">
+    <value>移動: 現在の状態のみ</value>
+  </data>
+  <data name="DragMoveSeparateNoSnap" xml:space="preserve">
+    <value>移動: 現在の状態のみ・スナップなし</value>
+  </data>
+  <data name="NoteManagerTitle" xml:space="preserve">
+    <value>付箋一覧</value>
+  </data>
+  <data name="NoteManagerSearch" xml:space="preserve">
+    <value>検索</value>
+  </data>
+  <data name="NoteManagerSearchPlaceholder" xml:space="preserve">
+    <value>タイトル、本文、パスを検索</value>
+  </data>
+  <data name="NoteManagerShow" xml:space="preserve">
+    <value>表示</value>
+  </data>
+  <data name="NoteManagerHide" xml:space="preserve">
+    <value>非表示</value>
+  </data>
+  <data name="NoteManagerDelete" xml:space="preserve">
+    <value>削除</value>
+  </data>
+  <data name="NoteManagerRefresh" xml:space="preserve">
+    <value>更新</value>
+  </data>
+  <data name="NoteManagerTypeNormal" xml:space="preserve">
+    <value>通常</value>
+  </data>
+  <data name="NoteManagerTypeExternal" xml:space="preserve">
+    <value>外部ファイル</value>
+  </data>
+  <data name="NoteManagerVisible" xml:space="preserve">
+    <value>表示</value>
+  </data>
+  <data name="NoteManagerHidden" xml:space="preserve">
+    <value>非表示</value>
+  </data>
+  <data name="NoteManagerTitleColumn" xml:space="preserve">
+    <value>タイトル</value>
+  </data>
+  <data name="NoteManagerTypeColumn" xml:space="preserve">
+    <value>種類</value>
+  </data>
+  <data name="NoteManagerStateColumn" xml:space="preserve">
+    <value>状態</value>
+  </data>
+  <data name="NoteManagerUpdatedColumn" xml:space="preserve">
+    <value>更新日時</value>
+  </data>
+  <data name="NoteManagerSnippetColumn" xml:space="preserve">
+    <value>本文</value>
+  </data>
+  <data name="NoteManagerReminderColumn" xml:space="preserve">
+    <value>リマインダー</value>
+  </data>
+  <data name="NoteManagerPathColumn" xml:space="preserve">
+    <value>パス</value>
+  </data>
+  <data name="NoteManagerNoSelection" xml:space="preserve">
+    <value>付箋を選択してください。</value>
+  </data>
+  <data name="DeleteConfirmTitle" xml:space="preserve">
+    <value>確認</value>
+  </data>
+  <data name="DeleteConfirmMessage" xml:space="preserve">
+    <value>この付箋を削除しますか？</value>
+  </data>
+  <data name="DeleteConfirmMessageWithAssets" xml:space="preserve">
+    <value>この付箋を削除しますか？この付箋内に保存された画像も一緒に削除されます。</value>
+  </data>
+  <data name="UnlinkExternalConfirmMessage" xml:space="preserve">
+    <value>この付箋を削除しますか？連動している元のファイルは削除されません。</value>
+  </data>
+</root>

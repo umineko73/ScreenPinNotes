@@ -46,7 +46,7 @@ public class AppSettingsTests
 
     [Theory]
     [InlineData("en", "en")]
-    [InlineData("EN", "EN")] // matches "en" case-insensitively, so it's left as-is (not lowercased)
+    [InlineData("EN", "en")]
     [InlineData("ja", "ja")]
     [InlineData("fr", "ja")]
     [InlineData("", "ja")]

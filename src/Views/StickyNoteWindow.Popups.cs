@@ -271,16 +271,36 @@ public partial class StickyNoteWindow
         panel.Children.Add(MakeButton("🎨", LocalizationService.T("ColorTooltip"),
             () => RunQuickAction(OpenColorPickerAtMouse)));
 
+        // Keep live sizes in the menu's own window so they cannot hide behind it.
+        var sizes = new TextBlock
+        {
+            Margin = new Thickness(5, 2, 5, 2), FontSize = 12,
+            Foreground = IsDarkTheme() ? WpfBrushes.WhiteSmoke : WpfBrushes.Black,
+        };
+        var sizeBinding = new System.Windows.Data.MultiBinding { StringFormat = "A: {0} pt    T: {1} pt" };
+        sizeBinding.Bindings.Add(new System.Windows.Data.Binding("FontSize") { Source = ViewModel });
+        sizeBinding.Bindings.Add(new System.Windows.Data.Binding("TitleFontSize") { Source = ViewModel });
+        sizes.SetBinding(TextBlock.TextProperty, sizeBinding);
+        var toolbar = new StackPanel();
+        toolbar.Children.Add(panel);
+        toolbar.Children.Add(sizes);
         var border = new Border
         {
             DataContext = ViewModel,
-            BorderBrush = new WpfSolidBrush(WpfColor.FromArgb(51, 0, 0, 0)),
+            BorderBrush = PopupBorderBrush(),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(4),
             Padding = new Thickness(3),
-            Child = panel,
+            Child = toolbar,
         };
         border.Background = PopupBackgroundBrush();
+        border.SetBinding(Border.BorderBrushProperty, new System.Windows.Data.Binding("BorderBrush")
+        {
+            RelativeSource = new System.Windows.Data.RelativeSource(
+                System.Windows.Data.RelativeSourceMode.FindAncestor, typeof(ContextMenu), 1),
+        });
+        border.SnapsToDevicePixels = true;
+        border.UseLayoutRounding = true;
         border.SetValue(TextElement.ForegroundProperty, ViewModel.TextForeground);
         return border;
     }

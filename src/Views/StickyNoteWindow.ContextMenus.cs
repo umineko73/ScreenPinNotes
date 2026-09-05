@@ -102,6 +102,9 @@ public partial class StickyNoteWindow
         cm.Items.Add(deleteItem);
         cm.Opened += (_, _) =>
         {
+            cm.Background = PopupBackgroundBrush();
+            cm.Foreground = ViewModel.TextForeground;
+            if (cm.Tag is Border toolbar) toolbar.Background = PopupBackgroundBrush();
             var canEdit = !IsContentReadOnly();
             cutItem.IsEnabled = canEdit && _isEditMode && ContentBox.Selection.IsEmpty == false;
             pasteItem.IsEnabled = canEdit && _isEditMode && (TryGetClipboardText(out _) || ClipboardHasImage());

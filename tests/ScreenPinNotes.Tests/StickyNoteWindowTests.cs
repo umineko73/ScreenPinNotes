@@ -16,6 +16,33 @@ namespace ScreenPinNotes.Tests;
 public class StickyNoteWindowTests
 {
     [WpfFact]
+    public void FontSizeButtons_KeepContextMenuOpenAndUpdateVisibleSizes()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var window = new StickyNoteWindow(new StickyNoteViewModel(new StickyNote(), new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            var content = (RichTextBox)window.FindName("ContentBox");
+            var menu = content.ContextMenu;
+            menu.PlacementTarget = content;
+            menu.IsOpen = true;
+            var toolbar = (StackPanel)((Border)menu.Tag).Child;
+            var buttons = (StackPanel)toolbar.Children[0];
+            for (var i = 0; i < 3; i++)
+                ((Button)buttons.Children[1]).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            ((Button)buttons.Children[3]).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            Assert.True(menu.IsOpen);
+            var sizes = (TextBlock)toolbar.Children[1];
+            Assert.Equal($"A: {window.ViewModel.FontSize} pt    T: {window.ViewModel.TitleFontSize} pt", sizes.Text);
+            menu.IsOpen = false;
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfFact]
     public void EditSize_NeverShrinksBelowExpandedSizePerDimension()
     {
         EnsureApplication();
@@ -311,7 +338,8 @@ public class StickyNoteWindowTests
             {
                 Assert.NotNull(contextMenu);
                 var row = Assert.IsType<Border>(contextMenu.Tag);
-                var panel = Assert.IsType<StackPanel>(row.Child);
+                var toolbar = Assert.IsType<StackPanel>(row.Child);
+                var panel = Assert.IsType<StackPanel>(toolbar.Children[0]);
                 Assert.False(row.Focusable);
                 Assert.Equal(7, panel.Children.Count);
                 Assert.All(

@@ -596,21 +596,16 @@ public partial class App : System.Windows.Application
     private ToolStripMenuItem BuildLanguageMenu()
     {
         var languageItem = new ToolStripMenuItem(LocalizationService.T("TrayLanguage"));
-        var japaneseItem = new ToolStripMenuItem(LocalizationService.T("TrayLanguageJapanese"))
+        foreach (var language in LocalizationService.Languages)
         {
-            Checked = !UsesEnglishLanguage(),
-            CheckOnClick = false,
-        };
-        var englishItem = new ToolStripMenuItem(LocalizationService.T("TrayLanguageEnglish"))
-        {
-            Checked = UsesEnglishLanguage(),
-            CheckOnClick = false,
-        };
-
-        japaneseItem.Click += (_, _) => SetLanguage("ja");
-        englishItem.Click += (_, _) => SetLanguage("en");
-        languageItem.DropDownItems.Add(japaneseItem);
-        languageItem.DropDownItems.Add(englishItem);
+            var item = new ToolStripMenuItem(language.NativeName)
+            {
+                Checked = string.Equals(_settings.Language, language.Code, StringComparison.OrdinalIgnoreCase),
+                CheckOnClick = false,
+            };
+            item.Click += (_, _) => SetLanguage(language.Code);
+            languageItem.DropDownItems.Add(item);
+        }
         return languageItem;
     }
 
@@ -679,8 +674,6 @@ public partial class App : System.Windows.Application
         ApplySettingsChange();
     }
 
-    private bool UsesEnglishLanguage()
-        => string.Equals(_settings.Language, "en", StringComparison.OrdinalIgnoreCase);
 
     private bool IsDarkTheme()
         => string.Equals(_settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase);
@@ -776,7 +769,7 @@ public partial class App : System.Windows.Application
             Y = y ?? layout.NewNoteBaseY + _windows.Count * layout.NewNoteCascadeStep,
             Width = layout.DefaultNoteWidth,
             Height = layout.DefaultNoteHeight,
-            Title = StickyNote.CreateDefaultTitle(now, UsesEnglishLanguage()),
+            Title = now.ToString("yyyy/MM/dd(ddd) HH:mm:ss", System.Globalization.CultureInfo.GetCultureInfo(_settings.Language)),
             CreatedAt = now,
             UpdatedAt = now,
         };

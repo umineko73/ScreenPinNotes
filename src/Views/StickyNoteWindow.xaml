@@ -283,8 +283,6 @@
                    AllowsTransparency="True"
                    DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
                 <Border x:Name="StatusBar"
-                        Background="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=ToolbarBackground}"
-                        BorderBrush="#33000000"
                         BorderThickness="1"
                         CornerRadius="4"
                         Padding="3"

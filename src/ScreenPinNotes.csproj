@@ -38,4 +38,12 @@
          最新版へ追従させるため PreserveNewest。 -->
     <None Include="SampleNotes\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <Target Name="GenerateLanguageCatalog" BeforeTargets="AssignTargetPaths">
+    <ItemGroup>
+      <_TranslationFiles Include="Resources/Strings.*.resx" />
+      <EmbeddedResource Include="$(IntermediateOutputPath)languages.txt" LogicalName="ScreenPinNotes.Languages" />
+    </ItemGroup>
+    <WriteLinesToFile File="$(IntermediateOutputPath)languages.txt"
+                      Lines="@(_TranslationFiles->'%(Filename)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
+  </Target>
 </Project>

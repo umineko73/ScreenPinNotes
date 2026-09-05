@@ -270,6 +270,9 @@ public partial class StickyNoteWindow
         if (!_isEditMode || ViewModel.IsFolded || _isContentContextMenuOpen || _isLinkEditDialogOpen) return;
         _toolbarHideTimer.Stop();
         UpdateEditToolbarPlacement();
+        StatusBar.Background = ToolbarBackground;
+        StatusBar.BorderBrush = PopupBorderBrush();
+        StatusBar.SetValue(TextElement.ForegroundProperty, ViewModel.TextForeground);
         EditToolbarPopup.IsOpen = true;
         foreach (var button in new[] { FontSmallerButton, FontLargerButton, TitleSmallerButton,
             TitleLargerButton, FontButton, IconButton, ColorButton })
@@ -277,7 +280,15 @@ public partial class StickyNoteWindow
     }
 
     private void EditToolbarPopup_Opened(object? sender, EventArgs e)
-        => SyncEditToolbarZOrder();
+    {
+        StatusBar.Background = ToolbarBackground;
+        StatusBar.BorderBrush = PopupBorderBrush();
+        StatusBar.SetValue(TextElement.ForegroundProperty, ViewModel.TextForeground);
+        foreach (var button in new[] { FontSmallerButton, FontLargerButton, TitleSmallerButton,
+            TitleLargerButton, FontButton, IconButton, ColorButton })
+            button.Foreground = ViewModel.TextForeground;
+        SyncEditToolbarZOrder();
+    }
 
     private void SyncEditToolbarZOrder()
     {
