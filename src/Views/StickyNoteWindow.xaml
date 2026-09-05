@@ -42,6 +42,7 @@
     </WindowChrome.WindowChrome>
 
     <Border x:Name="RootBorder"
+            SizeChanged="RootBorder_SizeChanged"
             Background="{Binding BackgroundBrush}"
             BorderThickness="1"
             BorderBrush="{Binding HeaderBrush}"
@@ -266,6 +267,7 @@
 
             <!-- 編集ツールバー。編集モード中は常に表示する -->
             <Popup x:Name="EditToolbarPopup"
+                   Opened="EditToolbarPopup_Opened"
                    PlacementTarget="{Binding ElementName=RootBorder}"
                    Placement="Bottom"
                    HorizontalOffset="4"
@@ -274,7 +276,7 @@
                    AllowsTransparency="True"
                    DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
                 <Border x:Name="StatusBar"
-                        Background="{Binding HeaderBrush}"
+                        Background="{StaticResource NoteToolbarBackground}"
                         BorderBrush="#33000000"
                         BorderThickness="1"
                         CornerRadius="4"

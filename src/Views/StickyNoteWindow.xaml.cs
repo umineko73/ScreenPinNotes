@@ -1,4 +1,4 @@
-﻿// ScreenPinNotes - a desktop sticky notes app for Windows 11
+// ScreenPinNotes - a desktop sticky notes app for Windows 11
 // Copyright (C) 2026 umineko73
 //
 // This program is free software: you can redistribute it and/or modify
@@ -52,13 +52,6 @@ public partial class StickyNoteWindow : Window
 
     /// <summary>折りたたんだときのウィンドウ高さ（枠線込み）。</summary>
     private double FoldedHeight => ViewModel.TitleBarHeight + Settings.Layout.RootBorderThickness * 2;
-
-    private static readonly string[] FontList =
-    [
-        "Yu Gothic UI", "Yu Gothic", "Meiryo UI", "Meiryo",
-        "BIZ UDGothic", "BIZ UDPGothic", "BIZ UDMincho",
-        "MS Gothic", "MS Mincho", "Segoe UI", "Consolas",
-    ];
 
     private double     _unfoldedHeight;
     // コンストラクタ〜Loaded の初期値設定中は true。
@@ -297,6 +290,7 @@ public partial class StickyNoteWindow : Window
     {
         _isContentContextMenuOpen = false;
         _suppressViewMode = false;
+        ShowEditToolbar();
         if (_isEditMode) Dispatcher.BeginInvoke(() => ContentBox.Focus());
         ScheduleHideEditToolbar();
     }
@@ -359,6 +353,9 @@ public partial class StickyNoteWindow : Window
         FontButton.ToolTip = LocalizationService.T("FontTooltip");
         IconButton.ToolTip = LocalizationService.T("IconTooltip");
         ColorButton.ToolTip = LocalizationService.T("ColorTooltip");
+        IconButton.Content = new WpfImage { Source = RenderEmoji("😀"), Width = 20, Height = 20 };
+        ColorButton.Content = new WpfImage { Source = RenderEmoji("🎨"), Width = 20, Height = 20 };
+        DoneEditingButton.Content = "✓";
         DoneEditingButton.ToolTip = LocalizationService.T("DoneEditingTooltip");
     }
 
@@ -369,9 +366,16 @@ public partial class StickyNoteWindow : Window
         IconImage.Source = RenderEmoji(ViewModel.Icon);
     }
 
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, WpfBitmapImage> EmojiImages = new();
+
     private static WpfBitmapImage? RenderEmoji(string icon)
     {
         if (string.IsNullOrEmpty(icon)) return null;
+        return EmojiImages.GetOrAdd(icon, RenderEmojiImage);
+    }
+
+    private static WpfBitmapImage RenderEmojiImage(string icon)
+    {
 
         const int pixelSize = 64;
         using var bitmap = new SKBitmap(pixelSize, pixelSize, SKColorType.Bgra8888, SKAlphaType.Premul);

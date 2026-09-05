@@ -1,4 +1,4 @@
-﻿// ScreenPinNotes - a desktop sticky notes app for Windows 11
+// ScreenPinNotes - a desktop sticky notes app for Windows 11
 // Copyright (C) 2026 umineko73
 //
 // This program is free software: you can redistribute it and/or modify
@@ -192,82 +192,101 @@ public partial class StickyNoteWindow
         }
     }
 
-    // ─── クイックアクション行（Excel 風のミニツールバー） ────────
-    //
-    // 別ポップアップとして開くと、直後に開くコンテキストメニューが
-    // マウスキャプチャを取るため即座に閉じてしまう。メニュー自身の
-    // 先頭項目として持たせることで、クリックが確実に届く。
-
-    private MenuItem BuildQuickActionsRow(out WpfButton iconButton)
+    // メニューと同じ Popup 内に置き、マウスキャプチャを共有する。
+    private Border BuildQuickActionsRow(out WpfButton iconButton)
     {
         WpfButton MakeButton(string content, string tooltip, Action onClick)
         {
             var btn = new WpfButton
             {
-                Content = content,
-                Width = 30, Height = 30,
-                Margin = new Thickness(1, 0, 1, 0),
-                Padding = new Thickness(0),
-                FontSize = 15,
-                Background = WpfBrushes.Transparent,
-                BorderThickness = new Thickness(1),
-                BorderBrush = PopupBorderBrush(),
-                Cursor = WpfCursors.Hand,
+                Content = content is "😀" or "🎨"
+                    ? new WpfImage { Source = RenderEmoji(content), Width = 20, Height = 20 }
+                    : content,
+                Style = (Style)FindResource("EditToolbarButton"),
                 ToolTip = tooltip,
-                // マウス専用のショートカット。フォーカスは受け取らない。
                 Focusable = false,
             };
-            btn.Click += (_, _) => onClick();
+            btn.Click += (_, e) => { onClick(); e.Handled = true; };
             return btn;
         }
 
-        var colorButton = MakeButton("🎨", LocalizationService.T("ColorTooltip"),
-            () => RunQuickAction(OpenColorPickerAtMouse));
+        var panel = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
+        foreach (var (label, key, title, delta) in new[]
+        {
+            ("A-", "FontSmallerTooltip", false, -1),
+            ("A+", "FontLargerTooltip", false, 1),
+            ("T-", "TitleSmallerTooltip", true, -1),
+            ("T+", "TitleLargerTooltip", true, 1),
+        })
+        {
+            var button = MakeButton(label, "", () =>
+            {
+                if (title) SetTitleFontSize(ViewModel.TitleFontSize + delta);
+                else SetBodyFontSize(ViewModel.FontSize + delta);
+            });
+            button.SetBinding(ToolTipProperty, new System.Windows.Data.Binding(title ? "TitleFontSize" : "FontSize")
+            {
+                Source = ViewModel, StringFormat = LocalizationService.T(key),
+            });
+            panel.Children.Add(button);
+        }
+        panel.Children.Add(MakeButton("Aa", LocalizationService.T("FontTooltip"),
+            () => RunQuickAction(() =>
+            {
+                if (_fontPopup == null) return;
+                ClosePickerPopups(except: _fontPopup);
+                _fontPopup.PlacementTarget = this;
+                _fontPopup.Placement = PlacementMode.MousePoint;
+                _fontPopup.IsOpen = true;
+            })));
         iconButton = MakeButton("😀", LocalizationService.T("IconTooltip"),
             () => RunQuickAction(OpenIconPickerAtMouse));
-
-        var panel = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
-        panel.Children.Add(colorButton);
         panel.Children.Add(iconButton);
+        panel.Children.Add(MakeButton("🎨", LocalizationService.T("ColorTooltip"),
+            () => RunQuickAction(OpenColorPickerAtMouse)));
 
-        // StaysOpenOnClick: ボタン以外の余白を押してもメニューを閉じない。
-        // Focusable=false: 押しても何も起きない行なので、矢印キーの移動先に
-        // しない。キーボードからは「アイコンを変更」「色を変更」の項目を使う。
-        return new MenuItem { Header = panel, StaysOpenOnClick = true, Focusable = false };
+        var border = new Border
+        {
+            DataContext = ViewModel,
+            BorderBrush = new WpfSolidBrush(WpfColor.FromArgb(51, 0, 0, 0)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(3),
+            Child = panel,
+        };
+        border.Background = (System.Windows.Media.Brush)FindResource("NoteToolbarBackground");
+        return border;
     }
-
     // ─── フォントピッカー ────────────────────────────────────────
 
     private Popup BuildFontPopup()
     {
         var listBox = new WpfListBox
         {
-            Width = 180,
-            MaxHeight = 260,
+            Width = 300,
+            MaxHeight = 360,
             BorderThickness = new Thickness(0),
             Background = PopupBackgroundBrush(),
-            Foreground = ViewModel.TextForeground,
+            Foreground = IsDarkTheme() ? WpfBrushes.WhiteSmoke : WpfBrushes.Black,
         };
-        foreach (var font in FontList)
-        {
-            listBox.Items.Add(new ListBoxItem
-            {
-                Content = font,
-                FontFamily = new WpfFontFamily(font),
-                FontSize = 13,
-                Tag = font,
-            });
-        }
+        VirtualizingPanel.SetIsVirtualizing(listBox, true);
+        VirtualizingPanel.SetVirtualizationMode(listBox, VirtualizationMode.Recycling);
+        var itemStyle = new Style(typeof(ListBoxItem));
+        // Font names must remain readable even for decorative typefaces.
+        itemStyle.Setters.Add(new Setter(System.Windows.Controls.Control.FontFamilyProperty,
+            new WpfFontFamily("Yu Gothic UI")));
+        itemStyle.Setters.Add(new Setter(System.Windows.Controls.Control.FontSizeProperty, 13d));
+        listBox.ItemContainerStyle = itemStyle;
         listBox.SelectionChanged += (_, _) =>
         {
-            if (listBox.SelectedItem is ListBoxItem item && item.Tag is string font)
+            if (listBox.SelectedItem is string font)
             {
                 ViewModel.FontFamily = font;
                 if (_fontPopup != null) _fontPopup.IsOpen = false;
                 RequestSave();
             }
         };
-        return new Popup
+        var popup = new Popup
         {
             Child = new Border
             {
@@ -276,5 +295,47 @@ public partial class StickyNoteWindow
             },
             Placement = PlacementMode.Bottom, StaysOpen = false,
         };
+        popup.Opened += async (_, _) =>
+        {
+            if (listBox.ItemsSource != null) return;
+            listBox.IsEnabled = false;
+            listBox.Items.Add(LocalizationService.T("FontsLoading"));
+            try
+            {
+                var names = await InstalledTextFonts.Value;
+                listBox.Items.Clear();
+                listBox.ItemsSource = names;
+            }
+            catch (Exception ex)
+            {
+                listBox.Items.Clear();
+                ErrorReporter.ReportNonFatal("Load installed fonts", ex);
+            }
+            finally
+            {
+                listBox.IsEnabled = true;
+            }
+        };
+        return popup;
+    }
+
+    // Only the first font-picker opening starts the scan; all notes share its result.
+    private static readonly Lazy<Task<string[]>> InstalledTextFonts = new(() => Task.Run(() =>
+        Fonts.SystemFontFamilies
+            .Where(HasTextGlyphs)
+            .Select(font => font.Source)
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase)
+            .ToArray()));
+    private static bool HasTextGlyphs(WpfFontFamily family)
+    {
+        foreach (var typeface in family.GetTypefaces())
+        {
+            if (!typeface.TryGetGlyphTypeface(out var glyphs) || glyphs.Symbol) continue;
+            if (glyphs.CharacterToGlyphMap.Any(pair => pair.Value != 0 &&
+                Rune.IsValid(pair.Key) && Rune.IsLetter(new Rune(pair.Key))))
+                return true;
+        }
+        return false;
     }
 }

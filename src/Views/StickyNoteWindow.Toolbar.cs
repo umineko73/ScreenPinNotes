@@ -84,6 +84,7 @@ public partial class StickyNoteWindow
     private void Pin_Changed(object sender, RoutedEventArgs e)
     {
         Topmost = ViewModel.IsTopmost;
+        SyncEditToolbarZOrder();
         RequestSave();
     }
 
@@ -217,6 +218,7 @@ public partial class StickyNoteWindow
 
         ClosePickerPopups(except: _fontPopup);
         _fontPopup.PlacementTarget = (UIElement)sender;
+        _fontPopup.Placement = PlacementMode.Bottom;
         _fontPopup.IsOpen = true;
     }
 

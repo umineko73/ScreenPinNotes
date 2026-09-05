@@ -1,4 +1,4 @@
-﻿// ScreenPinNotes - a desktop sticky notes app for Windows 11
+// ScreenPinNotes - a desktop sticky notes app for Windows 11
 // Copyright (C) 2026 umineko73
 //
 // This program is free software: you can redistribute it and/or modify
@@ -78,9 +78,7 @@ public partial class StickyNoteWindow
 
         var quickRow = BuildQuickActionsRow(out var quickIconButton);
 
-        var cm = new ContextMenu();
-        cm.Items.Add(quickRow);
-        cm.Items.Add(new Separator());
+        var cm = new ContextMenu { Tag = quickRow, Template = (ControlTemplate)FindResource("NoteContextMenuTemplate") };
         cm.Items.Add(cutItem);
         cm.Items.Add(new MenuItem { Header = LocalizationService.T("Copy"), Command = ApplicationCommands.Copy, CommandTarget = ContentBox });
         cm.Items.Add(pasteItem);
@@ -147,9 +145,7 @@ public partial class StickyNoteWindow
 
         var quickRow = BuildQuickActionsRow(out var quickIconButton);
 
-        var cm = new ContextMenu();
-        cm.Items.Add(quickRow);
-        cm.Items.Add(new Separator());
+        var cm = new ContextMenu { Tag = quickRow, Template = (ControlTemplate)FindResource("NoteContextMenuTemplate") };
         cm.Items.Add(cutItem);
         cm.Items.Add(copyItem);
         cm.Items.Add(pasteItem);
@@ -243,9 +239,7 @@ public partial class StickyNoteWindow
 
         var quickRow = BuildQuickActionsRow(out var quickIconButton);
 
-        var cm = new ContextMenu();
-        cm.Items.Add(quickRow);
-        cm.Items.Add(new Separator());
+        var cm = new ContextMenu { Tag = quickRow, Template = (ControlTemplate)FindResource("NoteContextMenuTemplate") };
         cm.Items.Add(editItem);
         cm.Items.Add(editSeparator);
         cm.Items.Add(cutItem);
@@ -294,6 +288,7 @@ public partial class StickyNoteWindow
         cm.Closed += (_, _) =>
         {
             _suppressViewMode = false;
+            ShowEditToolbar();
             if (_isEditMode && TitleEditBox.Visibility == Visibility.Visible)
                 Dispatcher.BeginInvoke(() => TitleEditBox.Focus());
         };
@@ -475,14 +470,14 @@ public partial class StickyNoteWindow
             MarkdownTableClipboard.TryTabularTextToMarkdownTable(clipboardText, useFirstRowAsHeader: true, out _);
         _fitWindowToImagesItem.IsEnabled = !_isEditMode && _markdownImageContexts.Count > 0;
 
-        ShowEditToolbar();
+        HideEditToolbar();
     }
 
     private void BodyEditBox_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
         _suppressViewMode = true;
         _isContentContextMenuOpen = true;
-        ShowEditToolbar();
+        HideEditToolbar();
     }
 
     private MenuItem BuildPasteExcelTableMenuItem()

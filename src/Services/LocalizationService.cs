@@ -20,6 +20,7 @@ public static class LocalizationService
         return key switch
         {
             "Yes" => english ? "Yes" : "はい",
+            "FontsLoading" => english ? "Loading fonts…" : "フォントを読み込み中…",
             "No" => english ? "No" : "いいえ",
             "TrayShowAll" => english ? "Show all notes" : "付箋をすべて表示",
             "TrayHideAll" => english ? "Hide all notes" : "付箋をすべて非表示",
@@ -131,6 +132,7 @@ public static class LocalizationService
             "IconTooltip" => english ? "Change icon" : "アイコンを変更",
             "NoIconTooltip" => english ? "No icon" : "アイコンなし",
             "ColorTooltip" => english ? "Change color" : "色を変更",
+            "DoneEditingLabel" => english ? "✓ Done" : "✓ 完了",
             "DoneEditingTooltip" => english ? "Done editing (Ctrl+Enter)" : "編集を確定 (Ctrl+Enter)",
 
             "Cut" => english ? "Cut" : "切り取り",

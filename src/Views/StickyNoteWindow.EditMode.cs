@@ -238,10 +238,21 @@ public partial class StickyNoteWindow
 
     private void ShowEditToolbar()
     {
-        if (!_isEditMode || ViewModel.IsFolded) return;
+        if (!_isEditMode || ViewModel.IsFolded || _isContentContextMenuOpen) return;
         _toolbarHideTimer.Stop();
         UpdateEditToolbarPlacement();
         EditToolbarPopup.IsOpen = true;
+    }
+
+    private void EditToolbarPopup_Opened(object? sender, EventArgs e)
+        => SyncEditToolbarZOrder();
+
+    private void SyncEditToolbarZOrder()
+    {
+        if (PresentationSource.FromVisual(StatusBar) is not HwndSource source) return;
+        // WPF Popup defaults to HWND_TOPMOST, independently of its owning note.
+        SetWindowPos(source.Handle, new IntPtr(Topmost ? -1 : -2), 0, 0, 0, 0,
+            SetWindowPosFlags.NoMove | SetWindowPosFlags.NoSize | SetWindowPosFlags.NoActivate);
     }
 
     private void UpdateEditToolbarPlacement()
@@ -249,7 +260,16 @@ public partial class StickyNoteWindow
         const double Gap = 2;
         EditToolbarPopup.PlacementTarget = RootBorder;
         EditToolbarPopup.Placement = PlacementMode.Bottom;
+        // Changing an offset forces WPF to reposition an already open Popup.
+        if (EditToolbarPopup.IsOpen)
+            EditToolbarPopup.VerticalOffset = Gap + 0.01;
         EditToolbarPopup.VerticalOffset = Gap;
+    }
+
+    private void RootBorder_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (EditToolbarPopup?.IsOpen == true)
+            UpdateEditToolbarPlacement();
     }
 
     private void HideEditToolbar()

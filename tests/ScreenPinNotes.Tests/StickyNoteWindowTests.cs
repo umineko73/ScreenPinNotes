@@ -16,6 +16,29 @@ namespace ScreenPinNotes.Tests;
 public class StickyNoteWindowTests
 {
     [WpfFact]
+    public void ConstructingNotes_DoesNotStartInstalledFontScan()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var windows = new List<StickyNoteWindow>();
+        try
+        {
+            for (var i = 0; i < 3; i++)
+                windows.Add(new StickyNoteWindow(
+                    new StickyNoteViewModel(new StickyNote(), new AppSettings()), storage));
+            var field = typeof(StickyNoteWindow).GetField("InstalledTextFonts",
+                BindingFlags.Static | BindingFlags.NonPublic)!;
+            var fonts = Assert.IsType<Lazy<Task<string[]>>>(field.GetValue(null));
+            Assert.False(fonts.IsValueCreated);
+        }
+        finally
+        {
+            foreach (var window in windows) window.Close();
+        }
+    }
+
+    [WpfFact]
     public void ReloadExternalContent_FromBackgroundThread_UpdatesOnlyThroughUiDispatcher()
     {
         EnsureApplication();
@@ -167,10 +190,10 @@ public class StickyNoteWindowTests
                      })
             {
                 Assert.NotNull(contextMenu);
-                var row = Assert.IsType<MenuItem>(contextMenu.Items[0]);
-                var panel = Assert.IsType<StackPanel>(row.Header);
+                var row = Assert.IsType<Border>(contextMenu.Tag);
+                var panel = Assert.IsType<StackPanel>(row.Child);
                 Assert.False(row.Focusable);
-                Assert.Equal(2, panel.Children.Count);
+                Assert.Equal(7, panel.Children.Count);
                 Assert.All(
                     panel.Children.OfType<Button>(),
                     button => Assert.False(button.Focusable));
@@ -348,6 +371,19 @@ public class StickyNoteWindowTests
             InvokePrivate(window, "ScheduleHideEditToolbar");
 
             Assert.True(toolbar.IsOpen);
+            var editor = Assert.IsType<TextBox>(window.FindName("BodyEditBox"));
+            InvokePrivate(window, "BodyEditBox_ContextMenuOpening", editor, null);
+            Assert.False(toolbar.IsOpen);
+            InvokePrivate(window, "ContentContextMenu_Closed", editor.ContextMenu, new RoutedEventArgs());
+            Assert.True(toolbar.IsOpen);
+
+            window.UpdateLayout();
+            var before = toolbar.Child.PointToScreen(new System.Windows.Point());
+            window.Height += 60;
+            window.UpdateLayout();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            var after = toolbar.Child.PointToScreen(new System.Windows.Point());
+            Assert.True(after.Y > before.Y + 40, "Toolbar should follow the resized note bottom.");
         }
         finally
         {
