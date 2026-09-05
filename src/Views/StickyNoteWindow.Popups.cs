@@ -224,7 +224,7 @@ public partial class StickyNoteWindow
         {
             var btn = new WpfButton
             {
-                Content = content is "😀" or "🎨"
+                Content = content is IconPickerGlyph or "🎨"
                     ? new WpfImage { Source = RenderEmoji(content), Width = 20, Height = 20 }
                     : content,
                 Style = (Style)FindResource("EditToolbarButton"),
@@ -264,7 +264,7 @@ public partial class StickyNoteWindow
                 _fontPopup.Placement = PlacementMode.MousePoint;
                 _fontPopup.IsOpen = true;
             })));
-        iconButton = MakeButton("😀", LocalizationService.T("IconTooltip"),
+        iconButton = MakeButton(IconPickerGlyph, LocalizationService.T("IconTooltip"),
             () => RunQuickAction(OpenIconPickerAtMouse));
         panel.Children.Add(iconButton);
         panel.Children.Add(MakeButton("🎨", LocalizationService.T("ColorTooltip"),

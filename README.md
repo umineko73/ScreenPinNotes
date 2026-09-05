@@ -92,7 +92,7 @@ Distributable zips: `powershell -ExecutionPolicy Bypass -File scripts/publish.ps
 | Right-drag in a scrollable body pane | Scroll the pane |
 | Tray icon left/right-click | Show all / open menu |
 
-A mini toolbar appears above the context menu: `A-` / `A+` change body size, `T-` / `T+` change title size, `Aa` opens fonts, 😀 opens icons, and 🎨 opens colors. There are no separate Change color / Change icon menu items.
+A mini toolbar appears above the context menu: `A-` / `A+` change body size, `T-` / `T+` change title size, `Aa` opens fonts, 🦊 opens icons, and 🎨 opens colors. There are no separate Change color / Change icon menu items.
 
 During editing, the same toolbar appears below the note with a green `✓` to finish editing. `Ctrl+Enter` or `Esc` also returns to view mode; these actions do not discard edits. The toolbar follows movement and resizing and hides while the link editor is open.
 

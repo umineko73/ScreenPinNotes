@@ -306,7 +306,7 @@
                         <Button x:Name="FontButton" Content="Aa"
                                 Style="{StaticResource EditToolbarButton}"
                                 ToolTip="フォントを変更" Click="Font_Click"/>
-                        <Button x:Name="IconButton" Content="😀"
+                        <Button x:Name="IconButton" Content="🦊"
                                 Style="{StaticResource EditToolbarButton}"
                                 ToolTip="アイコンを変更"
                                 Click="Icon_Click"/>

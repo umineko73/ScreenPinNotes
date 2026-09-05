@@ -702,6 +702,17 @@ public class StickyNoteWindowTests
         }
     }
 
+    // アイコンピッカーのボタンに、そのピッカーで選べない絵文字を出していると、
+    // 気に入って探しても見つからない。看板はパレット収録のものに限る。
+    [Fact]
+    public void IconPickerButtonGlyph_IsInTheDefaultPalette()
+    {
+        var glyph = Assert.IsType<string>(typeof(StickyNoteWindow)
+            .GetField("IconPickerGlyph", BindingFlags.Static | BindingFlags.NonPublic)!
+            .GetRawConstantValue());
+        Assert.Contains(glyph, AppSettings.DefaultIconPalette());
+    }
+
     // 閉じた付箋を開いた表示の高さで作ってから Loaded で縮めていたため、
     // 起動時に縦長の枠が一瞬見えていた。Show() の前、つまり構築した時点で
     // 既に閉じた高さになっていることを確かめる。

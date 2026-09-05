@@ -50,6 +50,13 @@ public partial class StickyNoteWindow : Window
 {
     private AppSettings Settings => App.Current.Settings;
 
+    /// <summary>
+    /// アイコンピッカーを開くボタンの絵文字。パレットに実際に収録されている
+    /// ものから選ぶ（AppSettings.IconGroups の IconAnimals）。このボタンで選べない
+    /// 絵文字を看板にすると、探しても見つからない。
+    /// </summary>
+    private const string IconPickerGlyph = "🦊";
+
     /// <summary>折りたたんだときのウィンドウ高さ（枠線込み）。</summary>
     private double FoldedHeight => ViewModel.TitleBarHeight + Settings.Layout.RootBorderThickness * 2;
 
@@ -355,7 +362,7 @@ public partial class StickyNoteWindow : Window
         FontButton.ToolTip = LocalizationService.T("FontTooltip");
         IconButton.ToolTip = LocalizationService.T("IconTooltip");
         ColorButton.ToolTip = LocalizationService.T("ColorTooltip");
-        IconButton.Content = new WpfImage { Source = RenderEmoji("😀"), Width = 20, Height = 20 };
+        IconButton.Content = new WpfImage { Source = RenderEmoji(IconPickerGlyph), Width = 20, Height = 20 };
         ColorButton.Content = new WpfImage { Source = RenderEmoji("🎨"), Width = 20, Height = 20 };
         DoneEditingButton.Content = "✓";
         DoneEditingButton.ToolTip = LocalizationService.T("DoneEditingTooltip");
