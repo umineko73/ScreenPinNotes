@@ -62,6 +62,7 @@ public partial class StickyNoteWindow
         if (_isEditMode && BodyEditBox.Visibility == Visibility.Visible) return;
         var startingEdit = !_isEditMode;
         _isEditMode = true;
+        EditingOutline.Visibility = Visibility.Visible;
         if (startingEdit) ApplyEditingSize(true);
         ViewModel.SetForceOpaque(true);
         _suppressTextChange = true;
@@ -182,13 +183,14 @@ public partial class StickyNoteWindow
             return;
 
         _isEditMode = false;
+        EditingOutline.Visibility = Visibility.Collapsed;
         ApplyEditingSize(false);
         ViewModel.SetForceOpaque(false);
         // ドキュメントを再構築してMarkdown表示とリンクを正しく復元する
         LoadContent(ViewModel.Content);
         ContentBox.IsReadOnly = true;
         BodyEditBox.Visibility = Visibility.Collapsed;
-        ContentBox.Visibility = ViewModel.IsFolded ? Visibility.Collapsed : Visibility.Visible;
+        ApplyFoldedContentPresentation();
         ContentBox.Cursor = WpfCursors.Arrow;
         ContentBox.BorderThickness = new Thickness(0);
         ContentBox.BorderBrush = WpfBrushes.Transparent;

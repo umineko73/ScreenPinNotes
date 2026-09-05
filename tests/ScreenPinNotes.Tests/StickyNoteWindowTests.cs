@@ -813,6 +813,48 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
+    // 編集ツールバーはフォーカスが外れると隠れるので、それだけでは編集中か
+    // どうか分からない。枠はフォーカスに関係なく出しておく。
+    [WpfFact]
+    public void EditingOutline_FollowsTheEditMode()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(new StickyNote { Content = "body" }, new AppSettings()),
+            new StorageService(temp.Path));
+        try
+        {
+            var outline = Assert.IsType<Border>(window.FindName("EditingOutline"));
+            Assert.Equal(Visibility.Collapsed, outline.Visibility);
+
+            InvokePrivate(window, "EnterEditMode");
+            Assert.Equal(Visibility.Visible, outline.Visibility);
+
+            InvokePrivate(window, "EnterViewMode");
+            Assert.Equal(Visibility.Collapsed, outline.Visibility);
+        }
+        finally { window.Close(); }
+    }
+
+    // 編集ロック中の付箋は編集モードに入らないので、枠も出さない。
+    [WpfFact]
+    public void EditingOutline_StaysHiddenOnALockedNote()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(new StickyNote { IsReadOnly = true }, new AppSettings()),
+            new StorageService(temp.Path));
+        try
+        {
+            InvokePrivate(window, "EnterEditMode");
+            Assert.Equal(Visibility.Collapsed,
+                Assert.IsType<Border>(window.FindName("EditingOutline")).Visibility);
+        }
+        finally { window.Close(); }
+    }
+
     // 1行しか見えない状態では、アイコンが唯一の付箋の見分けになる。
     // ホバーしていなくても出しておく。ボタン類は出さない。
     [WpfFact]
