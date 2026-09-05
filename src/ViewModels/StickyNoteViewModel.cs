@@ -260,7 +260,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     }
 
     public double TitleIconSize =>
-        Math.Clamp(Math.Ceiling(_model.TitleFontSize * 1.35), 17, 34);
+        Math.Clamp(Math.Ceiling(_model.TitleFontSize * 1.5), 20, 38);
 
     public int OpacityPercent
     {

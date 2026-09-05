@@ -84,7 +84,14 @@
                        Stretch="Uniform"
                        VerticalAlignment="Center"
                        Margin="6,0,0,0"
-                       ToolTip="{Binding TitleIconTooltip}"/>
+                       ToolTip="{Binding TitleIconTooltip}">
+                    <Image.Effect>
+                        <!-- A centered, narrow shadow outlines the alpha silhouette. -->
+                        <DropShadowEffect Color="#263238" ShadowDepth="0"
+                                          BlurRadius="1.5" Opacity="0.55"
+                                          RenderingBias="Quality"/>
+                    </Image.Effect>
+                </Image>
 
                 <!-- タイトル表示（Title があればそれを、無ければ本文1行目を表示）。
                      閉じた表示/開いた表示にかかわらず常に表示する -->
