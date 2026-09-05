@@ -20,6 +20,14 @@ public class LocalizationServiceTests
         Assert.Equal("UnknownKey", LocalizationService.T("UnknownKey", "ja"));
     }
 
+    // 見つからないキーはキー名がそのまま返るので、この比較が通れば
+    // .resx に実際に載っていることの確認になる。
+    [Theory]
+    [InlineData("ja", "タイトルバーを隠す")]
+    [InlineData("en", "Hide the title bar")]
+    public void HideTitleBarIsInTheCatalog(string culture, string expected)
+        => Assert.Equal(expected, LocalizationService.T("HideTitleBar", culture));
+
     [Fact]
     public void ResourcePlaceholdersRemainUsable()
     {
