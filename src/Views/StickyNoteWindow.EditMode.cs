@@ -350,7 +350,10 @@ public partial class StickyNoteWindow
         AddNoteButton.Visibility = visibility;
         PinButton.Visibility = visibility;
         FoldButton.Visibility = Settings.ShowFoldButton ? visibility : Visibility.Collapsed;
-        OverlayFoldButton.Visibility = Settings.ShowFoldButton ? Visibility.Visible : Visibility.Collapsed;
+        // ShowFoldButton はタイトルバーの折りたたみボタンを出すかどうかの設定。
+        // タイトルバーを隠しているとそのボタン自体が無く、これを従うと畳む手段が
+        // ダブルクリックだけになって見つけられないので、こちらは常に出す。
+        OverlayFoldButton.Visibility = Visibility.Visible;
         UpdateTitleBarOverlayVisibility();
     }
 
@@ -366,10 +369,10 @@ public partial class StickyNoteWindow
     private void UpdateTitleBarOverlayVisibility()
     {
         var active = IsMouseOver || _isDragging;
-        // 1行表示に畳んでいる間はアイコンだけ出しておく。本文が1行しか
-        // 見えない状態では、それが唯一の付箋の見分けになるため。
+        // タイトルバーが無いとアイコンが唯一の付箋の見分けになるので、
+        // 畳んでいるかどうかにかかわらず出しておく。
         // アイコン未設定の付箋で空の帯だけが浮くのは避ける。
-        var showIconAlone = ViewModel.IsFolded && !string.IsNullOrEmpty(ViewModel.Icon);
+        var showIconAlone = !string.IsNullOrEmpty(ViewModel.Icon);
 
         TitleBarOverlay.Visibility = ViewModel.IsTitleBarHidden && (active || showIconAlone)
             ? Visibility.Visible

@@ -850,9 +850,9 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
-    // 展開しているときは本文が読めるので、この帯は出さない。
+    // 展開していてもアイコンは出す。タイトルバーが無いと、これが唯一の見分けになる。
     [WpfFact]
-    public void UnfoldedNote_WithHiddenTitleBar_ShowsNothingUntilHovered()
+    public void UnfoldedNote_WithHiddenTitleBar_StillShowsTheIcon()
     {
         EnsureApplication();
         using var temp = new TempDataDirectory();
@@ -861,8 +861,36 @@ public class StickyNoteWindowTests
             new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
         try
         {
-            Assert.Equal(Visibility.Collapsed,
+            Assert.Equal(Visibility.Visible,
                 Assert.IsType<Grid>(window.FindName("TitleBarOverlay")).Visibility);
+            Assert.Equal(Visibility.Collapsed,
+                Assert.IsType<StackPanel>(window.FindName("TitleBarOverlayActions")).Visibility);
+            // 枠と塗りもホバーまで出さない。
+            Assert.Equal(Visibility.Collapsed,
+                Assert.IsType<Border>(window.FindName("TitleBarOverlayBackdrop")).Visibility);
+        }
+        finally { window.Close(); }
+    }
+
+    // タイトルバー側の折りたたみボタンを出さない設定でも、こちらは出す。
+    // 従うと、畳む手段がダブルクリックだけになって見つけられない。
+    [WpfFact]
+    public void HiddenTitleBar_AlwaysOffersTheFoldButtonOnHover()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { IsTitleBarHidden = true, Icon = "🦊" };
+        var settings = new AppSettings { ShowFoldButton = false };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, settings), new StorageService(temp.Path));
+        try
+        {
+            var foldButton = Assert.IsType<Button>(window.FindName("OverlayFoldButton"));
+            // XAML の既定値のまま通ってしまわないよう、いったん消してから
+            // 表示更新を走らせる。
+            foldButton.Visibility = Visibility.Collapsed;
+            InvokePrivate(window, "UpdateTitleBarButtonsVisibility");
+            Assert.Equal(Visibility.Visible, foldButton.Visibility);
         }
         finally { window.Close(); }
     }
