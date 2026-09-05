@@ -702,6 +702,44 @@ public class StickyNoteWindowTests
         }
     }
 
+    // 閉じた付箋を開いた表示の高さで作ってから Loaded で縮めていたため、
+    // 起動時に縦長の枠が一瞬見えていた。Show() の前、つまり構築した時点で
+    // 既に閉じた高さになっていることを確かめる。
+    [WpfFact]
+    public void FoldedNote_HasItsFoldedHeightBeforeBeingShown()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var settings = new AppSettings();
+        var note = new StickyNote { Width = 260, Height = 320, IsFolded = true };
+        var vm = new StickyNoteViewModel(note, settings);
+        var window = new StickyNoteWindow(vm, new StorageService(temp.Path));
+        try
+        {
+            var expected = vm.TitleBarHeight + settings.Layout.RootBorderThickness * 2;
+            Assert.Equal(expected, window.Height);
+            Assert.NotEqual(note.Height, window.Height);
+            Assert.Equal(Visibility.Collapsed,
+                Assert.IsType<RichTextBox>(window.FindName("ContentBox")).Visibility);
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfFact]
+    public void UnfoldedNote_KeepsItsSavedHeightBeforeBeingShown()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { Width = 260, Height = 320, IsFolded = false };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            Assert.Equal(320, window.Height);
+        }
+        finally { window.Close(); }
+    }
+
     [WpfFact]
     public void ToggleFold_ReadOnlyImageWithoutWidth_KeepsNaturalSizeAfterUnfold()
     {

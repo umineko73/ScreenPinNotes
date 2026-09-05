@@ -140,9 +140,17 @@ public partial class StickyNoteWindow : Window
         Left    = vm.IsFolded ? vm.Model.FoldedX ?? vm.Model.X : vm.Model.X;
         Top     = vm.IsFolded ? vm.Model.FoldedY ?? vm.Model.Y : vm.Model.Y;
         Width   = vm.IsFolded ? vm.Model.FoldedWidth ?? vm.Model.Width : vm.Model.Width;
-        Height  = vm.Model.Height;
+        // 閉じた表示の高さはここで決めきる。Loaded まで開いた表示の高さのままだと、
+        // ウィンドウが先にその高さで表示されてから縮むため、起動時に縦長の枠が
+        // 一瞬見える。本文も同じ理由でここで畳んでおく。
+        Height  = vm.IsFolded ? FoldedHeight : vm.Model.Height;
         Topmost = vm.IsTopmost;
         _unfoldedHeight = vm.Model.Height;
+        if (vm.IsFolded)
+        {
+            ContentBox.Visibility = Visibility.Collapsed;
+            BodyEditBox.Visibility = Visibility.Collapsed;
+        }
 
         ConfigurePopups();
         IsVisibleChanged += (_, _) =>
@@ -187,12 +195,6 @@ public partial class StickyNoteWindow : Window
         Loaded += (_, _) =>
         {
             LoadContent(vm.Content);
-            if (vm.IsFolded)
-            {
-                ContentBox.Visibility = Visibility.Collapsed;
-                BodyEditBox.Visibility = Visibility.Collapsed;
-                Height = FoldedHeight;
-            }
             ConfigureExternalContentWatcher();
             // 開いた表示でも必ず通す。ここを通さないと WindowChrome が
             // XAML の初期値（全辺 5px）のままになり、タイトルバー上端が
