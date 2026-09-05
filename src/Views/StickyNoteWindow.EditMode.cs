@@ -1,4 +1,4 @@
-﻿// ScreenPinNotes - a desktop sticky notes app for Windows 11
+// ScreenPinNotes - a desktop sticky notes app for Windows 11
 // Copyright (C) 2026 umineko73
 //
 // This program is free software: you can redistribute it and/or modify
@@ -60,7 +60,9 @@ public partial class StickyNoteWindow
         }
 
         if (_isEditMode && BodyEditBox.Visibility == Visibility.Visible) return;
+        var startingEdit = !_isEditMode;
         _isEditMode = true;
+        if (startingEdit) ApplyEditingSize(true);
         ViewModel.SetForceOpaque(true);
         _suppressTextChange = true;
         try
@@ -93,6 +95,25 @@ public partial class StickyNoteWindow
     private bool IsBodyEditing()
         => _isEditMode && BodyEditBox.Visibility == Visibility.Visible;
 
+    private void ApplyEditingSize(bool editing)
+    {
+        if (ViewModel.IsFolded) return;
+        var model = ViewModel.Model;
+        static double Valid(double? value, double fallback)
+            => value is double size && double.IsFinite(size) && size > 0 ? size : fallback;
+        var width = editing ? Valid(model.EditWidth, model.Width) : model.Width;
+        var height = editing ? Valid(model.EditHeight, model.Height) : model.Height;
+        SuppressWindowBoundsSave(() =>
+        {
+            Width = Math.Max(MinWidth, width);
+            Height = Math.Max(MinHeight, height);
+            KeepInsideWorkArea(Width, Height);
+            UpdateLayout();
+        });
+        SaveCurrentPositionToModel();
+        UpdateEditToolbarPlacement();
+    }
+
     private void EnterTitleEditMode()
     {
         if (IsContentReadOnly())
@@ -105,6 +126,7 @@ public partial class StickyNoteWindow
         if (!_isEditMode)
         {
             _isEditMode = true;
+            ApplyEditingSize(true);
             ContentBox.IsReadOnly = true;
             EnableIme(TitleEditBox);
             BodyEditBox.Visibility = Visibility.Collapsed;
@@ -154,6 +176,7 @@ public partial class StickyNoteWindow
             return;
 
         _isEditMode = false;
+        ApplyEditingSize(false);
         ViewModel.SetForceOpaque(false);
         // ドキュメントを再構築してMarkdown表示とリンクを正しく復元する
         LoadContent(ViewModel.Content);

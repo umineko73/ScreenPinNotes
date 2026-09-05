@@ -35,7 +35,6 @@ public static class LocalizationService
             "Yes" => english ? "Yes" : "はい",
             "Retry" => english ? "Retry" : "再試行",
             "FontsLoadFailed" => english ? "Could not load fonts. Please retry." : "フォントを読み込めませんでした。再試行してください。",
-            "FrequentFontsHint" => english ? "★ Frequently used (up to 5), followed by all fonts" : "★ よく使うフォント（最大5件）／以下は全フォント",
             "FontsLoading" => english ? "Loading fonts…" : "フォントを読み込み中…",
             "No" => english ? "No" : "いいえ",
             "TrayShowAll" => english ? "Show all notes" : "付箋をすべて表示",

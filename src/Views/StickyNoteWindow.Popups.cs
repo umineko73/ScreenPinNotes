@@ -325,8 +325,8 @@ public partial class StickyNoteWindow
                     .Concat(entries).ToArray();
                 listBox.ItemsSource = rows;
                 listBox.SelectedItem = rows.FirstOrDefault(f => f.Source == ViewModel.FontFamily);
-                status.Text = frequent.Length > 0 ? LocalizationService.T("FrequentFontsHint") : "";
-                status.Visibility = frequent.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+                status.Text = "";
+                status.Visibility = Visibility.Collapsed;
             }
             finally { updating = false; }
         }

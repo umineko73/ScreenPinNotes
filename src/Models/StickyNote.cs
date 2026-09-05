@@ -38,6 +38,8 @@ public class StickyNote
     public double? FoldedWidth { get; set; }
 
     public double Height { get; set; } = 220;
+    public double? EditWidth { get; set; }
+    public double? EditHeight { get; set; }
     // タイトルバーに表示する文字列。空/未設定なら本文の1行目を表示する。
     public string? Title { get; set; }
 

@@ -16,6 +16,41 @@ namespace ScreenPinNotes.Tests;
 public class StickyNoteWindowTests
 {
     [WpfFact]
+    public void EditSize_IsRememberedWithoutChangingNormalSize()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var model = new StickyNote { Width = 260, Height = 220, Content = "body" };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(model, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            InvokePrivate(window, "EnterEditMode");
+            Assert.Equal(260, window.Width);
+            Assert.Equal(220, window.Height);
+            window.Width = 420;
+            window.Height = 360;
+            window.UpdateLayout();
+            Assert.Equal(420, model.EditWidth);
+            Assert.Equal(360, model.EditHeight);
+            Assert.Equal(260, model.Width);
+            Assert.Equal(220, model.Height);
+            InvokePrivate(window, "EnterViewMode");
+            Assert.Equal(260, window.Width);
+            Assert.Equal(220, window.Height);
+            InvokePrivate(window, "EnterEditMode");
+            Assert.Equal(420, window.Width);
+            Assert.Equal(360, window.Height);
+            InvokePrivate(window, "ToggleFold", (object?)null);
+            Assert.Equal(260, model.Width);
+            Assert.Equal(420, model.EditWidth);
+            var restored = System.Text.Json.JsonSerializer.Deserialize<StickyNote>(System.Text.Json.JsonSerializer.Serialize(model))!;
+            Assert.Equal(360, restored.EditHeight);
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfFact]
     public async Task FontPicker_FirstOpeningReplacesLoadingWithNames()
     {
         EnsureApplication();

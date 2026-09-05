@@ -414,6 +414,13 @@ public partial class StickyNoteWindow : Window
         if (_isInitializing) return; // コンストラクタ〜Loaded の初期値設定はモデルに書き戻さない
         if (_suppressWindowBoundsSave) return;
         if (_isFoldAnimationRunning) return; // アニメーション途中の高さを開いた表示サイズとして保存しない
+        if (_isEditMode && !ViewModel.IsFolded)
+        {
+            ViewModel.Model.EditWidth = Width;
+            ViewModel.Model.EditHeight = Height;
+            RequestSave();
+            return;
+        }
         // 幅は開いた表示/閉じた表示で別々のフィールドに保存する
         // （ToggleFold() が状態切り替え時にどちらか一方へスナップする）。
         // 高さは閉じた表示中は見た目上のタイトルバー高さでしかないため、
