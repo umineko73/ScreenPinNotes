@@ -847,13 +847,21 @@ public class StickyNoteWindowTests
         try
         {
             var outline = Assert.IsType<Border>(window.FindName("EditingOutline"));
+            var badge = Assert.IsType<Border>(window.FindName("EditingBadge"));
+            var badgeText = Assert.IsType<TextBlock>(window.FindName("EditingBadgeText"));
             Assert.Equal(Visibility.Collapsed, outline.Visibility);
+            Assert.Equal(Visibility.Collapsed, badge.Visibility);
+            // 文言は言語カタログから来る。キーが無いとキー名がそのまま出る。
+            Assert.Equal(LocalizationService.T("EditingBadge"), badgeText.Text);
+            Assert.NotEqual("EditingBadge", badgeText.Text);
 
             InvokePrivate(window, "EnterEditMode");
             Assert.Equal(Visibility.Visible, outline.Visibility);
+            Assert.Equal(Visibility.Visible, badge.Visibility);
 
             InvokePrivate(window, "EnterViewMode");
             Assert.Equal(Visibility.Collapsed, outline.Visibility);
+            Assert.Equal(Visibility.Collapsed, badge.Visibility);
         }
         finally { window.Close(); }
     }
@@ -872,6 +880,8 @@ public class StickyNoteWindowTests
             InvokePrivate(window, "EnterEditMode");
             Assert.Equal(Visibility.Collapsed,
                 Assert.IsType<Border>(window.FindName("EditingOutline")).Visibility);
+            Assert.Equal(Visibility.Collapsed,
+                Assert.IsType<Border>(window.FindName("EditingBadge")).Visibility);
         }
         finally { window.Close(); }
     }

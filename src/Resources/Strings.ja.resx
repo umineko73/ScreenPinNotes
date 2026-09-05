@@ -423,6 +423,9 @@
   <data name="MoveNoteTooltip" xml:space="preserve">
     <value>ドラッグで付箋を移動</value>
   </data>
+  <data name="EditingBadge" xml:space="preserve">
+    <value>編集中</value>
+  </data>
   <data name="ZOrder" xml:space="preserve">
     <value>重なり順</value>
   </data>

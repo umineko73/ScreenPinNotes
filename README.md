@@ -96,7 +96,7 @@ Distributable zips: `powershell -ExecutionPolicy Bypass -File scripts/publish.ps
 
 A mini toolbar appears above the context menu: `A-` / `A+` change body size, `T-` / `T+` change title size, `Aa` opens fonts, 🦊 opens icons, and 🎨 opens colors. There are no separate Change color / Change icon menu items.
 
-While a note is being edited it is outlined in green, so it stays recognisable after the toolbar hides on losing focus.
+While a note is being edited it is outlined in green and labelled Editing in its bottom left corner, so it stays recognisable after the toolbar hides on losing focus.
 
 During editing, the same toolbar appears below the note with a green `✓` to finish editing. `Ctrl+Enter` or `Esc` also returns to view mode; these actions do not discard edits. The toolbar follows movement and resizing and hides while the link editor is open.
 

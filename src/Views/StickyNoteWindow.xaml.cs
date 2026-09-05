@@ -405,6 +405,7 @@ public partial class StickyNoteWindow : Window
         ColorButton.Content = new WpfImage { Source = RenderEmoji("🎨"), Width = 20, Height = 20 };
         DoneEditingButton.Content = "✓";
         DoneEditingButton.ToolTip = LocalizationService.T("DoneEditingTooltip");
+        EditingBadgeText.Text = LocalizationService.T("EditingBadge");
     }
 
     // WPFはSegoe UI Emojiのカラーフォントを直接描画できないため、

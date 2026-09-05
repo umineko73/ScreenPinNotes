@@ -63,6 +63,7 @@ public partial class StickyNoteWindow
         var startingEdit = !_isEditMode;
         _isEditMode = true;
         EditingOutline.Visibility = Visibility.Visible;
+        EditingBadge.Visibility = Visibility.Visible;
         if (startingEdit) ApplyEditingSize(true);
         ViewModel.SetForceOpaque(true);
         _suppressTextChange = true;
@@ -184,6 +185,7 @@ public partial class StickyNoteWindow
 
         _isEditMode = false;
         EditingOutline.Visibility = Visibility.Collapsed;
+        EditingBadge.Visibility = Visibility.Collapsed;
         ApplyEditingSize(false);
         ViewModel.SetForceOpaque(false);
         // ドキュメントを再構築してMarkdown表示とリンクを正しく復元する

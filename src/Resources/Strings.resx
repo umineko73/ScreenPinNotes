@@ -423,6 +423,9 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="MoveNoteTooltip" xml:space="preserve">
     <value>Drag to move the note</value>
   </data>
+  <data name="EditingBadge" xml:space="preserve">
+    <value>Editing</value>
+  </data>
   <data name="ZOrder" xml:space="preserve">
     <value>Stacking order</value>
   </data>
