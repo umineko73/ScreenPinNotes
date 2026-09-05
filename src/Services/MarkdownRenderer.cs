@@ -499,9 +499,16 @@ public static class MarkdownRenderer
             yield break;
         }
         int pos = 0;
+        // '[' で始まるリンク/画像は必ず後方に "](" を必要とする。行内に
+        // それが無い位置では前方走査ごと省く。省かないと '[' が並ぶ行で
+        // リンク探索が毎回行末まで走り、解析が O(n^2) になる。
+        var lastLinkStart = FindLastLinkCandidate(text);
+        // 直近のリンク探索がラベル終端として見た ']' の次の位置。そこまでの
+        // '[' は同じ ']' を見て同じ結果になるので、もう走査しない。
+        var linkRetryFrom = 0;
         while (pos < text.Length)
         {
-            var next = FindNextInlineMarker(text, pos);
+            var next = FindNextInlineMarker(text, pos, linkRetryFrom, lastLinkStart);
             if (next > pos)
             {
                 foreach (var inline in ParsePlainLinks(text[pos..next], createHyperlink))
@@ -561,21 +568,30 @@ public static class MarkdownRenderer
                 continue;
             }
 
-            if (TryGetMarkdownImage(text, pos, out var alt, out var imageTarget, out var imageLength, out var width, out var height))
+            if (IsLinkStart(text, pos) && pos >= linkRetryFrom && pos < lastLinkStart)
             {
-                if (createImage != null)
-                    yield return createImage(new MarkdownImage(alt, imageTarget, lineIndex, lineOffset + pos, imageLength, width, height));
-                else
-                    yield return new Run(text.Substring(pos, imageLength));
-                pos += imageLength;
-                continue;
-            }
+                if (TryGetMarkdownImage(text, pos, out var alt, out var imageTarget, out var imageLength, out var width, out var height))
+                {
+                    if (createImage != null)
+                        yield return createImage(new MarkdownImage(alt, imageTarget, lineIndex, lineOffset + pos, imageLength, width, height));
+                    else
+                        yield return new Run(text.Substring(pos, imageLength));
+                    pos += imageLength;
+                    continue;
+                }
 
-            if (TryGetMarkdownLink(text, pos, out var label, out var target, out var length))
-            {
-                yield return createHyperlink(label, target);
-                pos += length;
-                continue;
+                if (TryGetMarkdownLink(text, pos, out var label, out var target, out var length))
+                {
+                    yield return createHyperlink(label, target);
+                    pos += length;
+                    continue;
+                }
+
+                // この '[' はリンクにも画像にもならなかった。ラベル終端に
+                // なり得る ']' までの '[' は同じ ']' を見て同じ結果になるので、
+                // そこまでは探索を繰り返さない。
+                var labelEnd = FindUnescaped(text, "]", pos + 1);
+                linkRetryFrom = labelEnd < 0 ? text.Length : labelEnd + 1;
             }
 
             if (TryGetAutolink(text, pos, out var autolinkTarget, out var autolinkLength))
@@ -591,7 +607,19 @@ public static class MarkdownRenderer
         }
     }
 
-    private static int FindNextInlineMarker(string text, int start)
+    private static bool IsLinkStart(string text, int index)
+        => text[index] == '[' || text.AsSpan(index).StartsWith("![", StringComparison.Ordinal);
+
+    // リンク/画像になり得る最後の "](" の位置。無ければ -1。
+    private static int FindLastLinkCandidate(string text)
+    {
+        for (var i = text.Length - 2; i >= 0; i--)
+            if (text[i] == ']' && text[i + 1] == '(')
+                return i;
+        return -1;
+    }
+
+    private static int FindNextInlineMarker(string text, int start, int linkRetryFrom, int lastLinkStart)
     {
         for (var i = start; i < text.Length; i++)
         {
@@ -605,8 +633,7 @@ public static class MarkdownRenderer
                 TryGetDelimitedText(text, i, "__", out _, out _) ||
                 TryGetDelimitedText(text, i, "*", out _, out _) ||
                 TryGetDelimitedText(text, i, "_", out _, out _) ||
-                text.AsSpan(i).StartsWith("![", StringComparison.Ordinal) ||
-                text[i] == '[' ||
+                (i >= linkRetryFrom && i < lastLinkStart && IsLinkStart(text, i)) ||
                 text[i] == '<')
             {
                 return i;

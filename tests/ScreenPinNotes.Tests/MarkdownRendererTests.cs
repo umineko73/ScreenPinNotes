@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -30,6 +31,36 @@ public class MarkdownRendererTests
             Assert.NotEmpty(MarkdownRenderer.Render(text, 13, CreateHyperlink).ToArray());
         }
     }
+    // 上限内に収まる入力でも、'[' が並ぶ行はリンク探索が毎回行末まで走って
+    // 解析が O(n^2) になり、UI スレッドが数秒止まっていた。
+    [Theory]
+    [InlineData("")]              // 行内に "](" が無い
+    [InlineData("](zzz)")]        // "](" はあるがリンクにならない
+    [InlineData("]( )")]          // 画像にもリンクにもならない
+    public void BracketHeavyDocumentStaysWithinTheRenderBudget(string tail)
+    {
+        var line = new string('[', 8190 - tail.Length) + tail;
+        var text = string.Join("\n", Enumerable.Repeat(line, 16));
+        Assert.True(text.Length <= 131072 && text.Count(ch => ch == '\n') <= 2000);
+        var watch = Stopwatch.StartNew();
+        MarkdownRenderer.Render(text, 13, CreateHyperlink).ToArray();
+        Assert.True(watch.ElapsedMilliseconds < 1500, $"Render took {watch.ElapsedMilliseconds}ms");
+    }
+
+    // 走査を省く最適化が、後ろに続く本物のリンクまで飲み込まないこと。
+    // 先頭の "[[[ ]" はリンクにならないので探索打ち切りの経路を通る。
+    [Fact]
+    public void LinksStillRenderAfterUnmatchedBrackets()
+    {
+        var labels = new List<string>();
+        MarkdownRenderer.Render("[[[ ] [Example](https://example.com)", 13, (label, target) =>
+        {
+            labels.Add(label);
+            return CreateHyperlink(label, target);
+        }).ToArray();
+        Assert.Equal("Example", Assert.Single(labels));
+    }
+
     private static Hyperlink CreateHyperlink(string label, string target)
         => new(new Run(label)) { NavigateUri = new Uri("about:" + target, UriKind.Absolute) };
 

@@ -86,7 +86,7 @@ public partial class StickyNoteWindow
         {
             BodyEditBox.Text = original;
             BodyEditBox.Select(selectionStart, selectionLength);
-            ViewModel.Content = original;
+            ViewModel.Content = NormalizeLineEndings(original);
             RequestSave();
             ErrorReporter.ReportNonFatal("Apply Markdown formatting; original restored", ex);
         }
