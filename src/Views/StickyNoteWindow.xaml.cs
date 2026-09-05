@@ -308,7 +308,11 @@ public partial class StickyNoteWindow : Window
         _isContentContextMenuOpen = false;
         _suppressViewMode = false;
         ShowEditToolbar();
-        if (_isEditMode) Dispatcher.BeginInvoke(() => ContentBox.Focus());
+        if (_isEditMode) Dispatcher.BeginInvoke(() =>
+        {
+            if (!_isClosed && IsActive && !_isContentContextMenuOpen)
+                ContentBox.Focus();
+        });
         ScheduleHideEditToolbar();
     }
 

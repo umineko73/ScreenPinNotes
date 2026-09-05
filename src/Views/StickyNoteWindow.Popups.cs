@@ -287,20 +287,12 @@ public partial class StickyNoteWindow
         var border = new Border
         {
             DataContext = ViewModel,
-            BorderBrush = PopupBorderBrush(),
-            BorderThickness = new Thickness(1),
+            BorderThickness = new Thickness(0),
             CornerRadius = new CornerRadius(4),
             Padding = new Thickness(3),
             Child = toolbar,
         };
         border.Background = PopupBackgroundBrush();
-        border.SetBinding(Border.BorderBrushProperty, new System.Windows.Data.Binding("BorderBrush")
-        {
-            RelativeSource = new System.Windows.Data.RelativeSource(
-                System.Windows.Data.RelativeSourceMode.FindAncestor, typeof(ContextMenu), 1),
-        });
-        border.SnapsToDevicePixels = true;
-        border.UseLayoutRounding = true;
         border.SetValue(TextElement.ForegroundProperty, ViewModel.TextForeground);
         return border;
     }

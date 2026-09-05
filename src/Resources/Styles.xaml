@@ -22,7 +22,10 @@
 
     <ControlTemplate x:Key="NoteContextMenuTemplate" TargetType="ContextMenu">
         <StackPanel>
-            <ContentPresenter Content="{TemplateBinding Tag}" HorizontalAlignment="Left" Margin="0,0,0,6"/>
+            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="1" CornerRadius="3" HorizontalAlignment="Left" Margin="0,0,0,6">
+                <ContentPresenter Content="{TemplateBinding Tag}"/>
+            </Border>
             <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                     BorderThickness="1" Padding="2" CornerRadius="3">
                 <ScrollViewer CanContentScroll="True" VerticalScrollBarVisibility="Auto">

@@ -267,6 +267,7 @@ public partial class StickyNoteWindow
 
     private void ShowEditToolbar()
     {
+        if (!IsActive) { HideEditToolbar(); return; }
         if (!_isEditMode || ViewModel.IsFolded || _isContentContextMenuOpen || _isLinkEditDialogOpen) return;
         _toolbarHideTimer.Stop();
         UpdateEditToolbarPlacement();
@@ -319,6 +320,16 @@ public partial class StickyNoteWindow
     {
         _toolbarHideTimer.Stop();
         EditToolbarPopup.IsOpen = false;
+    }
+
+    private void Window_Activated(object? sender, EventArgs e)
+    {
+        if (EditToolbarPopup != null) ShowEditToolbar();
+    }
+
+    private void Window_Deactivated(object? sender, EventArgs e)
+    {
+        HideEditToolbar();
     }
 
     private void ScheduleHideEditToolbar()

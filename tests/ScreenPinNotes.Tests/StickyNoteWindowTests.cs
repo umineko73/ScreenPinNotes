@@ -547,6 +547,41 @@ public class StickyNoteWindowTests
     }
 
     [WpfFact]
+    public void ContextMenuClosed_WhenAnotherWindowIsActive_DoesNotRestoreToolbar()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var vm = new StickyNoteViewModel(new StickyNote { Content = "body" }, new AppSettings());
+        var window = new StickyNoteWindow(vm, new StorageService(temp.Path));
+        var other = new System.Windows.Window();
+        try
+        {
+            window.Show();
+            window.Activate();
+            InvokePrivate(window, "EnterEditMode");
+            var toolbar = Assert.IsType<Popup>(window.FindName("EditToolbarPopup"));
+            var editor = Assert.IsType<TextBox>(window.FindName("BodyEditBox"));
+            InvokePrivate(window, "BodyEditBox_ContextMenuOpening", editor, null);
+            other.Show();
+            other.Activate();
+            Assert.False(window.IsActive);
+            InvokePrivate(window, "ContentContextMenu_Closed", editor.ContextMenu, new RoutedEventArgs());
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            Assert.False(toolbar.IsOpen);
+            Assert.True(other.IsActive);
+            InvokePrivate(window, "ShowEditToolbar");
+            Assert.False(toolbar.IsOpen);
+            window.Activate();
+            Assert.True(toolbar.IsOpen);
+        }
+        finally
+        {
+            other.Close();
+            window.Close();
+        }
+    }
+
+    [WpfFact]
     public void ColorAndIconButtons_ToggleTheirPalettes()
     {
         EnsureApplication();

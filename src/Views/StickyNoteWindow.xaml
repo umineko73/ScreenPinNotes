@@ -26,6 +26,8 @@
         MinWidth="140" MinHeight="28"
         SizeChanged="Window_SizeChanged"
         LocationChanged="Window_LocationChanged"
+        Activated="Window_Activated"
+        Deactivated="Window_Deactivated"
         Closing="Window_Closing">
 
     <Window.Resources>
