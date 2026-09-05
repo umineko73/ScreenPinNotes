@@ -872,36 +872,6 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
-    // タイトルバーが無いと、タイトル文字サイズを変えても見える場所が無い。
-    [WpfFact]
-    public void HiddenTitleBar_DisablesTheTitleSizeButtons()
-    {
-        EnsureApplication();
-        using var temp = new TempDataDirectory();
-        var storage = new StorageService(temp.Path);
-        var settings = new AppSettings();
-
-        bool EnabledFor(bool hidden)
-        {
-            var note = new StickyNote { IsTitleBarHidden = hidden };
-            var window = new StickyNoteWindow(new StickyNoteViewModel(note, settings), storage);
-            try
-            {
-                var smaller = Assert.IsType<Button>(window.FindName("TitleSmallerButton"));
-                var larger = Assert.IsType<Button>(window.FindName("TitleLargerButton"));
-                smaller.IsEnabled = true;
-                larger.IsEnabled = true;
-                InvokePrivate(window, "UpdateToolbarTooltips");
-                Assert.Equal(smaller.IsEnabled, larger.IsEnabled);
-                return smaller.IsEnabled;
-            }
-            finally { window.Close(); }
-        }
-
-        Assert.False(EnabledFor(hidden: true));
-        Assert.True(EnabledFor(hidden: false));
-    }
-
     // タイトルバー側の折りたたみボタンを出さない設定でも、こちらは出す。
     // 従うと、畳む手段がダブルクリックだけになって見つけられない。
     [WpfFact]

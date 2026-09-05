@@ -396,9 +396,6 @@ public partial class StickyNoteWindow : Window
         FontLargerButton.ToolTip = string.Format(LocalizationService.T("FontLargerTooltip"), ViewModel.FontSize);
         TitleSmallerButton.ToolTip = string.Format(LocalizationService.T("TitleSmallerTooltip"), ViewModel.TitleFontSize);
         TitleLargerButton.ToolTip = string.Format(LocalizationService.T("TitleLargerTooltip"), ViewModel.TitleFontSize);
-        // タイトルバーを隠していると、変えたサイズが見える場所が無い。
-        TitleSmallerButton.IsEnabled = !ViewModel.IsTitleBarHidden;
-        TitleLargerButton.IsEnabled = !ViewModel.IsTitleBarHidden;
         FontButton.ToolTip = LocalizationService.T("FontTooltip");
         IconButton.ToolTip = LocalizationService.T("IconTooltip");
         ColorButton.ToolTip = LocalizationService.T("ColorTooltip");
