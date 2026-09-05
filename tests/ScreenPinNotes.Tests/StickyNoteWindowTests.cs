@@ -16,6 +16,66 @@ namespace ScreenPinNotes.Tests;
 public class StickyNoteWindowTests
 {
     [WpfFact]
+    public async Task FontPicker_FirstOpeningReplacesLoadingWithNames()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var window = new StickyNoteWindow(new StickyNoteViewModel(new StickyNote(), new AppSettings()),
+            new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            var popup = (Popup)typeof(StickyNoteWindow).GetField("_fontPopup", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
+            popup.PlacementTarget = window;
+            popup.IsOpen = true;
+            var panel = (StackPanel)((Border)popup.Child).Child;
+            var list = panel.Children.OfType<ListBox>().Single();
+            for (var i = 0; i < 100 && list.ItemsSource == null; i++) await Task.Delay(50);
+            Assert.NotNull(list.ItemsSource);
+            Assert.NotEmpty(list.Items.Cast<object>());
+            Assert.All(list.Items.Cast<object>(), item => Assert.IsType<FontCatalog.Entry>(item));
+            popup.IsOpen = false;
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfFact]
+    public void LinkEditDialog_HidesToolbarUntilClosed()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var window = new StickyNoteWindow(new StickyNoteViewModel(
+            new StickyNote { Content = "[label](https://example.com)" }, new AppSettings()),
+            new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            InvokePrivate(window, "EnterEditMode");
+            var toolbar = Assert.IsType<Popup>(window.FindName("EditToolbarPopup"));
+            Assert.True(toolbar.IsOpen);
+            bool hidden = false;
+            bool stayedHidden = false;
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
+            timer.Tick += (_, _) =>
+            {
+                var dialog = window.OwnedWindows.OfType<LinkEditDialog>().FirstOrDefault(d => d.IsVisible);
+                if (dialog == null) return;
+                timer.Stop();
+                hidden = !toolbar.IsOpen;
+                InvokePrivate(window, "ShowEditToolbar");
+                stayedHidden = !toolbar.IsOpen;
+                dialog.Close();
+            };
+            timer.Start();
+            InvokePrivate(window, "EditMarkdownLink", MarkdownLinkEditor.FindAt(window.ViewModel.Content, 3)!);
+            Assert.True(hidden);
+            Assert.True(stayedHidden);
+            Assert.True(toolbar.IsOpen);
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfFact]
     public void ConstructingNotes_DoesNotStartInstalledFontScan()
     {
         EnsureApplication();
@@ -27,10 +87,10 @@ public class StickyNoteWindowTests
             for (var i = 0; i < 3; i++)
                 windows.Add(new StickyNoteWindow(
                     new StickyNoteViewModel(new StickyNote(), new AppSettings()), storage));
-            var field = typeof(StickyNoteWindow).GetField("InstalledTextFonts",
+            var field = typeof(FontCatalog).GetField("_loading",
                 BindingFlags.Static | BindingFlags.NonPublic)!;
-            var fonts = Assert.IsType<Lazy<Task<string[]>>>(field.GetValue(null));
-            Assert.False(fonts.IsValueCreated);
+            var fonts = field.GetValue(null);
+            Assert.Null(fonts);
         }
         finally
         {
@@ -121,8 +181,8 @@ public class StickyNoteWindowTests
             Assert.Contains(
                 bodyEditBox.ContextMenu.Items.OfType<MenuItem>(),
                 item => Equals(item.Header, "リマインダー...") || Equals(item.Header, "Reminder..."));
-            AssertMenuHasIconAndColorOptions(bodyEditBox.ContextMenu);
-            AssertMenuHasIconAndColorOptions(contentBox.ContextMenu);
+            AssertMenuOmitsIconAndColorOptions(bodyEditBox.ContextMenu);
+            AssertMenuOmitsIconAndColorOptions(contentBox.ContextMenu);
 
             InvokePrivate(window, "EnterEditMode");
 
@@ -205,12 +265,12 @@ public class StickyNoteWindowTests
         }
     }
 
-    private static void AssertMenuHasIconAndColorOptions(ContextMenu contextMenu)
+    private static void AssertMenuOmitsIconAndColorOptions(ContextMenu contextMenu)
     {
-        Assert.Contains(
+        Assert.DoesNotContain(
             contextMenu.Items.OfType<MenuItem>(),
             item => Equals(item.Header, "アイコンを変更") || Equals(item.Header, "Change icon"));
-        Assert.Contains(
+        Assert.DoesNotContain(
             contextMenu.Items.OfType<MenuItem>(),
             item => Equals(item.Header, "色を変更") || Equals(item.Header, "Change color"));
     }
@@ -384,6 +444,13 @@ public class StickyNoteWindowTests
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
             var after = toolbar.Child.PointToScreen(new System.Windows.Point());
             Assert.True(after.Y > before.Y + 40, "Toolbar should follow the resized note bottom.");
+            typeof(StickyNoteWindow).GetField("_isDragging", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(window, true);
+            window.Left += 50;
+            window.Top += 30;
+            window.UpdateLayout();
+            var moved = toolbar.Child.PointToScreen(new System.Windows.Point());
+            Assert.True(moved.X > after.X + 35, "Toolbar should follow horizontal dragging.");
+            Assert.True(moved.Y > after.Y + 20, "Toolbar should follow vertical dragging.");
         }
         finally
         {

@@ -661,7 +661,7 @@ public static class MarkdownRenderer
     private static char GetCharOrDefault(string text, int index)
         => index >= 0 && index < text.Length ? text[index] : '\0';
 
-    private static bool TryGetMarkdownLink(
+    internal static bool TryGetMarkdownLink(
         string text,
         int start,
         out string label,

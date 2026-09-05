@@ -263,79 +263,85 @@ public partial class StickyNoteWindow
     {
         var listBox = new WpfListBox
         {
-            Width = 300,
-            MaxHeight = 360,
+            Width = 300, Height = 360,
             BorderThickness = new Thickness(0),
             Background = PopupBackgroundBrush(),
             Foreground = IsDarkTheme() ? WpfBrushes.WhiteSmoke : WpfBrushes.Black,
+            DisplayMemberPath = "DisplayName",
+            FontFamily = new WpfFontFamily("Yu Gothic UI"),
+            FontSize = 13,
         };
         VirtualizingPanel.SetIsVirtualizing(listBox, true);
         VirtualizingPanel.SetVirtualizationMode(listBox, VirtualizationMode.Recycling);
-        var itemStyle = new Style(typeof(ListBoxItem));
-        // Font names must remain readable even for decorative typefaces.
-        itemStyle.Setters.Add(new Setter(System.Windows.Controls.Control.FontFamilyProperty,
-            new WpfFontFamily("Yu Gothic UI")));
-        itemStyle.Setters.Add(new Setter(System.Windows.Controls.Control.FontSizeProperty, 13d));
-        listBox.ItemContainerStyle = itemStyle;
-        listBox.SelectionChanged += (_, _) =>
-        {
-            if (listBox.SelectedItem is string font)
-            {
-                ViewModel.FontFamily = font;
-                if (_fontPopup != null) _fontPopup.IsOpen = false;
-                RequestSave();
-            }
-        };
+        var status = new TextBlock { Margin = new Thickness(6), TextWrapping = TextWrapping.Wrap };
+        var retry = new WpfButton { Content = LocalizationService.T("Retry"), Visibility = Visibility.Collapsed };
+        var panel = new StackPanel();
+        panel.Children.Add(status);
+        panel.Children.Add(retry);
+        panel.Children.Add(listBox);
         var popup = new Popup
         {
-            Child = new Border
-            {
-                Background = PopupBackgroundBrush(), BorderBrush = PopupBorderBrush(),
-                BorderThickness = new Thickness(1), Child = listBox,
-            },
+            Child = new Border { Background = PopupBackgroundBrush(), BorderBrush = PopupBorderBrush(),
+                BorderThickness = new Thickness(1), Child = panel },
             Placement = PlacementMode.Bottom, StaysOpen = false,
         };
-        popup.Opened += async (_, _) =>
+        bool updating = false;
+        bool loading = false;
+        FontCatalog.Entry[]? current = null;
+
+        void ShowFonts(FontCatalog.Entry[] entries)
         {
-            if (listBox.ItemsSource != null) return;
-            listBox.IsEnabled = false;
-            listBox.Items.Add(LocalizationService.T("FontsLoading"));
+            updating = true;
             try
             {
-                var names = await InstalledTextFonts.Value;
-                listBox.Items.Clear();
-                listBox.ItemsSource = names;
+                var frequent = entries.Where(f => Settings.FontUsage.GetValueOrDefault(f.Source) > 0)
+                    .OrderByDescending(f => Settings.FontUsage.GetValueOrDefault(f.Source)).Take(5).ToArray();
+                var rows = frequent.Select(f => new FontCatalog.Entry(f.Source, "★ " + f.DisplayName))
+                    .Concat(entries).ToArray();
+                listBox.ItemsSource = rows;
+                listBox.SelectedItem = rows.FirstOrDefault(f => f.Source == ViewModel.FontFamily);
+                status.Text = frequent.Length > 0 ? LocalizationService.T("FrequentFontsHint") : "";
+                status.Visibility = frequent.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+            }
+            finally { updating = false; }
+        }
+        async Task Load()
+        {
+            if (loading) return;
+            if (current != null) { ShowFonts(current); return; }
+            loading = true;
+            status.Visibility = Visibility.Visible;
+            status.Text = LocalizationService.T("FontsLoading");
+            retry.Visibility = Visibility.Collapsed;
+            try
+            {
+                // Show names immediately; symbol metadata inspection never blocks the first list.
+                current = await FontCatalog.LoadAsync();
+                ShowFonts(current);
+                current = await FontCatalog.FilterAsync(current);
+                ShowFonts(current);
             }
             catch (Exception ex)
             {
-                listBox.Items.Clear();
+                status.Visibility = Visibility.Visible;
+                status.Text = LocalizationService.T("FontsLoadFailed");
+                retry.Visibility = Visibility.Visible;
                 ErrorReporter.ReportNonFatal("Load installed fonts", ex);
             }
-            finally
-            {
-                listBox.IsEnabled = true;
-            }
-        };
-        return popup;
-    }
-
-    // Only the first font-picker opening starts the scan; all notes share its result.
-    private static readonly Lazy<Task<string[]>> InstalledTextFonts = new(() => Task.Run(() =>
-        Fonts.SystemFontFamilies
-            .Where(HasTextGlyphs)
-            .Select(font => font.Source)
-            .Distinct(StringComparer.CurrentCultureIgnoreCase)
-            .OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase)
-            .ToArray()));
-    private static bool HasTextGlyphs(WpfFontFamily family)
-    {
-        foreach (var typeface in family.GetTypefaces())
-        {
-            if (!typeface.TryGetGlyphTypeface(out var glyphs) || glyphs.Symbol) continue;
-            if (glyphs.CharacterToGlyphMap.Any(pair => pair.Value != 0 &&
-                Rune.IsValid(pair.Key) && Rune.IsLetter(new Rune(pair.Key))))
-                return true;
+            finally { loading = false; }
         }
-        return false;
+        listBox.SelectionChanged += (_, _) =>
+        {
+            if (updating || listBox.SelectedItem is not FontCatalog.Entry font) return;
+            ViewModel.FontFamily = font.Source;
+            var count = Settings.FontUsage.GetValueOrDefault(font.Source);
+            Settings.FontUsage[font.Source] = (int)Math.Min(int.MaxValue, (long)Math.Max(0, count) + 1);
+            _storage.SaveSettings(Settings);
+            popup.IsOpen = false;
+            RequestSave();
+        };
+        popup.Opened += async (_, _) => await Load();
+        retry.Click += async (_, _) => { current = null; await Load(); };
+        return popup;
     }
 }

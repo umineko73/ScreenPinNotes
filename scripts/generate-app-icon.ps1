@@ -19,81 +19,32 @@ function New-IconBitmap {
 
     function S([float]$v) { return [float]($v * $scale) }
 
-    $fitScale = 1.18
-    $fitMatrix = [System.Drawing.Drawing2D.Matrix]::new()
-    $fitMatrix.Translate(-(S 128), -(S 128), [System.Drawing.Drawing2D.MatrixOrder]::Append)
-    $fitMatrix.Scale($fitScale, $fitScale, [System.Drawing.Drawing2D.MatrixOrder]::Append)
-    $fitMatrix.Translate((S 128), (S 128), [System.Drawing.Drawing2D.MatrixOrder]::Append)
-    $g.Transform = $fitMatrix
-
-    $shadow = [System.Drawing.Drawing2D.GraphicsPath]::new()
-    $shadow.AddPolygon([System.Drawing.PointF[]]@(
-        [System.Drawing.PointF]::new((S 55), (S 50)),
-        [System.Drawing.PointF]::new((S 203), (S 66)),
-        [System.Drawing.PointF]::new((S 189), (S 218)),
-        [System.Drawing.PointF]::new((S 40), (S 203))
-    ))
-    $m = [System.Drawing.Drawing2D.Matrix]::new()
-    $m.RotateAt(-5.0, [System.Drawing.PointF]::new((S 128), (S 132)))
-    $shadow.Transform($m)
-    $g.FillPath([System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(44, 0, 0, 0)), $shadow)
-
+    # D: graphite note with a mint pin. Flat geometry remains clear at 16px.
     $note = [System.Drawing.Drawing2D.GraphicsPath]::new()
-    $note.AddPolygon([System.Drawing.PointF[]]@(
-        [System.Drawing.PointF]::new((S 42), (S 42)),
-        [System.Drawing.PointF]::new((S 199), (S 42)),
-        [System.Drawing.PointF]::new((S 215), (S 195)),
-        [System.Drawing.PointF]::new((S 167), (S 219)),
-        [System.Drawing.PointF]::new((S 43), (S 203))
-    ))
-    $noteMatrix = [System.Drawing.Drawing2D.Matrix]::new()
-    $noteMatrix.RotateAt(-5.0, [System.Drawing.PointF]::new((S 128), (S 132)))
-    $note.Transform($noteMatrix)
-
-    $bounds = [System.Drawing.RectangleF]::new((S 34), (S 34), (S 188), (S 190))
-    $brush = [System.Drawing.Drawing2D.LinearGradientBrush]::new(
-        $bounds,
-        [System.Drawing.Color]::FromArgb(255, 170, 232, 190),
-        [System.Drawing.Color]::FromArgb(255, 74, 181, 126),
-        [System.Drawing.Drawing2D.LinearGradientMode]::ForwardDiagonal)
-    $g.FillPath($brush, $note)
-    $g.DrawPath([System.Drawing.Pen]::new([System.Drawing.Color]::FromArgb(190, 20, 105, 70), [Math]::Max(1.0, (S 7))), $note)
-
-    $fold = [System.Drawing.Drawing2D.GraphicsPath]::new()
-    $fold.AddPolygon([System.Drawing.PointF[]]@(
-        [System.Drawing.PointF]::new((S 166), (S 176)),
-        [System.Drawing.PointF]::new((S 215), (S 195)),
-        [System.Drawing.PointF]::new((S 168), (S 219))
-    ))
-    $fold.Transform($noteMatrix)
-    $g.FillPath([System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(255, 211, 248, 224)), $fold)
-    $g.DrawPath([System.Drawing.Pen]::new([System.Drawing.Color]::FromArgb(90, 14, 96, 63), [Math]::Max(1.0, (S 4))), $fold)
-
-    if ($Size -ge 24) {
-        $pinShadow = [System.Drawing.Pen]::new([System.Drawing.Color]::FromArgb(70, 0, 0, 0), [Math]::Max(1.0, (S 10)))
-        $g.DrawLine($pinShadow, (S 120), (S 61), (S 158), (S 131))
-    }
-
-    $pin = [System.Drawing.Pen]::new([System.Drawing.Color]::FromArgb(255, 13, 104, 84), [Math]::Max(1.4, (S 9)))
-    $pin.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $pin.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $g.DrawLine($pin, (S 113), (S 55), (S 151), (S 129))
-
-    $pinHeadSize = [Math]::Max(5.0, (S 58))
-    $pinHead = [System.Drawing.RectangleF]::new((S 80), (S 27), $pinHeadSize, $pinHeadSize)
-    $headBrush = [System.Drawing.Drawing2D.LinearGradientBrush]::new(
-        $pinHead,
-        [System.Drawing.Color]::FromArgb(255, 52, 211, 153),
-        [System.Drawing.Color]::FromArgb(255, 5, 120, 92),
-        [System.Drawing.Drawing2D.LinearGradientMode]::ForwardDiagonal)
-    $g.FillEllipse($headBrush, $pinHead)
-    $g.DrawEllipse([System.Drawing.Pen]::new([System.Drawing.Color]::FromArgb(210, 4, 92, 72), [Math]::Max(1.0, (S 6))), $pinHead)
-
-    if ($Size -ge 32) {
-        $highlight = [System.Drawing.RectangleF]::new((S 96), (S 42), (S 15), (S 15))
-        $g.FillEllipse([System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(145, 255, 255, 255)), $highlight)
-    }
-
+    $note.AddArc((S 24), (S 58), (S 24), (S 24), 180, 90)
+    $note.AddLine((S 36), (S 58), (S 220), (S 58))
+    $note.AddArc((S 208), (S 58), (S 24), (S 24), 270, 90)
+    $note.AddLine((S 232), (S 70), (S 232), (S 170))
+    $note.AddArc((S 170), (S 170), (S 62), (S 62), 0, 90)
+    $note.AddLine((S 201), (S 232), (S 24), (S 232))
+    $note.CloseFigure()
+    $bodyBrush = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml("#373B40"))
+    $outline = [System.Drawing.Pen]::new([System.Drawing.ColorTranslator]::FromHtml("#A9B2B7"), (S 3))
+    $stem = [System.Drawing.Pen]::new([System.Drawing.Color]::White, (S 10))
+    $stem.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
+    $mint = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml("#39CCA0"))
+    $rim = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::White)
+    $g.FillPath($bodyBrush, $note)
+    $g.DrawPath($outline, $note)
+    $g.DrawLine($stem, (S 128), (S 46), (S 128), (S 100))
+    $g.FillEllipse($rim, (S 99), (S 15), (S 58), (S 58))
+    $g.FillEllipse($mint, (S 103), (S 19), (S 50), (S 50))
+    $note.Dispose()
+    $bodyBrush.Dispose()
+    $outline.Dispose()
+    $stem.Dispose()
+    $mint.Dispose()
+    $rim.Dispose()
     $g.Dispose()
     return $bmp
 }

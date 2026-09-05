@@ -438,6 +438,8 @@ public partial class StickyNoteWindow : Window
 
     private void Window_LocationChanged(object? sender, EventArgs e)
     {
+        if (EditToolbarPopup?.IsOpen == true)
+            UpdateEditToolbarPlacement();
         if (_isDragging || _isInitializing) return;
         if (_suppressWindowBoundsSave) return;
         SaveCurrentPositionToModel();

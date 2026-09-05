@@ -19,7 +19,13 @@ public static class LocalizationService
         var english = string.Equals(Settings.Language, "en", StringComparison.OrdinalIgnoreCase);
         return key switch
         {
+            "EditMarkdownLink" => english ? "Edit link..." : "リンクを編集...",
+            "LinkDisplayText" => english ? "Display text" : "表示テキスト",
+            "InvalidLinkTarget" => english ? "Enter a valid link without line breaks or angle brackets." : "改行や山括弧を含まない有効なリンクを入力してください。",
             "Yes" => english ? "Yes" : "はい",
+            "Retry" => english ? "Retry" : "再試行",
+            "FontsLoadFailed" => english ? "Could not load fonts. Please retry." : "フォントを読み込めませんでした。再試行してください。",
+            "FrequentFontsHint" => english ? "★ Frequently used (up to 5), followed by all fonts" : "★ よく使うフォント（最大5件）／以下は全フォント",
             "FontsLoading" => english ? "Loading fonts…" : "フォントを読み込み中…",
             "No" => english ? "No" : "いいえ",
             "TrayShowAll" => english ? "Show all notes" : "付箋をすべて表示",

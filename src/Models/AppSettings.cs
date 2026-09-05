@@ -24,6 +24,7 @@ public sealed class AppSettings
     public string NotesRoot { get; set; } = "";
     public string Language { get; set; } = "ja";
     public string Theme { get; set; } = "Light";
+    public Dictionary<string, int> FontUsage { get; set; } = new();
     public TimingSettings Timings { get; set; } = new();
     public InteractionSettings Interaction { get; set; } = new();
     public LayoutSettings Layout { get; set; } = new();
@@ -61,6 +62,7 @@ public sealed class AppSettings
         Timings ??= new TimingSettings();
         Interaction ??= new InteractionSettings();
         Layout ??= new LayoutSettings();
+        FontUsage ??= new();
         if (IconPalette == null || IconPalette.Count == 0)
             IconPalette = DefaultIconPalette();
 

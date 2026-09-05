@@ -238,7 +238,7 @@ public partial class StickyNoteWindow
 
     private void ShowEditToolbar()
     {
-        if (!_isEditMode || ViewModel.IsFolded || _isContentContextMenuOpen) return;
+        if (!_isEditMode || ViewModel.IsFolded || _isContentContextMenuOpen || _isLinkEditDialogOpen) return;
         _toolbarHideTimer.Stop();
         UpdateEditToolbarPlacement();
         EditToolbarPopup.IsOpen = true;
