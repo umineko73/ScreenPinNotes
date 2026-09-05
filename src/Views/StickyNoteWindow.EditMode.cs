@@ -375,6 +375,7 @@ public partial class StickyNoteWindow
             ? Visibility.Visible
             : Visibility.Collapsed;
         TitleBarOverlayActions.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
+        TitleBarOverlayBackdrop.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
     }
 
     // ─── ステータスバーぶんウィンドウを伸縮させる ────────────────

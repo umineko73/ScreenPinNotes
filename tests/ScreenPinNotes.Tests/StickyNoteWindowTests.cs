@@ -826,7 +826,7 @@ public class StickyNoteWindowTests
         try
         {
             Assert.Equal(Visibility.Visible,
-                Assert.IsType<Border>(window.FindName("TitleBarOverlay")).Visibility);
+                Assert.IsType<Grid>(window.FindName("TitleBarOverlay")).Visibility);
             Assert.Equal(Visibility.Collapsed,
                 Assert.IsType<StackPanel>(window.FindName("TitleBarOverlayActions")).Visibility);
         }
@@ -845,7 +845,7 @@ public class StickyNoteWindowTests
         try
         {
             Assert.Equal(Visibility.Collapsed,
-                Assert.IsType<Border>(window.FindName("TitleBarOverlay")).Visibility);
+                Assert.IsType<Grid>(window.FindName("TitleBarOverlay")).Visibility);
         }
         finally { window.Close(); }
     }
@@ -862,7 +862,7 @@ public class StickyNoteWindowTests
         try
         {
             Assert.Equal(Visibility.Collapsed,
-                Assert.IsType<Border>(window.FindName("TitleBarOverlay")).Visibility);
+                Assert.IsType<Grid>(window.FindName("TitleBarOverlay")).Visibility);
         }
         finally { window.Close(); }
     }
@@ -923,7 +923,7 @@ public class StickyNoteWindowTests
         try
         {
             var titleBar = Assert.IsType<Grid>(window.FindName("TitleBar"));
-            var overlay = Assert.IsType<Border>(window.FindName("TitleBarOverlay"));
+            var overlay = Assert.IsType<Grid>(window.FindName("TitleBarOverlay"));
             Assert.Equal(Visibility.Collapsed, titleBar.Visibility);
             // オーバーレイはホバー中だけ出す。出しっぱなしでは本文を隠してしまう。
             Assert.Equal(Visibility.Collapsed, overlay.Visibility);

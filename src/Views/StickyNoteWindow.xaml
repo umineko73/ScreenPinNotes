@@ -263,23 +263,29 @@
                  ホバー中だけ表示する。別HWNDのPopupにすると開いた瞬間に
                  ウィンドウが非アクティブになるため、同じウィンドウ内の要素にする。
                  左側の余白はウィンドウ移動のつまみ代を兼ねる。 -->
-            <Border x:Name="TitleBarOverlay"
-                    Grid.Row="1"
-                    Visibility="Collapsed"
-                    Panel.ZIndex="20"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Top"
-                    Margin="0,4,4,0"
-                    Padding="6,1,3,1"
-                    CornerRadius="6"
-                    Background="{Binding TitleBarBrush}"
-                    BorderBrush="{Binding HeaderBrush}"
-                    BorderThickness="1"
-                    Cursor="SizeAll"
-                    MouseLeftButtonDown="TitleBar_MouseLeftButtonDown"
-                    MouseMove="TitleBar_MouseMove"
-                    MouseLeftButtonUp="TitleBar_MouseLeftButtonUp">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <Grid x:Name="TitleBarOverlay"
+                  Grid.Row="1"
+                  Visibility="Collapsed"
+                  Panel.ZIndex="20"
+                  HorizontalAlignment="Right"
+                  VerticalAlignment="Top"
+                  Margin="0,4,4,0"
+                  Background="Transparent"
+                  Cursor="SizeAll"
+                  MouseLeftButtonDown="TitleBar_MouseLeftButtonDown"
+                  MouseMove="TitleBar_MouseMove"
+                  MouseLeftButtonUp="TitleBar_MouseLeftButtonUp">
+                <!-- 枠と塗りはホバー中だけ。アイコンだけ出しているときに帯があると
+                     本文に貼り付いた札のように見えるため。付箋の色に追従させたいので
+                     バインディングを持つ要素を分け、表示の切り替えだけをコード側で行う。 -->
+                <Border x:Name="TitleBarOverlayBackdrop"
+                        Visibility="Collapsed"
+                        CornerRadius="6"
+                        Background="{Binding TitleBarBrush}"
+                        BorderBrush="{Binding HeaderBrush}"
+                        BorderThickness="1"/>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                            Margin="6,1,3,1">
                     <!-- ホバー中だけ出す部分。アイコンより左に並べることで、
                          出入りしてもアイコンの位置が動かない。 -->
                     <StackPanel x:Name="TitleBarOverlayActions"
@@ -329,7 +335,7 @@
                            Margin="3,0,0,0"
                            ToolTip="{Binding TitleIconTooltip}"/>
                 </StackPanel>
-            </Border>
+            </Grid>
 
             <Border x:Name="SizeOverlay"
                     Grid.Row="1"
