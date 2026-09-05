@@ -93,7 +93,7 @@ public static class MarkdownRenderer
             {
                 var para = CreateParagraph();
                 para.FontWeight = FontWeights.Bold;
-                para.FontSize = Math.Max(baseFontSize, baseFontSize + 9 - level);
+                para.FontSize = HeadingFontSize(baseFontSize, level);
                 AddInlineContent(para.Inlines, headingText, i, level + 1, createHyperlink, createImage, darkMode);
                 yield return para;
                 i++;
@@ -165,6 +165,23 @@ public static class MarkdownRenderer
             i++;
         }
     }
+
+    /// <summary>
+    /// 先頭行を描画するときのフォントサイズ。見出しは本文より大きく描かれるので、
+    /// 折りたたんで1行だけ残す高さを出すときはこの値を使わないと文字の下が切れる。
+    /// 大きさの決め方は Render 側と同じ式をここで共有する。
+    /// </summary>
+    public static double GetFirstLineFontSize(string text, double baseFontSize)
+    {
+        var lines = NormalizeLines(text);
+        if (lines.Length == 0) return baseFontSize;
+        return TryGetHeading(lines[0], out var level, out _)
+            ? HeadingFontSize(baseFontSize, level)
+            : baseFontSize;
+    }
+
+    private static double HeadingFontSize(double baseFontSize, int level)
+        => Math.Max(baseFontSize, baseFontSize + 9 - level);
 
     private static string[] NormalizeLines(string text)
         => string.IsNullOrEmpty(text)

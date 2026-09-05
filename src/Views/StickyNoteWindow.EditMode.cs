@@ -461,7 +461,18 @@ public partial class StickyNoteWindow
             // シングルクリックでは編集モードに入らない。誤って文字を
             // 選択しただけで編集が始まるのを避けるため、ダブルクリックを要求する。
             if (e.ClickCount == 2)
+            {
+                // タイトルバーを隠していると、畳んだ状態でも本文が1行だけ見えている。
+                // そこで編集に入っても書ける場所がないので、タイトルバーの
+                // ダブルクリックと同じくまず開く。
+                if (ViewModel.IsFolded)
+                {
+                    ToggleFold();
+                    e.Handled = true;
+                    return;
+                }
                 EnterEditMode();
+            }
         }
         else if (target != null && (Keyboard.Modifiers & ModifierKeys.Control) != 0)
         {

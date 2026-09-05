@@ -61,6 +61,22 @@ public class MarkdownRendererTests
         Assert.Equal("Example", Assert.Single(labels));
     }
 
+    // 折りたたんで1行だけ残す高さは、この値から出す。本文サイズで測ると
+    // 見出しの下が切れる。
+    [Theory]
+    [InlineData("# heading", 21.0)]
+    [InlineData("## heading", 20.0)]
+    [InlineData("###### heading", 16.0)]
+    [InlineData("plain text", 13.0)]
+    [InlineData("- bullet", 13.0)]
+    [InlineData("", 13.0)]
+    public void GetFirstLineFontSize_MatchesHowTheFirstLineIsDrawn(string text, double expected)
+        => Assert.Equal(expected, MarkdownRenderer.GetFirstLineFontSize(text, 13));
+
+    [Fact]
+    public void GetFirstLineFontSize_LooksAtTheFirstLineOnly()
+        => Assert.Equal(13, MarkdownRenderer.GetFirstLineFontSize("plain\n# heading", 13));
+
     private static Hyperlink CreateHyperlink(string label, string target)
         => new(new Run(label)) { NavigateUri = new Uri("about:" + target, UriKind.Absolute) };
 

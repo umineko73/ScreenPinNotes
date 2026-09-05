@@ -813,6 +813,33 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
+    // 先頭行が見出しだと本文より大きく描かれる。本文サイズで畳むと下が切れた。
+    [WpfFact]
+    public void FoldedNote_WithHiddenTitleBar_LeavesRoomForAHeadingFirstLine()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var settings = new AppSettings();
+
+        double FoldedHeightOf(string content)
+        {
+            var note = new StickyNote
+            {
+                Height = 320, IsFolded = true, IsTitleBarHidden = true, Content = content,
+            };
+            var window = new StickyNoteWindow(new StickyNoteViewModel(note, settings), storage);
+            try { return window.Height; }
+            finally { window.Close(); }
+        }
+
+        var plain = FoldedHeightOf("plain first line\nsecond");
+        var heading = FoldedHeightOf("# heading first line\nsecond");
+
+        Assert.True(heading > plain,
+            $"a heading first line needs more room than plain text ({heading} vs {plain})");
+    }
+
     // タイトルバーがある通常の付箋は、従来どおり本文ごと畳む。
     [WpfFact]
     public void FoldedNote_WithTitleBar_StillHidesTheBody()

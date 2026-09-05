@@ -74,7 +74,9 @@ public partial class StickyNoteWindow : Window
             // 未知の書体名は WPF 側でフォールバックされ、その行送りが返る。
             var lineSpacing = new WpfFontFamily(ViewModel.FontFamily).LineSpacing;
             if (!double.IsFinite(lineSpacing) || lineSpacing <= 0) lineSpacing = 1.3;
-            return Math.Ceiling(lineSpacing * ViewModel.FontSize)
+            // 先頭行が見出しなら本文より大きく描かれる。本文サイズで測ると下が切れる。
+            var fontSize = MarkdownRenderer.GetFirstLineFontSize(ViewModel.Content, ViewModel.FontSize);
+            return Math.Ceiling(lineSpacing * fontSize)
                  + ContentBox.Padding.Top + ContentBox.Padding.Bottom
                  + Settings.Layout.RootBorderThickness * 2;
         }
