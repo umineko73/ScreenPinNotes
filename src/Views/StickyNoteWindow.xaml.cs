@@ -57,8 +57,28 @@ public partial class StickyNoteWindow : Window
     /// </summary>
     private const string IconPickerGlyph = "🦊";
 
-    /// <summary>折りたたんだときのウィンドウ高さ（枠線込み）。</summary>
-    private double FoldedHeight => ViewModel.TitleBarHeight + Settings.Layout.RootBorderThickness * 2;
+    /// <summary>
+    /// 折りたたんだときのウィンドウ高さ（枠線込み）。通常はタイトルバーだけを残すが、
+    /// タイトルバーを隠す設定のときは畳む先が無いので、本文の1行目だけを残す。
+    /// </summary>
+    private double FoldedHeight => ViewModel.IsTitleBarHidden
+        ? FirstBodyLineHeight
+        : ViewModel.TitleBarHeight + Settings.Layout.RootBorderThickness * 2;
+
+    /// <summary>本文1行ぶんの高さ（本文の余白と枠線込み）。</summary>
+    private double FirstBodyLineHeight
+    {
+        get
+        {
+            // 行送りは書体ごとに違うので、フォント側の値から出す。
+            // 未知の書体名は WPF 側でフォールバックされ、その行送りが返る。
+            var lineSpacing = new WpfFontFamily(ViewModel.FontFamily).LineSpacing;
+            if (!double.IsFinite(lineSpacing) || lineSpacing <= 0) lineSpacing = 1.3;
+            return Math.Ceiling(lineSpacing * ViewModel.FontSize)
+                 + ContentBox.Padding.Top + ContentBox.Padding.Bottom
+                 + Settings.Layout.RootBorderThickness * 2;
+        }
+    }
 
     private double     _unfoldedHeight;
     // コンストラクタ〜Loaded の初期値設定中は true。
@@ -161,9 +181,12 @@ public partial class StickyNoteWindow : Window
         Height  = vm.IsFolded ? FoldedHeight : vm.Model.Height;
         Topmost = vm.IsTopmost;
         _unfoldedHeight = vm.Model.Height;
+        // バインディングは DispatcherPriority.DataBind で後から反映されるので、
+        // Show() より前のここで決めきる。任せると初回フレームで一瞬見えてしまう。
+        ApplyTitleBarVisibility();
         if (vm.IsFolded)
         {
-            ContentBox.Visibility = Visibility.Collapsed;
+            ApplyFoldedContentPresentation();
             BodyEditBox.Visibility = Visibility.Collapsed;
         }
 
@@ -385,6 +408,7 @@ public partial class StickyNoteWindow : Window
     private void UpdateIconImage()
     {
         IconImage.Source = RenderEmoji(ViewModel.Icon);
+        OverlayIconImage.Source = IconImage.Source;
     }
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, WpfBitmapImage> EmojiImages = new();

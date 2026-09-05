@@ -182,12 +182,14 @@ public partial class StickyNoteWindow
     {
         ViewModel.SetHovered(true);
         ShowEditToolbar();
+        UpdateTitleBarOverlayVisibility();
     }
 
     private void RootBorder_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
     {
         ViewModel.SetHovered(false);
         ScheduleHideEditToolbar();
+        UpdateTitleBarOverlayVisibility();
     }
 
     private void EditToolbar_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)

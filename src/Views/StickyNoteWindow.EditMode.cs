@@ -350,6 +350,24 @@ public partial class StickyNoteWindow
         AddNoteButton.Visibility = visibility;
         PinButton.Visibility = visibility;
         FoldButton.Visibility = Settings.ShowFoldButton ? visibility : Visibility.Collapsed;
+        OverlayFoldButton.Visibility = Settings.ShowFoldButton ? Visibility.Visible : Visibility.Collapsed;
+        UpdateTitleBarOverlayVisibility();
+    }
+
+    /// <summary>
+    /// タイトルバーを隠しているときだけ、右上のオーバーレイをホバー中に出す。
+    /// オーバーレイは RootBorder の中にあるので、そこへマウスを移しても
+    /// RootBorder の MouseLeave は起きず、ちらつかない。
+    /// </summary>
+    /// <summary>常時表示のタイトルバーを出すかどうかを反映する。</summary>
+    private void ApplyTitleBarVisibility()
+        => TitleBar.Visibility = ViewModel.TitleBarVisibility;
+
+    private void UpdateTitleBarOverlayVisibility()
+    {
+        TitleBarOverlay.Visibility = ViewModel.IsTitleBarHidden && (IsMouseOver || _isDragging)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
     // ─── ステータスバーぶんウィンドウを伸縮させる ────────────────

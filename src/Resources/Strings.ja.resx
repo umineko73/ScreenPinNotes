@@ -378,6 +378,9 @@
   <data name="EditTitle" xml:space="preserve">
     <value>タイトルを編集</value>
   </data>
+  <data name="HideTitleBar" xml:space="preserve">
+    <value>タイトルバーを隠す</value>
+  </data>
   <data name="ZOrder" xml:space="preserve">
     <value>重なり順</value>
   </data>

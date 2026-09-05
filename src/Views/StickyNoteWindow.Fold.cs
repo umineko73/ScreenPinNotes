@@ -53,6 +53,25 @@ public partial class StickyNoteWindow
 
     private void Fold_Click(object sender, RoutedEventArgs e) => ToggleFold();
 
+    /// <summary>
+    /// 折りたたみ中の本文の見せ方をそろえる。タイトルバーを隠しているときは
+    /// 本文を残して1行だけ見せるので、消さずに高さで切る。1行しか出ないところに
+    /// スクロールバーが出ると畳んだ見た目が壊れるため、そのときだけ止める。
+    /// </summary>
+    private void ApplyFoldedContentPresentation()
+    {
+        var foldedToFirstLine = ViewModel.IsFolded && ViewModel.IsTitleBarHidden;
+        ContentBox.Visibility = ViewModel.IsFolded && !ViewModel.IsTitleBarHidden
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        ContentBox.VerticalScrollBarVisibility = foldedToFirstLine
+            ? ScrollBarVisibility.Disabled
+            : ScrollBarVisibility.Auto;
+        ContentBox.HorizontalScrollBarVisibility = foldedToFirstLine
+            ? ScrollBarVisibility.Disabled
+            : ScrollBarVisibility.Auto;
+    }
+
     // onUnfolded: 開いた表示へのアニメーション完了後に呼ぶコールバック（省略可）。
     // 閉じた表示から「開いた表示にして編集モードに入る」ような、アニメーション完了を
     // 待ってから続けたい処理のために用意している。アニメーション実行中に
@@ -80,7 +99,7 @@ public partial class StickyNoteWindow
             ViewModel.Model.X = Left;
             ViewModel.Model.Y = Top;
             SetResizeEnabled(true);
-            ContentBox.Visibility = Visibility.Visible;
+            ApplyFoldedContentPresentation();
             RunFoldAnimation(FoldedHeight, _unfoldedHeight, () =>
             {
                 ViewModel.Model.Height = _unfoldedHeight;
@@ -108,7 +127,7 @@ public partial class StickyNoteWindow
             // 閉じた表示専用の幅へスナップ（未設定なら現在の幅のまま）
             RunFoldAnimation(Height, FoldedHeight, () =>
             {
-                ContentBox.Visibility = Visibility.Collapsed;
+                ApplyFoldedContentPresentation();
                 BodyEditBox.Visibility = Visibility.Collapsed;
                 SuppressWindowBoundsSave(() =>
                 {

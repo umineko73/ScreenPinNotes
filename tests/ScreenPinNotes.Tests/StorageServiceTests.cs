@@ -15,6 +15,17 @@ public sealed class StorageServiceTests : IDisposable
     private readonly StorageService _storage;
 
     [Fact]
+    public void SaveAndLoad_RoundTripsTheHiddenTitleBarSetting()
+    {
+        var note = new StickyNote { IsTitleBarHidden = true, Content = "body" };
+        _storage.Save([note]);
+
+        var loaded = Assert.Single(_storage.Load());
+
+        Assert.True(loaded.IsTitleBarHidden);
+    }
+
+    [Fact]
     public void Load_IgnoresOldNotesJsonWithoutModifyingIt()
     {
         var path = Path.Combine(_tempRoot, "notes.json");

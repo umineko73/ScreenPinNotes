@@ -259,6 +259,70 @@
 
             <!-- フォントサイズ変更時だけ現れて消える表示。
                  ContentBox より後に置いて手前に重ねる -->
+            <!-- タイトルバーを隠しているときの代替。本文の上に重ねて右上に出し、
+                 ホバー中だけ表示する。別HWNDのPopupにすると開いた瞬間に
+                 ウィンドウが非アクティブになるため、同じウィンドウ内の要素にする。
+                 左側の余白はウィンドウ移動のつまみ代を兼ねる。 -->
+            <Border x:Name="TitleBarOverlay"
+                    Grid.Row="1"
+                    Visibility="Collapsed"
+                    Panel.ZIndex="20"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Margin="0,4,4,0"
+                    Padding="10,1,1,1"
+                    CornerRadius="6"
+                    Background="{Binding TitleBarBrush}"
+                    BorderBrush="{Binding HeaderBrush}"
+                    BorderThickness="1"
+                    Cursor="SizeAll"
+                    MouseLeftButtonDown="TitleBar_MouseLeftButtonDown"
+                    MouseMove="TitleBar_MouseMove"
+                    MouseLeftButtonUp="TitleBar_MouseLeftButtonUp">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="⏰"
+                               Visibility="{Binding ReminderVisibility}"
+                               ToolTip="{Binding ReminderTooltip}"
+                               Foreground="{Binding TitleBarForeground}"
+                               Opacity="0.82" VerticalAlignment="Center"
+                               FontSize="12" Margin="2,0,3,0"/>
+                    <TextBlock Text="🔒"
+                               Visibility="{Binding EditLockVisibility}"
+                               Foreground="{Binding TitleBarForeground}"
+                               Opacity="0.75" VerticalAlignment="Center"
+                               FontSize="12" Margin="2,0,3,0"
+                               IsHitTestVisible="False"/>
+                    <TextBlock Text="⛓️‍💥"
+                               Visibility="{Binding PositionSeparatedVisibility}"
+                               ToolTip="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=PositionSeparatedTooltip}"
+                               Foreground="{Binding TitleBarForeground}"
+                               Opacity="0.82" VerticalAlignment="Center"
+                               FontSize="12" Margin="2,0,3,0"
+                               IsHitTestVisible="False"/>
+                    <Image x:Name="OverlayIconImage"
+                           Visibility="{Binding IconVisibility}"
+                           Width="{Binding TitleIconSize}"
+                           Height="{Binding TitleIconSize}"
+                           Stretch="Uniform" VerticalAlignment="Center"
+                           Margin="2,0,3,0"
+                           ToolTip="{Binding TitleIconTooltip}"/>
+                    <Button x:Name="OverlayAddNoteButton" Content="＋"
+                            Style="{StaticResource TitleBarButtonOnLight}"
+                            ToolTip="新しい付箋を追加"
+                            Click="AddNote_Click"/>
+                    <ToggleButton x:Name="OverlayPinButton"
+                                  IsChecked="{Binding IsTopmost, Mode=TwoWay}"
+                                  Style="{StaticResource TitleBarToggleOnLight}"
+                                  ToolTip="常に最前面"
+                                  Content="📌"
+                                  Checked="Pin_Changed" Unchecked="Pin_Changed"/>
+                    <Button x:Name="OverlayFoldButton" Content="{Binding FoldIcon}"
+                            Style="{StaticResource TitleBarButtonOnLight}"
+                            ToolTip="折りたたむ / 展開する"
+                            Click="Fold_Click"/>
+                </StackPanel>
+            </Border>
+
             <Border x:Name="SizeOverlay"
                     Grid.Row="1"
                     HorizontalAlignment="Center"

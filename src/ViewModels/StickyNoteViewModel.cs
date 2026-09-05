@@ -240,6 +240,24 @@ public class StickyNoteViewModel : INotifyPropertyChanged
 
     public string FoldIcon => IsFolded ? "▼" : "▲";
 
+    public bool IsTitleBarHidden
+    {
+        get => _model.IsTitleBarHidden;
+        set
+        {
+            _model.IsTitleBarHidden = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TitleBarVisibility));
+        }
+    }
+
+    /// <summary>
+    /// 常時表示のタイトルバー。隠す設定のときは場所ごと消し、
+    /// 代わりに右上のホバーオーバーレイがボタンを引き受ける。
+    /// </summary>
+    public Visibility TitleBarVisibility =>
+        IsTitleBarHidden ? Visibility.Collapsed : Visibility.Visible;
+
     public string FontFamily
     {
         get => _model.FontFamily;

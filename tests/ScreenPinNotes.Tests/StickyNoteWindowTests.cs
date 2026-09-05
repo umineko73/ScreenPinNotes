@@ -785,6 +785,71 @@ public class StickyNoteWindowTests
         }
     }
 
+    // タイトルバーを隠すモードでは畳む先が無いので、本文を消さずに
+    // 1行目だけを残す。本文を消してしまうと畳んだ付箋が空になる。
+    [WpfFact]
+    public void FoldedNote_WithHiddenTitleBar_KeepsTheFirstBodyLine()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote
+        {
+            Height = 320,
+            IsFolded = true,
+            IsTitleBarHidden = true,
+            Content = "first line\nsecond line\nthird line",
+        };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            Assert.Equal(Visibility.Visible, contentBox.Visibility);
+            // 1行しか出ない高さにスクロールバーが出ると畳んだ見た目が壊れる。
+            Assert.Equal(ScrollBarVisibility.Disabled, contentBox.VerticalScrollBarVisibility);
+            Assert.True(window.Height < note.Height,
+                $"folded height {window.Height} should be below the open height {note.Height}");
+        }
+        finally { window.Close(); }
+    }
+
+    // タイトルバーがある通常の付箋は、従来どおり本文ごと畳む。
+    [WpfFact]
+    public void FoldedNote_WithTitleBar_StillHidesTheBody()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { Height = 320, IsFolded = true, IsTitleBarHidden = false };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            Assert.Equal(Visibility.Collapsed, contentBox.Visibility);
+        }
+        finally { window.Close(); }
+    }
+
+    // 隠す設定では、常時表示のタイトルバーが場所ごと消えていること。
+    [WpfFact]
+    public void HiddenTitleBar_TakesNoLayoutSpace()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { IsTitleBarHidden = true };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            var titleBar = Assert.IsType<Grid>(window.FindName("TitleBar"));
+            var overlay = Assert.IsType<Border>(window.FindName("TitleBarOverlay"));
+            Assert.Equal(Visibility.Collapsed, titleBar.Visibility);
+            // オーバーレイはホバー中だけ出す。出しっぱなしでは本文を隠してしまう。
+            Assert.Equal(Visibility.Collapsed, overlay.Visibility);
+        }
+        finally { window.Close(); }
+    }
+
     // アイコンピッカーのボタンに、そのピッカーで選べない絵文字を出していると、
     // 気に入って探しても見つからない。看板はパレット収録のものに限る。
     [Fact]

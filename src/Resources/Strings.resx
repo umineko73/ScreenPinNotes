@@ -378,6 +378,9 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="EditTitle" xml:space="preserve">
     <value>Edit title</value>
   </data>
+  <data name="HideTitleBar" xml:space="preserve">
+    <value>Hide the title bar</value>
+  </data>
   <data name="ZOrder" xml:space="preserve">
     <value>Stacking order</value>
   </data>

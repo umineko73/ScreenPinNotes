@@ -99,12 +99,15 @@ public partial class StickyNoteWindow
         hideItem.Click += (_, _) => App.Current.HideNote(ViewModel.Model.Id);
         cm.Items.Add(hideItem);
         cm.Items.Add(readOnlyItem);
+        var hideTitleBarItem = BuildHideTitleBarMenuItem();
+        cm.Items.Add(hideTitleBarItem);
         cm.Items.Add(deleteItem);
         cm.Opened += (_, _) =>
         {
             cm.Background = PopupBackgroundBrush();
             cm.Foreground = ViewModel.TextForeground;
             if (cm.Tag is Border toolbar) toolbar.Background = PopupBackgroundBrush();
+            hideTitleBarItem.IsChecked = ViewModel.IsTitleBarHidden;
             var canEdit = !IsContentReadOnly();
             cutItem.IsEnabled = canEdit && _isEditMode && ContentBox.Selection.IsEmpty == false;
             pasteItem.IsEnabled = canEdit && _isEditMode && (TryGetClipboardText(out _) || ClipboardHasImage());
@@ -167,11 +170,14 @@ public partial class StickyNoteWindow
         cm.Items.Add(reminderItem);
         cm.Items.Add(externalItem);
         cm.Items.Add(readOnlyItem);
+        var editHideTitleBarItem = BuildHideTitleBarMenuItem();
+        cm.Items.Add(editHideTitleBarItem);
         cm.Items.Add(new Separator());
         cm.Items.Add(hideItem);
         cm.Items.Add(deleteItem);
         cm.Opened += (_, _) =>
         {
+            editHideTitleBarItem.IsChecked = ViewModel.IsTitleBarHidden;
             var canEdit = !IsContentReadOnly();
             selectedLink = MarkdownLinkEditor.FindAt(BodyEditBox.Text, BodyEditBox.SelectionStart);
             editLinkItem.IsEnabled = canEdit && selectedLink != null;
@@ -329,6 +335,35 @@ public partial class StickyNoteWindow
                 Dispatcher.BeginInvoke(() => TitleEditBox.Focus());
         };
         return cm;
+    }
+
+    private MenuItem BuildHideTitleBarMenuItem()
+    {
+        var item = new MenuItem
+        {
+            Header = LocalizationService.T("HideTitleBar"),
+            IsCheckable = true,
+            IsChecked = ViewModel.IsTitleBarHidden,
+        };
+        item.Click += (_, _) => ToggleTitleBarHidden();
+        return item;
+    }
+
+    // タイトルバーの有無で折りたたみの高さが変わるので、畳んだままの付箋は
+    // その場で新しい高さに合わせ直す。展開中なら次に畳んだときに効く。
+    private void ToggleTitleBarHidden()
+    {
+        ViewModel.IsTitleBarHidden = !ViewModel.IsTitleBarHidden;
+        ApplyTitleBarVisibility();
+        if (ViewModel.IsFolded)
+        {
+            ApplyFoldedContentPresentation();
+            BeginAnimation(HeightProperty, null);
+            Height = FoldedHeight;
+        }
+        UpdateTitleBarButtonsVisibility();
+        UpdateTitleBarOverlayVisibility();
+        RequestSave();
     }
 
     private MenuItem BuildReadOnlyMenuItem()

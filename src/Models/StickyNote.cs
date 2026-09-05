@@ -54,6 +54,12 @@ public class StickyNote
     public bool IsHidden { get; set; } = false;
     public bool IsReadOnly { get; set; } = false;
     public bool IsPositionSeparated { get; set; } = false;
+
+    /// <summary>
+    /// タイトルバーを常時は出さず、右上にホバーで重ねる表示にするか。
+    /// 本文だけの見た目にしたい人向け。このとき折りたたみは本文の1行目だけを残す。
+    /// </summary>
+    public bool IsTitleBarHidden { get; set; } = false;
     public string? ExternalContentPath { get; set; }
     public ReminderSettings? Reminder { get; set; }
     public Dictionary<string, double> ExternalImageWidthOverrides { get; set; } = [];
