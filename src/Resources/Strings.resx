@@ -381,6 +381,45 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="HideTitleBar" xml:space="preserve">
     <value>Hide the title bar</value>
   </data>
+  <data name="SettingsTitle" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="SettingsNoteDefaults" xml:space="preserve">
+    <value>Defaults for new notes</value>
+  </data>
+  <data name="SettingsNoteDefaultsHint" xml:space="preserve">
+    <value>Used when a note is created from the tray. Adding one from an existing note keeps that note’s look instead.</value>
+  </data>
+  <data name="SettingsDefaultColor" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="SettingsDefaultFont" xml:space="preserve">
+    <value>Font</value>
+  </data>
+  <data name="SettingsDefaultFontSize" xml:space="preserve">
+    <value>Font size</value>
+  </data>
+  <data name="SettingsDefaultIcon" xml:space="preserve">
+    <value>Icon</value>
+  </data>
+  <data name="SettingsDefaultIconNone" xml:space="preserve">
+    <value>(none)</value>
+  </data>
+  <data name="SettingsDefaultTitleBarHidden" xml:space="preserve">
+    <value>Hide the title bar</value>
+  </data>
+  <data name="SettingsAppearance" xml:space="preserve">
+    <value>Appearance</value>
+  </data>
+  <data name="SettingsBehavior" xml:space="preserve">
+    <value>Behavior</value>
+  </data>
+  <data name="SettingsData" xml:space="preserve">
+    <value>Data</value>
+  </data>
+  <data name="SettingsNotesRoot" xml:space="preserve">
+    <value>Save location</value>
+  </data>
   <data name="ZOrder" xml:space="preserve">
     <value>Stacking order</value>
   </data>

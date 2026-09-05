@@ -381,6 +381,45 @@
   <data name="HideTitleBar" xml:space="preserve">
     <value>タイトルバーを隠す</value>
   </data>
+  <data name="SettingsTitle" xml:space="preserve">
+    <value>設定</value>
+  </data>
+  <data name="SettingsNoteDefaults" xml:space="preserve">
+    <value>新しい付箋の既定値</value>
+  </data>
+  <data name="SettingsNoteDefaultsHint" xml:space="preserve">
+    <value>タスクトレイから作った付箋に使います。既存の付箋の「＋」から増やしたときは、そちらの見た目を引き継ぎます。</value>
+  </data>
+  <data name="SettingsDefaultColor" xml:space="preserve">
+    <value>色</value>
+  </data>
+  <data name="SettingsDefaultFont" xml:space="preserve">
+    <value>フォント</value>
+  </data>
+  <data name="SettingsDefaultFontSize" xml:space="preserve">
+    <value>フォントサイズ</value>
+  </data>
+  <data name="SettingsDefaultIcon" xml:space="preserve">
+    <value>アイコン</value>
+  </data>
+  <data name="SettingsDefaultIconNone" xml:space="preserve">
+    <value>（なし）</value>
+  </data>
+  <data name="SettingsDefaultTitleBarHidden" xml:space="preserve">
+    <value>タイトルバーを隠す</value>
+  </data>
+  <data name="SettingsAppearance" xml:space="preserve">
+    <value>表示</value>
+  </data>
+  <data name="SettingsBehavior" xml:space="preserve">
+    <value>動作</value>
+  </data>
+  <data name="SettingsData" xml:space="preserve">
+    <value>データ</value>
+  </data>
+  <data name="SettingsNotesRoot" xml:space="preserve">
+    <value>保存フォルダ</value>
+  </data>
   <data name="ZOrder" xml:space="preserve">
     <value>重なり順</value>
   </data>

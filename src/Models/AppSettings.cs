@@ -32,6 +32,12 @@ public sealed class AppSettings
     // タイトルバーに付けられるアイコンパレット。「アイコンなし」は常に先頭に
     // 別途表示するのでここには含めない。settings.json で好きな絵文字に
     // 差し替えられる。
+    /// <summary>
+    /// 新しく作る付箋の初期値。既存の付箋の「＋」から増やしたときは、
+    /// そちらの書式を引き継ぐのでこの値は使わない。
+    /// </summary>
+    public NoteDefaultSettings NoteDefaults { get; set; } = new();
+
     public List<string> IconPalette { get; set; } = DefaultIconPalette();
     public int IconPaletteVersion { get; set; }
 
@@ -108,7 +114,26 @@ public sealed class AppSettings
         Layout.RootBorderThickness = Math.Max(0, Layout.RootBorderThickness);
         Layout.DefaultNoteWidth = Math.Max(Layout.UnfoldedMinWidth, Layout.DefaultNoteWidth);
         Layout.DefaultNoteHeight = Math.Max(80, Layout.DefaultNoteHeight);
+
+        NoteDefaults ??= new NoteDefaultSettings();
+        NoteDefaults.ColorKey = Blank(NoteDefaults.ColorKey) ? "yellow" : NoteDefaults.ColorKey.Trim();
+        NoteDefaults.FontFamily = Blank(NoteDefaults.FontFamily) ? "Yu Gothic UI" : NoteDefaults.FontFamily.Trim();
+        // 本文サイズの上下限は付箋側の A- / A+ と同じにそろえる。
+        NoteDefaults.FontSize = Math.Clamp(NoteDefaults.FontSize, 8, 48);
+        NoteDefaults.Icon ??= "";
     }
+
+    private static bool Blank(string? value) => string.IsNullOrWhiteSpace(value);
+}
+
+/// <summary>新しい付箋の初期値。</summary>
+public sealed class NoteDefaultSettings
+{
+    public string ColorKey { get; set; } = "yellow";
+    public string FontFamily { get; set; } = "Yu Gothic UI";
+    public double FontSize { get; set; } = 13;
+    public string Icon { get; set; } = "";
+    public bool TitleBarHidden { get; set; }
 }
 
 public sealed class TimingSettings

@@ -241,28 +241,6 @@ public partial class App : System.Windows.Application
 
     private ContextMenuStrip BuildTrayMenu()
     {
-        var startupItem = new ToolStripMenuItem(LocalizationService.T("TrayStartup"))
-        {
-            Checked = _settings.StartWithWindows,
-            CheckOnClick = false,
-        };
-        startupItem.Click += (_, _) =>
-        {
-            if (StartupService.IsRegistered)
-            {
-                StartupService.Unregister();
-                startupItem.Checked = false;
-                _settings.StartWithWindows = false;
-            }
-            else
-            {
-                StartupService.Register();
-                startupItem.Checked = true;
-                _settings.StartWithWindows = true;
-            }
-            _storage.SaveSettings(_settings);
-        };
-
         var menu = new ContextMenuStrip();
         menu.Items.Add(LocalizationService.T("TrayShowAll"), null, (_, _) => ShowAllNotes());
         menu.Items.Add(LocalizationService.T("TrayHideAll"), null, (_, _) => HideAllNotes());
@@ -272,7 +250,7 @@ public partial class App : System.Windows.Application
         menu.Items.Add(LocalizationService.T("TrayOpenExternalNote"), null, (_, _) => AddExternalFileNoteFromDialog());
         menu.Items.Add(LocalizationService.T("TrayNoteManager"), null, (_, _) => ShowNoteManager());
         menu.Items.Add("-");
-        menu.Items.Add(BuildSettingsMenu(startupItem));
+        menu.Items.Add(LocalizationService.T("TraySettings"), null, (_, _) => ShowSettingsWindow());
         menu.Items.Add("-");
         menu.Items.Add(LocalizationService.T("TrayAbout"), null, (_, _) => ShowAboutWindow());
         menu.Items.Add(LocalizationService.T("TrayExit"), null, (_, _) => ExitApp());
@@ -304,23 +282,6 @@ public partial class App : System.Windows.Application
         }
 
         return hiddenNotesItem;
-    }
-
-    private ToolStripMenuItem BuildSettingsMenu(ToolStripMenuItem startupItem)
-    {
-        var settingsItem = new ToolStripMenuItem(LocalizationService.T("TraySettings"));
-        settingsItem.DropDownItems.Add(BuildSelectNotesRootItem());
-        settingsItem.DropDownItems.Add(BuildExportNotesItem());
-        settingsItem.DropDownItems.Add(BuildImportNotesItem());
-        settingsItem.DropDownItems.Add("-");
-        settingsItem.DropDownItems.Add(startupItem);
-        settingsItem.DropDownItems.Add(BuildTitlePreviewTooltipItem());
-        settingsItem.DropDownItems.Add(BuildFoldAnimationItem());
-        settingsItem.DropDownItems.Add(BuildFoldButtonItem());
-        settingsItem.DropDownItems.Add(BuildDoubleClickToToggleViewItem());
-        settingsItem.DropDownItems.Add(BuildDarkModeItem());
-        settingsItem.DropDownItems.Add(BuildLanguageMenu());
-        return settingsItem;
     }
 
     private ToolStripMenuItem BuildSelectNotesRootItem()
@@ -675,6 +636,47 @@ public partial class App : System.Windows.Application
     }
 
 
+    /// <summary>
+    /// スタートアップ登録。レジストリの登録解除まで伴うので、
+    /// 設定を書き換えるだけの他の項目とは分けて1箇所に置く。
+    /// </summary>
+    public void SetStartWithWindows(bool enabled)
+    {
+        if (enabled) StartupService.Register(); else StartupService.Unregister();
+        _settings.StartWithWindows = enabled;
+        ApplySettingsChange();
+    }
+
+    public bool IsStartupRegistered => StartupService.IsRegistered;
+
+    public void ApplySettingsFromSettingsWindow() => ApplySettingsChange();
+
+    public void SelectNotesRootFromSettings() => SelectNotesRootFromTray();
+
+    public void ExportNotesFromSettings() => ExportNotesFromTray();
+
+    public void ImportNotesFromSettings() => ImportNotesFromTray();
+
+    // ─── 設定画面 ────────────────────────────────────────────────
+
+    private Views.SettingsWindow? _settingsWindow;
+
+    private void ShowSettingsWindow()
+    {
+        if (_settingsWindow is { IsLoaded: true })
+        {
+            _settingsWindow.Activate();
+            return;
+        }
+
+        _settingsWindow = new Views.SettingsWindow(_settings, this);
+        _settingsWindow.Closed += (_, _) => _settingsWindow = null;
+        _settingsWindow.Show();
+    }
+
+    /// <summary>保存先を変えたら、開いている設定画面の表示も追従させる。</summary>
+    private void RefreshSettingsWindowNotesRoot() => _settingsWindow?.RefreshNotesRoot();
+
     private bool IsDarkTheme()
         => string.Equals(_settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase);
 
@@ -683,6 +685,7 @@ public partial class App : System.Windows.Application
         _settings.Normalize();
         _storage.SaveSettings(_settings);
         RefreshTrayMenu();
+        RefreshSettingsWindowNotesRoot();
         foreach (var win in _windows)
             win.RefreshSettings();
     }
@@ -761,28 +764,13 @@ public partial class App : System.Windows.Application
     /// </summary>
     public void AddNewNote(StickyNote? template = null, double? x = null, double? y = null)
     {
-        var now = DateTime.Now;
         var layout = _settings.Layout;
-        var note = new StickyNote
-        {
-            X = x ?? layout.NewNoteBaseX + _windows.Count * layout.NewNoteCascadeStep,
-            Y = y ?? layout.NewNoteBaseY + _windows.Count * layout.NewNoteCascadeStep,
-            Width = layout.DefaultNoteWidth,
-            Height = layout.DefaultNoteHeight,
-            Title = now.ToString("yyyy/MM/dd(ddd) HH:mm:ss", System.Globalization.CultureInfo.GetCultureInfo(_settings.Language)),
-            CreatedAt = now,
-            UpdatedAt = now,
-        };
-
-        if (template != null)
-        {
-            note.ColorKey      = template.ColorKey;
-            note.Icon          = template.Icon;
-            note.FontFamily    = template.FontFamily;
-            note.FontSize      = template.FontSize;
-            note.TitleFontSize = template.TitleFontSize;
-            note.OpacityPercent = template.OpacityPercent;
-        }
+        var note = NewNoteFactory.Create(
+            _settings,
+            template,
+            x ?? layout.NewNoteBaseX + _windows.Count * layout.NewNoteCascadeStep,
+            y ?? layout.NewNoteBaseY + _windows.Count * layout.NewNoteCascadeStep,
+            DateTime.Now);
 
         OpenNoteWindow(note);
         SaveAll();

@@ -52,7 +52,7 @@ Single WPF project targeting `net8.0-windows` (`src/ScreenPinNotes.csproj`, `Out
 
 **Markdown is hand-rolled, not a library.** `Services/MarkdownRenderer.cs` parses a Markdown subset (headings, bold/italic, inline code, fences, lists/checkboxes, blockquote, hr, tables, images, links) directly into WPF `FlowDocument` `Block`s — no Markdig or other dependency. Edit mode always shows/edits the raw source string; only View mode renders through `MarkdownRenderer`, so content is never mutated by the renderer.
 
-**Localization is a single switch statement.** `Services/LocalizationService.T(key)` returns ja/en strings from one big `switch` keyed on `Settings.Language` — there's no `.resx`/resource system. Adding UI text means adding a `case` here for both languages.
+**Localization is `.resx` catalogues.** `Services/LocalizationService.T(key)` looks the key up in `Resources/Strings.resx` (English) and `Resources/Strings.ja.resx` via a `ResourceManager`, falling back to English and then to the key itself. Adding UI text means adding a `<data name="...">` entry to **both** files — a missing key silently renders as the key name, so cover new strings with a test that asserts the actual text. See `docs/localization.md`.
 
 **Sample notes are real files, copied at first run.** `SampleNoteFactory` reads `meta.json` + `content.md` per language/kind from `SampleNotes\{ja|en}\{markdown|usage}\`, which the csproj copies next to the built exe (`CopyToOutputDirectory=PreserveNewest`). On first launch (empty notes folder), these are instantiated as real notes via `StorageService`. If the `SampleNotes` folder is missing (e.g. exe copied out on its own), sample creation is silently skipped rather than failing startup.
 

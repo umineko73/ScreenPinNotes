@@ -10,6 +10,7 @@ A desktop sticky notes app for Windows 11.
 
 - Collapsed view
 - Hidden title bar mode (the buttons appear on hover at the top right; collapsing leaves the first body line)
+- A settings window (defaults for new notes, appearance, behavior, data)
 - Separate collapsed view/expanded view positions and widths
 - View mode / edit mode
 - Markdown rendering

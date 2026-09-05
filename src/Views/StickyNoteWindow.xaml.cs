@@ -415,46 +415,8 @@ public partial class StickyNoteWindow : Window
         UpdateTitleBarOverlayVisibility();
     }
 
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, WpfBitmapImage> EmojiImages = new();
-
-    private static WpfBitmapImage? RenderEmoji(string icon)
-    {
-        if (string.IsNullOrEmpty(icon)) return null;
-        return EmojiImages.GetOrAdd(icon, RenderEmojiImage);
-    }
-
-    private static WpfBitmapImage RenderEmojiImage(string icon)
-    {
-
-        const int pixelSize = 64;
-        using var bitmap = new SKBitmap(pixelSize, pixelSize, SKColorType.Bgra8888, SKAlphaType.Premul);
-        using var canvas = new SKCanvas(bitmap);
-        canvas.Clear(SKColors.Transparent);
-
-        using var typeface = SKTypeface.FromFamilyName("Segoe UI Emoji");
-        using var font = new SKFont(typeface, 52) { Subpixel = true };
-        using var paint = new SKPaint
-        {
-            IsAntialias = true,
-        };
-
-        var bounds = new SKRect();
-        font.MeasureText(icon, out bounds, paint);
-        var x = (pixelSize - bounds.Width) / 2 - bounds.Left;
-        var y = (pixelSize - bounds.Height) / 2 - bounds.Top;
-        canvas.DrawText(icon, x, y, font, paint);
-
-        using var image = SKImage.FromBitmap(bitmap);
-        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-        using var stream = data.AsStream();
-        var result = new WpfBitmapImage();
-        result.BeginInit();
-        result.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
-        result.StreamSource = stream;
-        result.EndInit();
-        result.Freeze();
-        return result;
-    }
+    // 絵文字の画像化は設定画面とも共有する。実装は Services/EmojiRenderer.cs。
+    private static WpfBitmapImage? RenderEmoji(string icon) => EmojiRenderer.Render(icon);
 
     // ─── ウィンドウイベント ──────────────────────────────────────
 
