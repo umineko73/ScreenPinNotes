@@ -62,6 +62,12 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         ["slate"]   = ("#F1F5F9", "#334155"),
         ["white"]   = ("#FFFFFF", "#9CA3AF"),
         ["dark"]    = ("#E5E7EB", "#111827"),
+        ["dark-charcoal"] = ("#252A32", "#667085"),
+        ["dark-navy"] = ("#1E293B", "#5277AC"),
+        ["dark-teal"] = ("#193631", "#43877B"),
+        ["dark-plum"] = ("#35283F", "#946AAC"),
+        ["dark-wine"] = ("#3F252D", "#AC657B"),
+        ["dark-coffee"] = ("#352D25", "#A0825F"),
     };
 
     private readonly StickyNote _model;
@@ -350,11 +356,12 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         var bg = (WpfColor)WpfColorConverter.ConvertFromString(preset.Bg);
         var header = (WpfColor)WpfColorConverter.ConvertFromString(preset.Header);
 
-        if (IsDarkTheme())
+        if (UsesDarkNoteColors)
         {
             var darkBase = WpfColor.FromRgb(17, 24, 39);
-            var darkPanel = Blend(header, darkBase, 0.86);
-            var darkHeader = Blend(header, WpfColor.FromRgb(0, 0, 0), 0.25);
+            var explicitDark = _model.ColorKey.StartsWith("dark-", StringComparison.Ordinal);
+            var darkPanel = explicitDark ? bg : Blend(header, darkBase, 0.86);
+            var darkHeader = explicitDark ? header : Blend(header, WpfColor.FromRgb(0, 0, 0), 0.25);
 
             BackgroundBrush = new WpfSolidBrush(WithOpacity(darkPanel));
             HeaderBrush = new WpfSolidBrush(WithOpacity(darkHeader));
@@ -393,6 +400,8 @@ public class StickyNoteViewModel : INotifyPropertyChanged
 
     private bool IsDarkTheme()
         => string.Equals(_settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase);
+
+    public bool UsesDarkNoteColors => IsDarkTheme() || _model.ColorKey.StartsWith("dark-", StringComparison.Ordinal);
 
     private string ExternalFileLabel()
         => string.Equals(_settings.Language, "en", StringComparison.OrdinalIgnoreCase)

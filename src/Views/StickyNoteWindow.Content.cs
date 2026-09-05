@@ -1,4 +1,4 @@
-﻿// ScreenPinNotes - a desktop sticky notes app for Windows 11
+// ScreenPinNotes - a desktop sticky notes app for Windows 11
 // Copyright (C) 2026 umineko73
 //
 // This program is free software: you can redistribute it and/or modify
@@ -150,7 +150,7 @@ public partial class StickyNoteWindow
                 CreateHyperlink,
                 CreateMarkdownImage,
                 CreateTaskCheckbox,
-                IsDarkTheme()))
+                ViewModel.UsesDarkNoteColors))
             {
                 ContentBox.Document.Blocks.Add(block);
             }
@@ -951,7 +951,7 @@ public partial class StickyNoteWindow
     {
         var link = new Hyperlink(new Run(text))
         {
-            Foreground      = IsDarkTheme() ? WpfBrushes.LightSkyBlue : WpfBrushes.RoyalBlue,
+            Foreground      = ViewModel.UsesDarkNoteColors ? WpfBrushes.LightSkyBlue : WpfBrushes.RoyalBlue,
             Cursor          = WpfCursors.Hand,
             Tag             = target,
             ToolTip         = target,

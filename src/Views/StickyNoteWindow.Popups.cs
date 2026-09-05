@@ -63,15 +63,16 @@ public partial class StickyNoteWindow
 
         foreach (var (key, preset) in StickyNoteViewModel.ColorPresets)
         {
-            var header = new WpfSolidBrush((WpfColor)WpfColorConverter.ConvertFromString(preset.Header));
+            var preview = new StickyNoteViewModel(new StickyNote { ColorKey = key, OpacityPercent = 100 }, Settings);
+            var header = preview.HeaderBrush;
             var btn = new WpfButton
             {
                 Width = Swatch, Height = Swatch, Margin = new Thickness(Gap),
                 Padding         = new Thickness(0),
-                Background      = new WpfSolidBrush((WpfColor)WpfColorConverter.ConvertFromString(preset.Bg)),
+                Background      = preview.BackgroundBrush,
                 BorderThickness = new Thickness(1),
                 BorderBrush     = header,   // 枠線でヘッダー色も判るようにする
-                Foreground      = header,   // 選択中のチェック記号の色
+                Foreground      = preview.TextForeground,   // 配色に合わせてチェックのコントラストを確保
                 FontWeight      = FontWeights.Bold,
                 FontSize        = 13,
                 Tag             = key,
@@ -83,6 +84,7 @@ public partial class StickyNoteWindow
                 if (s is WpfButton b && b.Tag is string k)
                 {
                     ViewModel.ColorKey = k;
+                    if (!_isEditMode) LoadContent(ViewModel.Content);
                     if (_colorPopup != null) _colorPopup.IsOpen = false;
                     RequestSave();
                 }

@@ -7,11 +7,31 @@ namespace ScreenPinNotes.Tests;
 public class StickyNoteViewModelTests
 {
     [Theory]
-    [InlineData(8, 17)]
-    [InlineData(12, 17)]
-    [InlineData(20, 27)]
-    [InlineData(28, 34)]
-    [InlineData(48, 34)]
+    [InlineData("Light")]
+    [InlineData("Dark")]
+    public void DarkPresetsKeepDarkBackgroundAndReadableText(string theme)
+    {
+        foreach (var preset in StickyNoteViewModel.ColorPresets.Where(p => p.Key.StartsWith("dark-")))
+        {
+            var settings = new AppSettings { Theme = theme };
+            var vm = new StickyNoteViewModel(new StickyNote { ColorKey = preset.Key, OpacityPercent = 100 }, settings);
+            var bg = ((System.Windows.Media.SolidColorBrush)vm.BackgroundBrush).Color;
+            var text = ((System.Windows.Media.SolidColorBrush)vm.TextForeground).Color;
+            Assert.True(vm.UsesDarkNoteColors);
+            Assert.Equal((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(preset.Value.Bg), bg);
+            Assert.True(text.R > 220 && text.G > 220 && text.B > 220);
+            settings.Theme = theme == "Dark" ? "Light" : "Dark";
+            vm.RefreshSettings();
+            Assert.Equal(bg, ((System.Windows.Media.SolidColorBrush)vm.BackgroundBrush).Color);
+        }
+    }
+
+    [Theory]
+    [InlineData(8, 20)]
+    [InlineData(12, 20)]
+    [InlineData(20, 30)]
+    [InlineData(28, 38)]
+    [InlineData(48, 38)]
     public void TitleIconSize_FollowsTitleFontSizeWithinBounds(double titleFontSize, double expectedIconSize)
     {
         var vm = new StickyNoteViewModel(
