@@ -33,6 +33,7 @@ public sealed class AppSettings
     // 別途表示するのでここには含めない。settings.json で好きな絵文字に
     // 差し替えられる。
     public List<string> IconPalette { get; set; } = DefaultIconPalette();
+    public int IconPaletteVersion { get; set; }
 
     public static AppSettings CreateDefault()
         => new() { Language = GetDefaultLanguage(CultureInfo.CurrentUICulture) };
@@ -42,7 +43,23 @@ public sealed class AppSettings
             ? "ja"
             : "en";
 
-    public static List<string> DefaultIconPalette() =>
+    public static readonly (string Key, string[] Icons)[] IconGroups =
+    [
+        ("IconColors", ["🔴", "🟠", "🟡", "🟢", "🔵", "🟣", "🟤", "⚫", "⚪", "🟥", "🟧", "🟨", "🟩", "🟦", "🟪", "🟫", "⬛", "⬜"]),
+        ("IconPriority", ["🔥", "🚨", "⚠", "❗", "‼", "⭐", "🚩"]),
+        ("IconStatus", ["☐", "✅", "☑", "🔄", "⏳", "💤", "⏸", "🚧", "🏁"]),
+        ("IconNotes", ["📌", "📝", "📋", "📎", "📁", "📚", "🌐"]),
+        ("IconIdeas", ["💡", "🔍", "❓", "💭", "🎯", "🧪"]),
+        ("IconSchedule", ["📅", "⏰", "🔔", "✉", "📞", "💬", "👤", "👥", "🗓"]),
+        ("IconWork", ["💼", "🐛", "🔧", "⚙", "💻", "🖥", "🚀", "✏"]),
+        ("IconDaily", ["🏠", "🛒", "📦", "💰", "☕", "🎁", "❤", "🍽", "🎵", "🔑", "🔒", "👍", "🎉", "🌟", "🌱"]),
+        ("IconAnimals", ["🐶", "🐱", "🐰", "🦊", "🐻", "🐼", "🐨", "🐸", "🐧", "🦉", "🐢", "🐙", "🐝", "🦋", "🦄"]),
+    ];
+
+    public static List<string> DefaultIconPalette()
+        => IconGroups.SelectMany(group => group.Icons).Distinct().ToList();
+
+    private static List<string> LegacyIconPalette() =>
     [
         "📌", "⭐", "❗", "❓", "✅", "🔥", "💡", "📝",
         "📋", "📅", "⏰", "🔔", "🎯", "🚀", "💼", "🏠",
@@ -63,8 +80,15 @@ public sealed class AppSettings
         Interaction ??= new InteractionSettings();
         Layout ??= new LayoutSettings();
         FontUsage ??= new();
-        if (IconPalette == null || IconPalette.Count == 0)
+        if (IconPalette == null || IconPalette.Count == 0 || IconPalette.SequenceEqual(LegacyIconPalette()))
             IconPalette = DefaultIconPalette();
+        // Reserve the chain symbol for external-file status, including saved palettes.
+        IconPalette = IconPalette.Select(icon => icon is "🔗" or "🔗️" ? "🌐" : icon).Distinct().ToList();
+        if (IconPaletteVersion < 1)
+        {
+            IconPalette = IconPalette.Concat(IconGroups.Single(group => group.Key == "IconAnimals").Icons).Distinct().ToList();
+            IconPaletteVersion = 1;
+        }
 
         Timings.TitlePreviewDelayMs = Math.Max(0, Timings.TitlePreviewDelayMs);
         Timings.ToolbarHideDelayMs = Math.Max(0, Timings.ToolbarHideDelayMs);

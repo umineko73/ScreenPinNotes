@@ -111,8 +111,27 @@ public partial class StickyNoteWindow
         var panel = new WrapPanel { Width = Columns * (Cell + Gap * 2) + 2 };
         _iconPanel = panel;
 
-        foreach (var icon in IconList)
+        var available = IconList.Distinct().ToHashSet();
+        var ordered = new List<(string Icon, string? Heading)> { ("", null) };
+        foreach (var group in AppSettings.IconGroups)
         {
+            var icons = group.Icons.Where(available.Contains).ToArray();
+            if (icons.Length == 0) continue;
+            ordered.AddRange(icons.Select((icon, index) => (icon, index == 0 ? group.Key : null)));
+        }
+        var known = AppSettings.IconGroups.SelectMany(group => group.Icons).ToHashSet();
+        ordered.AddRange(available.Where(icon => icon.Length > 0 && !known.Contains(icon))
+            .Select((icon, index) => (icon, index == 0 ? "IconOther" : null)));
+        foreach (var (icon, heading) in ordered)
+        {
+            if (heading != null)
+                panel.Children.Add(new TextBlock
+                {
+                    Text = LocalizationService.T(heading), Width = panel.Width,
+                    Margin = new Thickness(3, 8, 0, 3), FontSize = 12,
+                    Foreground = IsDarkTheme() ? WpfBrushes.WhiteSmoke : WpfBrushes.DimGray,
+                    FontWeight = FontWeights.SemiBold,
+                });
             bool isNone = icon.Length == 0;
             var btn = new WpfButton
             {
@@ -159,7 +178,11 @@ public partial class StickyNoteWindow
             Child = new Border
             {
                 Background = PopupBackgroundBrush(), BorderBrush = PopupBorderBrush(),
-                BorderThickness = new Thickness(1), Padding = new Thickness(4), Child = panel,
+                BorderThickness = new Thickness(1), Padding = new Thickness(4), Child = new ScrollViewer
+                {
+                    MaxHeight = 440, VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Content = panel,
+                },
             },
             Placement = PlacementMode.Bottom, StaysOpen = false,
         };
