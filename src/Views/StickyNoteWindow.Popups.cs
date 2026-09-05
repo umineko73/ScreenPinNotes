@@ -228,6 +228,7 @@ public partial class StickyNoteWindow
                     ? new WpfImage { Source = RenderEmoji(content), Width = 20, Height = 20 }
                     : content,
                 Style = (Style)FindResource("EditToolbarButton"),
+                Foreground = ViewModel.TextForeground,
                 ToolTip = tooltip,
                 Focusable = false,
             };
@@ -279,7 +280,8 @@ public partial class StickyNoteWindow
             Padding = new Thickness(3),
             Child = panel,
         };
-        border.Background = (System.Windows.Media.Brush)FindResource("NoteToolbarBackground");
+        border.Background = PopupBackgroundBrush();
+        border.SetValue(TextElement.ForegroundProperty, ViewModel.TextForeground);
         return border;
     }
     // ─── フォントピッカー ────────────────────────────────────────
@@ -324,7 +326,13 @@ public partial class StickyNoteWindow
                 var rows = frequent.Select(f => new FontCatalog.Entry(f.Source, "★ " + f.DisplayName))
                     .Concat(entries).ToArray();
                 listBox.ItemsSource = rows;
-                listBox.SelectedItem = rows.FirstOrDefault(f => f.Source == ViewModel.FontFamily);
+                listBox.SelectedIndex = -1;
+                // The picker always opens at its first row, even after a prior selection.
+                Dispatcher.BeginInvoke(() =>
+                {
+                    if (listBox.Items.Count > 0)
+                        listBox.ScrollIntoView(listBox.Items[0]);
+                }, System.Windows.Threading.DispatcherPriority.Loaded);
                 status.Text = "";
                 status.Visibility = Visibility.Collapsed;
             }

@@ -74,7 +74,12 @@ public partial class StickyNoteWindow
 
         var quickRow = BuildQuickActionsRow(out var quickIconButton);
 
-        var cm = new ContextMenu { Tag = quickRow, Template = (ControlTemplate)FindResource("NoteContextMenuTemplate") };
+        var cm = new ContextMenu { Tag = quickRow, Template = (ControlTemplate)FindResource("NoteContextMenuTemplate"), Background = PopupBackgroundBrush(), Foreground = ViewModel.TextForeground, BorderBrush = PopupBorderBrush() };
+        cm.Resources[typeof(MenuItem)] = new Style(typeof(MenuItem))
+        {
+            Setters = { new Setter(MenuItem.ForegroundProperty, ViewModel.TextForeground),
+                new Setter(MenuItem.BackgroundProperty, WpfBrushes.Transparent) }
+        };
         cm.Items.Add(cutItem);
         cm.Items.Add(new MenuItem { Header = LocalizationService.T("Copy"), Command = ApplicationCommands.Copy, CommandTarget = ContentBox });
         cm.Items.Add(pasteItem);
@@ -141,7 +146,11 @@ public partial class StickyNoteWindow
 
         var quickRow = BuildQuickActionsRow(out var quickIconButton);
 
-        var cm = new ContextMenu { Tag = quickRow, Template = (ControlTemplate)FindResource("NoteContextMenuTemplate") };
+        var cm = new ContextMenu { Tag = quickRow, Template = (ControlTemplate)FindResource("NoteContextMenuTemplate"), Background = PopupBackgroundBrush(), Foreground = ViewModel.TextForeground, BorderBrush = PopupBorderBrush() };        cm.Resources[typeof(MenuItem)] = new Style(typeof(MenuItem))
+        {
+            Setters = { new Setter(MenuItem.ForegroundProperty, ViewModel.TextForeground),
+                new Setter(MenuItem.BackgroundProperty, WpfBrushes.Transparent) }
+        };
         cm.Items.Add(cutItem);
         cm.Items.Add(copyItem);
         cm.Items.Add(pasteItem);
@@ -263,7 +272,11 @@ public partial class StickyNoteWindow
 
         var quickRow = BuildQuickActionsRow(out var quickIconButton);
 
-        var cm = new ContextMenu { Tag = quickRow, Template = (ControlTemplate)FindResource("NoteContextMenuTemplate") };
+        var cm = new ContextMenu { Tag = quickRow, Template = (ControlTemplate)FindResource("NoteContextMenuTemplate"), Background = PopupBackgroundBrush(), Foreground = ViewModel.TextForeground, BorderBrush = PopupBorderBrush() };        cm.Resources[typeof(MenuItem)] = new Style(typeof(MenuItem))
+        {
+            Setters = { new Setter(MenuItem.ForegroundProperty, ViewModel.TextForeground),
+                new Setter(MenuItem.BackgroundProperty, WpfBrushes.Transparent) }
+        };
         cm.Items.Add(editItem);
         cm.Items.Add(editSeparator);
         cm.Items.Add(cutItem);

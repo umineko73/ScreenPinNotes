@@ -118,6 +118,11 @@ public partial class StickyNoteWindow : Window
 
     public StickyNoteViewModel ViewModel => (StickyNoteViewModel)DataContext;
 
+    public System.Windows.Media.Brush ToolbarBackground =>
+        string.Equals(App.Current.Settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase)
+            ? new WpfSolidBrush(WpfColor.FromRgb(31, 41, 55))
+            : new WpfSolidBrush(WpfColor.FromRgb(255, 255, 255));
+
     public string PositionSeparatedTooltip => LocalizationService.T("PositionSeparatedTooltip");
 
     private sealed record ContentUndoEntry(string Before, string After);

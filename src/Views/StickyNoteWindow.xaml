@@ -283,14 +283,14 @@
                    AllowsTransparency="True"
                    DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
                 <Border x:Name="StatusBar"
-                        Background="{StaticResource NoteToolbarBackground}"
+                        Background="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=ToolbarBackground}"
                         BorderBrush="#33000000"
                         BorderThickness="1"
                         CornerRadius="4"
                         Padding="3"
                         MouseEnter="EditToolbar_MouseEnter"
                         MouseLeave="EditToolbar_MouseLeave">
-                    <StackPanel Orientation="Horizontal">
+                    <StackPanel Orientation="Horizontal" TextElement.Foreground="{Binding TextForeground}">
                         <Button x:Name="FontSmallerButton" Content="A-" Style="{StaticResource EditToolbarButton}"
                                 ToolTip="{Binding FontSize, StringFormat=本文のフォントを小さく (現在 {0}pt)}"
                                 Click="FontSmaller_Click"/>

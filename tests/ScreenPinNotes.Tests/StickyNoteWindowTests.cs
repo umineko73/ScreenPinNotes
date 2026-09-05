@@ -16,6 +16,26 @@ namespace ScreenPinNotes.Tests;
 public class StickyNoteWindowTests
 {
     [WpfFact]
+    public void EditSize_NeverShrinksBelowExpandedSizePerDimension()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var model = new StickyNote { Width = 360, Height = 280, EditWidth = 200, EditHeight = 400 };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(model, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            InvokePrivate(window, "EnterEditMode");
+            Assert.Equal(360, window.Width);
+            Assert.Equal(400, window.Height);
+            InvokePrivate(window, "EnterViewMode");
+            Assert.Equal(360, window.Width);
+            Assert.Equal(280, window.Height);
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfFact]
     public void EditSize_IsRememberedWithoutChangingNormalSize()
     {
         EnsureApplication();

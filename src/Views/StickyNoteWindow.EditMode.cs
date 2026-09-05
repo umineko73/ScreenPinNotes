@@ -103,6 +103,12 @@ public partial class StickyNoteWindow
             => value is double size && double.IsFinite(size) && size > 0 ? size : fallback;
         var width = editing ? Valid(model.EditWidth, model.Width) : model.Width;
         var height = editing ? Valid(model.EditHeight, model.Height) : model.Height;
+        if (editing)
+        {
+            // Editing must never make either dimension smaller than expanded view.
+            width = Math.Max(width, model.Width);
+            height = Math.Max(height, model.Height);
+        }
         SuppressWindowBoundsSave(() =>
         {
             Width = Math.Max(MinWidth, width);
@@ -265,6 +271,9 @@ public partial class StickyNoteWindow
         _toolbarHideTimer.Stop();
         UpdateEditToolbarPlacement();
         EditToolbarPopup.IsOpen = true;
+        foreach (var button in new[] { FontSmallerButton, FontLargerButton, TitleSmallerButton,
+            TitleLargerButton, FontButton, IconButton, ColorButton })
+            button.Foreground = ViewModel.TextForeground;
     }
 
     private void EditToolbarPopup_Opened(object? sender, EventArgs e)
