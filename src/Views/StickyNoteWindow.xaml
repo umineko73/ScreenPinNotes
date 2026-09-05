@@ -334,6 +334,22 @@
                            Stretch="Uniform" VerticalAlignment="Center"
                            Margin="3,0,0,0"
                            ToolTip="{Binding TitleIconTooltip}"/>
+
+                    <!-- アイコンが無いとつかむ所が数ピクセルの余白しか残らず、
+                         付箋を動かせない。代わりの持ち手を右端に出す。
+                         書体によっては十字の文字が出ないことがあるので図形で描く。
+                         四方向の矢印にしているのは、左端の ＋（新規作成）と
+                         見分けが付かなくなるため。
+                         クリックは親のGridまで上がり、そこのドラッグ処理が動く。 -->
+                    <Path x:Name="OverlayMoveHandle"
+                          Visibility="Collapsed"
+                          Width="16" Height="16"
+                          VerticalAlignment="Center"
+                          Margin="3,0,1,0"
+                          Stretch="Uniform"
+                          Fill="{Binding TitleBarForeground}"
+                          ToolTip="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=MoveNoteTooltip}"
+                          Data="M 8,0 L 11,3 L 9,3 L 9,7 L 13,7 L 13,5 L 16,8 L 13,11 L 13,9 L 9,9 L 9,13 L 11,13 L 8,16 L 5,13 L 7,13 L 7,9 L 3,9 L 3,11 L 0,8 L 3,5 L 3,7 L 7,7 L 7,3 L 5,3 Z"/>
                 </StackPanel>
             </Grid>
 

@@ -381,6 +381,10 @@ public partial class StickyNoteWindow
             : Visibility.Collapsed;
         TitleBarOverlayActions.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
         TitleBarOverlayBackdrop.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
+        // アイコンがある付箋はそれ自体がつかみ代になるので、持ち手は要らない。
+        OverlayMoveHandle.Visibility = string.IsNullOrEmpty(ViewModel.Icon)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
     // ─── ステータスバーぶんウィンドウを伸縮させる ────────────────

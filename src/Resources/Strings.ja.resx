@@ -420,6 +420,9 @@
   <data name="SettingsNotesRoot" xml:space="preserve">
     <value>保存フォルダ</value>
   </data>
+  <data name="MoveNoteTooltip" xml:space="preserve">
+    <value>ドラッグで付箋を移動</value>
+  </data>
   <data name="ZOrder" xml:space="preserve">
     <value>重なり順</value>
   </data>

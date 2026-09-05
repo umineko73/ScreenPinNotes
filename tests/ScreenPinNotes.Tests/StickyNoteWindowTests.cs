@@ -813,6 +813,27 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
+    // アイコンが無いとつかむ所が数ピクセルの余白しか残らず、付箋を動かせない。
+    // 代わりの持ち手を出す。アイコンがあるならそれ自体がつかみ代になる。
+    [WpfTheory]
+    [InlineData("", Visibility.Visible)]
+    [InlineData("🦊", Visibility.Collapsed)]
+    public void MoveHandle_AppearsOnlyWhenTheNoteHasNoIcon(string icon, Visibility expected)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { IsTitleBarHidden = true, Icon = icon };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            var handle = Assert.IsType<System.Windows.Shapes.Path>(window.FindName("OverlayMoveHandle"));
+            InvokePrivate(window, "UpdateTitleBarButtonsVisibility");
+            Assert.Equal(expected, handle.Visibility);
+        }
+        finally { window.Close(); }
+    }
+
     // 編集ツールバーはフォーカスが外れると隠れるので、それだけでは編集中か
     // どうか分からない。枠はフォーカスに関係なく出しておく。
     [WpfFact]
