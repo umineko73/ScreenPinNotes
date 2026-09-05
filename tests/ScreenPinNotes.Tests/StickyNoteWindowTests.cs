@@ -813,6 +813,60 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
+    // 1行しか見えない状態では、アイコンが唯一の付箋の見分けになる。
+    // ホバーしていなくても出しておく。ボタン類は出さない。
+    [WpfFact]
+    public void FoldedNote_WithHiddenTitleBar_ShowsTheIconWithoutHovering()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { IsFolded = true, IsTitleBarHidden = true, Icon = "🦊" };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            Assert.Equal(Visibility.Visible,
+                Assert.IsType<Border>(window.FindName("TitleBarOverlay")).Visibility);
+            Assert.Equal(Visibility.Collapsed,
+                Assert.IsType<StackPanel>(window.FindName("TitleBarOverlayActions")).Visibility);
+        }
+        finally { window.Close(); }
+    }
+
+    // アイコン未設定なら、空の帯が本文に浮くだけなので出さない。
+    [WpfFact]
+    public void FoldedNote_WithoutAnIcon_ShowsNothingUntilHovered()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { IsFolded = true, IsTitleBarHidden = true, Icon = "" };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            Assert.Equal(Visibility.Collapsed,
+                Assert.IsType<Border>(window.FindName("TitleBarOverlay")).Visibility);
+        }
+        finally { window.Close(); }
+    }
+
+    // 展開しているときは本文が読めるので、この帯は出さない。
+    [WpfFact]
+    public void UnfoldedNote_WithHiddenTitleBar_ShowsNothingUntilHovered()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { IsFolded = false, IsTitleBarHidden = true, Icon = "🦊" };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            Assert.Equal(Visibility.Collapsed,
+                Assert.IsType<Border>(window.FindName("TitleBarOverlay")).Visibility);
+        }
+        finally { window.Close(); }
+    }
+
     // 先頭行が見出しだと本文より大きく描かれる。本文サイズで畳むと下が切れた。
     [WpfFact]
     public void FoldedNote_WithHiddenTitleBar_LeavesRoomForAHeadingFirstLine()

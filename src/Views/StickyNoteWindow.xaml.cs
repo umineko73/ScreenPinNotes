@@ -411,6 +411,8 @@ public partial class StickyNoteWindow : Window
     {
         IconImage.Source = RenderEmoji(ViewModel.Icon);
         OverlayIconImage.Source = IconImage.Source;
+        // アイコンの有無で、畳んでいるときに帯を出すかどうかが変わる。
+        UpdateTitleBarOverlayVisibility();
     }
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, WpfBitmapImage> EmojiImages = new();

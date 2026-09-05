@@ -365,9 +365,16 @@ public partial class StickyNoteWindow
 
     private void UpdateTitleBarOverlayVisibility()
     {
-        TitleBarOverlay.Visibility = ViewModel.IsTitleBarHidden && (IsMouseOver || _isDragging)
+        var active = IsMouseOver || _isDragging;
+        // 1行表示に畳んでいる間はアイコンだけ出しておく。本文が1行しか
+        // 見えない状態では、それが唯一の付箋の見分けになるため。
+        // アイコン未設定の付箋で空の帯だけが浮くのは避ける。
+        var showIconAlone = ViewModel.IsFolded && !string.IsNullOrEmpty(ViewModel.Icon);
+
+        TitleBarOverlay.Visibility = ViewModel.IsTitleBarHidden && (active || showIconAlone)
             ? Visibility.Visible
             : Visibility.Collapsed;
+        TitleBarOverlayActions.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
     }
 
     // ─── ステータスバーぶんウィンドウを伸縮させる ────────────────
