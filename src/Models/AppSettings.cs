@@ -53,7 +53,7 @@ public sealed class AppSettings
         ("IconSchedule", ["📅", "⏰", "🔔", "✉", "📞", "💬", "👤", "👥", "🗓"]),
         ("IconWork", ["💼", "🐛", "🔧", "⚙", "💻", "🖥", "🚀", "✏"]),
         ("IconDaily", ["🏠", "🛒", "📦", "💰", "☕", "🎁", "❤", "🍽", "🎵", "🔑", "🔒", "👍", "🎉", "🌟", "🌱"]),
-        ("IconAnimals", ["🐶", "🐱", "🐰", "🦊", "🐻", "🐼", "🐨", "🐸", "🐧", "🦉", "🐢", "🐙", "🐝", "🦋", "🦄"]),
+        ("IconAnimals", ["🐶", "🐱", "🐈", "🐰", "🦊", "🐻", "🐼", "🐨", "🦦", "🐸", "🐧", "🐓", "🦉", "🦜", "🐢", "🐙", "🐝", "🦋", "🦄"]),
     ];
 
     public static List<string> DefaultIconPalette()
@@ -84,10 +84,12 @@ public sealed class AppSettings
             IconPalette = DefaultIconPalette();
         // Reserve the chain symbol for external-file status, including saved palettes.
         IconPalette = IconPalette.Select(icon => icon is "🔗" or "🔗️" ? "🌐" : icon).Distinct().ToList();
-        if (IconPaletteVersion < 1)
+        // 動物を増やすたびにここを上げる。保存済みパレットに不足分だけ配り、
+        // Distinct で既にある分は二重にならない。
+        if (IconPaletteVersion < 2)
         {
             IconPalette = IconPalette.Concat(IconGroups.Single(group => group.Key == "IconAnimals").Icons).Distinct().ToList();
-            IconPaletteVersion = 1;
+            IconPaletteVersion = 2;
         }
 
         Timings.TitlePreviewDelayMs = Math.Max(0, Timings.TitlePreviewDelayMs);

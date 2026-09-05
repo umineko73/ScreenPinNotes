@@ -25,7 +25,7 @@ The first edit uses the normal note size. Resizing during editing remembers a se
 ## Colors, icons, and fonts
 
 - Six dark presets stay dark even in light mode. App dark mode also darkens the existing light presets. Text, links, and palette swatches follow the effective note colors.
-- Icons are grouped into colors/shapes, urgency/priority, status/progress, notes/documents, ideas/research, schedule/communication, work/development, daily life, and animals. Choices include 🔥, colored circles/squares, and 15 animals. 🔗 is reserved for external-file status; use 🌐 for Web notes.
+- Icons are grouped into colors/shapes, urgency/priority, status/progress, notes/documents, ideas/research, schedule/communication, work/development, daily life, and animals. Choices include 🔥, colored circles/squares, and 19 animals. 🔗 is reserved for external-file status; use 🌐 for Web notes.
 - Installed fonts use Japanese display names when available. Confirmed symbol-only fonts are excluded; unknown fonts remain available. Names load on first opening, with a retry action on failure.
 - Up to five frequently used fonts appear at the top with `★`. Selection counts are shared across notes and survive restarts.
 

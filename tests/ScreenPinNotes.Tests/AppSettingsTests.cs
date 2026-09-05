@@ -87,6 +87,42 @@ public class AppSettingsTests
         Assert.Equal(expected, settings.Theme);
     }
 
+    // 動物を増やしたら、保存済みのパレットにも不足分が配られること。
+    // IconPaletteVersion を上げ忘れると既存ユーザーには増えない。
+    [Fact]
+    public void Normalize_OlderPaletteVersion_GainsTheNewAnimals()
+    {
+        var animals = AppSettings.IconGroups.Single(group => group.Key == "IconAnimals").Icons;
+        var settings = new AppSettings
+        {
+            IconPalette = ["📌", "🐶"],
+            IconPaletteVersion = 1,
+        };
+
+        settings.Normalize();
+
+        foreach (var animal in animals)
+            Assert.Contains(animal, settings.IconPalette);
+        Assert.Contains("📌", settings.IconPalette);
+        Assert.Equal(settings.IconPalette.Count, settings.IconPalette.Distinct().Count());
+        Assert.True(settings.IconPaletteVersion >= 2);
+    }
+
+    // 既に最新なら触らない。利用者が外したアイコンを毎回戻さないため。
+    [Fact]
+    public void Normalize_CurrentPaletteVersion_IsLeftAlone()
+    {
+        var settings = new AppSettings
+        {
+            IconPalette = ["📌", "🐶"],
+            IconPaletteVersion = 2,
+        };
+
+        settings.Normalize();
+
+        Assert.Equal(["📌", "🐶"], settings.IconPalette);
+    }
+
     [Fact]
     public void Normalize_EmptyIconPalette_RefillsWithDefaults()
     {
