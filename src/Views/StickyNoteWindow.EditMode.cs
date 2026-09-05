@@ -62,7 +62,6 @@ public partial class StickyNoteWindow
         if (_isEditMode && BodyEditBox.Visibility == Visibility.Visible) return;
         var startingEdit = !_isEditMode;
         _isEditMode = true;
-        EditingOutline.Visibility = Visibility.Visible;
         EditingBadge.Visibility = Visibility.Visible;
         if (startingEdit) ApplyEditingSize(true);
         ViewModel.SetForceOpaque(true);
@@ -184,7 +183,6 @@ public partial class StickyNoteWindow
             return;
 
         _isEditMode = false;
-        EditingOutline.Visibility = Visibility.Collapsed;
         EditingBadge.Visibility = Visibility.Collapsed;
         ApplyEditingSize(false);
         ViewModel.SetForceOpaque(false);

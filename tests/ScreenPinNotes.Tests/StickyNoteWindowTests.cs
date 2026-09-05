@@ -835,9 +835,9 @@ public class StickyNoteWindowTests
     }
 
     // 編集ツールバーはフォーカスが外れると隠れるので、それだけでは編集中か
-    // どうか分からない。枠はフォーカスに関係なく出しておく。
+    // どうか分からない。表示はフォーカスに関係なく出しておく。
     [WpfFact]
-    public void EditingOutline_FollowsTheEditMode()
+    public void EditingBadge_FollowsTheEditMode()
     {
         EnsureApplication();
         using var temp = new TempDataDirectory();
@@ -846,29 +846,25 @@ public class StickyNoteWindowTests
             new StorageService(temp.Path));
         try
         {
-            var outline = Assert.IsType<Border>(window.FindName("EditingOutline"));
             var badge = Assert.IsType<Border>(window.FindName("EditingBadge"));
             var badgeText = Assert.IsType<TextBlock>(window.FindName("EditingBadgeText"));
-            Assert.Equal(Visibility.Collapsed, outline.Visibility);
             Assert.Equal(Visibility.Collapsed, badge.Visibility);
             // 文言は言語カタログから来る。キーが無いとキー名がそのまま出る。
             Assert.Equal(LocalizationService.T("EditingBadge"), badgeText.Text);
             Assert.NotEqual("EditingBadge", badgeText.Text);
 
             InvokePrivate(window, "EnterEditMode");
-            Assert.Equal(Visibility.Visible, outline.Visibility);
             Assert.Equal(Visibility.Visible, badge.Visibility);
 
             InvokePrivate(window, "EnterViewMode");
-            Assert.Equal(Visibility.Collapsed, outline.Visibility);
             Assert.Equal(Visibility.Collapsed, badge.Visibility);
         }
         finally { window.Close(); }
     }
 
-    // 編集ロック中の付箋は編集モードに入らないので、枠も出さない。
+    // 編集ロック中の付箋は編集モードに入らないので、表示も出さない。
     [WpfFact]
-    public void EditingOutline_StaysHiddenOnALockedNote()
+    public void EditingBadge_StaysHiddenOnALockedNote()
     {
         EnsureApplication();
         using var temp = new TempDataDirectory();
@@ -878,8 +874,6 @@ public class StickyNoteWindowTests
         try
         {
             InvokePrivate(window, "EnterEditMode");
-            Assert.Equal(Visibility.Collapsed,
-                Assert.IsType<Border>(window.FindName("EditingOutline")).Visibility);
             Assert.Equal(Visibility.Collapsed,
                 Assert.IsType<Border>(window.FindName("EditingBadge")).Visibility);
         }

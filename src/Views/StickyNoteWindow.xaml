@@ -369,9 +369,10 @@
             </Border>
 
             <!-- 編集ツールバー。編集モード中は常に表示する -->
-            <!-- 編集中であることを言葉でも出す。枠だけだと、付箋の色によっては
-                 気づきにくい。付箋の色に左右されないよう塗りと白フチを持たせ、
-                 本文のクリックを邪魔しないよう当たり判定は持たせない。 -->
+            <!-- 編集中であることの唯一の目印。ツールバーはフォーカスが外れると
+                 隠れるので、これが無いと編集中かどうか分からない。付箋の色に
+                 左右されないよう塗りと白フチを持たせ、本文のクリックを
+                 邪魔しないよう当たり判定は持たせない。 -->
             <Border x:Name="EditingBadge"
                     Grid.Row="1"
                     Visibility="Collapsed"
@@ -390,17 +391,6 @@
                            FontSize="11"
                            FontWeight="SemiBold"/>
             </Border>
-
-            <!-- 編集中の目印。ツールバーはフォーカスが外れると隠れるので、
-                 それだけだと編集中かどうかが分からない。枠を本文の上に重ねて描き、
-                 付箋の大きさや本文の位置を動かさずに知らせる。 -->
-            <Border x:Name="EditingOutline"
-                    Grid.Row="0" Grid.RowSpan="2"
-                    Visibility="Collapsed"
-                    Panel.ZIndex="30"
-                    IsHitTestVisible="False"
-                    BorderBrush="#287548"
-                    BorderThickness="2"/>
 
             <Popup x:Name="EditToolbarPopup"
                    Opened="EditToolbarPopup_Opened"
