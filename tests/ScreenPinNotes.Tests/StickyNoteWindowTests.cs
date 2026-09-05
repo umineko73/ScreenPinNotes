@@ -117,15 +117,20 @@ public class StickyNoteWindowTests
         using var temp = new TempDataDirectory();
         var storage = new StorageService(temp.Path);
         var windows = new List<StickyNoteWindow>();
+        // 走査は静的にキャッシュされるので、先行するテスト（フォントピッカーを
+        // 開くものなど）が既に始めていることがある。ここで見たいのは「付箋を
+        // 生成しただけでは走査が始まらない」ことなので、実行順に左右されない
+        // よう、キャッシュを空に戻してから確認する。null に戻すと次の要求で
+        // 走査し直されるだけで、他のテストには影響しない。
+        var field = typeof(FontCatalog).GetField("_loading",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        field.SetValue(null, null);
         try
         {
             for (var i = 0; i < 3; i++)
                 windows.Add(new StickyNoteWindow(
                     new StickyNoteViewModel(new StickyNote(), new AppSettings()), storage));
-            var field = typeof(FontCatalog).GetField("_loading",
-                BindingFlags.Static | BindingFlags.NonPublic)!;
-            var fonts = field.GetValue(null);
-            Assert.Null(fonts);
+            Assert.Null(field.GetValue(null));
         }
         finally
         {
@@ -1085,13 +1090,7 @@ public class StickyNoteWindowTests
         }
     }
 
-    private static void EnsureApplication()
-    {
-        if (Application.Current == null)
-            _ = new App();
-        if (Application.Current!.Dispatcher.CheckAccess())
-            Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-    }
+    private static void EnsureApplication() => WpfApplicationFixture.Ensure();
 
     private sealed class TempDataDirectory : IDisposable
     {

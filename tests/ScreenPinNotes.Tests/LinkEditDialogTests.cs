@@ -9,12 +9,7 @@ public class LinkEditDialogTests
     [WpfFact]
     public void LongUrlWrapsAndExpandsWithDialog()
     {
-        if (Application.Current == null)
-        {
-            var app = new ScreenPinNotes.App();
-            app.InitializeComponent();
-            app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-        }
+        WpfApplicationFixture.Ensure();
         var owner = new Window();
         owner.Show();
         var target = "https://example.com/" + new string('a', 2000);
