@@ -45,6 +45,12 @@ public static class MarkdownRenderer
         Func<int, bool, WpfCheckBox>? createTaskCheckbox = null,
         bool darkMode = false)
     {
+        // Bound UI element creation and parser work without discarding source text.
+        if (text.Length > 131072 || text.Count(ch => ch == '\n') > 2000)
+        {
+            yield return new Paragraph(new Run(text));
+            yield break;
+        }
         var lines = NormalizeLines(text);
         if (lines.Length == 0)
         {
@@ -473,9 +479,9 @@ public static class MarkdownRenderer
         int lineOffset,
         Func<string, string, Hyperlink> createHyperlink,
         Func<MarkdownImage, Inline>? createImage,
-        bool darkMode)
+        bool darkMode, int depth = 0)
     {
-        foreach (var inline in ParseInline(text, lineIndex, lineOffset, createHyperlink, createImage, darkMode))
+        foreach (var inline in ParseInline(text, lineIndex, lineOffset, createHyperlink, createImage, darkMode, depth))
             inlines.Add(inline);
     }
 
@@ -485,8 +491,13 @@ public static class MarkdownRenderer
         int lineOffset,
         Func<string, string, Hyperlink> createHyperlink,
         Func<MarkdownImage, Inline>? createImage,
-        bool darkMode)
+        bool darkMode, int depth = 0)
     {
+        if (depth >= 16 || text.Length > 8192)
+        {
+            yield return new Run(text);
+            yield break;
+        }
         int pos = 0;
         while (pos < text.Length)
         {
@@ -525,7 +536,7 @@ public static class MarkdownRenderer
                 TryGetDelimitedText(text, pos, "__", out boldText, out boldLength))
             {
                 var span = new Span { FontWeight = FontWeights.Bold };
-                AddInlineContent(span.Inlines, boldText, lineIndex, lineOffset + pos + 2, createHyperlink, createImage, darkMode);
+                AddInlineContent(span.Inlines, boldText, lineIndex, lineOffset + pos + 2, createHyperlink, createImage, darkMode, depth + 1);
                 yield return span;
                 pos += boldLength;
                 continue;
@@ -534,7 +545,7 @@ public static class MarkdownRenderer
             if (TryGetDelimitedText(text, pos, "~~", out var strikeText, out var strikeLength))
             {
                 var span = new Span { TextDecorations = TextDecorations.Strikethrough };
-                AddInlineContent(span.Inlines, strikeText, lineIndex, lineOffset + pos + 2, createHyperlink, createImage, darkMode);
+                AddInlineContent(span.Inlines, strikeText, lineIndex, lineOffset + pos + 2, createHyperlink, createImage, darkMode, depth + 1);
                 yield return span;
                 pos += strikeLength;
                 continue;
@@ -544,7 +555,7 @@ public static class MarkdownRenderer
                 TryGetDelimitedText(text, pos, "_", out italicText, out italicLength))
             {
                 var span = new Span { FontStyle = FontStyles.Italic };
-                AddInlineContent(span.Inlines, italicText, lineIndex, lineOffset + pos + 1, createHyperlink, createImage, darkMode);
+                AddInlineContent(span.Inlines, italicText, lineIndex, lineOffset + pos + 1, createHyperlink, createImage, darkMode, depth + 1);
                 yield return span;
                 pos += italicLength;
                 continue;

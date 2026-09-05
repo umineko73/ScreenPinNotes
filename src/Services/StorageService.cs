@@ -26,10 +26,7 @@ public class StorageService
 {
     // 環境変数 SCREENPINNOTES_DATA でデータ保存先を差し替えられる。
     // テストを実ユーザーのデータから隔離するために使う。
-    // 旧アプリ名（ScreenStickyNotes）時代の SCREENSTICKYNOTES_DATA も
-    // 後方互換のため読む（新しい名前が優先）。
     public const string DataDirEnvVar = "SCREENPINNOTES_DATA";
-    private const string LegacyDataDirEnvVar = "SCREENSTICKYNOTES_DATA";
 
     private static readonly string AppRoot = ResolveAppRoot();
 
@@ -47,23 +44,12 @@ public class StorageService
 
     private static string ResolveAppRoot()
     {
-        var custom = Environment.GetEnvironmentVariable(DataDirEnvVar)
-            ?? Environment.GetEnvironmentVariable(LegacyDataDirEnvVar);
+        var custom = Environment.GetEnvironmentVariable(DataDirEnvVar);
         if (!string.IsNullOrWhiteSpace(custom))
             return Path.GetFullPath(custom);
 
         var appDataDir = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         var newRoot = Path.Combine(appDataDir, "ScreenPinNotes");
-        var legacyRoot = Path.Combine(appDataDir, "ScreenStickyNotes");
-
-        // 旧アプリ名（ScreenStickyNotes）時代のデータフォルダが残っていて
-        // 新フォルダがまだ無ければ、初回起動時だけそのまま引き継ぐ。
-        if (!Directory.Exists(newRoot) && Directory.Exists(legacyRoot))
-        {
-            try { Directory.Move(legacyRoot, newRoot); }
-            catch { /* 移行に失敗しても新フォルダとして続行する（旧データは残る） */ }
-        }
-
         return newRoot;
     }
 
@@ -76,7 +62,6 @@ public class StorageService
     private readonly string _root;
     private readonly string _notesDir;
     private readonly string _settingsPath;
-    private readonly string _legacyFile;
 
     public StorageService() : this(AppRoot) { }
 
@@ -87,7 +72,6 @@ public class StorageService
         _root = Path.GetFullPath(settingsRoot);
         _notesDir = Path.GetFullPath(notesRoot);
         _settingsPath = Path.Combine(_root, "settings.json");
-        _legacyFile = Path.Combine(_root, "notes.json"); // 旧形式（移行元）
     }
 
     public string NotesRoot => _notesDir;
@@ -205,7 +189,6 @@ public class StorageService
 
     public List<StickyNote> Load()
     {
-        MigrateFromLegacy();
 
         if (!Directory.Exists(_notesDir)) return [];
 
@@ -527,65 +510,4 @@ public class StorageService
         }
     }
 
-    // ─── 旧形式からの移行 ────────────────────────────────────────
-
-    private void MigrateFromLegacy()
-    {
-        if (!File.Exists(_legacyFile)) return;
-        try
-        {
-            var json   = File.ReadAllText(_legacyFile, Encoding.UTF8);
-            var legacy = JsonSerializer.Deserialize<List<LegacyNote>>(json, JsonOpts);
-            if (legacy != null)
-            {
-                Directory.CreateDirectory(_notesDir);
-                foreach (var old in legacy)
-                {
-                    if (!IsSafeNoteId(old.Id))
-                        continue;
-
-                    try
-                    {
-                        WriteNote(new StickyNote
-                        {
-                            Id         = old.Id,
-                            Content    = old.Content,
-                            X          = old.X,         Y      = old.Y,
-                            Width      = old.Width,      Height = old.Height,
-                            ColorKey   = old.ColorKey,
-                            FontFamily = old.FontFamily, FontSize = old.FontSize,
-                            IsTopmost  = old.IsTopmost,  IsFolded = old.IsFolded,
-                            CreatedAt  = old.CreatedAt,  UpdatedAt = old.UpdatedAt,
-                        });
-                    }
-                    catch (Exception ex)
-                    {
-                        // この1件が壊れていても他の移行・.bakへのリネームは続ける
-                        ErrorReporter.ReportNonFatal($"Migrate legacy note {old.Id}", ex);
-                    }
-                }
-            }
-            // 旧ファイルを .bak にリネームして保持
-            File.Move(_legacyFile, _legacyFile + ".bak", overwrite: true);
-        }
-        catch { /* 移行失敗は無視 */ }
-    }
-
-    // 旧 JSON 読み込み用（Content フィールドあり）
-    private sealed class LegacyNote
-    {
-        public string   Id         { get; set; } = Guid.NewGuid().ToString();
-        public string   Content    { get; set; } = "";
-        public double   X          { get; set; } = 100;
-        public double   Y          { get; set; } = 100;
-        public double   Width      { get; set; } = 260;
-        public double   Height     { get; set; } = 220;
-        public string   ColorKey   { get; set; } = "yellow";
-        public string   FontFamily { get; set; } = "Yu Gothic UI";
-        public double   FontSize   { get; set; } = 13;
-        public bool     IsTopmost  { get; set; }
-        public bool     IsFolded   { get; set; }
-        public DateTime CreatedAt  { get; set; } = DateTime.Now;
-        public DateTime UpdatedAt  { get; set; } = DateTime.Now;
-    }
 }

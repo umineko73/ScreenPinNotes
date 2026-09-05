@@ -147,6 +147,8 @@ public partial class StickyNoteWindow
         cm.Items.Add(pasteItem);
         cm.Items.Add(pasteMarkdownLinkItem);
         cm.Items.Add(editLinkItem);
+        var formattingMenu = BuildMarkdownFormattingMenu();
+        cm.Items.Add(formattingMenu);
         cm.Items.Add(new Separator());
         cm.Items.Add(pasteExcelTableItem);
         cm.Items.Add(new Separator());
@@ -161,6 +163,7 @@ public partial class StickyNoteWindow
             var canEdit = !IsContentReadOnly();
             selectedLink = MarkdownLinkEditor.FindAt(BodyEditBox.Text, BodyEditBox.SelectionStart);
             editLinkItem.IsEnabled = canEdit && selectedLink != null;
+            formattingMenu.IsEnabled = canEdit;
             cutItem.IsEnabled = canEdit && BodyEditBox.SelectionLength > 0;
             copyItem.IsEnabled = BodyEditBox.SelectionLength > 0;
             pasteItem.IsEnabled = canEdit && (TryGetClipboardText(out _) || ClipboardHasImage());

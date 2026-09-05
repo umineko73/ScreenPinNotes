@@ -2,6 +2,14 @@
 
 This note lists the Markdown syntax supported in the body. When editing is locked, checkboxes and the body/title/image display sizes can still be adjusted.
 
+## Markdown input assistance
+
+While editing, select text and right-click **Markdown formatting** for bold, strikethrough, inline code, headings 1–3, bullets, checklists, and links. Line formatting applies to whole affected lines. With no selection, inline formatting places the caret between markers. Reapplying the matching supported format removes it. Use `Ctrl+Z` to undo.
+
+Place the caret inside an existing link and choose **Edit link...** to edit its display text and URL separately. The URL wraps and the dialog can be resized. **Markdown formatting > Insert / edit link...** also creates new links.
+
+The helper does not validate or repair every possible Markdown combination. Rendering failures fall back to source text. Deep nesting (16 levels), long inline text (over 8,192 characters), and large documents (over 131,072 characters or 2,000 newline characters) limit parsing and display source text without deleting the content.
+
 ## Inline Syntax
 
 | Type | Syntax | Rendered |
@@ -83,7 +91,7 @@ Console.WriteLine(note);
 | Image | `![description](assets/image.png)` |
 | Width | `![description](assets/image.png){width=320}` |
 
-Image targets can be files in this note's `assets` folder, Windows paths, or URLs. Pasted images are saved into this note's `assets` folder.
+Only local images render inline: files in this note's `assets` folder or Windows paths. Remote image URLs do not display an image preview. Pasted images are saved into this note's `assets` folder.
 
 ## Syntax Created by Operations
 

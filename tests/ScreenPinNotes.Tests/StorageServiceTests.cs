@@ -14,6 +14,17 @@ public sealed class StorageServiceTests : IDisposable
     private readonly string _tempRoot;
     private readonly StorageService _storage;
 
+    [Fact]
+    public void Load_IgnoresOldNotesJsonWithoutModifyingIt()
+    {
+        var path = Path.Combine(_tempRoot, "notes.json");
+        var json = JsonSerializer.Serialize(new[] { new { Id = Guid.NewGuid().ToString(), Content = "old body" } });
+        File.WriteAllText(path, json);
+        Assert.Empty(_storage.Load());
+        Assert.Equal(json, File.ReadAllText(path));
+        Assert.False(File.Exists(path + ".bak"));
+    }
+
     public StorageServiceTests()
     {
         _tempRoot = Path.Combine(Path.GetTempPath(), "ScreenPinNotesTests", Guid.NewGuid().ToString());
@@ -572,95 +583,9 @@ public sealed class StorageServiceTests : IDisposable
         Assert.Equal(Path.Combine(_tempRoot, "ScreenPinNotes"), storageRoot);
     }
 
-    [Fact]
-    public void Load_MigratesLegacyNotesJsonAndRenamesToBak()
-    {
-        var legacyId = Guid.NewGuid().ToString();
-        var legacyJson = JsonSerializer.Serialize(new[]
-        {
-            new
-            {
-                Id = legacyId,
-                Content = "legacy body",
-                X = 10.0, Y = 20.0, Width = 260.0, Height = 220.0,
-                ColorKey = "blue", FontFamily = "Yu Gothic UI", FontSize = 13.0,
-                IsTopmost = false, IsFolded = false,
-                CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now,
-            },
-        });
-        File.WriteAllText(Path.Combine(_tempRoot, "notes.json"), legacyJson);
 
-        var loaded = _storage.Load();
 
-        var migrated = Assert.Single(loaded);
-        Assert.Equal(legacyId, migrated.Id);
-        Assert.Equal("legacy body", migrated.Content);
-        Assert.False(File.Exists(Path.Combine(_tempRoot, "notes.json")));
-        Assert.True(File.Exists(Path.Combine(_tempRoot, "notes.json.bak")));
-    }
 
-    [Fact]
-    public void Load_MigratesRemainingLegacyNotesEvenWhenOneHasAnUnsafeId()
-    {
-        var goodId = Guid.NewGuid().ToString();
-        var legacyJson = JsonSerializer.Serialize(new[]
-        {
-            new
-            {
-                Id = @"..\outside", // unsafe: GetNoteDirectoryPath would throw for this one
-                Content = "bad entry",
-                X = 0.0, Y = 0.0, Width = 260.0, Height = 220.0,
-                ColorKey = "yellow", FontFamily = "Yu Gothic UI", FontSize = 13.0,
-                IsTopmost = false, IsFolded = false,
-                CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now,
-            },
-            new
-            {
-                Id = goodId,
-                Content = "good entry",
-                X = 10.0, Y = 20.0, Width = 260.0, Height = 220.0,
-                ColorKey = "blue", FontFamily = "Yu Gothic UI", FontSize = 13.0,
-                IsTopmost = false, IsFolded = false,
-                CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now,
-            },
-        });
-        File.WriteAllText(Path.Combine(_tempRoot, "notes.json"), legacyJson);
 
-        var loaded = _storage.Load();
 
-        // The unsafe entry can't be written (no valid folder for it) and is skipped,
-        // but that must not block the good entry from migrating or the legacy file
-        // from being renamed to .bak.
-        var migrated = Assert.Single(loaded);
-        Assert.Equal(goodId, migrated.Id);
-        Assert.Equal("good entry", migrated.Content);
-        Assert.False(File.Exists(Path.Combine(_tempRoot, "notes.json")));
-        Assert.True(File.Exists(Path.Combine(_tempRoot, "notes.json.bak")));
-    }
-
-    [Fact]
-    public void Load_KeepsLegacyNotesJsonWhenMigrationCannotRenameBackup()
-    {
-        var legacyId = Guid.NewGuid().ToString();
-        var legacyJson = JsonSerializer.Serialize(new[]
-        {
-            new
-            {
-                Id = legacyId,
-                Content = "legacy body",
-                X = 10.0, Y = 20.0, Width = 260.0, Height = 220.0,
-                ColorKey = "blue", FontFamily = "Yu Gothic UI", FontSize = 13.0,
-                IsTopmost = false, IsFolded = false,
-                CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now,
-            },
-        });
-        File.WriteAllText(Path.Combine(_tempRoot, "notes.json"), legacyJson);
-        Directory.CreateDirectory(Path.Combine(_tempRoot, "notes.json.bak"));
-
-        var loaded = _storage.Load();
-
-        var migrated = Assert.Single(loaded);
-        Assert.Equal(legacyId, migrated.Id);
-        Assert.True(File.Exists(Path.Combine(_tempRoot, "notes.json")));
-    }
 }

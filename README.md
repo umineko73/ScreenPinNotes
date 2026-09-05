@@ -84,15 +84,36 @@ Distributable zips: `powershell -ExecutionPolicy Bypass -File scripts/publish.ps
 | Action | Effect |
 |------|------|
 | Double-click the body | Enter edit mode |
-| Escape | Return to view mode |
+| Escape / Ctrl+Enter / editing toolbar ✓ | Finish editing and return to view mode |
 | Drag / double-click the title bar | Move / switch collapsed view/expanded view |
-| Right-click the title | Edit title, icon/color, stacking order, opacity, expanded-view position, reminder, external-file actions, hide, delete note |
-| Right-click the body | Change icon/color, edit text, work with links/tables, resize to images, set reminders, manage external files, hide, or delete the note |
+| Right-click the title | Edit title, stacking order, opacity, expanded-view position, reminder, external-file actions, hide, delete note |
+| Right-click the body | Edit text, apply Markdown formatting (while editing), work with links/tables, resize to images, set reminders, manage external files, hide, or delete the note |
 | Ctrl+wheel over body/image | Resize font / image |
 | Right-drag in a scrollable body pane | Scroll the pane |
 | Tray icon left/right-click | Show all / open menu |
 
-Every right-click menu starts with a 🎨 (color) and 😀 (icon) button row, so the palettes open without walking the menu. The same actions remain available as the **Change color** / **Change icon** items, which is what keyboard navigation uses.
+A mini toolbar appears above the context menu: `A-` / `A+` change body size, `T-` / `T+` change title size, `Aa` opens fonts, 😀 opens icons, and 🎨 opens colors. There are no separate Change color / Change icon menu items.
+
+During editing, the same toolbar appears below the note with a green `✓` to finish editing. `Ctrl+Enter` or `Esc` also returns to view mode; these actions do not discard edits. The toolbar follows movement and resizing and hides while the link editor is open.
+
+### Editing size
+
+The first edit uses the normal note size. Resizing during editing remembers a separate width and height for that note. Finishing restores the normal size; the next edit restores the editing size. Position is shared with normal view and adjusted if necessary to keep the window on screen. Collapsed width remains separate.
+
+### Colors, icons, and fonts
+
+- Six dark presets stay dark even in light mode. App dark mode also darkens the existing light presets. Text, links, and palette swatches follow the effective note colors.
+- Icons are grouped into colors/shapes, urgency/priority, status/progress, notes/documents, ideas/research, schedule/communication, work/development, daily life, and animals. Choices include 🔥, colored circles/squares, and 15 animals. 🔗 is reserved for external-file status; use 🌐 for Web notes.
+- Installed fonts use Japanese display names when available. Confirmed symbol-only fonts are excluded; unknown fonts remain available. Names load on first opening, with a retry action on failure.
+- Up to five frequently used fonts appear at the top with `★`. Selection counts are shared across notes and survive restarts.
+
+### Markdown input assistance
+
+While editing, select text and right-click **Markdown formatting** for bold, strikethrough, inline code, headings 1–3, bullets, checklists, and links. Line formatting applies to whole affected lines. With no selection, inline formatting places the caret between markers. Reapplying the matching supported format removes it. Use `Ctrl+Z` to undo.
+
+Place the caret inside an existing link and choose **Edit link...** to edit its display text and URL separately. The URL wraps and the dialog can be resized. **Markdown formatting > Insert / edit link...** also creates new links.
+
+The helper does not validate or repair every possible Markdown combination. Rendering failures fall back to source text. Deep nesting (16 levels), long inline text (over 8,192 characters), and large documents (over 131,072 characters or 2,000 newline characters) limit parsing and display source text without deleting the content.
 
 Collapsed view and expanded view positions/widths are saved separately. When a note in collapsed view near the bottom of the screen switches to expanded view, the app moves the window inside the screen. Notes with separated positions show `⛓️‍💥` in the title bar; **Align to collapsed position** aligns both positions to the collapsed view position.
 
@@ -113,6 +134,8 @@ The tray menu's Settings submenu contains startup, storage folder, dark mode, la
 Saved at `%APPDATA%\ScreenPinNotes\settings.json`. It contains `Language`, `Theme`, `StorageRoot`, `MaxNoteContentBytes`, UI toggles, and timing settings. `MaxNoteContentBytes` limits the note body `content.md`; the default is 1048576 bytes (1 MB). When no settings file exists, the initial `Language` is chosen from the OS UI locale. Restart the app after editing the file directly.
 
 ## Data location
+
+`FontUsage` in `settings.json` stores font selection counts; `IconPalette` / `IconPaletteVersion` store palette settings. Each note's `meta.json` stores its editing size in `EditWidth` / `EditHeight` (unset values use the normal size).
 
 ```
 %AppData%\ScreenPinNotes\

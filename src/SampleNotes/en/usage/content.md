@@ -12,6 +12,31 @@ This note has editing locked. The body text and title text are protected, but ch
 - In edit mode, use `Ctrl + click` to open a link
 - Right-drag in a body pane with scrollbars: scroll the pane
 
+## Toolbars
+
+A mini toolbar appears above the context menu: `A-` / `A+` change body size, `T-` / `T+` change title size, `Aa` opens fonts, 😀 opens icons, and 🎨 opens colors. There are no separate Change color / Change icon menu items.
+
+During editing, the same toolbar appears below the note with a green `✓` to finish editing. `Ctrl+Enter` or `Esc` also returns to view mode; these actions do not discard edits. The toolbar follows movement and resizing and hides while the link editor is open.
+
+## Editing size
+
+The first edit uses the normal note size. Resizing during editing remembers a separate width and height for that note. Finishing restores the normal size; the next edit restores the editing size. Position is shared with normal view and adjusted if necessary to keep the window on screen. Collapsed width remains separate.
+
+## Colors, icons, and fonts
+
+- Six dark presets stay dark even in light mode. App dark mode also darkens the existing light presets. Text, links, and palette swatches follow the effective note colors.
+- Icons are grouped into colors/shapes, urgency/priority, status/progress, notes/documents, ideas/research, schedule/communication, work/development, daily life, and animals. Choices include 🔥, colored circles/squares, and 15 animals. 🔗 is reserved for external-file status; use 🌐 for Web notes.
+- Installed fonts use Japanese display names when available. Confirmed symbol-only fonts are excluded; unknown fonts remain available. Names load on first opening, with a retry action on failure.
+- Up to five frequently used fonts appear at the top with `★`. Selection counts are shared across notes and survive restarts.
+
+## Markdown input assistance
+
+While editing, select text and right-click **Markdown formatting** for bold, strikethrough, inline code, headings 1–3, bullets, checklists, and links. Line formatting applies to whole affected lines. With no selection, inline formatting places the caret between markers. Reapplying the matching supported format removes it. Use `Ctrl+Z` to undo.
+
+Place the caret inside an existing link and choose **Edit link...** to edit its display text and URL separately. The URL wraps and the dialog can be resized. **Markdown formatting > Insert / edit link...** also creates new links.
+
+The helper does not validate or repair every possible Markdown combination. Rendering failures fall back to source text. Deep nesting (16 levels), long inline text (over 8,192 characters), and large documents (over 131,072 characters or 2,000 newline characters) limit parsing and display source text without deleting the content.
+
 ## Mouse Wheel
 
 | Area | Action |
@@ -36,7 +61,6 @@ Left: expanded view (body text visible). Right: collapsed view (only the title b
 ## Title Context Menu
 
 - Edit title
-- Change icon and color
 - Change stacking order
 - Change opacity
 - Align to collapsed position
@@ -50,7 +74,6 @@ While editing is locked, the title text cannot be edited and the note cannot be 
 
 ## Body Context Menu
 
-- Change icon and color
 - Cut / copy / paste
 - Paste as Markdown link
 - Paste / copy Excel tables

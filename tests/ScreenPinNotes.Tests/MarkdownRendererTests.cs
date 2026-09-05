@@ -11,6 +11,25 @@ namespace ScreenPinNotes.Tests;
 // テスト側から差し込んだラムダで呼び出し内容を検証する。
 public class MarkdownRendererTests
 {
+    [Fact]
+    public void LargeMalformedDocumentFallsBackWithoutLosingSource()
+    {
+        var text = string.Concat(Enumerable.Repeat("**[~~`(broken", 12000));
+        var paragraph = Assert.IsType<Paragraph>(Assert.Single(MarkdownRenderer.Render(text, 13, CreateHyperlink)));
+        Assert.Equal(text, Assert.IsType<Run>(Assert.Single(paragraph.Inlines)).Text);
+    }
+
+    [Fact]
+    public void RandomMalformedMarkupDoesNotThrow()
+    {
+        var random = new Random(731);
+        const string chars = "[]()*_~#>!\\`abc\n";
+        for (var i = 0; i < 200; i++)
+        {
+            var text = new string(Enumerable.Range(0, 300).Select(_ => chars[random.Next(chars.Length)]).ToArray());
+            Assert.NotEmpty(MarkdownRenderer.Render(text, 13, CreateHyperlink).ToArray());
+        }
+    }
     private static Hyperlink CreateHyperlink(string label, string target)
         => new(new Run(label)) { NavigateUri = new Uri("about:" + target, UriKind.Absolute) };
 

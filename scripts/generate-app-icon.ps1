@@ -19,7 +19,11 @@ function New-IconBitmap {
 
     function S([float]$v) { return [float]($v * $scale) }
 
-    # D: graphite note with a mint pin. Flat geometry remains clear at 16px.
+    # Fill more of the tray slot; keep the silhouette inside the bitmap.
+    $g.TranslateTransform((S 128), (S 128))
+    $g.ScaleTransform(1.08, 1.08)
+    $g.TranslateTransform(-(S 128), -(S 128))
+    # Bright green note with a dark pin for contrast on light and dark taskbars.
     $note = [System.Drawing.Drawing2D.GraphicsPath]::new()
     $note.AddArc((S 24), (S 58), (S 24), (S 24), 180, 90)
     $note.AddLine((S 36), (S 58), (S 220), (S 58))
@@ -28,11 +32,11 @@ function New-IconBitmap {
     $note.AddArc((S 170), (S 170), (S 62), (S 62), 0, 90)
     $note.AddLine((S 201), (S 232), (S 24), (S 232))
     $note.CloseFigure()
-    $bodyBrush = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml("#373B40"))
-    $outline = [System.Drawing.Pen]::new([System.Drawing.ColorTranslator]::FromHtml("#A9B2B7"), (S 3))
-    $stem = [System.Drawing.Pen]::new([System.Drawing.Color]::White, (S 10))
+    $bodyBrush = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml("#53D995"))
+    $outline = [System.Drawing.Pen]::new([System.Drawing.ColorTranslator]::FromHtml("#16734E"), (S 5))
+    $stem = [System.Drawing.Pen]::new([System.Drawing.ColorTranslator]::FromHtml("#155B43"), (S 13))
     $stem.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $mint = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml("#39CCA0"))
+    $mint = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml("#155B43"))
     $rim = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::White)
     $g.FillPath($bodyBrush, $note)
     $g.DrawPath($outline, $note)

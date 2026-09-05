@@ -57,7 +57,15 @@ public partial class StickyNoteWindow
     // ─── FlowDocument ↔ プレーンテキスト / Markdown ──────────────
 
     private void LoadContent(string text)
-        => LoadMarkdownContent(text);
+    {
+        try { LoadMarkdownContent(text); }
+        catch (Exception ex)
+        {
+            ErrorReporter.ReportNonFatal("Render Markdown; showing source text", ex);
+            _markdownImageContexts.Clear();
+            LoadPlainContent(text);
+        }
+    }
 
     public void ReloadExternalContent()
     {
