@@ -157,17 +157,20 @@ public partial class StickyNoteWindow
     {
         text = NormalizeLineEndings(text);
         // 1行表示ではMarkdownを読み取り、装飾と構文記号を除いた文字だけを表示する。
+        // Render() は WPF の Inline/Block しか返さないので、装飾除去そのものは
+        // そのパーサーに任せつつ、使い捨ての FlowDocument は作らずに各 Block
+        // 自身の TextRange だけで文字列に変換する（Paragraph 等は単体でも
+        // 自前の TextContainer を持つため、これだけで完結する）。
         if (ViewModel.IsFolded && ViewModel.IsTitleBarHidden)
         {
-            var preview = new FlowDocument();
-            foreach (var block in MarkdownRenderer.Render(
-                GetFoldedPreviewSource(text), ViewModel.TitleFontSize,
-                (label, target) => new Hyperlink(new Run(label)),
-                image => new Run(image.Alt)))
-                preview.Blocks.Add(block);
+            var preview = string.Concat(MarkdownRenderer.Render(
+                    GetFoldedPreviewSource(text), ViewModel.TitleFontSize,
+                    (label, target) => new Hyperlink(new Run(label)),
+                    image => new Run(image.Alt))
+                .Select(block => new TextRange(block.ContentStart, block.ContentEnd).Text));
             _markdownImageContexts.Clear();
             _requiredMarkdownPageWidth = 0;
-            LoadPlainContent(new TextRange(preview.ContentStart, preview.ContentEnd).Text.TrimEnd('\r', '\n'));
+            LoadPlainContent(preview.TrimEnd('\r', '\n'));
             ContentBox.ScrollToHome();
             return;
         }
@@ -1134,7 +1137,12 @@ public partial class StickyNoteWindow
         ViewModel.IsReadOnly = false;
         ViewModel.Icon = "📝";
         RequestSave();
+        // ApplyReadOnlyState は「読み取り専用でなくなった」場合そのまま return し
+        // LoadContent を呼ばない。ここでは Content 自体を上の freshContent で
+        // 差し替えているので、タイトルのパス表示なども含めて明示的に描き直す。
         ApplyReadOnlyState();
+        if (!_isEditMode)
+            LoadContent(ViewModel.Content);
         ConfigureContextMenus();
     }
 

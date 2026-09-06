@@ -137,7 +137,7 @@ public class StickyNoteWindowTests
         EnsureApplication();
         using var temp = new TempDataDirectory();
         const string path = "assets/very-long-folder-name/0月写真/image.png";
-        var note = new StickyNote { Content = $"![写真]({path})", IsFolded = true, IsTitleBarHidden = true, Width = 200 };
+        var note = new StickyNote { Content = $"![写真]({path})", IsFolded = true, IsTitleBarHidden = true, Width = 165 };
         var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
         try
         {
@@ -153,6 +153,35 @@ public class StickyNoteWindowTests
             InvokePrivate(window, "UpdateImagePathPreview");
             Assert.Equal(path, Text());
             Assert.Equal($"![写真]({path})", note.Content);
+        }
+        finally { window.Close(); }
+    }
+
+    // アイコンの有無で UpdateImagePathPreview が予約する幅（iconWidth）が
+    // 変わるが、アイコンの付け外しだけではウィンドウ幅は変わらず SizeChanged が
+    // 飛ばないので、Icon の PropertyChanged からも明示的に呼び直す必要がある。
+    [WpfFact]
+    public void FoldedImagePath_RefreshesWhenIconChangesWithoutResizing()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        const string path = "assets/very-long-folder-name/0月写真/image.png";
+        var note = new StickyNote { Content = $"![写真]({path})", IsFolded = true, IsTitleBarHidden = true, Width = 165 };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            InvokePrivate(window, "LoadContent", note.Content);
+            var box = (RichTextBox)window.FindName("ContentBox");
+            string Text() => new TextRange(box.Document.ContentStart, box.Document.ContentEnd).Text.Trim();
+            var withoutIcon = Text();
+
+            window.ViewModel.Icon = "💡";
+            window.UpdateLayout();
+
+            Assert.NotEqual(withoutIcon, Text());
+            Assert.EndsWith("image.png", Text());
         }
         finally { window.Close(); }
     }

@@ -216,6 +216,12 @@ public class StorageService
                 // エラー文言で潰さず、直前の内容を保持する。
                 if (note.IsExternalContent && TryReadExternalContent(note, out var externalContent))
                     note.Content = externalContent;
+                // この機能追加より前に保存されたリマインダーは ShowAlert を持たない
+                // （null）。従来どおりアラートを出す side に固定して書き戻す。
+                // これをしないと、リマインダーダイアログを開いただけの再保存で
+                // チェックボックスの見た目どおり false が書き込まれてしまう。
+                if (note.Reminder is { ShowAlert: null } reminder)
+                    reminder.ShowAlert = true;
                 notes.Add(note);
             }
             catch { /* 壊れたノートはスキップ */ }

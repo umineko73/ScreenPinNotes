@@ -168,7 +168,13 @@ public partial class StickyNoteWindow : Window
         vm.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(StickyNoteViewModel.Icon) or null)
+            {
                 UpdateIconImage();
+                // アイコンの有無で UpdateImagePathPreview の予約幅（iconWidth）が
+                // 変わる。アイコンだけを付け外ししてもウィンドウ幅は変わらず
+                // SizeChanged が飛ばないので、ここで明示的に引き直す。
+                UpdateImagePathPreview();
+            }
             if (e.PropertyName is nameof(StickyNoteViewModel.IsReadOnly) or null)
                 ApplyReadOnlyState();
         };

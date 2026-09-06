@@ -149,6 +149,33 @@ public sealed class StorageServiceTests : IDisposable
         Assert.True(loadedNote.HasReminder);
     }
 
+    // ShowAlert はこの機能追加より後に足したフィールド。追加前に保存された
+    // meta.json にはキー自体が存在しないので、そのまま読み込むと null になる
+    // （既定値 false ではない）。null は「従来どおりアラートを出す」に
+    // 読み替えて書き戻さないと、既存ユーザーのリマインダーが無警告で
+    // トースト通知だけに格下げされてしまう。
+    [Fact]
+    public void Load_ReminderWithoutShowAlertField_MigratesToAlertEnabled()
+    {
+        var noteId = Guid.NewGuid().ToString();
+        var noteDir = Path.Combine(_tempRoot, "notes", noteId);
+        Directory.CreateDirectory(noteDir);
+        File.WriteAllText(Path.Combine(noteDir, "meta.json"), """
+            {
+              "Reminder": {
+                "NextAt": "2026-08-31T14:30:00",
+                "Recurrence": "None"
+              }
+            }
+            """);
+        File.WriteAllText(Path.Combine(noteDir, "content.md"), "");
+
+        var loadedNote = Assert.Single(_storage.Load());
+
+        Assert.NotNull(loadedNote.Reminder);
+        Assert.Equal(true, loadedNote.Reminder.ShowAlert);
+    }
+
     [Fact]
     public void SaveNote_ThenLoad_RoundTripsExternalImageWidthOverrides()
     {

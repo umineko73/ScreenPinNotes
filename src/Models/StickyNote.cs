@@ -89,7 +89,10 @@ public sealed class ReminderSettings
     public int MonthDay { get; set; } = 1;
     public TimeSpan? TimeOfDay { get; set; }
     public bool WindowsNotification { get; set; } = true;
-    public bool ShowAlert { get; set; } = false;
+    // null = 未設定（この機能追加より前に保存されたリマインダー）。
+    // 新規に作成されたリマインダーはダイアログが必ず true/false を明示的に書き込む。
+    // TriggerReminder 側は null を「従来どおりアラートを出す」として扱う。
+    public bool? ShowAlert { get; set; }
     public DateTime? NextAt { get; set; }
     public string Recurrence { get; set; } = "None";
     public DateTime? LastTriggeredAt { get; set; }

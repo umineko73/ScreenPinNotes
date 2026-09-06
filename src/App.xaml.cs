@@ -38,7 +38,6 @@ public partial class App : System.Windows.Application
     private NoteManagerWindow? _noteManagerWindow;
     private readonly DispatcherTimer _reminderTimer = new();
     private readonly HashSet<string> _activeReminderAlerts = [];
-    private bool _checkingReminders;
 
     public IReadOnlyList<StickyNoteWindow> NoteWindows => _windows;
     public AppSettings Settings => _settings;
@@ -1002,13 +1001,14 @@ public partial class App : System.Windows.Application
         Dispatcher.BeginInvoke(CheckDueReminders);
     }
 
-    private void CheckDueReminders()
-    {
-        if (_checkingReminders) return;
-        _checkingReminders = true;
-        try { DeliverDueReminders(); }
-        finally { _checkingReminders = false; }
-    }
+    // ReminderAlertWindow.ShowFor は ShowDialog でネストしたメッセージループを
+    // 回すため、モーダルを開いている間も _reminderTimer の Tick はそのまま
+    // 再入してくる。ここを単純なフラグで丸ごとブロックすると、そのモーダルとは
+    // 無関係な（トースト通知だけで済むはずの）他の付箋のリマインダーまで、
+    // モーダルを閉じるまで一切届かなくなってしまう。個々の付箋の二重発火は
+    // _activeReminderAlerts（発火中の付箋だけを due から除外する）で
+    // 十分に防げているので、ここでは全体をブロックするフラグを持たない。
+    private void CheckDueReminders() => DeliverDueReminders();
 
     private void DeliverDueReminders()
     {
@@ -1019,7 +1019,14 @@ public partial class App : System.Windows.Application
         {
             // One Windows banner for simultaneous reminders, so later notices do not replace earlier ones.
             var message = string.Join("\n", notifications.Select(w => $"{w.ViewModel.Model.Reminder!.NextAt:HH:mm}  {w.ViewModel.DisplayTitle}"));
-            if (message.Length > 240) message = message[..237] + "…";
+            if (message.Length > 240)
+            {
+                // 絵文字などのサロゲートペアの真ん中で切らないよう、
+                // 高位サロゲートで終わる場合は1文字手前まで戻す。
+                var cut = 237;
+                if (char.IsHighSurrogate(message[cut - 1])) cut--;
+                message = message[..cut] + "…";
+            }
             _trayIcon.ShowBalloonTip(10000, "ScreenPinNotes", message, ToolTipIcon.Info);
         }
         foreach (var win in due)
@@ -1044,12 +1051,15 @@ public partial class App : System.Windows.Application
         {
             note.Reminder ??= new ReminderSettings();
             note.Reminder.LastTriggeredAt = DateTime.Now;
+            note.UpdatedAt = DateTime.Now;
             var reminder = note.Reminder;
             reminder.TimeOfDay ??= dueAt.TimeOfDay;
             reminder.NextAt = ReminderSchedule.Next(reminder, DateTime.Now);
             win.ViewModel.RefreshReminder();
             SaveAll();
-            if (!reminder.ShowAlert)
+            // null（この機能追加より前に保存されたリマインダー）は従来どおり
+            // アラートを出す側として扱う。明示的に false のときだけスキップする。
+            if (reminder.ShowAlert == false)
             {
                 _noteManagerWindow?.RefreshNotes();
                 return;
@@ -1061,11 +1071,6 @@ public partial class App : System.Windows.Application
             if (result.Snoozed && result.SnoozeDelay is TimeSpan delay)
             {
                 reminder.NextAt = DateTime.Now.Add(delay);
-                win.ViewModel.RefreshReminder();
-            }
-            else
-            {
-                note.UpdatedAt = DateTime.Now;
                 win.ViewModel.RefreshReminder();
             }
             SaveAll();

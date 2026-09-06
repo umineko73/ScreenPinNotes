@@ -253,7 +253,7 @@ public sealed class ReminderDialog : Window
             WindowsNotification = _windows.IsChecked == true,
             ShowAlert = _alert.IsChecked == true,
         };
-        if ((!settings.WindowsNotification && !settings.ShowAlert) || (settings.Recurrence == "Weekly" && settings.WeekDays.Count == 0))
+        if ((!settings.WindowsNotification && settings.ShowAlert != true) || (settings.Recurrence == "Weekly" && settings.WeekDays.Count == 0))
         {
             _errorText.Text = LocalizationService.T("ReminderChooseOptions");
             return;
