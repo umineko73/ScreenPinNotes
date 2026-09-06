@@ -345,6 +345,14 @@ public partial class StickyNoteWindow : Window
 
     private void ApplySettings()
     {
+        var editBackground = IsDarkTheme() ? WpfBrushes.White : WpfBrushes.Black;
+        var editForeground = IsDarkTheme() ? WpfBrushes.Black : WpfBrushes.White;
+        EditingBadge.Background = editBackground;
+        EditingBadge.BorderBrush = editForeground;
+        EditingBadgeText.Foreground = editForeground;
+        DoneEditingButton.Background = editBackground;
+        DoneEditingButton.Foreground = editForeground;
+
         _overlayTimer.Interval = TimeSpan.FromMilliseconds(Settings.Timings.SizeOverlayDurationMs);
         _toolbarHideTimer.Interval = TimeSpan.FromMilliseconds(Settings.Timings.ToolbarHideDelayMs);
         _titlePreviewTimer.Interval = TimeSpan.FromMilliseconds(Settings.Timings.TitlePreviewDelayMs);

@@ -371,7 +371,7 @@
             <!-- 編集ツールバー。編集モード中は常に表示する -->
             <!-- 編集中であることの唯一の目印。ツールバーはフォーカスが外れると
                  隠れるので、これが無いと編集中かどうか分からない。付箋の色に
-                 左右されないよう塗りと白フチを持たせ、本文のクリックを
+                 左右されないよう塗りと反対色のフチを持たせ、本文のクリックを
                  邪魔しないよう当たり判定は持たせない。 -->
             <Border x:Name="EditingBadge"
                     Grid.Row="1"
@@ -383,8 +383,8 @@
                     Margin="6,0,0,6"
                     Padding="7,2,7,2"
                     CornerRadius="4"
-                    Background="#287548"
-                    BorderBrush="#F2FFF8"
+                    Background="Black"
+                    BorderBrush="White"
                     BorderThickness="1">
                 <TextBlock x:Name="EditingBadgeText"
                            Foreground="White"
