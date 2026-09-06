@@ -239,7 +239,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         }
     }
 
-    public string FoldIcon => IsFolded ? "▼" : "▲";
+    public string FoldIcon => IsFolded ? "⮟" : "⮝";
 
     public bool IsTitleBarHidden
     {
