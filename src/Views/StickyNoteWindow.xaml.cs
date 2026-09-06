@@ -547,7 +547,14 @@ public partial class StickyNoteWindow : Window
     }
 
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
-        => FlushPendingSave();
+    {
+        FlushPendingSave();
+        // タスクバーの×や Alt+F4 のように、アプリを通さずウィンドウだけ閉じられた
+        // ときは、付箋を削除せず非表示にして閉じるのを取りやめる。閉じてしまうと
+        // 一覧には残るのに Show() できない状態になり、全表示で例外になる。
+        if (App.Current.HideNoteOnWindowClose(this))
+            e.Cancel = true;
+    }
 
     // ─── 自動保存（デバウンス） ──────────────────────────────────
 

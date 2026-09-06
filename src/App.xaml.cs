@@ -38,6 +38,7 @@ public partial class App : System.Windows.Application
     private NoteManagerWindow? _noteManagerWindow;
     private readonly DispatcherTimer _reminderTimer = new();
     private readonly HashSet<string> _activeReminderAlerts = [];
+    private bool _shuttingDown;
 
     public IReadOnlyList<StickyNoteWindow> NoteWindows => _windows;
     public AppSettings Settings => _settings;
@@ -94,8 +95,14 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        // ログオフ・シャットダウン時にデバウンス待ちの変更を取りこぼさない
-        SessionEnding += (_, _) => FlushAndSave();
+        // ログオフ・シャットダウン時にデバウンス待ちの変更を取りこぼさない。
+        // ここで閉じられるウィンドウは「ユーザーが個別に閉じた」わけではないので、
+        // 非表示への読み替え（HideNoteOnWindowClose）はしないよう先に印を付ける。
+        SessionEnding += (_, _) =>
+        {
+            _shuttingDown = true;
+            FlushAndSave();
+        };
 
         _settings = _storage.LoadSettings();
         // スタートアップ登録は既存のレジストリが実体なので、起動時にJSONへ反映する。
@@ -851,6 +858,25 @@ public partial class App : System.Windows.Application
             win.Show();
     }
 
+    /// <summary>
+    /// ウィンドウ自体が閉じられようとしているとき（タスクバーの×、Alt+F4 など）に
+    /// 付箋側から呼ぶ。閉じたウィンドウは Show() できないので、そのまま閉じさせると
+    /// 一覧やトレイには残ったまま二度と表示できない抜け殻になり、「付箋をすべて表示」で
+    /// InvalidOperationException になる。付箋は消さずに非表示へ読み替え、
+    /// トレイの「非表示の付箋」や付箋一覧から戻せる状態にする。
+    /// 閉じるのを取りやめた場合だけ true を返す。
+    /// </summary>
+    public bool HideNoteOnWindowClose(StickyNoteWindow win)
+    {
+        // 終了処理と、アプリ側から意図的に閉じるとき（削除・保存先の切り替え）は
+        // すでに _windows から外れているので、そのまま閉じさせる。
+        if (_shuttingDown || !_windows.Contains(win))
+            return false;
+
+        HideNote(win.ViewModel.Model.Id);
+        return true;
+    }
+
     public void HideNote(string id)
     {
         var win = _windows.FirstOrDefault(w => w.ViewModel.Model.Id == id);
@@ -1101,6 +1127,7 @@ public partial class App : System.Windows.Application
 
     private void ExitApp()
     {
+        _shuttingDown = true;
         FlushAndSave();
         _trayIcon?.Dispose();
         Shutdown();
@@ -1108,6 +1135,7 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _shuttingDown = true;
         _reminderTimer.Stop();
 
         // Mutex を持つ本来のインスタンスのときだけ保存する。
