@@ -2,127 +2,182 @@
 
 English | [日本語](README.ja.md)
 
-A desktop sticky notes app for Windows. Notes stay on your desktop, render Markdown, and are stored as plain files you can read without the app.
+A Windows desktop sticky notes app with Markdown, images, and recurring reminders. Notes autosave as local files.
 
-![ScreenPinNotes screenshot](docs/screenshot-en.png)
+![ScreenPinNotes in use](docs/screenshot-en.png)
 
-## Features
+## Get started
 
-- **Notes that get out of the way** — collapse a note to its title bar, or hide the title bar entirely and collapse to the first line of the body. Notes snap to screen edges and to each other.
-- **One look per note** — color, icon, body font, title font, opacity, and always-on-top, each set per note. Light and dark mode.
-- **Markdown** — headings, lists, clickable checklists, tables, code, links, and images, with right-click formatting help while editing.
-- **Reminders** — once, daily, weekly, or monthly, as a Windows notification with an optional snooze window.
-- **Paste from anywhere** — images, Excel tables, and images inside Excel.
-- **External files** — show a `.md` or `.txt` file as a read-only note that reloads when the file changes.
-- **Note list** — search every note and show, hide, or delete notes from one place.
-- **Plain local files** — one folder per note, autosaved. Japanese and English UI. Lives in the system tray, optionally starting with Windows.
+1. Download and extract a zip from [Releases](https://github.com/umineko73/ScreenPinNotes/releases).
+2. Launch `ScreenPinNotes.exe`.
+3. Right-click the tray icon to create a note. Double-click its body to edit.
 
-## Download
+| Package | Requirements |
+| --- | --- |
+| `ScreenPinNotes-x.y.z-win-x64.zip` | Runtime included |
+| `ScreenPinNotes-x.y.z-win-x64-runtime.zip` | .NET 8 Desktop Runtime |
 
-Download a zip from [Releases](https://github.com/umineko73/ScreenPinNotes/releases) and extract it. No installation required.
+Windows 10 or later, x64. No installation needed. Rounded corners are supported on Windows 11.
 
-| File | Requires |
-|------|----------|
-| `ScreenPinNotes-x.y.z-win-x64.zip` (~68MB) | Nothing |
-| `ScreenPinNotes-x.y.z-win-x64-runtime.zip` (~11MB) | [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) |
+## Display modes
 
-Windows 10 or later, x64. Rounded corners require Windows 11.
+Title bar visibility and collapse/expand are independent settings.
 
-## Usage
+| Title bar | Expanded | Collapsed |
+| --- | --- | --- |
+| Visible | Title and body | Title only |
+| Hidden | Body with controls at the top right | First body line without Markdown formatting |
 
-| Action | Effect |
-|--------|--------|
-| Double-click the body | Edit the note |
-| `Esc` / `Ctrl+Enter` / toolbar `✓` | Finish editing (nothing is discarded) |
-| Drag the title bar | Move |
-| Double-click the title bar | Collapse / expand |
-| Right-click the title or body | Note menu |
-| `Ctrl`+wheel over the body or an image | Resize the font or that image |
-| Right-drag a scrollable body | Scroll it |
-| Close a note's window (taskbar `×`, `Alt+F4`) | Hide the note — it is not deleted |
-| Tray icon left-click / right-click | Show or hide all notes / open the menu |
+- Toggle the title bar with **Hide title bar** in the context menu.
+- Use `⮝` / `⮟` or double-click the title bar to collapse or expand.
+- Image-only notes show their image path in single-line mode. Narrow notes retain the end, such as `…/photos/image.png`.
+- An empty title falls back to the body. A title you enter takes priority.
+- Editing shows Markdown source and an *Editing* label. Edit width and height are remembered separately from view mode.
 
-A mini toolbar sits above the context menu and below a note being edited: `A-` `A+` for body size, `T-` `T+` for title size, `Aa` for fonts, 🦊 for icons, 🎨 for colors, and a green `✓` to finish editing. A note being edited is labelled *Editing* in its bottom left corner. Resizing a note while editing is remembered separately, so editing does not disturb its normal size.
+## Mouse actions
 
-### Collapsed and expanded views
+| Action | Result |
+| --- | --- |
+| Double-click the body | Start editing |
+| Drag the title bar | Move; snap to screen edges and other notes |
+| Drag the top-right control area with the title bar hidden | Move the note |
+| Double-click the title bar | Collapse/expand; configurable as a single click |
+| Drag an edge | Resize; collapsed notes resize horizontally only |
+| Right-click the title or body | Open the menu for that area |
+| Click a link | Open it |
+| Click a checklist checkbox | Toggle completion |
+| Right-drag a scrollable body | Scroll the body |
 
-Each note remembers a separate position and width for its collapsed and expanded views. When the two drift apart the title bar shows `⛓️‍💥`, and **Align to collapsed position** brings them back together.
+## Modifier keys and shortcuts
 
-| On the title bar | Effect |
-|------------------|--------|
-| `Ctrl` + drag | Move only the view you are in |
+| Action | Result |
+| --- | --- |
+| `Ctrl` + drag | Move only the current display mode's position |
 | `Alt` + drag | Move without snapping |
-| `Ctrl+Alt` + drag | Both |
+| `Ctrl+Alt` + drag | Move only the current mode, without snapping |
+| `Ctrl` + wheel over the body | Change body font size |
+| `Ctrl` + wheel over the title bar | Change title font size |
+| `Ctrl` + wheel over an image | Resize the image |
+| `Ctrl+Enter` / `Esc` / `✓` | Finish editing and keep changes |
+| `Enter` while editing the title | Confirm the title |
+| `Ctrl+Z` | Undo an edit |
+| `Ctrl+C` / `Ctrl+X` / `Ctrl+V` | Copy/cut/paste |
+| `Alt+F4` / taskbar close | Hide the note |
 
-### Markdown formatting help
+Normal dragging links expanded and collapsed positions. Use **Align to collapsed position** to reconnect separated positions. Each mode remembers its own width.
 
-Select text while editing and right-click **Markdown formatting** for bold, strikethrough, inline code, headings, bullets, checklists, and links. Applying the same format again removes it, and `Ctrl+Z` undoes. **Edit link...** edits an existing link's text and URL separately. Very large or deeply nested documents show their source text instead of rendering; nothing is lost.
+## Icons and toolbars
 
-### Images
+| Symbol | Meaning or action |
+| --- | --- |
+| `＋` | Create a note using this note's appearance |
+| `📌` | Toggle always-on-top |
+| `⮝` / `⮟` | Collapse / expand |
+| `🦊` and other icons | Identify a note |
+| `🔗` | Linked to an external file |
+| `🔒` | Editing is locked |
+| `⛓️‍💥` | Expanded and collapsed positions are separate |
+| `⏰` | Reminder set; hover for its next time |
+| `A−` / `A＋` | Body font size |
+| `T−` / `T＋` | Title and single-line font size |
+| `Aa` / `🦊` / `🎨` (mini toolbar) | Font / icon / color picker |
+| Round `✓` | Finish editing; black in light mode, white in dark mode |
 
-Pasted images are saved as PNGs in the note's `assets` folder. Resize them between 20% and 200% from the context menu or with `Ctrl`+wheel, or match the note to an image with **Fit window to image**. Only local images render inline; an `http(s)://` image URL becomes Markdown but is not previewed.
+The mini toolbar appears above context menus and below the note while editing. `🔒`, `⛓️‍💥`, and `⏰` are status indicators.
 
-### Reminders
+## Context menus
 
-Set one from a note's menu or the note list: once, daily, weekly (any weekdays), or monthly (day 1–31, falling back to the last day of shorter months). Notes with a reminder show `⏰`, and hovering it shows the next time.
+| Location | Main actions |
+| --- | --- |
+| Title | Edit/copy title, stacking order, opacity, reconnect positions |
+| Body in view mode | Copy, open links, copy Excel tables, fit the window to images |
+| Body in edit mode | Cut/paste/select all, Markdown formatting, edit links, paste Excel tables |
+| Image | Image sizing and other image actions |
+| Shared by title and body | Hide title bar, opacity, reminders, edit lock, hide, delete |
 
-When one is due you get a Windows notification — clicking it opens the note list, and reminders due at the same time share one notification. You can also enable a window with Done and 5-, 15-, or 60-minute snooze; snoozing does not move the recurring time. ScreenPinNotes has to be running in the tray, and anything missed while it was closed is delivered once when it starts again.
+Use the mini toolbar for colors, fonts, and icons. Unavailable actions are disabled or hidden.
 
-### Tray menu
+**Hide** keeps the note; **Delete** removes it. Edit lock restricts body/title editing and deletion, while appearance, position, and checklist completion remain adjustable.
 
-**Note list...** searches titles, bodies, reminders, and external file paths, and manages visibility, reminders, and deletion in one place. **Hidden notes** brings back notes you have hidden — *Show all notes* deliberately leaves them hidden.
+## Markdown, images, and Excel
 
-**Open external file as note...** shows a `.md` or `.txt` file as a read-only note, marked `🔗`, that reloads when the file changes. Image sizes you set there are kept in the note; the original file is never modified.
+| Type | Syntax or action |
+| --- | --- |
+| Headings | `# Heading` through `###### Heading` |
+| Formatting | `**bold**`, `*italic*`, `~~strike~~` |
+| Code | Enclose inline code with one backtick; blocks with three |
+| Lists | `- item`, `1. item`, `- [ ] task` |
+| Quotes and rules | `> quote`, `---` |
+| Tables | Pipe-separated Markdown tables, with column alignment |
+| Links | `[label](URL)` or a plain URL |
+| Images | `![alt](assets/image.png)`; append `{width=240}` to set width |
 
-**Settings** covers defaults for new notes, dark mode, language, startup, taskbar visibility, what a left-click on the tray icon does, collapse/expand behavior, the storage folder, and export/import. Changes apply and save immediately. The defaults for new notes apply to notes created from the tray — using `＋` on an existing note copies that note's look instead.
+- Use **Markdown formatting** while editing to insert syntax. **Edit link** changes a link's label and URL.
+- Pasted images are saved as PNGs in the note's `assets` folder. Local images render inline; web image URLs do not.
+- Resize images between 20% and 200% using their context menu or `Ctrl` + wheel.
+- Use the context menu to paste/copy Excel tables. Pasting images is also supported.
+- Very large documents or deeply nested formatting fall back to source text without discarding content.
 
-## Markdown syntax
+## Reminders
 
-Edit mode shows the Markdown source; view mode shows the rendered result.
+Configure a reminder from a note's context menu or the **Note list**.
 
-| Syntax | Effect |
-|--------|--------|
-| `# Heading` – `###### Heading` | Headings (6 levels) |
-| `**bold**` / `__bold__` | Bold |
-| `*italic*` / `_italic_` | Italic |
-| `~~strike~~` | Strikethrough |
-| `` `code` `` / ` ```block``` ` | Inline code / code block |
-| `- item` / `1. item` / `- [ ]` | Lists, including clickable checklists |
-| `> quote` / `---` | Blockquote / horizontal rule |
-| `\| a \| b \|` | Table (`:---`, `:---:`, `---:` set alignment) |
-| `[label](url)` / `<https://example.com>` | Link (URLs containing `(` work; link titles are ignored) |
-| `![alt](assets/image.png)` | Image (`{width=240}` sets its size) |
+| Repeat | Schedule |
+| --- | --- |
+| Once | Date and time |
+| Daily | Start date and daily time |
+| Weekly | Start date, time, and one or more weekdays |
+| Monthly | Start date, time, and day 1–31; shorter months use their last day |
 
-Basic escapes such as `\*` and `\[` are supported.
+Click a Windows notification to open the note list. Simultaneous reminders share a notification. Optionally enable the alert window for 5-, 15-, or 60-minute snooze. Snoozing preserves the recurring time.
 
-## Data location
+The app must be running in the tray. Missed reminders are delivered once on restart or resume. Windows notification settings control banners and sound.
 
+## Tray, settings, and external files
+
+| Feature | Purpose |
+| --- | --- |
+| Tray left-click | Toggle all notes or create a new note, as selected in settings |
+| Tray right-click | Create notes, note list, hidden notes, settings, exit |
+| Note list | Search titles, bodies, external paths, and more; manage visibility, reminders, and deletion |
+| Hidden notes | Restore individually hidden notes; Show all does not restore them |
+| Settings | New-note defaults, theme, language, startup, taskbar/tray behavior, and storage |
+| Open external file as note | Display `.md` / `.txt` read-only and follow file changes |
+
+Settings save immediately. New-note defaults apply to tray-created notes; `＋` on a note copies its appearance.
+
+External notes show `🔗`. Their menu can open the file or folder, or convert the content into an editable note. Deleting the note or changing image display sizes does not modify the original file.
+
+## Storage and backups
+
+Default location: `%AppData%\ScreenPinNotes`.
+
+```text
+ScreenPinNotes/
+├─ settings.json
+├─ logs/app.log
+└─ notes/<note-id>/
+   ├─ meta.json     # Position, color, reminders, etc.
+   ├─ content.md    # Body
+   └─ assets/       # Images
 ```
-%AppData%\ScreenPinNotes\
-  settings.json
-  logs\app.log
-  notes\{note id}\meta.json, content.md, assets\
-```
 
-Every note is a folder: `meta.json` holds its position, size, color, reminder, and other metadata, `content.md` holds the body, and `assets` holds its images. Note bodies are limited to 1 MB by default (`MaxNoteContentBytes`).
+Use **Settings** to change storage or export/import zip backups. Imports add notes without overwriting existing ones. The default body limit is 1 MB.
 
-Change where notes live from **Settings > Select note folder...**, or set `SCREENPINNOTES_DATA` before the first run. An empty folder is seeded with sample notes. Edit `settings.json` by hand only while the app is closed.
+Set `SCREENPINNOTES_DATA` to run with a separate data directory. Close the app before manually editing `settings.json`.
 
-## Build
+## Development and license
 
-```bash
+Use Windows and the .NET 8 SDK.
+
+```powershell
 git clone https://github.com/umineko73/ScreenPinNotes.git
 cd ScreenPinNotes
 dotnet build
 dotnet run --project src
+dotnet test
 ```
 
-Requires the .NET 8 SDK. `powershell -ExecutionPolicy Bypass -File scripts/publish.ps1` writes the distributable zips to `artifacts/`.
+Build release zips with `powershell -ExecutionPolicy Bypass -File scripts/publish.ps1` (output: `artifacts/`). See [localization instructions](docs/localization.md) for translations.
 
-Each note is a single WPF `Window` with `WindowStyle="None"` and a custom title bar. The source is split into `Models/`, `ViewModels/`, `Views/`, `Services/`, and `SampleNotes/` under `src/`.
-
-## License
-
-[GNU General Public License v3.0 or later](LICENSE)
-
-Copyright (C) 2026 umineko73
+[GNU General Public License v3.0 or later](LICENSE) · Copyright (C) 2026 umineko73
