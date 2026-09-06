@@ -610,11 +610,9 @@ public partial class StickyNoteWindow
 
         if (_isEditMode) return;
         var target = GetHyperlinkAt(e.GetPosition(ContentBox));
-        ContentBox.Cursor = target != null
-            ? WpfCursors.Hand
-            // 掴んで動かせる状態であることは、オーバーレイと同じカーソルで示す。
-            : BodyActsAsTitleBar ? WpfCursors.SizeAll
-            : WpfCursors.Arrow;
+        // 畳んだ1行表示でも通常の矢印のままにする。掴んで動かせる状態ではあるが、
+        // 本文の上に十字カーソルが出ると付箋の見た目を損なうため。
+        ContentBox.Cursor = target != null ? WpfCursors.Hand : WpfCursors.Arrow;
     }
 
     /// <summary>
