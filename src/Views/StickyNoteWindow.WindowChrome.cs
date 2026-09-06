@@ -71,6 +71,11 @@ public partial class StickyNoteWindow
             _isDragging = false;
             _dragMoved = false;
             _dragSeparatesFoldedPosition = false;
+            // ダブルクリックの1回目でキャプチャを取っているので、ここで返す前に
+            // 返しておく。持ったままにすると以降のマウス操作が全部この要素へ
+            // 流れ続け、他の場所を押しても掴めず、近い位置の連打が
+            // ダブルクリック扱いになって勝手に開閉してしまう。
+            ((UIElement)sender).ReleaseMouseCapture();
             e.Handled = true;
             ToggleFold();
             return;
@@ -113,9 +118,10 @@ public partial class StickyNoteWindow
 
     private void TitleBar_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
+        // ドラッグ扱いでなかった場合も含め、キャプチャは必ず手放す。
+        ((UIElement)sender).ReleaseMouseCapture();
         if (!_isDragging) return;
         _isDragging = false;
-        ((UIElement)sender).ReleaseMouseCapture();
 
         if (_dragMoved)
         {
@@ -178,6 +184,45 @@ public partial class StickyNoteWindow
             !_isEditMode &&
             !string.IsNullOrWhiteSpace(ViewModel.Content) &&
             IsMouseOver;
+    }
+
+    // 畳んだタイトルバー無しの本文を掴んで動かす経路。
+    //
+    // ContentBox 側の PreviewMouseLeftButtonDown で受けると、RichTextBox の
+    // クラスハンドラ（テキスト選択）が先に走ってマウスキャプチャを持って
+    // いってしまい、こちらのキャプチャが即座に外れてドラッグが始まらない。
+    // トンネリングは親から子へ流れるので、親の RootBorder で先に捕まえて
+    // Handled にすれば、そもそも RichTextBox まで届かない。
+    private void RootBorder_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!BodyActsAsTitleBar) return;
+        if (e.OriginalSource is not DependencyObject source || !IsDescendantOf(source, ContentBox)) return;
+
+        TitleBar_MouseLeftButtonDown(RootBorder, e);
+        e.Handled = true;
+    }
+
+    private void RootBorder_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_isDragging) return;
+        TitleBar_MouseLeftButtonUp(RootBorder, e);
+        e.Handled = true;
+    }
+
+    private void RootBorder_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (!_isDragging) return;
+        TitleBar_MouseMove(RootBorder, e);
+        e.Handled = true;
+    }
+
+    private void RootBorder_LostMouseCapture(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        // キャプチャを外されたまま _isDragging が残ると、次に触れただけで動く。
+        if (!_isDragging) return;
+        _isDragging = false;
+        _dragMoved = false;
+        _dragSeparatesFoldedPosition = false;
     }
 
     private void RootBorder_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)

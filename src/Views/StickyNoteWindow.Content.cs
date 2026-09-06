@@ -171,6 +171,10 @@ public partial class StickyNoteWindow
             _markdownImageContexts.Clear();
             _requiredMarkdownPageWidth = 0;
             LoadPlainContent(preview.TrimEnd('\r', '\n'));
+            // 畳む前の選択が1行表示に残っていると、その上で押した瞬間に
+            // RichTextBox が選択テキストのドラッグ＆ドロップを始めてしまい、
+            // 付箋を掴んで動かせなくなる。ここは掴む場所なので選択を解く。
+            ContentBox.Selection.Select(ContentBox.Document.ContentStart, ContentBox.Document.ContentStart);
             ContentBox.ScrollToHome();
             return;
         }

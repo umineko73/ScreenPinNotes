@@ -527,12 +527,6 @@ public partial class StickyNoteWindow
                 e.Handled = true;
                 return;
             }
-            if (BodyActsAsTitleBar)
-            {
-                TitleBar_MouseLeftButtonDown(ContentBox, e);
-                e.Handled = true;
-                return;
-            }
 
             // シングルクリックでは編集モードに入らない。誤って文字を
             // 選択しただけで編集が始まるのを避けるため、ダブルクリックを要求する。
@@ -576,14 +570,6 @@ public partial class StickyNoteWindow
     // View モードでハイパーリンク上にカーソルが来たら Hand に切り替え
     private void ContentBox_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
     {
-        // 畳んだタイトルバー無しの本文から始まったドラッグは、
-        // タイトルバーと同じ移動処理へ渡す（ContentBox がキャプチャ中）。
-        if (_isDragging)
-        {
-            TitleBar_MouseMove(sender, e);
-            return;
-        }
-
         if (_isPaneScrollDragging)
         {
             UpdatePaneScrollDrag(e.GetPosition(ContentBox));
@@ -616,17 +602,6 @@ public partial class StickyNoteWindow
     }
 
     /// <summary>
-    /// 畳んだタイトルバー無しの本文で始めたドラッグの後始末。
-    /// タイトルバー側と同じ処理を通し、位置の保存や折りたたみ切り替えの
-    /// 判定（シングルクリック設定）をそちらへ任せる。
-    /// </summary>
-    private void ContentBox_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-    {
-        if (!_isDragging) return;
-        TitleBar_MouseLeftButtonUp(ContentBox, e);
-        e.Handled = true;
-    }
-
     private void ContentBox_LostMouseCapture(object sender, System.Windows.Input.MouseEventArgs e)
         => EndPaneScrollDrag();
 

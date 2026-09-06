@@ -50,7 +50,11 @@
             BorderThickness="1"
             BorderBrush="{Binding HeaderBrush}"
             MouseEnter="RootBorder_MouseEnter"
-            MouseLeave="RootBorder_MouseLeave">
+            MouseLeave="RootBorder_MouseLeave"
+            PreviewMouseLeftButtonDown="RootBorder_PreviewMouseLeftButtonDown"
+            PreviewMouseLeftButtonUp="RootBorder_PreviewMouseLeftButtonUp"
+            MouseMove="RootBorder_MouseMove"
+            LostMouseCapture="RootBorder_LostMouseCapture">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/> <!-- タイトルバー -->
@@ -221,7 +225,6 @@
                          ContextMenuOpening="ContentBox_ContextMenuOpening"
                          GotKeyboardFocus="EditableControl_GotKeyboardFocus"
                          PreviewMouseLeftButtonDown="ContentBox_PreviewMouseDown"
-                         PreviewMouseLeftButtonUp="ContentBox_PreviewMouseLeftButtonUp"
                          PreviewMouseRightButtonDown="ContentBox_PreviewMouseRightButtonDown"
                          PreviewMouseRightButtonUp="ContentBox_PreviewMouseRightButtonUp"
                          PreviewMouseWheel="ContentBox_PreviewMouseWheel"
