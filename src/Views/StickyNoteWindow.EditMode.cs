@@ -385,7 +385,37 @@ public partial class StickyNoteWindow
         OverlayMoveHandle.Visibility = string.IsNullOrEmpty(ViewModel.Icon)
             ? Visibility.Visible
             : Visibility.Collapsed;
+        UpdateTitleBarOverlayOffset();
     }
+
+    /// <summary>XAML で TitleBarOverlay に付けている右余白。</summary>
+    private const double TitleBarOverlayRightMargin = 4;
+
+    /// <summary>
+    /// 縦スクロールバーが出ている間は、その幅ぶんオーバーレイを左へ寄せる。
+    /// どちらも本文の右上にあるので、そのままだとアイコンがつまみに重なる。
+    /// </summary>
+    private void UpdateTitleBarOverlayOffset()
+    {
+        var scrollViewer = FindVisualChild<ScrollViewer>(IsBodyEditing() ? (DependencyObject)BodyEditBox : ContentBox);
+        var barWidth = scrollViewer?.ComputedVerticalScrollBarVisibility == Visibility.Visible
+            ? SystemParameters.VerticalScrollBarWidth
+            : 0;
+
+        var margin = TitleBarOverlay.Margin;
+        var right = TitleBarOverlayRightMargin + barWidth;
+        if (Math.Abs(margin.Right - right) < 0.5)
+            return;
+
+        TitleBarOverlay.Margin = new Thickness(margin.Left, margin.Top, right, margin.Bottom);
+    }
+
+    /// <summary>
+    /// スクロールバーは本文の量やウィンドウの大きさで出入りするので、
+    /// そのたびにオーバーレイの位置を合わせ直す。
+    /// </summary>
+    private void Content_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        => UpdateTitleBarOverlayOffset();
 
     // ─── ステータスバーぶんウィンドウを伸縮させる ────────────────
     //
