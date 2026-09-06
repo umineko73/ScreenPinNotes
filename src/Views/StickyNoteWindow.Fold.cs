@@ -118,6 +118,10 @@ public partial class StickyNoteWindow
             // アニメーション中の SizeChanged で Model.Height が
             // 途中の値に上書きされないよう先にフラグを立てる
             ViewModel.IsFolded = true;
+            // タイトルバーを隠しているときは、見出しの先頭行がタイトル文字サイズを
+            // 基準に描き直されるよう、見た目を畳む前に読み込み直しておく。
+            if (ViewModel.IsTitleBarHidden)
+                LoadContent(ViewModel.Content);
             UpdateTitleBarButtonsVisibility();
             ScheduleTitlePreview();
             HideEditToolbar();

@@ -75,7 +75,9 @@ public partial class StickyNoteWindow : Window
             var lineSpacing = new WpfFontFamily(ViewModel.FontFamily).LineSpacing;
             if (!double.IsFinite(lineSpacing) || lineSpacing <= 0) lineSpacing = 1.3;
             // 先頭行が見出しなら本文より大きく描かれる。本文サイズで測ると下が切れる。
-            var fontSize = MarkdownRenderer.GetFirstLineFontSize(ViewModel.Content, ViewModel.FontSize);
+            // ここは「タイトルバーを隠して畳んだときの高さ」を計算しているので、
+            // 実際にまだ畳んでいなくても常にタイトル文字サイズを基準にする。
+            var fontSize = MarkdownRenderer.GetFirstLineFontSize(ViewModel.Content, ViewModel.TitleFontSize);
             return Math.Ceiling(lineSpacing * fontSize)
                  + ContentBox.Padding.Top + ContentBox.Padding.Bottom
                  + Settings.Layout.RootBorderThickness * 2;

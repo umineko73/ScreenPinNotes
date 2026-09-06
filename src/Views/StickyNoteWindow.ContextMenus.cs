@@ -357,6 +357,9 @@ public partial class StickyNoteWindow
         ApplyTitleBarVisibility();
         if (ViewModel.IsFolded)
         {
+            // 畳んだ1行表示の文字サイズがタイトル/本文どちらの基準になるかが
+            // 切り替わるので、見出しの先頭行も含めて読み込み直す。
+            LoadContent(ViewModel.Content);
             ApplyFoldedContentPresentation();
             BeginAnimation(HeightProperty, null);
             Height = FoldedHeight;

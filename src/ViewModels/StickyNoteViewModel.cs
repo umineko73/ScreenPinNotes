@@ -235,6 +235,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
             _model.IsFolded = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(FoldIcon));
+            OnPropertyChanged(nameof(ContentFontSize));
         }
     }
 
@@ -248,6 +249,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
             _model.IsTitleBarHidden = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(TitleBarVisibility));
+            OnPropertyChanged(nameof(ContentFontSize));
         }
     }
 
@@ -267,7 +269,12 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     public double FontSize
     {
         get => _model.FontSize;
-        set { _model.FontSize = value; OnPropertyChanged(); }
+        set
+        {
+            _model.FontSize = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ContentFontSize));
+        }
     }
 
     /// <summary>タイトルバーに表示する文字のサイズ。</summary>
@@ -280,8 +287,17 @@ public class StickyNoteViewModel : INotifyPropertyChanged
             OnPropertyChanged();
             OnPropertyChanged(nameof(TitleBarHeight));
             OnPropertyChanged(nameof(TitleIconSize));
+            OnPropertyChanged(nameof(ContentFontSize));
         }
     }
+
+    /// <summary>
+    /// 本文コントロールに実際に適用するフォントサイズ。
+    /// タイトルバーを隠していて折りたたんだ状態では、本文の1行目が
+    /// タイトルバーの代わりになるので、見た目をタイトル文字サイズに揃える。
+    /// </summary>
+    public double ContentFontSize =>
+        IsFolded && IsTitleBarHidden ? TitleFontSize : FontSize;
 
     public double TitleIconSize =>
         Math.Clamp(Math.Ceiling(_model.TitleFontSize * 1.5), 20, 38);

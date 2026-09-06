@@ -154,7 +154,7 @@ public partial class StickyNoteWindow
             _requiredMarkdownPageWidth = 0;
             foreach (var block in MarkdownRenderer.Render(
                 text,
-                ViewModel.FontSize,
+                ViewModel.ContentFontSize,
                 CreateHyperlink,
                 CreateMarkdownImage,
                 CreateTaskCheckbox,
