@@ -77,6 +77,13 @@ public class MarkdownRendererTests
     public void GetFirstLineFontSize_LooksAtTheFirstLineOnly()
         => Assert.Equal(13, MarkdownRenderer.GetFirstLineFontSize("plain\n# heading", 13));
 
+    // タイトルバーを隠した1行表示では、見出しの拡大よりタイトル文字サイズを優先する。
+    [Theory]
+    [InlineData("# heading")]
+    [InlineData("plain text")]
+    public void GetFirstLineFontSize_IgnoreHeadingSize_AlwaysReturnsBaseFontSize(string text)
+        => Assert.Equal(13, MarkdownRenderer.GetFirstLineFontSize(text, 13, ignoreHeadingSize: true));
+
     private static Hyperlink CreateHyperlink(string label, string target)
         => new(new Run(label)) { NavigateUri = new Uri("about:" + target, UriKind.Absolute) };
 
@@ -87,8 +94,26 @@ public class MarkdownRendererTests
 
         var para = Assert.IsType<Paragraph>(Assert.Single(blocks));
         Assert.Equal(FontWeights.Bold, para.FontWeight);
+        Assert.Equal(21.0, para.FontSize);
         var run = Assert.IsType<Run>(Assert.Single(para.Inlines));
         Assert.Equal("Hello", run.Text);
+    }
+
+    // タイトルバーを隠した1行表示のときは、先頭行が見出しでも太字のまま
+    // タイトル文字サイズ（baseFontSize）で描く。2行目以降の見出しは通常通り拡大する。
+    [Fact]
+    public void Render_IgnoreFirstLineHeadingSize_KeepsFirstHeadingAtBaseFontSizeButNotLaterOnes()
+    {
+        var blocks = MarkdownRenderer.Render(
+            "# Hello\n# World", 13, CreateHyperlink, ignoreFirstLineHeadingSize: true).ToList();
+
+        var first = Assert.IsType<Paragraph>(blocks[0]);
+        Assert.Equal(FontWeights.Bold, first.FontWeight);
+        Assert.Equal(13, first.FontSize);
+
+        var second = Assert.IsType<Paragraph>(blocks[1]);
+        Assert.Equal(FontWeights.Bold, second.FontWeight);
+        Assert.Equal(21.0, second.FontSize);
     }
 
     [Fact]

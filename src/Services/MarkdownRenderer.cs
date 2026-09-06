@@ -43,7 +43,8 @@ public static class MarkdownRenderer
         Func<string, string, Hyperlink> createHyperlink,
         Func<MarkdownImage, Inline>? createImage = null,
         Func<int, bool, WpfCheckBox>? createTaskCheckbox = null,
-        bool darkMode = false)
+        bool darkMode = false,
+        bool ignoreFirstLineHeadingSize = false)
     {
         // Bound UI element creation and parser work without discarding source text.
         if (text.Length > 131072 || text.Count(ch => ch == '\n') > 2000)
@@ -93,7 +94,10 @@ public static class MarkdownRenderer
             {
                 var para = CreateParagraph();
                 para.FontWeight = FontWeights.Bold;
-                para.FontSize = HeadingFontSize(baseFontSize, level);
+                // タイトルバーを隠して畳んだ1行表示では、見出しの拡大を無視してタイトル文字サイズに揃える。
+                para.FontSize = ignoreFirstLineHeadingSize && i == 0
+                    ? baseFontSize
+                    : HeadingFontSize(baseFontSize, level);
                 AddInlineContent(para.Inlines, headingText, i, level + 1, createHyperlink, createImage, darkMode);
                 yield return para;
                 i++;
@@ -170,9 +174,12 @@ public static class MarkdownRenderer
     /// 先頭行を描画するときのフォントサイズ。見出しは本文より大きく描かれるので、
     /// 折りたたんで1行だけ残す高さを出すときはこの値を使わないと文字の下が切れる。
     /// 大きさの決め方は Render 側と同じ式をここで共有する。
+    /// <paramref name="ignoreHeadingSize"/> を立てると、見出しでも拡大せず
+    /// baseFontSize をそのまま返す（タイトルバーを隠した1行表示向け）。
     /// </summary>
-    public static double GetFirstLineFontSize(string text, double baseFontSize)
+    public static double GetFirstLineFontSize(string text, double baseFontSize, bool ignoreHeadingSize = false)
     {
+        if (ignoreHeadingSize) return baseFontSize;
         var lines = NormalizeLines(text);
         if (lines.Length == 0) return baseFontSize;
         return TryGetHeading(lines[0], out var level, out _)

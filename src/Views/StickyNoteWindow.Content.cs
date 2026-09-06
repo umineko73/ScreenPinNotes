@@ -158,7 +158,8 @@ public partial class StickyNoteWindow
                 CreateHyperlink,
                 CreateMarkdownImage,
                 CreateTaskCheckbox,
-                ViewModel.UsesDarkNoteColors))
+                ViewModel.UsesDarkNoteColors,
+                ignoreFirstLineHeadingSize: ViewModel.IsFolded && ViewModel.IsTitleBarHidden))
             {
                 ContentBox.Document.Blocks.Add(block);
             }

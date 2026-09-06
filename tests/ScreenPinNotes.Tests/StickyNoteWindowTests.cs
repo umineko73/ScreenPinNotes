@@ -962,9 +962,10 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
-    // 先頭行が見出しだと本文より大きく描かれる。本文サイズで畳むと下が切れた。
+    // タイトルバーを隠した1行表示では、先頭行が見出しでも拡大せずタイトル
+    // 文字サイズに揃える。見出しかどうかで畳んだ高さが変わってはいけない。
     [WpfFact]
-    public void FoldedNote_WithHiddenTitleBar_LeavesRoomForAHeadingFirstLine()
+    public void FoldedNote_WithHiddenTitleBar_IgnoresHeadingSizeOnTheFirstLine()
     {
         EnsureApplication();
         using var temp = new TempDataDirectory();
@@ -985,8 +986,7 @@ public class StickyNoteWindowTests
         var plain = FoldedHeightOf("plain first line\nsecond");
         var heading = FoldedHeightOf("# heading first line\nsecond");
 
-        Assert.True(heading > plain,
-            $"a heading first line needs more room than plain text ({heading} vs {plain})");
+        Assert.Equal(plain, heading);
     }
 
     // タイトルバーがある通常の付箋は、従来どおり本文ごと畳む。
