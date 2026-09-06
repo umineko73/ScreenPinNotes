@@ -221,6 +221,7 @@
                          ContextMenuOpening="ContentBox_ContextMenuOpening"
                          GotKeyboardFocus="EditableControl_GotKeyboardFocus"
                          PreviewMouseLeftButtonDown="ContentBox_PreviewMouseDown"
+                         PreviewMouseLeftButtonUp="ContentBox_PreviewMouseLeftButtonUp"
                          PreviewMouseRightButtonDown="ContentBox_PreviewMouseRightButtonDown"
                          PreviewMouseRightButtonUp="ContentBox_PreviewMouseRightButtonUp"
                          PreviewMouseWheel="ContentBox_PreviewMouseWheel"

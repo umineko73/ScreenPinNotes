@@ -131,6 +131,86 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
+    // タイトルバーを隠すと、タイトル右クリックにしか無い項目は到達不能になる。
+    // 本文の右クリックからも同じことができること。
+    [WpfFact]
+    public void ContentMenu_ReachesTheTitleOnlyActions()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { IsTitleBarHidden = true };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            var menu = ((FrameworkElement)window.FindName("ContentBox")).ContextMenu;
+            var items = menu.Items.OfType<MenuItem>().ToArray();
+            Assert.Contains(items, i => Equals(i.Header, LocalizationService.T("EditTitle")));
+            Assert.Contains(items, i => Equals(i.Header, LocalizationService.T("ResetPositionSeparation")));
+
+            var zOrder = Assert.Single(items, i => Equals(i.Header, LocalizationService.T("ZOrder")));
+            var zOrderChildren = zOrder.Items.OfType<MenuItem>().Select(i => i.Header).ToArray();
+            Assert.Contains(LocalizationService.T("BringToFront"), zOrderChildren);
+            Assert.Contains(LocalizationService.T("SendToBack"), zOrderChildren);
+
+            // 位置が分離していないときは、そろえる項目を押せないこと。
+            var reset = items.Single(i => Equals(i.Header, LocalizationService.T("ResetPositionSeparation")));
+            menu.RaiseEvent(new RoutedEventArgs(ContextMenu.OpenedEvent));
+            Assert.False(reset.IsEnabled);
+            window.ViewModel.IsPositionSeparated = true;
+            menu.RaiseEvent(new RoutedEventArgs(ContextMenu.OpenedEvent));
+            Assert.True(reset.IsEnabled);
+        }
+        finally { window.Close(); }
+    }
+
+    // タイトルバーを隠していると入力欄も消えているので、タイトル編集に入ったら
+    // 編集の間だけタイトルバーを出し、終わったらまた隠すこと。
+    [WpfFact]
+    public void TitleEditing_WithHiddenTitleBar_ShowsTheBarWhileEditing()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { IsTitleBarHidden = true };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            var titleBar = (FrameworkElement)window.FindName("TitleBar");
+            var titleEditBox = (FrameworkElement)window.FindName("TitleEditBox");
+            Assert.Equal(Visibility.Collapsed, titleBar.Visibility);
+
+            InvokePrivate(window, "EnterTitleEditMode");
+            Assert.Equal(Visibility.Visible, titleBar.Visibility);
+            Assert.Equal(Visibility.Visible, titleEditBox.Visibility);
+
+            InvokePrivate(window, "EnterViewMode");
+            Assert.Equal(Visibility.Collapsed, titleBar.Visibility);
+        }
+        finally { window.Close(); }
+    }
+
+    // 畳んだタイトルバー無しの本文は、タイトルバーとして扱う（掴んで動かせる）。
+    [WpfTheory]
+    [InlineData(true, true, true)]
+    [InlineData(true, false, false)]    // タイトルバーがあるならそちらを掴む
+    [InlineData(false, true, false)]    // 展開中の本文は読む場所
+    public void BodyActsAsTitleBar_OnlyWhileFoldedWithHiddenTitleBar(bool folded, bool hiddenTitleBar, bool expected)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { IsFolded = folded, IsTitleBarHidden = hiddenTitleBar };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            Assert.Equal(expected, GetPrivateProperty<bool>(window, "BodyActsAsTitleBar"));
+
+            // 編集中は本文が本来の入力欄に戻るので、掴む対象ではなくなる。
+            InvokePrivate(window, "EnterEditMode");
+            Assert.False(GetPrivateProperty<bool>(window, "BodyActsAsTitleBar"));
+        }
+        finally { window.Close(); }
+    }
+
     [WpfFact]
     public void FoldedImagePath_ResizesFromTheFilenameEnd()
     {
@@ -1616,6 +1696,13 @@ public class StickyNoteWindowTests
         var method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.NotNull(method);
         method.Invoke(target, args);
+    }
+
+    private static T GetPrivateProperty<T>(object target, string propertyName)
+    {
+        var property = target.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(property);
+        return (T)property.GetValue(target)!;
     }
 
     private static object? InvokePrivateWithResult(object target, string methodName, params object?[] args)

@@ -402,6 +402,7 @@ public partial class StickyNoteWindow : Window
         ContentBox.BorderBrush = WpfBrushes.Transparent;
         TitleText.Visibility = Visibility.Visible;
         TitleEditBox.Visibility = Visibility.Collapsed;
+        ApplyTitleBarVisibility();   // タイトル編集のために出していた場合に戻す
         ContentBox.ToolTip = GetContentBoxTooltip();
         HideEditToolbar();
         _isEditMode = false;

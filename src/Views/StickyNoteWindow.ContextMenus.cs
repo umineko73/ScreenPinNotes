@@ -94,10 +94,18 @@ public partial class StickyNoteWindow
         cm.Items.Add(_openLinkItem);
         cm.Items.Add(_convertLinkItem);
         cm.Items.Add(new Separator());
+        // タイトルバーを隠しているとタイトル右クリックに届かないので、
+        // タイトル側にしかなかった項目もここから使えるようにする。
+        var contentEditTitleItem = BuildEditTitleMenuItem();
+        cm.Items.Add(contentEditTitleItem);
+        var contentZOrderItem = BuildZOrderMenuItem();
+        cm.Items.Add(contentZOrderItem);
         var contentOpacityItem = BuildOpacityMenuItem();
         cm.Items.Add(contentOpacityItem);
         var hideTitleBarItem = BuildHideTitleBarMenuItem();
         cm.Items.Add(hideTitleBarItem);
+        var contentResetPositionSeparationItem = BuildResetPositionSeparationMenuItem();
+        cm.Items.Add(contentResetPositionSeparationItem);
         cm.Items.Add(new Separator());
         cm.Items.Add(reminderItem);
         cm.Items.Add(externalItem);
@@ -115,6 +123,8 @@ public partial class StickyNoteWindow
             hideTitleBarItem.IsChecked = ViewModel.IsTitleBarHidden;
             UpdateOpacityMenuChecks(contentOpacityItem);
             var canEdit = !IsContentReadOnly();
+            contentEditTitleItem.IsEnabled = canEdit;
+            contentResetPositionSeparationItem.IsEnabled = ViewModel.IsPositionSeparated;
             cutItem.IsEnabled = canEdit && _isEditMode && ContentBox.Selection.IsEmpty == false;
             pasteItem.IsEnabled = canEdit && _isEditMode && (TryGetClipboardText(out _) || ClipboardHasImage());
             quickIconButton.IsEnabled = !ViewModel.Model.IsExternalContent;
@@ -249,28 +259,21 @@ public partial class StickyNoteWindow
     }
     private ContextMenu BuildTitleContextMenu()
     {
-        var editItem = new MenuItem { Header = LocalizationService.T("EditTitle") };
+        var editItem = BuildEditTitleMenuItem();
         var cutItem = new MenuItem { Header = LocalizationService.T("Cut") };
         var copyItem = new MenuItem { Header = LocalizationService.T("Copy") };
         var pasteItem = new MenuItem { Header = LocalizationService.T("Paste") };
         var selectAllItem = new MenuItem { Header = LocalizationService.T("SelectAll") };
-        var zOrderItem = new MenuItem { Header = LocalizationService.T("ZOrder") };
+        var zOrderItem = BuildZOrderMenuItem();
         var opacityItem = BuildOpacityMenuItem();
         var readOnlyItem = BuildReadOnlyMenuItem();
         var externalItem = BuildExternalContentMenuItem();
         var reminderItem = BuildReminderMenuItem();
-        var resetPositionSeparationItem = new MenuItem
-        {
-            Header = LocalizationService.T("ResetPositionSeparation"),
-            ToolTip = LocalizationService.T("ResetPositionSeparationTooltip"),
-        };
-        var bringToFrontItem = new MenuItem { Header = LocalizationService.T("BringToFront") };
-        var sendToBackItem = new MenuItem { Header = LocalizationService.T("SendToBack") };
+        var resetPositionSeparationItem = BuildResetPositionSeparationMenuItem();
         var hideItem = new MenuItem { Header = LocalizationService.T("HideNote") };
         var deleteItem = new MenuItem { Header = LocalizationService.T("Delete") };
         var editSeparator = new Separator();
 
-        editItem.Click += (_, _) => EnterTitleEditMode();
         cutItem.Click += (_, _) => TitleEditBox.Cut();
         copyItem.Click += (_, _) =>
         {
@@ -282,13 +285,8 @@ public partial class StickyNoteWindow
         };
         pasteItem.Click += (_, _) => TitleEditBox.Paste();
         selectAllItem.Click += (_, _) => TitleEditBox.SelectAll();
-        resetPositionSeparationItem.Click += (_, _) => ResetPositionSeparation();
-        bringToFrontItem.Click += (_, _) => MoveInZOrder(HwndTop);
-        sendToBackItem.Click += (_, _) => MoveInZOrder(HwndBottom);
         hideItem.Click += (_, _) => App.Current.HideNote(ViewModel.Model.Id);
         deleteItem.Click += Close_Click;
-        zOrderItem.Items.Add(bringToFrontItem);
-        zOrderItem.Items.Add(sendToBackItem);
 
         var quickRow = BuildQuickActionsRow(out var quickIconButton);
 
@@ -350,6 +348,48 @@ public partial class StickyNoteWindow
                 Dispatcher.BeginInvoke(() => TitleEditBox.Focus());
         };
         return cm;
+    }
+
+    // タイトルバーを隠していると、これらはタイトル右クリックから届かなくなる。
+    // 本文の右クリックからも同じ項目を出せるよう、組み立てをここへ切り出す。
+
+    private MenuItem BuildEditTitleMenuItem()
+    {
+        var item = new MenuItem { Header = LocalizationService.T("EditTitle") };
+        // 畳んだままタイトル編集に入ると、1行ぶんの高さにタイトルバーを
+        // 出すことになって収まらない。先に開いてから編集へ移る。
+        item.Click += (_, _) =>
+        {
+            if (ViewModel.IsFolded)
+                ToggleFold(EnterTitleEditMode);
+            else
+                EnterTitleEditMode();
+        };
+        return item;
+    }
+
+    private MenuItem BuildZOrderMenuItem()
+    {
+        var item = new MenuItem { Header = LocalizationService.T("ZOrder") };
+        var bringToFrontItem = new MenuItem { Header = LocalizationService.T("BringToFront") };
+        var sendToBackItem = new MenuItem { Header = LocalizationService.T("SendToBack") };
+        bringToFrontItem.Click += (_, _) => MoveInZOrder(HwndTop);
+        sendToBackItem.Click += (_, _) => MoveInZOrder(HwndBottom);
+        item.Items.Add(bringToFrontItem);
+        item.Items.Add(sendToBackItem);
+        return item;
+    }
+
+    /// <summary>開いたときに <c>IsEnabled</c> を呼び出し側で更新すること。</summary>
+    private MenuItem BuildResetPositionSeparationMenuItem()
+    {
+        var item = new MenuItem
+        {
+            Header = LocalizationService.T("ResetPositionSeparation"),
+            ToolTip = LocalizationService.T("ResetPositionSeparationTooltip"),
+        };
+        item.Click += (_, _) => ResetPositionSeparation();
+        return item;
     }
 
     private MenuItem BuildHideTitleBarMenuItem()

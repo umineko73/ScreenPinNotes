@@ -146,6 +146,11 @@ public partial class StickyNoteWindow
 
         TitleText.Visibility    = Visibility.Collapsed;
         TitleEditBox.Visibility = Visibility.Visible;
+        // タイトルバーを隠していると入力欄ごと消えていて、見えない欄に
+        // フォーカスだけが入ってしまう。タイトルを編集している間だけ出す。
+        // 元に戻すのは、入力欄を閉じる側の ApplyTitleBarVisibility()。
+        if (ViewModel.IsTitleBarHidden)
+            TitleBar.Visibility = Visibility.Visible;
         UpdateControlsVisibility();
         TitleEditBox.Focus();
         Keyboard.Focus(TitleEditBox);
@@ -197,6 +202,7 @@ public partial class StickyNoteWindow
         ContentBox.ToolTip = LocalizationService.T("EditBodyTooltip");
         TitleText.Visibility    = Visibility.Visible;
         TitleEditBox.Visibility = Visibility.Collapsed;
+        ApplyTitleBarVisibility();   // タイトル編集のために出していた場合に戻す
         UpdateControlsVisibility();
         HideEditToolbar();
         Keyboard.ClearFocus();
@@ -490,6 +496,16 @@ public partial class StickyNoteWindow
 
     // View モード: クリックでリンクを直接開く / 非リンクならEdit モードへ
     // Edit モード: Ctrl+クリックでリンクを開く
+    /// <summary>
+    /// タイトルバーを隠して畳んでいるときの本文は、1行目を装飾なしで見せている
+    /// だけの「見出し」で、編集も選択もする場所ではない。一方そのままだと掴む所が
+    /// アイコン脇の数十pxしか無い。この状態の本文はタイトルバーそのものとして扱い、
+    /// 移動も折りたたみ切り替えも、タイトルバーと同じ操作・同じ設定
+    /// （シングル/ダブルクリック）で行えるようにする。
+    /// </summary>
+    private bool BodyActsAsTitleBar
+        => !_isEditMode && ViewModel.IsFolded && ViewModel.IsTitleBarHidden;
+
     private void ContentBox_PreviewMouseDown(object sender, MouseButtonEventArgs e)
     {
         if (!_isEditMode && IsDescendantOfType<WpfCheckBox>(e.OriginalSource as DependencyObject))
@@ -511,21 +527,17 @@ public partial class StickyNoteWindow
                 e.Handled = true;
                 return;
             }
+            if (BodyActsAsTitleBar)
+            {
+                TitleBar_MouseLeftButtonDown(ContentBox, e);
+                e.Handled = true;
+                return;
+            }
+
             // シングルクリックでは編集モードに入らない。誤って文字を
             // 選択しただけで編集が始まるのを避けるため、ダブルクリックを要求する。
             if (e.ClickCount == 2)
-            {
-                // タイトルバーを隠していると、畳んだ状態でも本文が1行だけ見えている。
-                // そこで編集に入っても書ける場所がないので、タイトルバーの
-                // ダブルクリックと同じくまず開く。
-                if (ViewModel.IsFolded)
-                {
-                    ToggleFold();
-                    e.Handled = true;
-                    return;
-                }
                 EnterEditMode();
-            }
         }
         else if (target != null && (Keyboard.Modifiers & ModifierKeys.Control) != 0)
         {
@@ -564,6 +576,14 @@ public partial class StickyNoteWindow
     // View モードでハイパーリンク上にカーソルが来たら Hand に切り替え
     private void ContentBox_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
     {
+        // 畳んだタイトルバー無しの本文から始まったドラッグは、
+        // タイトルバーと同じ移動処理へ渡す（ContentBox がキャプチャ中）。
+        if (_isDragging)
+        {
+            TitleBar_MouseMove(sender, e);
+            return;
+        }
+
         if (_isPaneScrollDragging)
         {
             UpdatePaneScrollDrag(e.GetPosition(ContentBox));
@@ -590,7 +610,23 @@ public partial class StickyNoteWindow
 
         if (_isEditMode) return;
         var target = GetHyperlinkAt(e.GetPosition(ContentBox));
-        ContentBox.Cursor = target != null ? WpfCursors.Hand : WpfCursors.Arrow;
+        ContentBox.Cursor = target != null
+            ? WpfCursors.Hand
+            // 掴んで動かせる状態であることは、オーバーレイと同じカーソルで示す。
+            : BodyActsAsTitleBar ? WpfCursors.SizeAll
+            : WpfCursors.Arrow;
+    }
+
+    /// <summary>
+    /// 畳んだタイトルバー無しの本文で始めたドラッグの後始末。
+    /// タイトルバー側と同じ処理を通し、位置の保存や折りたたみ切り替えの
+    /// 判定（シングルクリック設定）をそちらへ任せる。
+    /// </summary>
+    private void ContentBox_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_isDragging) return;
+        TitleBar_MouseLeftButtonUp(ContentBox, e);
+        e.Handled = true;
     }
 
     private void ContentBox_LostMouseCapture(object sender, System.Windows.Input.MouseEventArgs e)
