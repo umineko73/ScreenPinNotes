@@ -193,25 +193,34 @@ public partial class StickyNoteWindow
     // いってしまい、こちらのキャプチャが即座に外れてドラッグが始まらない。
     // トンネリングは親から子へ流れるので、親の RootBorder で先に捕まえて
     // Handled にすれば、そもそも RichTextBox まで届かない。
+    // ここで受け持つのは本文から始めたドラッグだけ。タイトルバーのドラッグは
+    // TitleBar 自身がキャプチャを持っているので、こちらが横取りして
+    // Handled にすると、あちらがキャプチャを手放せなくなる（そのまま握られると
+    // 以降の右クリックまで TitleBar へ流れ、コンテキストメニューが出なくなる）。
+    private bool _isDraggingBody;
+
     private void RootBorder_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (!BodyActsAsTitleBar) return;
         if (e.OriginalSource is not DependencyObject source || !IsDescendantOf(source, ContentBox)) return;
 
         TitleBar_MouseLeftButtonDown(RootBorder, e);
+        // 折りたたみ切り替えの経路を通ったときはドラッグにならない。
+        _isDraggingBody = _isDragging;
         e.Handled = true;
     }
 
     private void RootBorder_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
-        if (!_isDragging) return;
+        if (!_isDraggingBody) return;
+        _isDraggingBody = false;
         TitleBar_MouseLeftButtonUp(RootBorder, e);
         e.Handled = true;
     }
 
     private void RootBorder_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
     {
-        if (!_isDragging) return;
+        if (!_isDraggingBody) return;
         TitleBar_MouseMove(RootBorder, e);
         e.Handled = true;
     }
@@ -219,7 +228,8 @@ public partial class StickyNoteWindow
     private void RootBorder_LostMouseCapture(object sender, System.Windows.Input.MouseEventArgs e)
     {
         // キャプチャを外されたまま _isDragging が残ると、次に触れただけで動く。
-        if (!_isDragging) return;
+        if (!_isDraggingBody) return;
+        _isDraggingBody = false;
         _isDragging = false;
         _dragMoved = false;
         _dragSeparatesFoldedPosition = false;
