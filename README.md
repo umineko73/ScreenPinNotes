@@ -1,5 +1,13 @@
 # ScreenPinNotes
 
+### Recurring reminders
+
+Set reminders from a note's menu or the note manager. Choose once, daily, weekly (multiple weekdays), or monthly (days 1–31). Shorter months use their final day. The date and time also set the recurrence start.
+
+Native Windows notifications open the note manager when clicked. Simultaneous reminders share one notification. Optionally enable the alert window for snooze controls; snoozing preserves the original recurring time.
+
+ScreenPinNotes must be running in the tray. Overdue reminders are delivered once on restart or resume, then advanced to their next occurrence. Windows notification settings may suppress banners or sound.
+
 English | [日本語](README.ja.md)
 
 A desktop sticky notes app for Windows 11.

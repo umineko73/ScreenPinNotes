@@ -119,7 +119,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
 
     /// <summary>タイトルバーに実際に表示する文字列（Title が空なら FirstLine）。</summary>
     public string DisplayTitle =>
-        string.IsNullOrWhiteSpace(_model.Title) ? FirstLine : _model.Title!;
+        string.IsNullOrWhiteSpace(_model.Title) ? MarkdownRenderer.GetImageOnlyTarget(Content) ?? FirstLine : _model.Title!;
 
     public string ColorKey
     {

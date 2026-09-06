@@ -28,6 +28,13 @@ public static class MarkdownRenderer
 {
     private static readonly WpfFontFamily CodeFontFamily = new("Consolas");
 
+    public static string? GetImageOnlyTarget(string text)
+    {
+        var source = text.Trim();
+        return TryGetMarkdownImage(source, 0, out _, out var target, out var length, out _, out _)
+            && length == source.Length ? target : null;
+    }
+
     public sealed record MarkdownImage(
         string Alt,
         string Target,

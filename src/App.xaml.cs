@@ -38,6 +38,7 @@ public partial class App : System.Windows.Application
     private NoteManagerWindow? _noteManagerWindow;
     private readonly DispatcherTimer _reminderTimer = new();
     private readonly HashSet<string> _activeReminderAlerts = [];
+    private bool _checkingReminders;
 
     public IReadOnlyList<StickyNoteWindow> NoteWindows => _windows;
     public AppSettings Settings => _settings;
@@ -230,6 +231,7 @@ public partial class App : System.Windows.Application
             Visible = true,
         };
         _trayIcon.ContextMenuStrip = BuildTrayMenu();
+        _trayIcon.BalloonTipClicked += (_, _) => Dispatcher.BeginInvoke(ShowNoteManager);
 
         // 左クリックで全表示トグル
         _trayIcon.MouseClick += (_, e) =>
@@ -871,13 +873,18 @@ public partial class App : System.Windows.Application
         _noteManagerWindow?.RefreshNotes();
     }
 
-    public void SetReminder(string id, DateTime? nextAt)
+    public void SetReminder(string id, DateTime? nextAt, ReminderSettings? options = null)
     {
         var win = _windows.FirstOrDefault(w => w.ViewModel.Model.Id == id);
         if (win == null)
             return;
 
         win.ViewModel.SetReminder(nextAt);
+        if (nextAt != null && options != null)
+        {
+            win.ViewModel.Model.Reminder = options;
+            win.ViewModel.RefreshReminder();
+        }
         SaveAll();
         _noteManagerWindow?.RefreshNotes();
     }
@@ -997,8 +1004,25 @@ public partial class App : System.Windows.Application
 
     private void CheckDueReminders()
     {
+        if (_checkingReminders) return;
+        _checkingReminders = true;
+        try { DeliverDueReminders(); }
+        finally { _checkingReminders = false; }
+    }
+
+    private void DeliverDueReminders()
+    {
         var now = DateTime.Now;
-        foreach (var win in _windows.ToList())
+        var due = _windows.Where(w => w.ViewModel.Model.Reminder?.NextAt is DateTime at && at <= now && !_activeReminderAlerts.Contains(w.ViewModel.Model.Id)).ToList();
+        var notifications = due.Where(w => w.ViewModel.Model.Reminder!.WindowsNotification).ToList();
+        if (notifications.Count > 0 && _trayIcon != null)
+        {
+            // One Windows banner for simultaneous reminders, so later notices do not replace earlier ones.
+            var message = string.Join("\n", notifications.Select(w => $"{w.ViewModel.Model.Reminder!.NextAt:HH:mm}  {w.ViewModel.DisplayTitle}"));
+            if (message.Length > 240) message = message[..237] + "…";
+            _trayIcon.ShowBalloonTip(10000, "ScreenPinNotes", message, ToolTipIcon.Info);
+        }
+        foreach (var win in due)
         {
             var note = win.ViewModel.Model;
             if (note.Reminder?.NextAt is not DateTime nextAt)
@@ -1020,17 +1044,27 @@ public partial class App : System.Windows.Application
         {
             note.Reminder ??= new ReminderSettings();
             note.Reminder.LastTriggeredAt = DateTime.Now;
+            var reminder = note.Reminder;
+            reminder.TimeOfDay ??= dueAt.TimeOfDay;
+            reminder.NextAt = ReminderSchedule.Next(reminder, DateTime.Now);
+            win.ViewModel.RefreshReminder();
+            SaveAll();
+            if (!reminder.ShowAlert)
+            {
+                _noteManagerWindow?.RefreshNotes();
+                return;
+            }
             ShowNote(note.Id);
             System.Media.SystemSounds.Exclamation.Play();
 
             var result = ReminderAlertWindow.ShowFor(win, win.ViewModel.DisplayTitle, dueAt);
             if (result.Snoozed && result.SnoozeDelay is TimeSpan delay)
             {
-                win.ViewModel.SetReminder(DateTime.Now.Add(delay));
+                reminder.NextAt = DateTime.Now.Add(delay);
+                win.ViewModel.RefreshReminder();
             }
             else
             {
-                note.Reminder.NextAt = null;
                 note.UpdatedAt = DateTime.Now;
                 win.ViewModel.RefreshReminder();
             }

@@ -85,6 +85,11 @@ public class StickyNote
 
 public sealed class ReminderSettings
 {
+    public List<DayOfWeek> WeekDays { get; set; } = [];
+    public int MonthDay { get; set; } = 1;
+    public TimeSpan? TimeOfDay { get; set; }
+    public bool WindowsNotification { get; set; } = true;
+    public bool ShowAlert { get; set; } = false;
     public DateTime? NextAt { get; set; }
     public string Recurrence { get; set; } = "None";
     public DateTime? LastTriggeredAt { get; set; }

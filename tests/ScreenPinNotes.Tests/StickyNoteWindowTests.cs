@@ -16,6 +16,125 @@ namespace ScreenPinNotes.Tests;
 public class StickyNoteWindowTests
 {
     [WpfFact]
+    public void MarkdownRebuild_BatchesChangesAndDoesNotKeepGeneratedUndoHistory()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { IsTitleBarHidden = true };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            var box = (RichTextBox)window.FindName("ContentBox");
+            var notifications = 0;
+            box.TextChanged += (_, _) => notifications++;
+            var text = string.Join("\n", Enumerable.Range(1, 200).Select(i => $"## Heading {i}\n**Body** {i}"));
+            InvokePrivate(window, "LoadContent", text);
+            Assert.Equal(400, box.Document.Blocks.Count);
+            Assert.Equal(1, notifications);
+            Assert.False(box.CanUndo);
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfFact]
+    public void ContextMenus_ExposeTitleBarToggleAndKeepDeletionSeparate()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var window = new StickyNoteWindow(new StickyNoteViewModel(new StickyNote(), new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            foreach (var name in new[] { "TitleText", "ContentBox", "BodyEditBox" })
+            {
+                var menu = ((FrameworkElement)window.FindName(name)).ContextMenu;
+                var items = menu.Items.OfType<MenuItem>().ToArray();
+                var toggle = Assert.Single(items, i => Equals(i.Header, LocalizationService.T("HideTitleBar")));
+                Assert.True(toggle.IsCheckable);
+                Assert.Contains(items, i => Equals(i.Header, LocalizationService.T("SelectAll")));
+                var hide = items.Single(i => Equals(i.Header, LocalizationService.T("HideNote")));
+                Assert.IsType<Separator>(menu.Items[menu.Items.IndexOf(hide) - 1]);
+                Assert.Equal(LocalizationService.T("Delete"), items.Last().Header);
+            }
+            var titleMenu = ((FrameworkElement)window.FindName("TitleText")).ContextMenu;
+            var titleToggle = titleMenu.Items.OfType<MenuItem>().Single(i => Equals(i.Header, LocalizationService.T("HideTitleBar")));
+            titleToggle.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Assert.True(window.ViewModel.IsTitleBarHidden);
+            titleToggle.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Assert.False(window.ViewModel.IsTitleBarHidden);
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfFact]
+    public void FoldedImagePath_ResizesFromTheFilenameEnd()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        const string path = "assets/very-long-folder-name/0月写真/image.png";
+        var note = new StickyNote { Content = $"![写真]({path})", IsFolded = true, IsTitleBarHidden = true, Width = 200 };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            InvokePrivate(window, "LoadContent", note.Content);
+            var box = (RichTextBox)window.FindName("ContentBox");
+            string Text() => new TextRange(box.Document.ContentStart, box.Document.ContentEnd).Text.Trim();
+            Assert.StartsWith("…", Text());
+            Assert.EndsWith("image.png", Text());
+            window.Width = 800;
+            window.UpdateLayout();
+            InvokePrivate(window, "UpdateImagePathPreview");
+            Assert.Equal(path, Text());
+            Assert.Equal($"![写真]({path})", note.Content);
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfTheory]
+    [InlineData(true, true)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public void FoldedPreview_ReadOnlyInitialization_PreservesVisibilityAndRemovesFormatting(bool locked, bool hiddenTitleBar)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        const string source = "# **操作ヘルプ** *斜体* ~~取消~~ `code` [リンク](https://example.com)\n本文";
+        var note = new StickyNote
+        {
+            Content = source, IsFolded = true, IsTitleBarHidden = hiddenTitleBar, IsReadOnly = locked,
+        };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            // 起動時のLoaded処理と同じ順序。アプリ全体のStartupは起動しない。
+            InvokePrivate(window, "LoadContent", source);
+            InvokePrivate(window, "ApplyReadOnlyState");
+            window.Show();
+            window.UpdateLayout();
+            var box = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            Assert.Equal(hiddenTitleBar ? Visibility.Visible : Visibility.Collapsed, box.Visibility);
+            if (hiddenTitleBar)
+            {
+                var paragraph = Assert.IsType<Paragraph>(box.Document.Blocks.FirstBlock);
+                var run = Assert.IsType<Run>(Assert.Single(paragraph.Inlines.Cast<Inline>()));
+                Assert.Equal("操作ヘルプ 斜体 取消 code リンク", run.Text);
+                Assert.Equal(FontWeights.Normal, run.FontWeight);
+                Assert.Equal(FontStyles.Normal, run.FontStyle);
+                Assert.True(run.TextDecorations == null || run.TextDecorations.Count == 0);
+                Assert.True(box.ActualHeight > 0);
+            }
+            Assert.Equal(source, note.Content);
+            window.ViewModel.IsFolded = false;
+            InvokePrivate(window, "LoadContent", source);
+            var heading = Assert.IsType<Paragraph>(box.Document.Blocks.FirstBlock);
+            Assert.Equal(FontWeights.Bold, heading.FontWeight);
+            Assert.Contains("本文", new TextRange(box.Document.ContentStart, box.Document.ContentEnd).Text);
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfFact]
     public void FontSizeButtons_KeepContextMenuOpenAndUpdateVisibleSizes()
     {
         EnsureApplication();

@@ -205,12 +205,12 @@ public sealed class NoteManagerWindow : Window
         if (_listView.SelectedItem is not NoteRow row)
             return;
 
-        var currentAt = SelectedWindow()?.ViewModel.Model.Reminder?.NextAt;
+        var currentAt = SelectedWindow()?.ViewModel.Model.Reminder;
         var result = ReminderDialog.ShowFor(this, currentAt);
         if (!result.Accepted)
             return;
 
-        App.Current.SetReminder(row.Id, result.ClearRequested ? null : result.NextAt);
+        App.Current.SetReminder(row.Id, result.ClearRequested ? null : result.NextAt, result.Settings);
         RefreshNotes();
     }
 

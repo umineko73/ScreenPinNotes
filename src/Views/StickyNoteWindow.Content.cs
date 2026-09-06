@@ -58,12 +58,22 @@ public partial class StickyNoteWindow
 
     private void LoadContent(string text)
     {
-        try { LoadMarkdownContent(text); }
+        // Rendering replaces many blocks. Batch them into one layout/change notification
+        // and do not retain generated documents in the editor's undo history.
+        var undoEnabled = ContentBox.IsUndoEnabled;
+        ContentBox.IsUndoEnabled = false;
+        ContentBox.BeginChange();
+        try { LoadMarkdownContent(text); UpdateImagePathPreview(); }
         catch (Exception ex)
         {
             ErrorReporter.ReportNonFatal("Render Markdown; showing source text", ex);
             _markdownImageContexts.Clear();
             LoadPlainContent(text);
+        }
+        finally
+        {
+            ContentBox.EndChange();
+            ContentBox.IsUndoEnabled = undoEnabled;
         }
     }
 
@@ -146,14 +156,21 @@ public partial class StickyNoteWindow
     private void LoadMarkdownContent(string text)
     {
         text = NormalizeLineEndings(text);
-        // タイトルバーを隠した折りたたみ表示は本文の先頭行だけを見せる。
-        // 文書全体を高さで切ると、先頭が見出し／装飾ブロックのときに
-        // FlowDocument の余白やブロック配置だけが残り、起動直後に空白に
-        // 見えることがある。先頭行だけを同じ Markdown レンダラーで描画し、
-        // 太字・斜体・見出しなどの装飾も保持する。
-        var renderText = ViewModel.IsFolded && ViewModel.IsTitleBarHidden
-            ? GetFoldedPreviewSource(text)
-            : text;
+        // 1行表示ではMarkdownを読み取り、装飾と構文記号を除いた文字だけを表示する。
+        if (ViewModel.IsFolded && ViewModel.IsTitleBarHidden)
+        {
+            var preview = new FlowDocument();
+            foreach (var block in MarkdownRenderer.Render(
+                GetFoldedPreviewSource(text), ViewModel.TitleFontSize,
+                (label, target) => new Hyperlink(new Run(label)),
+                image => new Run(image.Alt)))
+                preview.Blocks.Add(block);
+            _markdownImageContexts.Clear();
+            _requiredMarkdownPageWidth = 0;
+            LoadPlainContent(new TextRange(preview.ContentStart, preview.ContentEnd).Text.TrimEnd('\r', '\n'));
+            ContentBox.ScrollToHome();
+            return;
+        }
         _suppressTextChange = true;
         try
         {
@@ -161,7 +178,7 @@ public partial class StickyNoteWindow
             ContentBox.Document.Blocks.Clear();
             _requiredMarkdownPageWidth = 0;
             foreach (var block in MarkdownRenderer.Render(
-                renderText,
+                text,
                 ViewModel.ContentFontSize,
                 CreateHyperlink,
                 CreateMarkdownImage,
@@ -185,6 +202,30 @@ public partial class StickyNoteWindow
         }
 
         return string.Empty;
+    }
+
+    private void UpdateImagePathPreview()
+    {
+        if (_isEditMode || !ViewModel.IsFolded || _isFoldAnimationRunning || DataContext is not StickyNoteViewModel) return;
+        var path = MarkdownRenderer.GetImageOnlyTarget(ViewModel.Content);
+        if (path == null) return;
+        double Measure(string value, double size) => new FormattedText(value,
+            System.Globalization.CultureInfo.CurrentCulture, System.Windows.FlowDirection.LeftToRight,
+            new Typeface(ViewModel.FontFamily), size, ViewModel.TextForeground,
+            VisualTreeHelper.GetDpi(this).PixelsPerDip).WidthIncludingTrailingWhitespace;
+        if (ViewModel.IsFolded && ViewModel.IsTitleBarHidden)
+        {
+            // Reserve room for the always-visible icon and its overlay padding.
+            var iconWidth = string.IsNullOrEmpty(ViewModel.Icon) ? 24 : ViewModel.TitleIconSize + 18;
+            var width = ContentBox.ActualWidth - ContentBox.Padding.Left - ContentBox.Padding.Right - iconWidth;
+            var display = PathDisplay.Fit(path, width, s => Measure(s, ViewModel.TitleFontSize));
+            LoadPlainContent(display);
+        }
+        if (string.IsNullOrWhiteSpace(ViewModel.Title))
+            TitleText.SetCurrentValue(System.Windows.Controls.TextBlock.TextProperty,
+                ViewModel.IsFolded && !ViewModel.IsTitleBarHidden
+                    ? PathDisplay.Fit(path, TitleText.ActualWidth, s => Measure(s, ViewModel.TitleFontSize))
+                    : ViewModel.DisplayTitle);
     }
 
     private void ApplyMarkdownPageWidth()

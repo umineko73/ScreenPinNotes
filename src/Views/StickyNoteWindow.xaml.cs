@@ -162,6 +162,8 @@ public partial class StickyNoteWindow : Window
         InitializeComponent();
         _uiDispatcher = Dispatcher;
         DataContext = vm;
+        ContentBox.SizeChanged += (_, _) => UpdateImagePathPreview();
+        TitleText.SizeChanged += (_, _) => UpdateImagePathPreview();
         _storage = storage ?? new StorageService();
         vm.PropertyChanged += (_, e) =>
         {
@@ -386,7 +388,7 @@ public partial class StickyNoteWindow : Window
 
         ContentBox.IsReadOnly = true;
         BodyEditBox.Visibility = Visibility.Collapsed;
-        ContentBox.Visibility = ViewModel.IsFolded ? Visibility.Collapsed : Visibility.Visible;
+        ApplyFoldedContentPresentation();
         ContentBox.Cursor = WpfCursors.Arrow;
         ContentBox.BorderThickness = new Thickness(0);
         ContentBox.BorderBrush = WpfBrushes.Transparent;
@@ -434,6 +436,8 @@ public partial class StickyNoteWindow : Window
 
     // ─── ウィンドウイベント ──────────────────────────────────────
 
+    private System.Windows.Threading.DispatcherOperation? _resizeContentRefresh;
+
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         if (_isInitializing) return; // コンストラクタ〜Loaded の初期値設定はモデルに書き戻さない
@@ -457,12 +461,13 @@ public partial class StickyNoteWindow : Window
 
         if (!ViewModel.IsFolded)
             ViewModel.Model.Height = Height - _statusBarDelta;
-        if (!_isEditMode && !ViewModel.IsFolded)
-            Dispatcher.BeginInvoke(() =>
+        if (e.WidthChanged && !_isEditMode && !ViewModel.IsFolded &&
+            _resizeContentRefresh?.Status != System.Windows.Threading.DispatcherOperationStatus.Pending)
+            _resizeContentRefresh = Dispatcher.BeginInvoke(() =>
             {
                 // 実行時点で編集モードに入っている可能性があるため再確認する
                 // （そうでないと編集中の内容が描画済みドキュメントで上書きされる）。
-                if (!_isEditMode && !ViewModel.IsFolded)
+                if (!_isClosed && !_isEditMode && !ViewModel.IsFolded && !_isFoldAnimationRunning)
                     LoadContent(ViewModel.Content);
             }, System.Windows.Threading.DispatcherPriority.Background);
         RequestSave();

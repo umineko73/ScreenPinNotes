@@ -83,6 +83,7 @@ public partial class StickyNoteWindow
         cm.Items.Add(cutItem);
         cm.Items.Add(new MenuItem { Header = LocalizationService.T("Copy"), Command = ApplicationCommands.Copy, CommandTarget = ContentBox });
         cm.Items.Add(pasteItem);
+        cm.Items.Add(new MenuItem { Header = LocalizationService.T("SelectAll"), Command = ApplicationCommands.SelectAll, CommandTarget = ContentBox });
         cm.Items.Add(_pasteMarkdownLinkItem);
         cm.Items.Add(new Separator());
         cm.Items.Add(_pasteExcelTableItem);
@@ -93,14 +94,18 @@ public partial class StickyNoteWindow
         cm.Items.Add(_openLinkItem);
         cm.Items.Add(_convertLinkItem);
         cm.Items.Add(new Separator());
-        cm.Items.Add(externalItem);
+        var contentOpacityItem = BuildOpacityMenuItem();
+        cm.Items.Add(contentOpacityItem);
+        var hideTitleBarItem = BuildHideTitleBarMenuItem();
+        cm.Items.Add(hideTitleBarItem);
+        cm.Items.Add(new Separator());
         cm.Items.Add(reminderItem);
+        cm.Items.Add(externalItem);
+        cm.Items.Add(readOnlyItem);
+        cm.Items.Add(new Separator());
         var hideItem = new MenuItem { Header = LocalizationService.T("HideNote") };
         hideItem.Click += (_, _) => App.Current.HideNote(ViewModel.Model.Id);
         cm.Items.Add(hideItem);
-        cm.Items.Add(readOnlyItem);
-        var hideTitleBarItem = BuildHideTitleBarMenuItem();
-        cm.Items.Add(hideTitleBarItem);
         cm.Items.Add(deleteItem);
         cm.Opened += (_, _) =>
         {
@@ -108,6 +113,7 @@ public partial class StickyNoteWindow
             cm.Foreground = ViewModel.TextForeground;
             if (cm.Tag is Border toolbar) toolbar.Background = PopupBackgroundBrush();
             hideTitleBarItem.IsChecked = ViewModel.IsTitleBarHidden;
+            UpdateOpacityMenuChecks(contentOpacityItem);
             var canEdit = !IsContentReadOnly();
             cutItem.IsEnabled = canEdit && _isEditMode && ContentBox.Selection.IsEmpty == false;
             pasteItem.IsEnabled = canEdit && _isEditMode && (TryGetClipboardText(out _) || ClipboardHasImage());
@@ -160,6 +166,7 @@ public partial class StickyNoteWindow
         cm.Items.Add(cutItem);
         cm.Items.Add(copyItem);
         cm.Items.Add(pasteItem);
+        cm.Items.Add(new MenuItem { Header = LocalizationService.T("SelectAll"), Command = ApplicationCommands.SelectAll, CommandTarget = BodyEditBox });
         cm.Items.Add(pasteMarkdownLinkItem);
         cm.Items.Add(editLinkItem);
         var formattingMenu = BuildMarkdownFormattingMenu();
@@ -167,17 +174,21 @@ public partial class StickyNoteWindow
         cm.Items.Add(new Separator());
         cm.Items.Add(pasteExcelTableItem);
         cm.Items.Add(new Separator());
+        var editOpacityItem = BuildOpacityMenuItem();
+        cm.Items.Add(editOpacityItem);
+        var editHideTitleBarItem = BuildHideTitleBarMenuItem();
+        cm.Items.Add(editHideTitleBarItem);
+        cm.Items.Add(new Separator());
         cm.Items.Add(reminderItem);
         cm.Items.Add(externalItem);
         cm.Items.Add(readOnlyItem);
-        var editHideTitleBarItem = BuildHideTitleBarMenuItem();
-        cm.Items.Add(editHideTitleBarItem);
         cm.Items.Add(new Separator());
         cm.Items.Add(hideItem);
         cm.Items.Add(deleteItem);
         cm.Opened += (_, _) =>
         {
             editHideTitleBarItem.IsChecked = ViewModel.IsTitleBarHidden;
+            UpdateOpacityMenuChecks(editOpacityItem);
             var canEdit = !IsContentReadOnly();
             selectedLink = MarkdownLinkEditor.FindAt(BodyEditBox.Text, BodyEditBox.SelectionStart);
             editLinkItem.IsEnabled = canEdit && selectedLink != null;
@@ -295,7 +306,10 @@ public partial class StickyNoteWindow
         cm.Items.Add(new Separator());
         cm.Items.Add(zOrderItem);
         cm.Items.Add(opacityItem);
+        var titleHideTitleBarItem = BuildHideTitleBarMenuItem();
+        cm.Items.Add(titleHideTitleBarItem);
         cm.Items.Add(resetPositionSeparationItem);
+        cm.Items.Add(new Separator());
         cm.Items.Add(reminderItem);
         cm.Items.Add(externalItem);
         cm.Items.Add(readOnlyItem);
@@ -305,6 +319,7 @@ public partial class StickyNoteWindow
         cm.Opened += (_, _) =>
         {
             bool editing = cm.PlacementTarget == TitleEditBox && _isEditMode;
+            titleHideTitleBarItem.IsChecked = ViewModel.IsTitleBarHidden;
             var canEdit = !IsContentReadOnly();
             editItem.Visibility = editing || !canEdit ? Visibility.Collapsed : Visibility.Visible;
             editSeparator.Visibility = editItem.Visibility;
@@ -425,12 +440,12 @@ public partial class StickyNoteWindow
 
     public void ShowReminderDialog()
     {
-        var result = ReminderDialog.ShowFor(this, ViewModel.Model.Reminder?.NextAt);
+        var result = ReminderDialog.ShowFor(this, ViewModel.Model.Reminder);
         if (!result.Accepted)
             return;
 
         var nextAt = result.ClearRequested ? null : result.NextAt;
-        App.Current.SetReminder(ViewModel.Model.Id, nextAt);
+        App.Current.SetReminder(ViewModel.Model.Id, nextAt, result.Settings);
         ShowSizeOverlay(nextAt == null
             ? LocalizationService.T("ReminderCleared")
             : string.Format(LocalizationService.T("ReminderSetMessage"), nextAt.Value.ToString("yyyy/MM/dd HH:mm")));
