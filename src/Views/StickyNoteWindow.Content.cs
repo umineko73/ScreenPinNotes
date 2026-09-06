@@ -146,6 +146,14 @@ public partial class StickyNoteWindow
     private void LoadMarkdownContent(string text)
     {
         text = NormalizeLineEndings(text);
+        // タイトルバーを隠した折りたたみ表示は本文の先頭行だけを見せる。
+        // 文書全体を高さで切ると、先頭が見出し／装飾ブロックのときに
+        // FlowDocument の余白やブロック配置だけが残り、起動直後に空白に
+        // 見えることがある。先頭行だけを同じ Markdown レンダラーで描画し、
+        // 太字・斜体・見出しなどの装飾も保持する。
+        var renderText = ViewModel.IsFolded && ViewModel.IsTitleBarHidden
+            ? GetFoldedPreviewSource(text)
+            : text;
         _suppressTextChange = true;
         try
         {
@@ -153,7 +161,7 @@ public partial class StickyNoteWindow
             ContentBox.Document.Blocks.Clear();
             _requiredMarkdownPageWidth = 0;
             foreach (var block in MarkdownRenderer.Render(
-                text,
+                renderText,
                 ViewModel.ContentFontSize,
                 CreateHyperlink,
                 CreateMarkdownImage,
@@ -166,6 +174,17 @@ public partial class StickyNoteWindow
             ApplyMarkdownPageWidth();
         }
         finally { _suppressTextChange = false; }
+    }
+
+    private static string GetFoldedPreviewSource(string text)
+    {
+        foreach (var line in text.Split('\n'))
+        {
+            if (!string.IsNullOrWhiteSpace(line))
+                return line;
+        }
+
+        return string.Empty;
     }
 
     private void ApplyMarkdownPageWidth()
