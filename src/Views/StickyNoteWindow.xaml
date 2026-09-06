@@ -440,9 +440,12 @@
                 </Border>
             </Popup>
 
-            <!-- 閉じた表示でタイトルバーにホバーすると本文を確認できるプレビュー -->
+            <!-- 閉じた表示でホバーすると本文を確認できるプレビュー。タイトルバーを
+                 隠しているときはそこが Collapsed で位置が取れないため、常に
+                 表示されている RootBorder を基準にする（畳んだ表示では
+                 どちらの場合も RootBorder の下端＝見えている行の下端になる）。 -->
             <Popup x:Name="TitlePreviewPopup"
-                   PlacementTarget="{Binding ElementName=TitleBar}"
+                   PlacementTarget="{Binding ElementName=RootBorder}"
                    Placement="Bottom"
                    HorizontalOffset="1"
                    VerticalOffset="2"

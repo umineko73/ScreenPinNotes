@@ -163,9 +163,11 @@ public partial class StickyNoteWindow
     {
         _titlePreviewTimer.Stop();
         TitlePreviewPopup.IsOpen = false;
+        // タイトルバーを隠しているときは畳むと本文の1行目がその代わりになるので、
+        // TitleBar 自体ではなくウィンドウ全体のホバーで判定する。
         if (Settings.ShowTitlePreviewTooltip &&
             ViewModel.IsFolded && !_isEditMode &&
-            !string.IsNullOrWhiteSpace(ViewModel.Content) && TitleBar.IsMouseOver)
+            !string.IsNullOrWhiteSpace(ViewModel.Content) && IsMouseOver)
             _titlePreviewTimer.Start();
     }
 
@@ -175,7 +177,7 @@ public partial class StickyNoteWindow
             ViewModel.IsFolded &&
             !_isEditMode &&
             !string.IsNullOrWhiteSpace(ViewModel.Content) &&
-            TitleBar.IsMouseOver;
+            IsMouseOver;
     }
 
     private void RootBorder_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
@@ -183,6 +185,7 @@ public partial class StickyNoteWindow
         ViewModel.SetHovered(true);
         ShowEditToolbar();
         UpdateTitleBarOverlayVisibility();
+        ScheduleTitlePreview();
     }
 
     private void RootBorder_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
@@ -190,6 +193,8 @@ public partial class StickyNoteWindow
         ViewModel.SetHovered(false);
         ScheduleHideEditToolbar();
         UpdateTitleBarOverlayVisibility();
+        _titlePreviewTimer.Stop();
+        TitlePreviewPopup.IsOpen = false;
     }
 
     private void EditToolbar_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
