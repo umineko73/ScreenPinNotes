@@ -370,14 +370,22 @@ public partial class StickyNoteWindow
     {
         ViewModel.IsTitleBarHidden = !ViewModel.IsTitleBarHidden;
         ApplyTitleBarVisibility();
+        TitleBar.GetBindingExpression(HeightProperty)?.UpdateTarget();
+        ContentBox.GetBindingExpression(System.Windows.Controls.Control.FontSizeProperty)?.UpdateTarget();
         if (ViewModel.IsFolded)
         {
             // 畳んだ1行表示の文字サイズがタイトル/本文どちらの基準になるかが
             // 切り替わるので、見出しの先頭行も含めて読み込み直す。
-            LoadContent(ViewModel.Content);
             ApplyFoldedContentPresentation();
             BeginAnimation(HeightProperty, null);
+            // TitleBarVisibility changes the folded height. Reapply the resize
+            // constraints as well, otherwise the old one-line height remains as
+            // MinHeight/MaxHeight and leaves the previous content area exposed.
+            SetResizeEnabled(false);
             Height = FoldedHeight;
+            UpdateLayout();
+            LoadContent(ViewModel.Content);
+            ContentBox.ScrollToHome();
         }
         UpdateTitleBarButtonsVisibility();
         UpdateTitleBarOverlayVisibility();

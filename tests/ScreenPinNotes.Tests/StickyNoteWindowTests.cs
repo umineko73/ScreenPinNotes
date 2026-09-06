@@ -16,6 +16,72 @@ namespace ScreenPinNotes.Tests;
 public class StickyNoteWindowTests
 {
     [WpfFact]
+    public void ImagePreview_ReturnsAfterShowingAndHidingTitleBar()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote
+        {
+            IsFolded = true, IsTitleBarHidden = false, Title = "Title", Width = 260,
+            Content = "![](assets/long-folder-name/image.png)",
+        };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            InvokePrivate(window, "SetResizeEnabled", false);
+            window.UpdateLayout();
+            var content = (RichTextBox)window.FindName("ContentBox");
+            for (var i = 0; i < 3; i++)
+            {
+                InvokePrivate(window, "ToggleTitleBarHidden");
+                window.UpdateLayout();
+                Assert.Equal(Visibility.Visible, content.Visibility);
+                Assert.EndsWith("image.png", new TextRange(content.Document.ContentStart, content.Document.ContentEnd).Text.Trim());
+                Assert.Equal(0, content.VerticalOffset);
+                InvokePrivate(window, "ToggleTitleBarHidden");
+                window.UpdateLayout();
+                Assert.Equal(Visibility.Collapsed, content.Visibility);
+            }
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfFact]
+    public void FoldedHiddenTitleBar_TogglingTitleBar_RecalculatesFoldedHeightAndHidesBody()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { IsFolded = true, IsTitleBarHidden = true, Content = "first line\nsecond line", Height = 320 };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            var content = (RichTextBox)window.FindName("ContentBox");
+            window.Show();
+            InvokePrivate(window, "SetResizeEnabled", false);
+            window.UpdateLayout();
+            var firstLineHeight = window.ActualHeight;
+            InvokePrivate(window, "ToggleTitleBarHidden");
+            window.UpdateLayout();
+            Assert.False(window.ViewModel.IsTitleBarHidden);
+            Assert.Equal(Visibility.Collapsed, content.Visibility);
+            Assert.Equal(window.Height, window.MinHeight);
+            Assert.Equal(window.Height, window.MaxHeight);
+            Assert.Equal(window.ViewModel.TitleBarHeight + 2, window.ActualHeight, 1);
+            InvokePrivate(window, "ToggleTitleBarHidden");
+            window.UpdateLayout();
+            Assert.True(window.ViewModel.IsTitleBarHidden);
+            Assert.Equal(Visibility.Visible, content.Visibility);
+            Assert.Equal(firstLineHeight, window.ActualHeight, 1);
+            Assert.Equal(window.ActualHeight, window.MinHeight, 1);
+            Assert.Equal(window.ActualHeight, window.MaxHeight, 1);
+            Assert.Equal(window.ViewModel.TitleFontSize, content.FontSize);
+            Assert.Equal(0, content.VerticalOffset);
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfFact]
     public void MarkdownRebuild_BatchesChangesAndDoesNotKeepGeneratedUndoHistory()
     {
         EnsureApplication();

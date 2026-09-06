@@ -242,7 +242,13 @@ public partial class StickyNoteWindow
         }
         else
         {
-            MinHeight = MaxHeight = FoldedHeight;
+            // Release the old bounds before applying a different folded height.
+            MinHeight = 0;
+            MaxHeight = double.PositiveInfinity;
+            var height = FoldedHeight;
+            Height = height;
+            MinHeight = height;
+            MaxHeight = height;
         }
     }
 

@@ -217,9 +217,13 @@ public partial class StickyNoteWindow
         {
             // Reserve room for the always-visible icon and its overlay padding.
             var iconWidth = string.IsNullOrEmpty(ViewModel.Icon) ? 24 : ViewModel.TitleIconSize + 18;
-            var width = ContentBox.ActualWidth - ContentBox.Padding.Left - ContentBox.Padding.Right - iconWidth;
+            var contentWidth = ContentBox.ActualWidth > 0
+                ? ContentBox.ActualWidth
+                : Math.Max(0, Width - RootBorder.BorderThickness.Left - RootBorder.BorderThickness.Right);
+            var width = contentWidth - ContentBox.Padding.Left - ContentBox.Padding.Right - iconWidth;
             var display = PathDisplay.Fit(path, width, s => Measure(s, ViewModel.TitleFontSize));
             LoadPlainContent(display);
+            ContentBox.ScrollToHome();
         }
         if (string.IsNullOrWhiteSpace(ViewModel.Title))
             TitleText.SetCurrentValue(System.Windows.Controls.TextBlock.TextProperty,

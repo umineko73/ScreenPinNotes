@@ -144,6 +144,8 @@ public partial class StickyNoteWindow
                 ViewModel.Model.FoldedWidth = Width;
                 ViewModel.Model.Height = _unfoldedHeight;
                 SetResizeEnabled(false); // タイトルバーのみの時はリサイズ不可
+                UpdateLayout();
+                UpdateImagePathPreview();
             });
         }
         RequestSave();
