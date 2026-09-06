@@ -29,7 +29,7 @@ public class SettingsWindowTests
             window.Show();
             window.UpdateLayout();
             var pickers = Descendants<ComboBox>(window).ToArray();
-            Assert.Equal(5, pickers.Length);
+            Assert.Equal(6, pickers.Length);
             var left = pickers[0].TranslatePoint(new Point(), window).X;
             foreach (var picker in pickers)
             {
@@ -39,7 +39,11 @@ public class SettingsWindowTests
             foreach (var check in Descendants<CheckBox>(window))
                 Assert.Equal(left, check.TranslatePoint(new Point(), window).X, 1);
 
-            foreach (var key in new[] { "SettingsTitleBar", "SettingsTheme", "SettingsStartup", "SettingsFolding", "SettingsBackup" })
+            foreach (var key in new[]
+                     {
+                         "SettingsTitleBar", "SettingsTheme", "SettingsStartup", "SettingsTaskbar",
+                         "SettingsTrayClick", "SettingsFolding", "SettingsBackup",
+                     })
                 Assert.NotEqual(key, LocalizationService.T(key, language));
 
             // Render the real WPF controls for optional visual review, without changing saved settings.

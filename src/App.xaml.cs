@@ -232,11 +232,11 @@ public partial class App : System.Windows.Application
         _trayIcon.ContextMenuStrip = BuildTrayMenu();
         _trayIcon.BalloonTipClicked += (_, _) => Dispatcher.BeginInvoke(ShowNoteManager);
 
-        // 左クリックで全表示トグル
+        // 左クリック時の動作は設定で選べる（既定は全表示トグル）。
         _trayIcon.MouseClick += (_, e) =>
         {
             if (e.Button == MouseButtons.Left)
-                ToggleAllNotes();
+                HandleTrayLeftClick();
         };
     }
 
@@ -715,6 +715,15 @@ public partial class App : System.Windows.Application
     }
 
     // ─── 付箋表示制御 ────────────────────────────────────────────
+
+    /// <summary>タスクトレイアイコンの左クリック。動作は設定で選べる。</summary>
+    private void HandleTrayLeftClick()
+    {
+        if (_settings.TrayClickAction == "NewNote")
+            AddNewNote();
+        else
+            ToggleAllNotes();
+    }
 
     public void ShowAllNotes()
     {

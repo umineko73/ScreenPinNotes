@@ -87,6 +87,21 @@ public class AppSettingsTests
         Assert.Equal(expected, settings.Theme);
     }
 
+    [Theory]
+    [InlineData("NewNote", "NewNote")]
+    [InlineData("newnote", "NewNote")]
+    [InlineData("ToggleAll", "ToggleAll")]
+    [InlineData("", "ToggleAll")]
+    [InlineData("garbage", "ToggleAll")]
+    public void Normalize_TrayClickAction_FallsBackToToggleAllUnlessNewNote(string input, string expected)
+    {
+        var settings = new AppSettings { TrayClickAction = input };
+
+        settings.Normalize();
+
+        Assert.Equal(expected, settings.TrayClickAction);
+    }
+
     // 動物を増やしたら、保存済みのパレットにも不足分が配られること。
     // IconPaletteVersion を上げ忘れると既存ユーザーには増えない。
     [Fact]

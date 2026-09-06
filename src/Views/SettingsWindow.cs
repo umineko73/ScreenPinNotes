@@ -418,6 +418,22 @@ public sealed class SettingsWindow : Window
         // スタートアップだけはレジストリ登録を伴うので、App 側の処理を通す。
         panel.Children.Add(LabeledRow("SettingsStartup", Toggle("TrayStartup",
             () => _settings.StartWithWindows, _app.SetStartWithWindows)));
+        panel.Children.Add(LabeledRow("SettingsTaskbar", Toggle("TrayShowInTaskbar",
+            () => _settings.ShowNotesInTaskbar, v => _settings.ShowNotesInTaskbar = v)));
+
+        var trayClick = Picker();
+        trayClick.Items.Add(new WpfComboBoxItem { Content = LocalizationService.T("TrayClickToggleAll"), Tag = "ToggleAll" });
+        trayClick.Items.Add(new WpfComboBoxItem { Content = LocalizationService.T("TrayClickNewNote"), Tag = "NewNote" });
+        SelectByTag(trayClick, _settings.TrayClickAction);
+        trayClick.SelectionChanged += (_, _) =>
+        {
+            if (_loading || trayClick.SelectedItem is not WpfComboBoxItem { Tag: string action }) return;
+            if (string.Equals(action, _settings.TrayClickAction, StringComparison.OrdinalIgnoreCase)) return;
+            _settings.TrayClickAction = action;
+            Save();
+        };
+        panel.Children.Add(LabeledRow("SettingsTrayClick", trayClick));
+
         var folding = new StackPanel();
         folding.Children.Add(Toggle("TrayTitlePreviewTooltip",
             () => _settings.ShowTitlePreviewTooltip, v => _settings.ShowTitlePreviewTooltip = v));

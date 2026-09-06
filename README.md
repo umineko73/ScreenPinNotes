@@ -139,7 +139,7 @@ Use **Open external file as note...** from the tray menu to display a `.md` or `
 
 Use **Hidden notes** in the tray menu to restore hidden notes individually or with **Show all hidden notes**. **Show all notes** only shows notes with `IsHidden=false`.
 
-The tray menu's Settings submenu contains startup, storage folder, dark mode, language, body preview while collapsed, collapse/expand animation, and collapse/expand button settings.
+The tray menu's Settings submenu contains startup, storage folder, dark mode, language, body preview while collapsed, collapse/expand animation, collapse/expand button, taskbar visibility, and tray icon click action settings. Turning on taskbar visibility shows each note's window in the taskbar, so clicking a note there brings it to the front. The tray icon's left-click action can be switched between showing/hiding all notes (the default) and adding a new note.
 
 ## settings.json
 

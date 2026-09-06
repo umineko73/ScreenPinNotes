@@ -141,6 +141,15 @@
   <data name="TrayDoubleClickToToggleView" xml:space="preserve">
     <value>Double-click title bar to collapse/expand</value>
   </data>
+  <data name="TrayShowInTaskbar" xml:space="preserve">
+    <value>Show each note's window in the taskbar</value>
+  </data>
+  <data name="TrayClickToggleAll" xml:space="preserve">
+    <value>Show/hide all notes</value>
+  </data>
+  <data name="TrayClickNewNote" xml:space="preserve">
+    <value>Add a new note</value>
+  </data>
   <data name="TrayLanguage" xml:space="preserve">
     <value>Language</value>
   </data>
@@ -655,4 +664,6 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="ReminderRunningHint" xml:space="preserve"><value>Keep ScreenPinNotes running in the tray. Missed reminders appear once when it resumes. Windows notification settings control banner visibility.</value></data>
   <data name="ReminderChooseOptions" xml:space="preserve"><value>Select a notification method and at least one weekday for weekly reminders.</value></data>
   <data name="ReminderFutureRequired" xml:space="preserve"><value>Select a future date and time.</value></data>
+  <data name="SettingsTaskbar" xml:space="preserve"><value>Taskbar</value></data>
+  <data name="SettingsTrayClick" xml:space="preserve"><value>Tray icon click</value></data>
 </root>

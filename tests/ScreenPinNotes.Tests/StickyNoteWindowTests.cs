@@ -186,6 +186,30 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
+    [WpfFact]
+    public void ShowInTaskbar_FollowsSettingAtConstructionAndOnRefresh()
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var previous = app.Settings.ShowNotesInTaskbar;
+        using var temp = new TempDataDirectory();
+        try
+        {
+            app.Settings.ShowNotesInTaskbar = true;
+            var window = new StickyNoteWindow(
+                new StickyNoteViewModel(new StickyNote(), app.Settings), new StorageService(temp.Path));
+            try
+            {
+                Assert.True(window.ShowInTaskbar);
+
+                app.Settings.ShowNotesInTaskbar = false;
+                window.RefreshSettings();
+                Assert.False(window.ShowInTaskbar);
+            }
+            finally { window.Close(); }
+        }
+        finally { app.Settings.ShowNotesInTaskbar = previous; }
+    }
+
     [WpfTheory]
     [InlineData(true, true)]
     [InlineData(false, true)]

@@ -141,6 +141,15 @@
   <data name="TrayDoubleClickToToggleView" xml:space="preserve">
     <value>タイトルバーのダブルクリックで折りたたみ・展開</value>
   </data>
+  <data name="TrayShowInTaskbar" xml:space="preserve">
+    <value>各付箋のウィンドウをタスクバーにも表示する</value>
+  </data>
+  <data name="TrayClickToggleAll" xml:space="preserve">
+    <value>全付箋の表示・非表示を切り替え</value>
+  </data>
+  <data name="TrayClickNewNote" xml:space="preserve">
+    <value>新規付箋を追加</value>
+  </data>
   <data name="TrayLanguage" xml:space="preserve">
     <value>言語</value>
   </data>
@@ -655,4 +664,6 @@
   <data name="ReminderRunningHint" xml:space="preserve"><value>ScreenPinNotesをトレイで起動しておいてください。休止中の通知は復帰後に1回にまとめます。バナー表示はWindowsの通知設定に従います。</value></data>
   <data name="ReminderChooseOptions" xml:space="preserve"><value>通知方法を選択してください。毎週の場合は曜日も1つ以上選択してください。</value></data>
   <data name="ReminderFutureRequired" xml:space="preserve"><value>未来の日時を指定してください。</value></data>
+  <data name="SettingsTaskbar" xml:space="preserve"><value>タスクバー</value></data>
+  <data name="SettingsTrayClick" xml:space="preserve"><value>トレイアイコンのクリック</value></data>
 </root>

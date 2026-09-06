@@ -18,6 +18,11 @@ public sealed class AppSettings
     public bool EnableFoldAnimation { get; set; }
     public bool ShowFoldButton { get; set; }
     public bool DoubleClickToToggleView { get; set; } = true;
+    /// <summary>各付箋のウィンドウをタスクバーにも表示するかどうか。</summary>
+    public bool ShowNotesInTaskbar { get; set; }
+    /// <summary>タスクトレイアイコンを左クリックしたときの動作。
+    /// "ToggleAll"（全付箋の表示・非表示切り替え）または "NewNote"（新規付箋を追加）。</summary>
+    public string TrayClickAction { get; set; } = "ToggleAll";
     public int HoverOpacityBoostPercent { get; set; } = 10;
     public int MaxNoteContentBytes { get; set; } = 1024 * 1024;
     public string StorageRoot { get; set; } = "";
@@ -76,6 +81,7 @@ public sealed class AppSettings
     {
         Language = ScreenPinNotes.Services.LocalizationService.ResolveLanguage(Language, "ja");
         Theme = string.Equals(Theme, "Dark", StringComparison.OrdinalIgnoreCase) ? "Dark" : "Light";
+        TrayClickAction = string.Equals(TrayClickAction, "NewNote", StringComparison.OrdinalIgnoreCase) ? "NewNote" : "ToggleAll";
         StorageRoot = StorageRoot?.Trim() ?? "";
         NotesRoot = NotesRoot?.Trim() ?? "";
 

@@ -195,6 +195,7 @@ public partial class StickyNoteWindow : Window
         // 一瞬見える。本文も同じ理由でここで畳んでおく。
         Height  = vm.IsFolded ? FoldedHeight : vm.Model.Height;
         Topmost = vm.IsTopmost;
+        ShowInTaskbar = Settings.ShowNotesInTaskbar;
         _unfoldedHeight = vm.Model.Height;
         // バインディングは DispatcherPriority.DataBind で後から反映されるので、
         // Show() より前のここで決めきる。任せると初回フレームで一瞬見えてしまう。
@@ -367,6 +368,7 @@ public partial class StickyNoteWindow : Window
         _overlayTimer.Interval = TimeSpan.FromMilliseconds(Settings.Timings.SizeOverlayDurationMs);
         _toolbarHideTimer.Interval = TimeSpan.FromMilliseconds(Settings.Timings.ToolbarHideDelayMs);
         _titlePreviewTimer.Interval = TimeSpan.FromMilliseconds(Settings.Timings.TitlePreviewDelayMs);
+        ShowInTaskbar = Settings.ShowNotesInTaskbar;
     }
 
     private void ApplyLocalizedText()
