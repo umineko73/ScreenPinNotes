@@ -58,17 +58,34 @@ public sealed class SettingsWindow : Window
         _app = app;
 
         Title = LocalizationService.T("SettingsTitle");
-        Width = 520;
-        Height = 640;
-        MinWidth = 460;
+        Width = 720;
+        Height = 820;
+        MinWidth = 540;
         MinHeight = 400;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         ShowInTaskbar = true;
 
-        var panel = new StackPanel { Margin = new Thickness(18) };
+        FontFamily = new System.Windows.Media.FontFamily("Yu Gothic UI");
+        FontSize = 13;
+        Resources.MergedDictionaries.Add(new ResourceDictionary
+        {
+            Source = new Uri("pack://application:,,,/ScreenPinNotes;component/Resources/SettingsStyles.xaml"),
+        });
+        SetResourceReference(BackgroundProperty, "SettingsBackground");
+        SetResourceReference(ForegroundProperty, "SettingsText");
+        ApplyTheme();
+        var panel = new StackPanel { Margin = new Thickness(28, 22, 28, 20) };
+        panel.Children.Add(new WpfTextBlock
+        {
+            Text = Title, FontSize = 23, FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 0, 0, 20),
+        });
         panel.Children.Add(BuildNoteDefaultsSection());
+        panel.Children.Add(SectionDivider());
         panel.Children.Add(BuildAppearanceSection());
+        panel.Children.Add(SectionDivider());
         panel.Children.Add(BuildBehaviorSection());
+        panel.Children.Add(SectionDivider());
         panel.Children.Add(BuildDataSection());
 
         var scroll = new WpfScrollViewer
@@ -82,19 +99,27 @@ public sealed class SettingsWindow : Window
         {
             Content = LocalizationService.T("Close"),
             Width = 96,
-            Height = 30,
-            Margin = new Thickness(18, 0, 18, 16),
+            Height = 32,
             HorizontalAlignment = WpfHorizontalAlignment.Right,
         };
         close.Click += (_, _) => Close();
+        var footer = new WpfBorder
+        {
+            Background = Brush("#FAFAFA"), BorderBrush = Brush("#E5E5E5"),
+            BorderThickness = new Thickness(0, 1, 0, 0), Padding = new Thickness(20, 12, 20, 12),
+            Child = close,
+        };
+        footer.SetResourceReference(WpfBorder.BackgroundProperty, "SettingsFooter");
+        footer.SetResourceReference(WpfBorder.BorderBrushProperty, "SettingsDivider");
 
         var root = new WpfGrid();
+        root.SetResourceReference(WpfGrid.BackgroundProperty, "SettingsBackground");
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         Grid.SetRow(scroll, 0);
-        Grid.SetRow(close, 1);
+        Grid.SetRow(footer, 1);
         root.Children.Add(scroll);
-        root.Children.Add(close);
+        root.Children.Add(footer);
         Content = root;
 
         _loading = false;
@@ -102,27 +127,66 @@ public sealed class SettingsWindow : Window
 
     // ─── 共通の部品 ──────────────────────────────────────────────
 
+    private static WpfBorder SectionDivider()
+    {
+        var divider = new WpfBorder { Height = 1, Margin = new Thickness(0, 12, 0, 20) };
+        divider.SetResourceReference(WpfBorder.BackgroundProperty, "SettingsDivider");
+        return divider;
+    }
+
+    private void ApplyTheme()
+    {
+        var dark = string.Equals(_settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase);
+        Resources["SettingsBackground"] = Brush(dark ? "#202020" : "#FFFFFF");
+        Resources["SettingsSurface"] = Brush(dark ? "#303030" : "#FFFFFF");
+        Resources["SettingsText"] = Brush(dark ? "#EEEEEE" : "#242424");
+        Resources["SettingsBorder"] = Brush(dark ? "#555555" : "#CCCCCC");
+        Resources["SettingsDivider"] = Brush(dark ? "#404040" : "#E5E5E5");
+        Resources["SettingsHover"] = Brush(dark ? "#444444" : "#EEEEEE");
+        Resources["SettingsFooter"] = Brush(dark ? "#252525" : "#FAFAFA");
+        Resources["SettingsMuted"] = Brush(dark ? "#AAAAAA" : "#737373");
+    }
+
+    private static WpfComboBox Picker(double width = 200) => new()
+    {
+        Height = 32, MaxWidth = width, HorizontalAlignment = WpfHorizontalAlignment.Stretch,
+        VerticalContentAlignment = WpfVerticalAlignment.Center,
+    };
+
     private static WpfTextBlock SectionHeader(string key) => new()
     {
         Text = LocalizationService.T(key),
-        FontWeight = FontWeights.Bold,
-        Margin = new Thickness(0, 0, 0, 8),
+        FontWeight = FontWeights.SemiBold,
+        FontSize = 14,
+        Margin = new Thickness(0, 0, 0, 12),
     };
 
     private static WpfGrid LabeledRow(string labelKey, UIElement control)
     {
         var grid = new WpfGrid { Margin = new Thickness(0, 0, 0, 8) };
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(152) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         var label = new WpfTextBlock
         {
             Text = LocalizationService.T(labelKey),
-            VerticalAlignment = WpfVerticalAlignment.Center,
+            VerticalAlignment = WpfVerticalAlignment.Top,
+            Margin = new Thickness(0, 6, 12, 0),
+            TextWrapping = TextWrapping.Wrap,
         };
+        // A left-aligned container caps picker widths while allowing narrow windows to shrink them.
+        var host = new WpfGrid { HorizontalAlignment = WpfHorizontalAlignment.Left };
+        if (control is WpfComboBox picker)
+        {
+            host.SetBinding(MaxWidthProperty, new System.Windows.Data.Binding("ActualWidth") { Source = grid,
+                Converter = new PickerAvailableWidthConverter() });
+            host.Width = picker.MaxWidth;
+        }
+        else host.HorizontalAlignment = WpfHorizontalAlignment.Stretch;
+        host.Children.Add(control);
         Grid.SetColumn(label, 0);
-        Grid.SetColumn(control, 1);
+        Grid.SetColumn(host, 1);
         grid.Children.Add(label);
-        grid.Children.Add(control);
+        grid.Children.Add(host);
         return grid;
     }
 
@@ -130,9 +194,11 @@ public sealed class SettingsWindow : Window
     {
         var box = new WpfCheckBox
         {
-            Content = LocalizationService.T(labelKey),
+            Content = new WpfTextBlock { Text = LocalizationService.T(labelKey), TextWrapping = TextWrapping.Wrap },
             IsChecked = read(),
-            Margin = new Thickness(0, 0, 0, 8),
+            MinHeight = 30,
+            VerticalContentAlignment = WpfVerticalAlignment.Center,
+            Padding = new Thickness(4, 0, 0, 0),
         };
         void Apply(object? _, RoutedEventArgs __)
         {
@@ -145,35 +211,49 @@ public sealed class SettingsWindow : Window
         return box;
     }
 
-    private void Save() => _app.ApplySettingsFromSettingsWindow();
+    private void Save()
+    {
+        ApplyTheme();
+        _app.ApplySettingsFromSettingsWindow();
+    }
+
+    private sealed class PickerAvailableWidthConverter : System.Windows.Data.IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+            => Math.Max(0, (double)value - 152);
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+            => throw new NotSupportedException();
+    }
 
     // ─── 新しい付箋の既定値 ──────────────────────────────────────
 
     private StackPanel BuildNoteDefaultsSection()
     {
         var defaults = _settings.NoteDefaults;
-        var panel = new StackPanel { Margin = new Thickness(0, 0, 0, 18) };
+        var panel = new StackPanel();
         panel.Children.Add(SectionHeader("SettingsNoteDefaults"));
-        panel.Children.Add(new WpfTextBlock
+        var hint = new WpfTextBlock
         {
             Text = LocalizationService.T("SettingsNoteDefaultsHint"),
             TextWrapping = TextWrapping.Wrap,
             Foreground = WpfBrushes.Gray,
             Margin = new Thickness(0, 0, 0, 10),
-        });
+        };
+        hint.SetResourceReference(WpfTextBlock.ForegroundProperty, "SettingsMuted");
+        panel.Children.Add(hint);
 
         panel.Children.Add(LabeledRow("SettingsDefaultColor", BuildColorPicker(defaults)));
         panel.Children.Add(LabeledRow("SettingsDefaultFont", BuildFontPicker(defaults)));
         panel.Children.Add(LabeledRow("SettingsDefaultFontSize", BuildFontSizePicker(defaults)));
         panel.Children.Add(LabeledRow("SettingsDefaultIcon", BuildIconPicker(defaults)));
-        panel.Children.Add(Toggle("SettingsDefaultTitleBarHidden",
-            () => defaults.TitleBarHidden, v => defaults.TitleBarHidden = v));
+        panel.Children.Add(LabeledRow("SettingsTitleBar", Toggle("SettingsDefaultTitleBarHidden",
+            () => defaults.TitleBarHidden, v => defaults.TitleBarHidden = v)));
         return panel;
     }
 
     private WpfComboBox BuildColorPicker(NoteDefaultSettings defaults)
     {
-        var combo = new WpfComboBox { Height = 26 };
+        var combo = Picker();
         foreach (var (key, preset) in StickyNoteViewModel.ColorPresets)
         {
             var row = new StackPanel { Orientation = WpfOrientation.Horizontal };
@@ -206,7 +286,7 @@ public sealed class SettingsWindow : Window
 
     private WpfComboBox BuildFontPicker(NoteDefaultSettings defaults)
     {
-        var combo = new WpfComboBox { Height = 26 };
+        var combo = Picker(260);
         // 一覧の取得は時間がかかる。開いた直後は今の設定だけ見せ、揃ったら差し替える。
         combo.Items.Add(new WpfComboBoxItem { Content = defaults.FontFamily, Tag = defaults.FontFamily });
         combo.SelectedIndex = 0;
@@ -250,7 +330,7 @@ public sealed class SettingsWindow : Window
 
     private WpfComboBox BuildFontSizePicker(NoteDefaultSettings defaults)
     {
-        var combo = new WpfComboBox { Height = 26, Width = 90, HorizontalAlignment = WpfHorizontalAlignment.Left };
+        var combo = Picker(84);
         // 付箋側の A- / A+ と同じ 8〜48 の範囲から、よく使う刻みだけ出す。
         foreach (var size in new[] { 8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48 })
             combo.Items.Add(new WpfComboBoxItem { Content = size.ToString(), Tag = (double)size });
@@ -270,7 +350,7 @@ public sealed class SettingsWindow : Window
 
     private WpfComboBox BuildIconPicker(NoteDefaultSettings defaults)
     {
-        var combo = new WpfComboBox { Height = 26 };
+        var combo = Picker();
         combo.Items.Add(new WpfComboBoxItem
         {
             Content = new WpfTextBlock { Text = LocalizationService.T("SettingsDefaultIconNone") },
@@ -308,13 +388,13 @@ public sealed class SettingsWindow : Window
 
     private StackPanel BuildAppearanceSection()
     {
-        var panel = new StackPanel { Margin = new Thickness(0, 0, 0, 18) };
+        var panel = new StackPanel();
         panel.Children.Add(SectionHeader("SettingsAppearance"));
-        panel.Children.Add(Toggle("TrayDarkMode",
+        panel.Children.Add(LabeledRow("SettingsTheme", Toggle("TrayDarkMode",
             () => string.Equals(_settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase),
-            v => _settings.Theme = v ? "Dark" : "Light"));
+            v => _settings.Theme = v ? "Dark" : "Light")));
 
-        var language = new WpfComboBox { Height = 26, Width = 200, HorizontalAlignment = WpfHorizontalAlignment.Left };
+        var language = Picker();
         foreach (var entry in LocalizationService.Languages)
             language.Items.Add(new WpfComboBoxItem { Content = entry.NativeName, Tag = entry.Code });
         SelectByTag(language, _settings.Language);
@@ -333,19 +413,21 @@ public sealed class SettingsWindow : Window
 
     private StackPanel BuildBehaviorSection()
     {
-        var panel = new StackPanel { Margin = new Thickness(0, 0, 0, 18) };
+        var panel = new StackPanel();
         panel.Children.Add(SectionHeader("SettingsBehavior"));
         // スタートアップだけはレジストリ登録を伴うので、App 側の処理を通す。
-        panel.Children.Add(Toggle("TrayStartup",
-            () => _settings.StartWithWindows, _app.SetStartWithWindows));
-        panel.Children.Add(Toggle("TrayTitlePreviewTooltip",
+        panel.Children.Add(LabeledRow("SettingsStartup", Toggle("TrayStartup",
+            () => _settings.StartWithWindows, _app.SetStartWithWindows)));
+        var folding = new StackPanel();
+        folding.Children.Add(Toggle("TrayTitlePreviewTooltip",
             () => _settings.ShowTitlePreviewTooltip, v => _settings.ShowTitlePreviewTooltip = v));
-        panel.Children.Add(Toggle("TrayFoldAnimation",
+        folding.Children.Add(Toggle("TrayFoldAnimation",
             () => _settings.EnableFoldAnimation, v => _settings.EnableFoldAnimation = v));
-        panel.Children.Add(Toggle("TrayFoldButton",
+        folding.Children.Add(Toggle("TrayFoldButton",
             () => _settings.ShowFoldButton, v => _settings.ShowFoldButton = v));
-        panel.Children.Add(Toggle("TrayDoubleClickToToggleView",
+        folding.Children.Add(Toggle("TrayDoubleClickToToggleView",
             () => _settings.DoubleClickToToggleView, v => _settings.DoubleClickToToggleView = v));
+        panel.Children.Add(LabeledRow("SettingsFolding", folding));
         return panel;
     }
 
@@ -357,16 +439,22 @@ public sealed class SettingsWindow : Window
         panel.Children.Add(SectionHeader("SettingsData"));
 
         _notesRootBox.IsReadOnly = true;
-        _notesRootBox.Height = 26;
+        _notesRootBox.Height = 32;
+        _notesRootBox.Padding = new Thickness(8, 0, 8, 0);
         _notesRootBox.VerticalContentAlignment = WpfVerticalAlignment.Center;
         _notesRootBox.Text = StorageService.DataRoot;
-        panel.Children.Add(LabeledRow("SettingsNotesRoot", _notesRootBox));
+        var folder = new StackPanel();
+        folder.Children.Add(_notesRootBox);
+        var choose = ActionButton("TraySelectNotesRoot", _app.SelectNotesRootFromSettings);
+        choose.HorizontalAlignment = WpfHorizontalAlignment.Left;
+        choose.Margin = new Thickness(0, 8, 0, 0);
+        folder.Children.Add(choose);
+        panel.Children.Add(LabeledRow("SettingsNotesRoot", folder));
 
-        var buttons = new StackPanel { Orientation = WpfOrientation.Horizontal };
-        buttons.Children.Add(ActionButton("TraySelectNotesRoot", _app.SelectNotesRootFromSettings));
+        var buttons = new WrapPanel();
         buttons.Children.Add(ActionButton("TrayExportNotes", _app.ExportNotesFromSettings));
         buttons.Children.Add(ActionButton("TrayImportNotes", _app.ImportNotesFromSettings));
-        panel.Children.Add(buttons);
+        panel.Children.Add(LabeledRow("SettingsBackup", buttons));
         return panel;
     }
 
@@ -375,9 +463,9 @@ public sealed class SettingsWindow : Window
         var button = new WpfButton
         {
             Content = LocalizationService.T(labelKey),
-            Height = 28,
+            MinHeight = 32,
             Padding = new Thickness(12, 0, 12, 0),
-            Margin = new Thickness(0, 0, 8, 0),
+            Margin = new Thickness(0, 0, 8, 4),
         };
         button.Click += (_, _) => onClick();
         return button;

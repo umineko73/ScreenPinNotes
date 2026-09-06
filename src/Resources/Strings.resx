@@ -639,4 +639,9 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="UnlinkExternalConfirmMessage" xml:space="preserve">
     <value>Delete this note? The linked original file will not be deleted.</value>
   </data>
+  <data name="SettingsTitleBar" xml:space="preserve"><value>Title bar</value></data>
+  <data name="SettingsTheme" xml:space="preserve"><value>Theme</value></data>
+  <data name="SettingsStartup" xml:space="preserve"><value>Startup</value></data>
+  <data name="SettingsFolding" xml:space="preserve"><value>Fold / expand</value></data>
+  <data name="SettingsBackup" xml:space="preserve"><value>Backup</value></data>
 </root>
