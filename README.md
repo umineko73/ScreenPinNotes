@@ -10,14 +10,14 @@ A Windows desktop sticky notes app with Markdown, images, and recurring reminder
 
 1. Download and extract a zip from [Releases](https://github.com/umineko73/ScreenPinNotes/releases).
 2. Launch `ScreenPinNotes.exe`.
-3. Right-click the tray icon to create a note. Double-click its body to edit.
+3. Right-click the tray icon or press `Ctrl+Alt+N` to create a note. It opens in edit mode with the body ready for typing. Double-click an existing note's body to edit it.
 
 | Package | Requirements |
 | --- | --- |
 | `ScreenPinNotes-x.y.z-win-x64.zip` | Runtime included |
 | `ScreenPinNotes-x.y.z-win-x64-runtime.zip` | .NET 8 Desktop Runtime |
 
-Windows 10 or later, x64. No installation needed. Rounded corners are supported on Windows 11.
+Windows 10 or later, x64. No installation needed. Corners are drawn inside each note, without a window shadow.
 
 ## Display modes
 
@@ -50,6 +50,8 @@ Title bar visibility and collapse/expand are independent settings.
 
 ## Modifier keys and shortcuts
 
+While the app is running, **Ctrl+Alt+N** creates a new note from other apps. In Settings, focus the New note shortcut field, press a key combination, and click Apply. You can also restore the default or disable the shortcut. If another app has registered the combination, the previous shortcut remains active.
+
 | Action | Result |
 | --- | --- |
 | `Ctrl` + drag | Move only the current display mode's position |
@@ -64,7 +66,7 @@ Title bar visibility and collapse/expand are independent settings.
 | `Ctrl+C` / `Ctrl+X` / `Ctrl+V` | Copy/cut/paste |
 | `Alt+F4` / taskbar close | Hide the note |
 
-Normal dragging links expanded and collapsed positions. Use **Align to collapsed position** to reconnect separated positions. Each mode remembers its own width.
+Normal dragging links expanded and collapsed positions. Use **Align to collapsed position** to reconnect separated positions. Each mode remembers its own width. Snapping adjacent notes leaves a one-physical-pixel gap.
 
 ## Icons and toolbars
 
@@ -118,9 +120,21 @@ Use the mini toolbar for colors, fonts, and icons. Unavailable actions are disab
 - Use the context menu to paste/copy Excel tables. Pasting images is also supported.
 - Very large documents or deeply nested formatting fall back to source text without discarding content.
 
+## Note list
+
+Open **Note list** from the tray. Columns show layer order, pin status, visibility, edit lock, title, body excerpt, reminder, update time, and external path.
+
+- **Search**: choose plain text, wildcard (`*` for any sequence, `?` for one character), or regular expression. Searches ignore case. Invalid or excessively slow patterns show an error.
+- **History**: Enter or leaving the search field saves the query. The latest 30 entries persist across restarts and can be selected from the field's dropdown. **Clear search** clears the query while keeping history.
+- **Multiple selection**: Ctrl/Shift-click notes, then use **Show / Hide** for the entire selection. Deletion, reminders, and other individual actions operate on one note at a time.
+- **Layers**: higher rows appear in front. Use **Bring to front, Move up, Move down, Send to back**. The order persists across restarts and includes hidden notes. Always-on-top notes form a separate group above normal notes.
+- **Sorting**: click a column header, then click again to reverse direction (▲/▼). This sorts only the list, leaving the actual stacking order intact. Click **Z-order** to return to layer order. Layer movement is available in layer order with search cleared.
+
 ## Reminders
 
-Configure a reminder from a note's context menu or the **Note list**.
+Configure a reminder from a note's context menu or the **Note list**. Choose a date from the calendar. The editor appears above pinned notes.
+
+**+5 min, +10 min, +1 hour** add to the date and time currently entered, including repeated clicks and crossing midnight. Use **Reset to now** then **+10 min** for ten minutes from now. **Set minutes to 00** keeps the date and hour. Choose a future time before saving.
 
 | Repeat | Schedule |
 | --- | --- |
@@ -130,6 +144,8 @@ Configure a reminder from a note's context menu or the **Note list**.
 | Monthly | Start date, time, and day 1–31; shorter months use their last day |
 
 Click a Windows notification to open the note list. Simultaneous reminders share a notification. Optionally enable the alert window for 5-, 15-, or 60-minute snooze. Snoozing preserves the recurring time.
+
+**Flash note border for 10 seconds** is enabled by default. It shows hidden notes and slowly pulses the border. Clicking, typing, or hiding the note stops the effect. Windows notifications, snooze alerts, and flashing can be combined; flashing alone is also supported.
 
 The app must be running in the tray. Missed reminders are delivered once on restart or resume. Windows notification settings control banners and sound.
 
@@ -144,7 +160,7 @@ The app must be running in the tray. Missed reminders are delivered once on rest
 | Settings | New-note defaults, theme, language, startup, taskbar/tray behavior, and storage |
 | Open external file as note | Display `.md` / `.txt` read-only and follow file changes |
 
-Settings save immediately. New-note defaults apply to tray-created notes; `＋` on a note copies its appearance.
+Settings save immediately (shortcut changes require Apply). New-note defaults apply to tray- and shortcut-created notes; `＋` on a note copies its appearance.
 
 External notes show `🔗`. Their menu can open the file or folder, or convert the content into an editable note. Deleting the note or changing image display sizes does not modify the original file.
 

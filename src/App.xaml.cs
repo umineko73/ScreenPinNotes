@@ -39,6 +39,26 @@ public partial class App : System.Windows.Application
     private readonly DispatcherTimer _reminderTimer = new();
     private readonly HashSet<string> _activeReminderAlerts = [];
     private bool _shuttingDown;
+    private GlobalNoteHotkey? _newNoteHotkey;
+    public string NewNoteHotkeyError { get; private set; } = "";
+
+    public bool TrySetNewNoteHotkey(string gesture)
+    {
+        _newNoteHotkey ??= new GlobalNoteHotkey(() =>
+        {
+            if (!_shuttingDown && _openReminderDialogs == 0 && _settingsWindow?.IsCapturingHotkey != true && !_windows.Any(w => !w.IsEnabled))
+                AddNewNote();
+        });
+        if (!_newNoteHotkey.TrySet(gesture))
+        {
+            NewNoteHotkeyError = LocalizationService.T("HotkeyUnavailable");
+            return false;
+        }
+        NewNoteHotkeyError = "";
+        _settings.NewNoteHotkey = _newNoteHotkey.Gesture;
+        _storage.SaveSettings(_settings);
+        return true;
+    }
 
     public IReadOnlyList<StickyNoteWindow> NoteWindows => _windows;
     public AppSettings Settings => _settings;
@@ -113,6 +133,8 @@ public partial class App : System.Windows.Application
 
         InitIpcWindow();
         InitTrayIcon();
+        if (!TrySetNewNoteHotkey(_settings.NewNoteHotkey))
+            _trayIcon?.ShowBalloonTip(5000, "ScreenPinNotes", NewNoteHotkeyError, ToolTipIcon.Warning);
 
         var notes = _storage.Load();
         if (notes.Count == 0)
@@ -732,6 +754,51 @@ public partial class App : System.Windows.Application
             ToggleAllNotes();
     }
 
+    private bool _layerOrderQueued;
+    private int _openReminderDialogs;
+
+    internal void ReminderDialogOpened() => _openReminderDialogs++;
+
+    internal void ReminderDialogClosed()
+    {
+        _openReminderDialogs--;
+        QueueLayerOrder();
+    }
+
+    private void QueueLayerOrder()
+    {
+        if (_layerOrderQueued || _shuttingDown) return;
+        _layerOrderQueued = true;
+        Dispatcher.BeginInvoke(() =>
+        {
+            _layerOrderQueued = false;
+            if (_shuttingDown) return;
+            ApplyLayerOrder();
+            _noteManagerWindow?.RefreshNotes();
+        });
+    }
+
+    public void ApplyLayerOrder()
+    {
+        // A modal reminder editor must stay above pinned notes. Apply deferred
+        // layer changes when it closes instead of raising notes over its controls.
+        if (_openReminderDialogs > 0) return;
+        var byId = _windows.ToDictionary(w => w.ViewModel.Model.Id);
+        foreach (var note in NoteLayers.Ordered(_windows.Select(w => w.ViewModel.Model)).AsEnumerable().Reverse())
+        {
+            var window = byId[note.Id];
+            if (window.IsVisible) window.ChangeZOrder(true);
+        }
+    }
+
+    public void MoveNoteLayers(ISet<string> ids, LayerMove move)
+    {
+        NoteLayers.Move(_windows.Select(w => w.ViewModel.Model), ids, move);
+        ApplyLayerOrder();
+        SaveAll();
+        _noteManagerWindow?.RefreshNotes();
+    }
+
     public void ShowAllNotes()
     {
         foreach (var win in _windows)
@@ -739,6 +806,7 @@ public partial class App : System.Windows.Application
             if (!win.ViewModel.Model.IsHidden)
                 win.Show();
         }
+        ApplyLayerOrder();
     }
 
     public void HideAllNotes()
@@ -789,7 +857,9 @@ public partial class App : System.Windows.Application
             y ?? layout.NewNoteBaseY + _windows.Count * layout.NewNoteCascadeStep,
             DateTime.Now);
 
-        OpenNoteWindow(note);
+        note.LayerOrder = _windows.Select(w => w.ViewModel.Model.LayerOrder).DefaultIfEmpty(0).Min() - 1;
+        var window = OpenNoteWindow(note);
+        window.StartEditingNewNote();
         SaveAll();
     }
 
@@ -843,19 +913,27 @@ public partial class App : System.Windows.Application
         };
         note.Content = StorageService.ReadExternalContent(note);
 
+        note.LayerOrder = _windows.Select(w => w.ViewModel.Model.LayerOrder).DefaultIfEmpty(0).Min() - 1;
         OpenNoteWindow(note);
         SaveAll();
         RefreshTrayMenu();
         _noteManagerWindow?.RefreshNotes();
     }
 
-    private void OpenNoteWindow(StickyNote note)
+    private StickyNoteWindow OpenNoteWindow(StickyNote note)
     {
         var vm  = new StickyNoteViewModel(note, _settings);
         var win = new StickyNoteWindow(vm, _storage);
         _windows.Add(win);
+        win.Activated += (_, _) => QueueLayerOrder();
+        win.ViewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(StickyNoteViewModel.IsTopmost)) QueueLayerOrder();
+        };
+        QueueLayerOrder();
         if (!note.IsHidden)
             win.Show();
+        return win;
     }
 
     /// <summary>
@@ -902,6 +980,7 @@ public partial class App : System.Windows.Application
         win.ViewModel.Model.IsHidden = false;
         win.Show();
         win.Activate();
+        ApplyLayerOrder();
         SaveAll();
         RefreshTrayMenu();
         _noteManagerWindow?.RefreshNotes();
@@ -1022,6 +1101,16 @@ public partial class App : System.Windows.Application
         return true;
     }
 
+    public void RememberNoteSearch(string query)
+    {
+        query = query.Trim();
+        if (query.Length == 0 || _settings.SearchHistory.FirstOrDefault() == query) return;
+        _settings.SearchHistory.RemoveAll(item => item == query);
+        _settings.SearchHistory.Insert(0, query);
+        _settings.SearchHistory = _settings.SearchHistory.Take(30).ToList();
+        _storage.SaveSettings(_settings);
+    }
+
     public void SaveAll()
     {
         var notes = _windows.Select(w => w.ViewModel.Model).ToList();
@@ -1092,6 +1181,11 @@ public partial class App : System.Windows.Application
             reminder.NextAt = ReminderSchedule.Next(reminder, DateTime.Now);
             win.ViewModel.RefreshReminder();
             SaveAll();
+            if (reminder.FlashNote)
+            {
+                ShowNote(note.Id);
+                win.FlashForReminder();
+            }
             // null（この機能追加より前に保存されたリマインダー）は従来どおり
             // アラートを出す側として扱う。明示的に false のときだけスキップする。
             if (reminder.ShowAlert == false)
@@ -1146,6 +1240,7 @@ public partial class App : System.Windows.Application
 
         _trayIcon?.Dispose();
         _ipcWindow?.Dispose();
+        _newNoteHotkey?.Dispose();
         if (_instanceMutex != null)
         {
             try { _instanceMutex.ReleaseMutex(); } catch (ApplicationException) { /* 未所有 */ }

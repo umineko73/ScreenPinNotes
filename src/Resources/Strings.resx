@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -666,4 +666,38 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="ReminderFutureRequired" xml:space="preserve"><value>Select a future date and time.</value></data>
   <data name="SettingsTaskbar" xml:space="preserve"><value>Taskbar</value></data>
   <data name="SettingsTrayClick" xml:space="preserve"><value>Tray icon click</value></data>
+  <data name="SearchPlain" xml:space="preserve"><value>Plain text</value></data>
+  <data name="SearchWildcard" xml:space="preserve"><value>Wildcard (*, ?)</value></data>
+  <data name="SearchRegex" xml:space="preserve"><value>Regular expression</value></data>
+  <data name="SearchInvalid" xml:space="preserve"><value>Invalid pattern or search timed out. Simplify your expression.</value></data>
+  <data name="NoteManagerSelectionHint" xml:space="preserve"><value>Ctrl / Shift + click to select multiple notes. Hidden notes also keep their layer order.</value></data>
+  <data name="ReminderZeroMinutes" xml:space="preserve"><value>Set minutes to 00</value></data>
+  <data name="SearchHistoryHint" xml:space="preserve"><value>Type a search or choose from history. Enter or leaving the field saves it (latest 30).</value></data>
+  <data name="ReminderAdd5" xml:space="preserve"><value>+5 min</value></data>
+  <data name="ReminderAdd10" xml:space="preserve"><value>+10 min</value></data>
+  <data name="ReminderAdd60" xml:space="preserve"><value>+1 hour</value></data>
+  <data name="ReminderResetNow" xml:space="preserve"><value>Reset to now</value></data>
+  <data name="ReminderAdjustHint" xml:space="preserve"><value>Adds to the date and time above. To start from now, reset first, then add time.</value></data>
+  <data name="NoteManagerClearSearch" xml:space="preserve"><value>Clear search</value></data>
+  <data name="LayerSort" xml:space="preserve"><value>Order: layers (front first)</value></data>
+  <data name="TitleSortAsc" xml:space="preserve"><value>Title: A → Z</value></data>
+  <data name="TitleSortDesc" xml:space="preserve"><value>Title: Z → A</value></data>
+  <data name="UpdatedSortNew" xml:space="preserve"><value>Updated: newest first</value></data>
+  <data name="UpdatedSortOld" xml:space="preserve"><value>Updated: oldest first</value></data>
+  <data name="LayerUp" xml:space="preserve"><value>↑ Move up</value></data>
+  <data name="LayerDown" xml:space="preserve"><value>↓ Move down</value></data>
+  <data name="LayerSortHint" xml:space="preserve"><value>Click column headers to sort; click again to reverse. Click Z-order and clear search to move layers. Pinned notes stay above normal notes.</value></data>
+  <data name="NoteManagerLockColumn" xml:space="preserve"><value>Lock</value></data>
+  <data name="NoteManagerLocked" xml:space="preserve"><value>Locked</value></data>
+  <data name="NoteManagerUnlocked" xml:space="preserve"><value>Unlocked</value></data>
+  <data name="SettingsNewNoteHotkey" xml:space="preserve"><value>New note shortcut</value></data>
+  <data name="HotkeyHint" xml:space="preserve"><value>Works while the app is running, even in other apps. Focus the field and press Ctrl or Alt + a letter, digit, or F-key (except F12), then Apply. Shift can be added. Default: Ctrl+Alt+N.</value></data>
+  <data name="HotkeyInvalid" xml:space="preserve"><value>Use Ctrl or Alt with a letter, digit, or F-key, except F12.</value></data>
+  <data name="HotkeyUnavailable" xml:space="preserve"><value>Could not register the shortcut. It may be in use by another app. Choose another combination in Settings.</value></data>
+  <data name="HotkeyApply" xml:space="preserve"><value>Apply</value></data>
+  <data name="HotkeyDefault" xml:space="preserve"><value>Use default</value></data>
+  <data name="HotkeyDisable" xml:space="preserve"><value>Disable</value></data>
+  <data name="HotkeyDisabled" xml:space="preserve"><value>Shortcut disabled.</value></data>
+  <data name="HotkeyApplied" xml:space="preserve"><value>Shortcut saved and active.</value></data>
+  <data name="ReminderFlashNote" xml:space="preserve"><value>Flash note border for 10 seconds (shows hidden notes)</value></data>
 </root>

@@ -15,6 +15,33 @@ namespace ScreenPinNotes.Tests;
 
 public class StickyNoteWindowTests
 {
+    [WpfTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ReminderFlashUsesOverlayAndStopsWhenHidden(bool folded)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { IsFolded = folded, OpacityPercent = 65, Content = "body" };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.FlashForReminder();
+            var overlay = (Border)window.FindName("ReminderFlashBorder");
+            Assert.True(overlay.HasAnimatedProperties);
+            Assert.False(overlay.IsHitTestVisible);
+            Assert.Equal(65, note.OpacityPercent);
+            Assert.Equal("body", note.Content);
+            window.Hide();
+            Assert.False(overlay.HasAnimatedProperties);
+            Assert.Equal(0, overlay.Opacity);
+            window.Show();
+            Assert.Equal(0, overlay.Opacity);
+        }
+        finally { window.Close(); }
+    }
+
     [WpfFact]
     public void ImagePreview_ReturnsAfterShowingAndHidingTitleBar()
     {

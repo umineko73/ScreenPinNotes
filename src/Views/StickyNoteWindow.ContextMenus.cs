@@ -373,8 +373,8 @@ public partial class StickyNoteWindow
         var item = new MenuItem { Header = LocalizationService.T("ZOrder") };
         var bringToFrontItem = new MenuItem { Header = LocalizationService.T("BringToFront") };
         var sendToBackItem = new MenuItem { Header = LocalizationService.T("SendToBack") };
-        bringToFrontItem.Click += (_, _) => MoveInZOrder(HwndTop);
-        sendToBackItem.Click += (_, _) => MoveInZOrder(HwndBottom);
+        bringToFrontItem.Click += (_, _) => App.Current.MoveNoteLayers(new HashSet<string> { ViewModel.Model.Id }, LayerMove.Top);
+        sendToBackItem.Click += (_, _) => App.Current.MoveNoteLayers(new HashSet<string> { ViewModel.Model.Id }, LayerMove.Bottom);
         item.Items.Add(bringToFrontItem);
         item.Items.Add(sendToBackItem);
         return item;
@@ -556,6 +556,8 @@ public partial class StickyNoteWindow
         ViewModel.IsPositionSeparated = false;
         RequestSave();
     }
+
+    public void ChangeZOrder(bool bringToFront) => MoveInZOrder(bringToFront ? HwndTop : HwndBottom);
 
     private void MoveInZOrder(IntPtr insertAfter)
     {

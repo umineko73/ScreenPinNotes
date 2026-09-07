@@ -12,6 +12,83 @@ namespace ScreenPinNotes.Tests;
 // 「一覧には出るが表示できない抜け殻」になり、全表示で例外になる。
 public class AppNoteWindowTests
 {
+    [WpfTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DueReminderFlashesOnlyWhenEnabled(bool flash)
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var tempRoot = Path.Combine(Path.GetTempPath(), "ScreenPinNotes.Tests", Guid.NewGuid().ToString("N"));
+        var windowsField = typeof(App).GetField("_windows", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var storageField = typeof(App).GetField("_storage", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var windows = (List<StickyNoteWindow>)windowsField.GetValue(app)!;
+        var previous = windows.ToList();
+        var previousStorage = storageField.GetValue(app);
+        var storage = new StorageService(tempRoot);
+        var due = DateTime.Now.AddMinutes(-1);
+        var note = new StickyNote { IsHidden = true, Reminder = new ReminderSettings { NextAt = due, FlashNote = flash, ShowAlert = false, WindowsNotification = true } };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, app.Settings), storage);
+        try
+        {
+            windows.Clear();
+            windows.Add(window);
+            storageField.SetValue(app, storage);
+            typeof(App).GetMethod("TriggerReminder", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(app, [window, due]);
+            Assert.Equal(flash, window.IsVisible);
+            Assert.Equal(!flash, note.IsHidden);
+            Assert.Equal(flash, ((System.Windows.Controls.Border)window.FindName("ReminderFlashBorder")).HasAnimatedProperties);
+            Assert.Null(note.Reminder.NextAt);
+            Assert.NotNull(note.Reminder.LastTriggeredAt);
+            Assert.Equal(flash, Assert.Single(storage.Load()).Reminder!.FlashNote);
+        }
+        finally
+        {
+            windows.Clear();
+            window.Close();
+            windows.AddRange(previous);
+            storageField.SetValue(app, previousStorage);
+            if (Directory.Exists(tempRoot)) Directory.Delete(tempRoot, true);
+        }
+    }
+
+    [WpfTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NewNoteStartsWithBodyReadyForTyping(bool fromTemplate)
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var tempRoot = Path.Combine(Path.GetTempPath(), "ScreenPinNotes.Tests", Guid.NewGuid().ToString("N"));
+        var windowsField = typeof(App).GetField("_windows", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var storageField = typeof(App).GetField("_storage", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var windows = (List<StickyNoteWindow>)windowsField.GetValue(app)!;
+        var previousWindows = windows.ToList();
+        var previousStorage = storageField.GetValue(app);
+        try
+        {
+            windows.Clear();
+            storageField.SetValue(app, new StorageService(tempRoot));
+            app.AddNewNote(fromTemplate ? new StickyNote { IsReadOnly = true, IsFolded = true, IsTitleBarHidden = true } : null);
+            var window = Assert.Single(windows);
+            window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            var editor = Assert.IsType<System.Windows.Controls.TextBox>(window.FindName("BodyEditBox"));
+            Assert.Equal(System.Windows.Visibility.Visible, editor.Visibility);
+            Assert.False(editor.IsReadOnly);
+            Assert.True(editor.IsKeyboardFocused);
+            Assert.Empty(editor.Text);
+            editor.SelectedText = "すぐ入力";
+            Assert.Equal("すぐ入力", window.ViewModel.Content);
+        }
+        finally
+        {
+            var created = windows.ToList();
+            windows.Clear();
+            foreach (var window in created) window.Close();
+            windows.AddRange(previousWindows);
+            storageField.SetValue(app, previousStorage);
+            if (Directory.Exists(tempRoot)) Directory.Delete(tempRoot, true);
+        }
+    }
+
     [WpfFact]
     public void ClosingANoteWindowDirectly_HidesTheNoteAndKeepsShowAllWorking()
     {

@@ -50,6 +50,7 @@ public class StickyNote
     public double TitleFontSize { get; set; } = 12;
     public int OpacityPercent { get; set; } = 100;
     public bool IsTopmost { get; set; } = false;
+    public int LayerOrder { get; set; }
     public bool IsFolded { get; set; } = false;
     public bool IsHidden { get; set; } = false;
     public bool IsReadOnly { get; set; } = false;
@@ -93,6 +94,7 @@ public sealed class ReminderSettings
     // 新規に作成されたリマインダーはダイアログが必ず true/false を明示的に書き込む。
     // TriggerReminder 側は null を「従来どおりアラートを出す」として扱う。
     public bool? ShowAlert { get; set; }
+    public bool FlashNote { get; set; } = true;
     public DateTime? NextAt { get; set; }
     public string Recurrence { get; set; } = "None";
     public DateTime? LastTriggeredAt { get; set; }

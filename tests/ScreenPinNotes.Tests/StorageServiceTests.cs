@@ -56,6 +56,7 @@ public sealed class StorageServiceTests : IDisposable
         {
             Content = "# Hello\nworld",
             Title = "My Note",
+            LayerOrder = 12,
             FoldedX = 12,
             FoldedY = 34,
             FoldedWidth = 180,
@@ -80,6 +81,7 @@ public sealed class StorageServiceTests : IDisposable
         var loadedNote = Assert.Single(loaded);
         Assert.Equal(note.Id, loadedNote.Id);
         Assert.Equal("My Note", loadedNote.Title);
+        Assert.Equal(12, loadedNote.LayerOrder);
         Assert.Equal("# Hello\nworld", loadedNote.Content);
         Assert.Equal(12, loadedNote.FoldedX);
         Assert.Equal(34, loadedNote.FoldedY);
@@ -515,6 +517,8 @@ public sealed class StorageServiceTests : IDisposable
         var settings = new AppSettings { Language = "en", Theme = "Dark" };
         settings.HoverOpacityBoostPercent = 999; // out of range, Normalize should clamp on save
         settings.StorageRoot = Path.Combine(_tempRoot, "custom-storage");
+        settings.SearchHistory = ["report*", "^task[0-9]+$", "日本語"];
+        settings.NewNoteHotkey = "Ctrl+Alt+Shift+N";
 
         _storage.SaveSettings(settings);
         var loaded = _storage.LoadSettings();
@@ -523,6 +527,8 @@ public sealed class StorageServiceTests : IDisposable
         Assert.Equal("Dark", loaded.Theme);
         Assert.Equal(90, loaded.HoverOpacityBoostPercent);
         Assert.Equal(Path.Combine(_tempRoot, "custom-storage"), loaded.StorageRoot);
+        Assert.Equal(settings.SearchHistory, loaded.SearchHistory);
+        Assert.Equal("Ctrl+Alt+Shift+N", loaded.NewNoteHotkey);
     }
 
     [Fact]

@@ -300,13 +300,14 @@ public partial class StickyNoteWindow
             double oR = oL + other.Width, oB = oT + other.Height;
 
             TrySnap(Left,         oL, ref bestLeft, ref minLD, oL);
-            TrySnap(Left,         oR, ref bestLeft, ref minLD, oR);
-            TrySnap(Left + Width, oL, ref bestLeft, ref minLD, oL - Width);
+            // 接する辺には物理1ピクセルの隙間を残す。同じ辺の整列は維持する。
+            TrySnap(Left,         oR + 1 / dpiX, ref bestLeft, ref minLD, oR + 1 / dpiX);
+            TrySnap(Left + Width, oL - 1 / dpiX, ref bestLeft, ref minLD, oL - 1 / dpiX - Width);
             TrySnap(Left + Width, oR, ref bestLeft, ref minLD, oR - Width);
 
             TrySnap(Top,          oT, ref bestTop, ref minTD, oT);
-            TrySnap(Top,          oB, ref bestTop, ref minTD, oB);
-            TrySnap(Top + Height, oT, ref bestTop, ref minTD, oT - Height);
+            TrySnap(Top,          oB + 1 / dpiY, ref bestTop, ref minTD, oB + 1 / dpiY);
+            TrySnap(Top + Height, oT - 1 / dpiY, ref bestTop, ref minTD, oT - 1 / dpiY - Height);
             TrySnap(Top + Height, oB, ref bestTop, ref minTD, oB - Height);
         }
 
@@ -344,35 +345,42 @@ public partial class StickyNoteWindow
         base.OnSourceInitialized(e);
         if (PresentationSource.FromVisual(this) is HwndSource src)
             src.AddHook(WndProc);
-        ApplyRoundedCorners();
+        ApplyWindowAppearance();
     }
 
-    // ─── 角丸（Windows 11 の DWM に任せる） ──────────────────────
+    // ─── ウィンドウの影と角丸 ──────────────────────────────────
     //
-    // AllowsTransparency + Border.CornerRadius でも実現できるが、
-    // WindowChrome のリサイズ処理と相性が悪く描画も重くなる。
-    // DWM に角を落としてもらえば OS 側の合成で切り抜かれる。
+    // DWM の角丸は標準の影を伴うため使用しない。
+    // 角丸は透明ウィンドウ内の RootBorder のクリップで描画する。
 
+    private const int DWMWA_NCRENDERING_POLICY       = 2;
+    private const int DWMNCRP_DISABLED               = 1;
     private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
-    private const int DWMWCP_ROUNDSMALL              = 3;   // 小さめの角丸
+    private const int DWMWCP_DONOTROUND              = 1;
 
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
 
-    private void ApplyRoundedCorners()
+    private void ApplyWindowAppearance()
     {
         try
         {
             var hwnd = new WindowInteropHelper(this).Handle;
             if (hwnd == IntPtr.Zero) return;
 
-            int preference = DWMWCP_ROUNDSMALL;
+            // 標準フレームの描画を止め、隣の付箋やデスクトップに影を落とさない。
+            // リサイズの当たり判定は WindowChrome で引き続き処理する。
+            int renderingPolicy = DWMNCRP_DISABLED;
+            DwmSetWindowAttribute(hwnd, DWMWA_NCRENDERING_POLICY,
+                ref renderingPolicy, sizeof(int));
+
+            int preference = DWMWCP_DONOTROUND;
             DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE,
                 ref preference, sizeof(int));
         }
         catch
         {
-            // Windows 10 以前では未対応。角丸にならないだけで動作に支障はない
+            // DWM が利用できない環境では既定の外観を使用する。
         }
     }
 
@@ -443,10 +451,10 @@ public partial class StickyNoteWindow
             double oR = oL + other.ActualWidth, oB = oT + other.ActualHeight;
 
             // 辺を他の付箋の辺に合わせる
-            if (movingLeft)   { xTargets.Add(oL); xTargets.Add(oR); }
-            if (movingRight)  { xTargets.Add(oL); xTargets.Add(oR); }
-            if (movingTop)    { yTargets.Add(oT); yTargets.Add(oB); }
-            if (movingBottom) { yTargets.Add(oT); yTargets.Add(oB); }
+            if (movingLeft)   { xTargets.Add(oL); xTargets.Add(oR + 1 / dpiX); }
+            if (movingRight)  { xTargets.Add(oL - 1 / dpiX); xTargets.Add(oR); }
+            if (movingTop)    { yTargets.Add(oT); yTargets.Add(oB + 1 / dpiY); }
+            if (movingBottom) { yTargets.Add(oT - 1 / dpiY); yTargets.Add(oB); }
 
             // 幅・高さを他の付箋と揃える（サイズスナップ）
             if (other.ViewModel.IsFolded) continue;

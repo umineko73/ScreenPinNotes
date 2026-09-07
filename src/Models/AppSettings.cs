@@ -29,6 +29,8 @@ public sealed class AppSettings
     public string NotesRoot { get; set; } = "";
     public string Language { get; set; } = "ja";
     public string Theme { get; set; } = "Light";
+    public string NewNoteHotkey { get; set; } = ScreenPinNotes.Services.GlobalNoteHotkey.DefaultGesture;
+    public List<string> SearchHistory { get; set; } = new();
     public Dictionary<string, int> FontUsage { get; set; } = new();
     public TimingSettings Timings { get; set; } = new();
     public InteractionSettings Interaction { get; set; } = new();
@@ -89,6 +91,9 @@ public sealed class AppSettings
         Interaction ??= new InteractionSettings();
         Layout ??= new LayoutSettings();
         FontUsage ??= new();
+        NewNoteHotkey = ScreenPinNotes.Services.GlobalNoteHotkey.TryParse(NewNoteHotkey, out _, out _, out var hotkey) ? hotkey : ScreenPinNotes.Services.GlobalNoteHotkey.DefaultGesture;
+        SearchHistory = (SearchHistory ?? []).Where(s => !string.IsNullOrWhiteSpace(s))
+            .Select(s => s.Trim()).Distinct(StringComparer.Ordinal).Take(30).ToList();
         if (IconPalette == null || IconPalette.Count == 0 || IconPalette.SequenceEqual(LegacyIconPalette()))
             IconPalette = DefaultIconPalette();
         // Reserve the chain symbol for external-file status, including saved palettes.

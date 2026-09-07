@@ -50,6 +50,8 @@ public sealed class SettingsWindow : Window
     private readonly AppSettings _settings;
     private readonly App _app;
     private readonly WpfTextBox _notesRootBox = new();
+    private readonly WpfTextBox _hotkeyBox = new() { IsReadOnly = true, MinHeight = 32, VerticalContentAlignment = VerticalAlignment.Center };
+    public bool IsCapturingHotkey => _hotkeyBox.IsKeyboardFocusWithin;
     private bool _loading = true;
 
     public SettingsWindow(AppSettings settings, App app)
@@ -433,6 +435,7 @@ public sealed class SettingsWindow : Window
             Save();
         };
         panel.Children.Add(LabeledRow("SettingsTrayClick", trayClick));
+        panel.Children.Add(LabeledRow("SettingsNewNoteHotkey", BuildHotkeyEditor()));
 
         var folding = new StackPanel();
         folding.Children.Add(Toggle("TrayTitlePreviewTooltip",
@@ -444,6 +447,56 @@ public sealed class SettingsWindow : Window
         folding.Children.Add(Toggle("TrayDoubleClickToToggleView",
             () => _settings.DoubleClickToToggleView, v => _settings.DoubleClickToToggleView = v));
         panel.Children.Add(LabeledRow("SettingsFolding", folding));
+        return panel;
+    }
+
+    private StackPanel BuildHotkeyEditor()
+    {
+        var panel = new StackPanel();
+        _hotkeyBox.Text = _settings.NewNoteHotkey;
+        _hotkeyBox.ToolTip = LocalizationService.T("HotkeyHint");
+        var status = new WpfTextBlock { Text = _app.NewNoteHotkeyError, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0) };
+        status.SetResourceReference(ForegroundProperty, "SettingsText");
+        _hotkeyBox.PreviewKeyDown += (sender, e) =>
+        {
+            var key = e.Key == System.Windows.Input.Key.System ? e.SystemKey : e.Key;
+            if (key == System.Windows.Input.Key.Tab) return;
+            e.Handled = true;
+            if (key == System.Windows.Input.Key.Escape) { _hotkeyBox.Text = _settings.NewNoteHotkey; return; }
+            if (key is System.Windows.Input.Key.LeftCtrl or System.Windows.Input.Key.RightCtrl or System.Windows.Input.Key.LeftAlt or System.Windows.Input.Key.RightAlt or System.Windows.Input.Key.LeftShift or System.Windows.Input.Key.RightShift) return;
+            var modifiers = System.Windows.Input.Keyboard.Modifiers;
+            var keyName = key is >= System.Windows.Input.Key.D0 and <= System.Windows.Input.Key.D9 ? ((char)('0' + key - System.Windows.Input.Key.D0)).ToString() : key.ToString();
+            var gesture = (modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control) ? "Ctrl+" : "") + (modifiers.HasFlag(System.Windows.Input.ModifierKeys.Alt) ? "Alt+" : "") + (modifiers.HasFlag(System.Windows.Input.ModifierKeys.Shift) ? "Shift+" : "") + keyName;
+            if (modifiers.HasFlag(System.Windows.Input.ModifierKeys.Windows) || !GlobalNoteHotkey.TryParse(gesture, out _, out _, out var normalized))
+                status.Text = LocalizationService.T("HotkeyInvalid");
+            else { _hotkeyBox.Text = normalized; status.Text = ""; }
+        };
+        panel.Children.Add(_hotkeyBox);
+        var buttons = new WrapPanel { Margin = new Thickness(0, 6, 0, 0) };
+        void Apply(string gesture)
+        {
+            if (_app.TrySetNewNoteHotkey(gesture))
+            {
+                _settings.NewNoteHotkey = _app.Settings.NewNoteHotkey;
+                _hotkeyBox.Text = _settings.NewNoteHotkey;
+                status.Text = LocalizationService.T(_settings.NewNoteHotkey.Length == 0 ? "HotkeyDisabled" : "HotkeyApplied");
+            }
+            else status.Text = _app.NewNoteHotkeyError;
+        }
+        foreach (var (label, action) in new (string, Action)[]
+        {
+            ("HotkeyApply", () => Apply(_hotkeyBox.Text)),
+            ("HotkeyDefault", () => Apply(GlobalNoteHotkey.DefaultGesture)),
+            ("HotkeyDisable", () => Apply("")),
+        })
+        {
+            var button = new WpfButton { Content = LocalizationService.T(label), Padding = new Thickness(10, 5, 10, 5), Margin = new Thickness(0, 0, 6, 6) };
+            button.Click += (_, _) => action();
+            buttons.Children.Add(button);
+        }
+        panel.Children.Add(buttons);
+        panel.Children.Add(new WpfTextBlock { Text = LocalizationService.T("HotkeyHint"), TextWrapping = TextWrapping.Wrap });
+        panel.Children.Add(status);
         return panel;
     }
 

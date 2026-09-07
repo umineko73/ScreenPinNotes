@@ -19,7 +19,7 @@ namespace ScreenPinNotes.Views;
 
 public sealed class ReminderDialog : Window
 {
-    private readonly WpfTextBox _dateBox = new();
+    private readonly DatePicker _dateBox = new() { SelectedDateFormat = DatePickerFormat.Short };
     private readonly WpfTextBox _timeBox = new();
     private readonly TextBlock _errorText = new();
     private DateTime? _selectedAt;
@@ -29,6 +29,7 @@ public sealed class ReminderDialog : Window
     private readonly System.Windows.Controls.ComboBox _monthDay = new() { Width = 100, MinHeight = 32, HorizontalAlignment = System.Windows.HorizontalAlignment.Left };
     private readonly System.Windows.Controls.CheckBox _windows = new() { IsChecked = true };
     private readonly System.Windows.Controls.CheckBox _alert = new();
+    private readonly System.Windows.Controls.CheckBox _flash = new();
     private ReminderSettings? _resultSettings;
 
     public ReminderDialog(DateTime? currentAt) : this(currentAt, null) { }
@@ -41,6 +42,18 @@ public sealed class ReminderDialog : Window
         SizeToContent = SizeToContent.Height;
         ResizeMode = ResizeMode.NoResize;
         ShowInTaskbar = false;
+        Topmost = true;
+        var registered = false;
+        Loaded += (_, _) =>
+        {
+            if (registered) return;
+            registered = true;
+            App.Current.ReminderDialogOpened();
+        };
+        Closed += (_, _) =>
+        {
+            if (registered) App.Current.ReminderDialogClosed();
+        };
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         FontFamily = new System.Windows.Media.FontFamily("Yu Gothic UI");
         FontSize = 13;
@@ -55,7 +68,9 @@ public sealed class ReminderDialog : Window
         Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/ScreenPinNotes;component/Resources/SettingsStyles.xaml") });
 
         var initial = currentAt ?? DateTime.Now.AddMinutes(15);
-        _dateBox.Text = initial.ToString("yyyy/MM/dd", CultureInfo.InvariantCulture);
+        _dateBox.SelectedDate = initial.Date;
+        _dateBox.Language = System.Windows.Markup.XmlLanguage.GetLanguage(LocalizationService.ResolveLanguage(App.Current.Settings.Language));
+        _dateBox.DateValidationError += (_, e) => { e.ThrowException = false; _errorText.Text = LocalizationService.T("ReminderInvalid"); };
         _timeBox.Text = initial.ToString("HH:mm", CultureInfo.InvariantCulture);
         foreach (var mode in new[] { "None", "Daily", "Weekly", "Monthly" })
             _repeat.Items.Add(new ComboBoxItem { Content = LocalizationService.T("ReminderRepeat" + mode), Tag = mode });
@@ -76,6 +91,8 @@ public sealed class ReminderDialog : Window
         _windows.IsChecked = current?.WindowsNotification ?? true;
         _alert.Content = LocalizationService.T("ReminderShowAlert");
         _alert.IsChecked = current?.ShowAlert ?? false;
+        _flash.Content = LocalizationService.T("ReminderFlashNote");
+        _flash.IsChecked = current?.FlashNote ?? true;
 
         Content = BuildContent();
     }
@@ -88,7 +105,6 @@ public sealed class ReminderDialog : Window
         var dialog = new ReminderDialog(current?.NextAt, current)
         {
             Owner = owner,
-            Topmost = owner.Topmost,
         };
         dialog.ShowDialog();
         return dialog.Result;
@@ -115,11 +131,26 @@ public sealed class ReminderDialog : Window
         AddLabeledInput(inputGrid, 1, LocalizationService.T("ReminderTime"), _timeBox);
         root.Children.Add(inputGrid);
 
+        var zeroMinutes = BuildButton(LocalizationService.T("ReminderZeroMinutes"));
+        zeroMinutes.HorizontalAlignment = System.Windows.HorizontalAlignment.Left;
+        zeroMinutes.Margin = new Thickness(104, 0, 0, 12);
+        zeroMinutes.Click += (_, _) => SetZeroMinutes();
+        root.Children.Add(zeroMinutes);
+
+        root.Children.Add(new TextBlock
+        {
+            Text = LocalizationService.T("ReminderAdjustHint"),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 8),
+        });
         var presets = new WrapPanel { Margin = new Thickness(0, 0, 0, 10) };
-        AddPresetButton(presets, LocalizationService.T("ReminderAfter5"), TimeSpan.FromMinutes(5));
-        AddPresetButton(presets, LocalizationService.T("ReminderAfter15"), TimeSpan.FromMinutes(15));
-        AddPresetButton(presets, LocalizationService.T("ReminderAfter60"), TimeSpan.FromHours(1));
-        AddPresetButton(presets, LocalizationService.T("ReminderTomorrow"), DateTime.Now.Date.AddDays(1).AddHours(9));
+        AddPresetButton(presets, LocalizationService.T("ReminderAdd5"), TimeSpan.FromMinutes(5));
+        AddPresetButton(presets, LocalizationService.T("ReminderAdd10"), TimeSpan.FromMinutes(10));
+        AddPresetButton(presets, LocalizationService.T("ReminderAdd60"), TimeSpan.FromHours(1));
+        var reset = BuildButton(LocalizationService.T("ReminderResetNow"));
+        reset.Margin = new Thickness(0, 0, 6, 6);
+        reset.Click += (_, _) => ResetToNow();
+        presets.Children.Add(reset);
         root.Children.Add(presets);
         root.Children.Add(new Separator { Margin = new Thickness(0, 8, 0, 16) });
         root.Children.Add(new TextBlock { Text = LocalizationService.T("ReminderRepeat"), FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 8) });
@@ -140,6 +171,8 @@ public sealed class ReminderDialog : Window
         root.Children.Add(_windows);
         _alert.Margin = new Thickness(0, 10, 0, 10);
         root.Children.Add(_alert);
+        _flash.Margin = new Thickness(0, 0, 0, 10);
+        root.Children.Add(_flash);
         root.Children.Add(new TextBlock { Text = LocalizationService.T("ReminderRunningHint"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 16), Foreground = System.Windows.Media.Brushes.Gray });
 
         _errorText.Foreground = System.Windows.Media.Brushes.Firebrick;
@@ -173,12 +206,11 @@ public sealed class ReminderDialog : Window
         Loaded += (_, _) =>
         {
             _dateBox.Focus();
-            _dateBox.SelectAll();
         };
         return new Border { Padding = new Thickness(24), Background = Background, Child = root };
     }
 
-    private static void AddLabeledInput(Grid grid, int row, string label, WpfTextBox box)
+    private static void AddLabeledInput(Grid grid, int row, string label, System.Windows.Controls.Control box)
     {
         var text = new TextBlock
         {
@@ -203,18 +235,41 @@ public sealed class ReminderDialog : Window
     }
 
     private void AddPresetButton(WpfPanel panel, string label, TimeSpan delay)
-        => AddPresetButton(panel, label, DateTime.Now.Add(delay));
-
-    private void AddPresetButton(WpfPanel panel, string label, DateTime dateTime)
     {
         var button = BuildButton(label);
-        button.Click += (_, _) =>
-        {
-            _dateBox.Text = dateTime.ToString("yyyy/MM/dd", CultureInfo.InvariantCulture);
-            _timeBox.Text = dateTime.ToString("HH:mm", CultureInfo.InvariantCulture);
-            _errorText.Text = "";
-        };
+        button.Margin = new Thickness(0, 0, 6, 6);
+        button.Click += (_, _) => AddToSelectedTime(delay);
         panel.Children.Add(button);
+    }
+
+    private void SetDateTime(DateTime value)
+    {
+        _dateBox.SelectedDate = value.Date;
+        _timeBox.Text = value.ToString("HH:mm", CultureInfo.InvariantCulture);
+        _errorText.Text = "";
+    }
+
+    private void ResetToNow() => SetDateTime(DateTime.Now);
+
+    private void AddToSelectedTime(TimeSpan delay)
+    {
+        if (!TryReadDateTime(out var selected)) return;
+        try { SetDateTime(selected.Add(delay)); }
+        catch (ArgumentOutOfRangeException) { _errorText.Text = LocalizationService.T("ReminderInvalid"); }
+    }
+
+    private bool TryReadDateTime(out DateTime value)
+    {
+        value = default;
+        if (!DateTime.TryParse(_dateBox.Text, CultureInfo.GetCultureInfo(_dateBox.Language.IetfLanguageTag), DateTimeStyles.None, out var date) ||
+            !DateTime.TryParseExact(_timeBox.Text.Trim(), new[] { "H:m", "HH:mm", "H:mm", "HH:m" },
+                CultureInfo.InvariantCulture, DateTimeStyles.None, out var time))
+        {
+            _errorText.Text = LocalizationService.T("ReminderInvalid");
+            return false;
+        }
+        value = date.Date.Add(time.TimeOfDay);
+        return true;
     }
 
     private static WpfButton BuildButton(string text)
@@ -226,22 +281,21 @@ public sealed class ReminderDialog : Window
             Padding = new Thickness(8, 3, 8, 3),
         };
 
-    private void Accept()
+    private void SetZeroMinutes()
     {
-        var raw = $"{_dateBox.Text.Trim()} {_timeBox.Text.Trim()}";
-        var formats = new[]
-        {
-            "yyyy/M/d H:m",
-            "yyyy/M/d HH:mm",
-            "yyyy/MM/dd H:m",
-            "yyyy/MM/dd HH:mm",
-        };
-        if (!DateTime.TryParseExact(raw, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var nextAt) &&
-            !DateTime.TryParse(raw, CultureInfo.CurrentCulture, DateTimeStyles.None, out nextAt))
+        if (!DateTime.TryParseExact(_timeBox.Text.Trim(), new[] { "H:m", "HH:mm", "H:mm", "HH:m" },
+                CultureInfo.InvariantCulture, DateTimeStyles.None, out var time))
         {
             _errorText.Text = LocalizationService.T("ReminderInvalid");
             return;
         }
+        _timeBox.Text = time.ToString("HH", CultureInfo.InvariantCulture) + ":00";
+        _errorText.Text = "";
+    }
+
+    private void Accept()
+    {
+        if (!TryReadDateTime(out var nextAt)) return;
 
         var settings = new ReminderSettings
         {
@@ -252,8 +306,9 @@ public sealed class ReminderDialog : Window
             MonthDay = (int)(_monthDay.SelectedItem ?? 1),
             WindowsNotification = _windows.IsChecked == true,
             ShowAlert = _alert.IsChecked == true,
+            FlashNote = _flash.IsChecked == true,
         };
-        if ((!settings.WindowsNotification && settings.ShowAlert != true) || (settings.Recurrence == "Weekly" && settings.WeekDays.Count == 0))
+        if ((!settings.WindowsNotification && settings.ShowAlert != true && !settings.FlashNote) || (settings.Recurrence == "Weekly" && settings.WeekDays.Count == 0))
         {
             _errorText.Text = LocalizationService.T("ReminderChooseOptions");
             return;

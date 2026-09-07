@@ -262,9 +262,13 @@ public partial class StickyNoteWindow : Window
         };
         Closed += (_, _) =>
         {
+            StopReminderFlash();
             _isClosed = true;
             DisposeExternalContentWatcher();
         };
+        PreviewMouseDown += (_, _) => StopReminderFlash();
+        PreviewKeyDown += (_, _) => StopReminderFlash();
+        IsVisibleChanged += (_, _) => { if (!IsVisible) StopReminderFlash(); };
     }
 
     public void RefreshSettings()

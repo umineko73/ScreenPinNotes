@@ -51,6 +51,18 @@ public partial class StickyNoteWindow
 {
     // ─── Edit / View モード ──────────────────────────────────────
 
+    public void StartEditingNewNote()
+    {
+        // Wait until the creating button/tray menu has finished handling input,
+        // so its focus restoration does not steal the new note's caret.
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input, new Action(() =>
+        {
+            if (_isClosed || !IsVisible) return;
+            Activate();
+            EnterEditMode();
+        }));
+    }
+
     private void EnterEditMode()
     {
         if (IsContentReadOnly())
@@ -324,8 +336,25 @@ public partial class StickyNoteWindow
         EditToolbarPopup.VerticalOffset = Gap;
     }
 
+    private void NoteSurface_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        // タイトル背景が外枠の丸みに重ならないよう、内側の輪郭で切り抜く。
+        // 本文だけの表示でも同じ輪郭を使う。
+        var radius = Math.Max(0, RootBorder.CornerRadius.TopLeft - RootBorder.BorderThickness.Left);
+        var clip = new System.Windows.Media.RectangleGeometry(new Rect(e.NewSize), radius, radius);
+        clip.Freeze();
+        ((System.Windows.FrameworkElement)sender).Clip = clip;
+    }
+
     private void RootBorder_SizeChanged(object sender, SizeChangedEventArgs e)
     {
+        // Border.CornerRadius だけでは子要素の背景が角にはみ出すため、
+        // 表示領域全体をクリップする。ネイティブのリサイズ枠は変更しない。
+        var clip = new System.Windows.Media.RectangleGeometry(
+            new Rect(e.NewSize), RootBorder.CornerRadius.TopLeft, RootBorder.CornerRadius.TopLeft);
+        clip.Freeze();
+        RootBorder.Clip = clip;
+
         if (EditToolbarPopup?.IsOpen == true)
             UpdateEditToolbarPlacement();
     }

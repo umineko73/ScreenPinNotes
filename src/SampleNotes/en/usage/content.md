@@ -2,6 +2,10 @@
 
 This note has editing locked. The body text and title text are protected, but checkboxes, display sizes, position, color, and similar view settings can still be adjusted.
 
+## New notes
+
+Use `Ctrl+Alt+N`, the tray, or `＋` on a note to create a note ready for typing. Change or disable the shortcut in Settings.
+
 ## Basics
 
 - Double-click the body: switch to edit mode
@@ -16,7 +20,7 @@ This note has editing locked. The body text and title text are protected, but ch
 
 A mini toolbar appears above the context menu: `A-` / `A+` change body size, `T-` / `T+` change title size, `Aa` opens fonts, 🦊 opens icons, and 🎨 opens colors. There are no separate Change color / Change icon menu items.
 
-During editing, the same toolbar appears below the note with a green `✓` to finish editing. `Ctrl+Enter` or `Esc` also returns to view mode; these actions do not discard edits. The toolbar follows movement and resizing and hides while the link editor is open.
+During editing, the same toolbar appears below the note with a round `✓` to finish editing. `Ctrl+Enter` or `Esc` also returns to view mode; these actions do not discard edits. The toolbar follows movement and resizing and hides while the link editor is open.
 
 ## Editing size
 
@@ -98,12 +102,35 @@ While editing is locked, text input, paste, link conversion, image insertion, an
 - "Convert to editable note" keeps the content in the note and stops following the external file. The original file is kept
 - "Delete note (keep original file)" deletes only the note, leaving the original file intact
 
+## Note list
+
+Open **Note list** from the tray. Columns show layer order, pin status, visibility, edit lock, title, body excerpt, reminder, update time, and external path.
+
+- **Search**: choose plain text, wildcard (`*` for any sequence, `?` for one character), or regular expression. Searches ignore case. Invalid or excessively slow patterns show an error.
+- **History**: Enter or leaving the search field saves the query. The latest 30 entries persist across restarts and can be selected from the field's dropdown. **Clear search** clears the query while keeping history.
+- **Multiple selection**: Ctrl/Shift-click notes, then use **Show / Hide** for the entire selection. Deletion, reminders, and other individual actions operate on one note at a time.
+- **Layers**: higher rows appear in front. Use **Bring to front, Move up, Move down, Send to back**. The order persists across restarts and includes hidden notes. Always-on-top notes form a separate group above normal notes.
+- **Sorting**: click a column header, then click again to reverse direction (▲/▼). This sorts only the list, leaving the actual stacking order intact. Click **Z-order** to return to layer order. Layer movement is available in layer order with search cleared.
+
 ## Reminders
 
-- Set a one-time reminder from a note context menu or from "Note list..."
-- Notes with reminders show `⏰` in the title bar
-- Hover `⏰` to see the scheduled time
-- When due, the note is shown and you can choose Done, 5 minutes, 15 minutes, or 1 hour snooze
+Configure a reminder from a note's context menu or the **Note list**. Choose a date from the calendar. The editor appears above pinned notes.
+
+**+5 min, +10 min, +1 hour** add to the date and time currently entered, including repeated clicks and crossing midnight. Use **Reset to now** then **+10 min** for ten minutes from now. **Set minutes to 00** keeps the date and hour. Choose a future time before saving.
+
+| Repeat | Schedule |
+| --- | --- |
+| Once | Date and time |
+| Daily | Start date and daily time |
+| Weekly | Start date, time, and one or more weekdays |
+| Monthly | Start date, time, and day 1–31; shorter months use their last day |
+
+Click a Windows notification to open the note list. Simultaneous reminders share a notification. Optionally enable the alert window for 5-, 15-, or 60-minute snooze. Snoozing preserves the recurring time.
+
+**Flash note border for 10 seconds** is enabled by default. It shows hidden notes and slowly pulses the border. Clicking, typing, or hiding the note stops the effect. Windows notifications, snooze alerts, and flashing can be combined; flashing alone is also supported.
+
+The app must be running in the tray. Missed reminders are delivered once on restart or resume. Windows notification settings control banners and sound.
+
 
 ## Title Bar Buttons
 
@@ -121,7 +148,7 @@ The lock is only a status indicator. It is not clickable, so it does not interfe
 
 ## Tray Icon
 
-- Left-click: show / hide all notes
+- Left-click: show / hide all notes, or create a note (configurable in Settings)
 - Right-click: show hidden notes, create a note, open an external-file note, open the note list, open settings, exit
 - Settings: storage folder, export, import, language, dark mode, and more
 

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -666,4 +666,38 @@
   <data name="ReminderFutureRequired" xml:space="preserve"><value>未来の日時を指定してください。</value></data>
   <data name="SettingsTaskbar" xml:space="preserve"><value>タスクバー</value></data>
   <data name="SettingsTrayClick" xml:space="preserve"><value>トレイアイコンのクリック</value></data>
+  <data name="SearchPlain" xml:space="preserve"><value>通常検索</value></data>
+  <data name="SearchWildcard" xml:space="preserve"><value>ワイルドカード (*, ?)</value></data>
+  <data name="SearchRegex" xml:space="preserve"><value>正規表現</value></data>
+  <data name="SearchInvalid" xml:space="preserve"><value>検索式が正しくないか、処理時間を超えました。式を簡単にしてください。</value></data>
+  <data name="NoteManagerSelectionHint" xml:space="preserve"><value>Ctrl / Shift + クリックで複数選択。非表示の付箋も重なり順を保持します。</value></data>
+  <data name="ReminderZeroMinutes" xml:space="preserve"><value>分を00にする</value></data>
+  <data name="SearchHistoryHint" xml:space="preserve"><value>入力または履歴から選択。Enterまたは入力欄を離れると保存します（最新30件）。</value></data>
+  <data name="ReminderAdd5" xml:space="preserve"><value>+5分</value></data>
+  <data name="ReminderAdd10" xml:space="preserve"><value>+10分</value></data>
+  <data name="ReminderAdd60" xml:space="preserve"><value>+1時間</value></data>
+  <data name="ReminderResetNow" xml:space="preserve"><value>現在時刻にリセット</value></data>
+  <data name="ReminderAdjustHint" xml:space="preserve"><value>上の日時に加算します。今からの時間を指定するには、リセットしてから加算してください。</value></data>
+  <data name="NoteManagerClearSearch" xml:space="preserve"><value>検索解除</value></data>
+  <data name="LayerSort" xml:space="preserve"><value>並び順：重なり順（上が手前）</value></data>
+  <data name="TitleSortAsc" xml:space="preserve"><value>タイトル：昇順</value></data>
+  <data name="TitleSortDesc" xml:space="preserve"><value>タイトル：降順</value></data>
+  <data name="UpdatedSortNew" xml:space="preserve"><value>更新日時：新しい順</value></data>
+  <data name="UpdatedSortOld" xml:space="preserve"><value>更新日時：古い順</value></data>
+  <data name="LayerUp" xml:space="preserve"><value>↑ 1つ上</value></data>
+  <data name="LayerDown" xml:space="preserve"><value>↓ 1つ下</value></data>
+  <data name="LayerSortHint" xml:space="preserve"><value>列見出しをクリックでソート、再クリックで昇順・降順を切り替え。「重なり順」をクリックし検索解除すると順序を編集できます。常に最前面の付箋は通常の付箋より上になります。</value></data>
+  <data name="NoteManagerLockColumn" xml:space="preserve"><value>ロック</value></data>
+  <data name="NoteManagerLocked" xml:space="preserve"><value>ロック中</value></data>
+  <data name="NoteManagerUnlocked" xml:space="preserve"><value>解除</value></data>
+  <data name="SettingsNewNoteHotkey" xml:space="preserve"><value>新規付箋のショートカット</value></data>
+  <data name="HotkeyHint" xml:space="preserve"><value>アプリ起動中は他のアプリからも使えます。欄を選んで Ctrl または Alt ＋英数字・Fキー（F12以外）を押し「適用」。Shiftも追加できます。初期値：Ctrl+Alt+N。</value></data>
+  <data name="HotkeyInvalid" xml:space="preserve"><value>Ctrl または Alt と英数字・Fキー（F12以外）を組み合わせてください。</value></data>
+  <data name="HotkeyUnavailable" xml:space="preserve"><value>ショートカットを登録できません。他のアプリが使用中の可能性があります。設定で別のキーを指定してください。</value></data>
+  <data name="HotkeyApply" xml:space="preserve"><value>適用</value></data>
+  <data name="HotkeyDefault" xml:space="preserve"><value>初期値に戻す</value></data>
+  <data name="HotkeyDisable" xml:space="preserve"><value>無効にする</value></data>
+  <data name="HotkeyDisabled" xml:space="preserve"><value>ショートカットを無効にしました。</value></data>
+  <data name="HotkeyApplied" xml:space="preserve"><value>ショートカットを保存・適用しました。</value></data>
+  <data name="ReminderFlashNote" xml:space="preserve"><value>付箋の枠を10秒間点滅（非表示の付箋も表示）</value></data>
 </root>
