@@ -72,6 +72,8 @@ Normal dragging links expanded and collapsed positions. Use **Align to collapsed
 
 ## Icons and toolbars
 
+![A note in edit mode, showing the title bar buttons and the editing toolbar](docs/toolbar-en.png)
+
 | Symbol | Meaning or action |
 | --- | --- |
 | `＋` | Create a note using this note's appearance |
@@ -95,6 +97,8 @@ The editing toolbar's `↶` / `↷` buttons act on the body or title field you a
 Icon and color palettes appear in front of notes. Click the same editing toolbar button again to close its palette. Clicking outside the palette or switching to another window also closes it.
 
 ## Context menus
+
+![The body context menu, with the mini toolbar above it](docs/context-menu-en.png)
 
 | Location | Main actions |
 | --- | --- |
@@ -129,6 +133,8 @@ Use the mini toolbar for colors, fonts, and icons. Unavailable actions are disab
 
 ## Note list
 
+![The note list window](docs/note-list-en.png)
+
 Open **Note list** from the tray. Columns show layer order, pin status, visibility, edit lock, title, body excerpt, reminder, update time, and external path.
 
 - **Search**: choose plain text, wildcard (`*` for any sequence, `?` for one character), or regular expression. Searches ignore case. Invalid or excessively slow patterns show an error.
@@ -138,6 +144,8 @@ Open **Note list** from the tray. Columns show layer order, pin status, visibili
 - **Sorting**: click a column header, then click again to reverse direction (▲/▼). This sorts only the list, leaving the actual stacking order intact. Click **Z-order** to return to layer order. Layer movement is available in layer order with search cleared.
 
 ## Reminders
+
+![The reminder editor](docs/reminder-en.png)
 
 Configure a reminder from a note's context menu or the **Note list**. Choose a date from the calendar. The editor appears above pinned notes.
 
@@ -158,6 +166,8 @@ The app must be running in the tray. Missed reminders are delivered once on rest
 
 ## Tray, settings, and external files
 
+![The tray icon menu](docs/tray-menu-en.png)
+
 | Feature | Purpose |
 | --- | --- |
 | Tray left-click | Toggle all notes or create a new note, as selected in settings |
@@ -166,6 +176,8 @@ The app must be running in the tray. Missed reminders are delivered once on rest
 | Hidden notes | Restore individually hidden notes; Show all does not restore them |
 | Settings | New-note defaults, theme, language, startup, taskbar/tray behavior, and storage |
 | Open external file as note | Display `.md` / `.txt` read-only and follow file changes |
+
+![The settings window](docs/settings-en.png)
 
 Settings save immediately (shortcut changes require Apply). New-note defaults apply to tray- and shortcut-created notes; `＋` on a note copies its appearance.
 
