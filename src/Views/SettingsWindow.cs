@@ -353,15 +353,23 @@ public sealed class SettingsWindow : Window
     private WpfComboBox BuildIconPicker(NoteDefaultSettings defaults)
     {
         var combo = Picker();
+        var iconTemplate = new DataTemplate();
+        var imageFactory = new FrameworkElementFactory(typeof(WpfImage));
+        imageFactory.SetBinding(WpfImage.SourceProperty, new System.Windows.Data.Binding());
+        imageFactory.SetValue(WidthProperty, 18.0);
+        imageFactory.SetValue(HeightProperty, 18.0);
+        iconTemplate.VisualTree = imageFactory;
         combo.Items.Add(new WpfComboBoxItem
         {
             Content = new WpfTextBlock { Text = LocalizationService.T("SettingsDefaultIconNone") },
             Tag = "",
         });
-        foreach (var icon in _settings.IconPalette)
+        foreach (var icon in _settings.IconPalette.Append(defaults.Icon).Where(icon => !string.IsNullOrEmpty(icon)).Distinct())
         {
-            var image = new WpfImage { Source = EmojiRenderer.Render(icon), Width = 18, Height = 18 };
-            combo.Items.Add(new WpfComboBoxItem { Content = image, Tag = icon });
+            combo.Items.Add(new WpfComboBoxItem
+            {
+                Content = EmojiRenderer.Render(icon), ContentTemplate = iconTemplate, Tag = icon,
+            });
         }
         SelectByTag(combo, defaults.Icon);
         combo.SelectionChanged += (_, _) =>

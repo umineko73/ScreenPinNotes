@@ -83,7 +83,7 @@ public partial class StickyNoteWindow
 
     private void Pin_Changed(object sender, RoutedEventArgs e)
     {
-        Topmost = ViewModel.IsTopmost;
+        Topmost = ViewModel.IsTopmost || IsTemporarilyRaised;
         SyncEditToolbarZOrder();
         RequestSave();
     }
@@ -243,7 +243,7 @@ public partial class StickyNoteWindow
 
         ClosePickerPopups(except: _colorPopup);
         UpdateColorSelection();
-        _colorPopup.PlacementTarget = placementTarget;
+        _colorPopup.PlacementTarget = placementTarget ?? RootBorder;
         _colorPopup.Placement = placement;
         _colorPopup.HorizontalOffset = horizontalOffset;
         _colorPopup.VerticalOffset = verticalOffset;
@@ -284,7 +284,7 @@ public partial class StickyNoteWindow
 
         ClosePickerPopups(except: _iconPopup);
         UpdateIconSelection();
-        _iconPopup.PlacementTarget = placementTarget;
+        _iconPopup.PlacementTarget = placementTarget ?? RootBorder;
         _iconPopup.Placement = placement;
         _iconPopup.HorizontalOffset = horizontalOffset;
         _iconPopup.VerticalOffset = verticalOffset;

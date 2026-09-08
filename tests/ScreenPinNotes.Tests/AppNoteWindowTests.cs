@@ -12,6 +12,81 @@ namespace ScreenPinNotes.Tests;
 // 「一覧には出るが表示できない抜け殻」になり、全表示で例外になる。
 public class AppNoteWindowTests
 {
+    [WpfFact]
+    public void ContinuousEditing_AutosavesAndToolbarUndoRedoTargetsTheFocusedEditor()
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var tempRoot = Path.Combine(Path.GetTempPath(), "ScreenPinNotes.Tests", Guid.NewGuid().ToString("N"));
+        var windowsField = typeof(App).GetField("_windows", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var storageField = typeof(App).GetField("_storage", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var windows = (List<StickyNoteWindow>)windowsField.GetValue(app)!;
+        var previous = windows.ToList();
+        var previousStorage = storageField.GetValue(app);
+        var previousDelay = app.Settings.Timings.SaveDebounceMs;
+        var storage = new StorageService(tempRoot);
+        var note = new StickyNote { Content = "original", Title = "title" };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, app.Settings), storage);
+        try
+        {
+            windows.Clear();
+            windows.Add(window);
+            storageField.SetValue(app, storage);
+            app.Settings.Timings.SaveDebounceMs = 800;
+            window.Show();
+            window.Activate();
+            window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            typeof(StickyNoteWindow).GetMethod("EnterEditMode", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(window, null);
+            window.FlushPendingSave();
+            var body = (System.Windows.Controls.TextBox)window.FindName("BodyEditBox");
+            var title = (System.Windows.Controls.TextBox)window.FindName("TitleEditBox");
+            var undo = (System.Windows.Controls.Button)window.FindName("UndoButton");
+            var redo = (System.Windows.Controls.Button)window.FindName("RedoButton");
+            var until = Environment.TickCount64 + 5500;
+            while (Environment.TickCount64 < until)
+            {
+                body.Select(body.Text.Length, 0);
+                body.SelectedText = "x";
+                Thread.Sleep(100);
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            }
+            Assert.StartsWith("originalx", Assert.Single(storage.Load()).Content);
+            Assert.Equal(System.Windows.Visibility.Visible, body.Visibility);
+            foreach (var editor in new[] { body, title })
+            {
+                editor.Focus();
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                Assert.Same(editor, undo.CommandTarget);
+                Assert.Same(editor, redo.CommandTarget);
+                editor.IsUndoEnabled = false;
+                editor.IsUndoEnabled = true;
+                var before = editor.Text;
+                editor.Select(editor.Text.Length, 0);
+                editor.SelectedText = " added";
+                window.FlushPendingSave();
+                Assert.True(System.Windows.Input.ApplicationCommands.Undo.CanExecute(null, undo.CommandTarget));
+                System.Windows.Input.ApplicationCommands.Undo.Execute(null, undo.CommandTarget);
+                Assert.Equal(before, editor.Text);
+                Assert.True(System.Windows.Input.ApplicationCommands.Redo.CanExecute(null, redo.CommandTarget));
+                System.Windows.Input.ApplicationCommands.Redo.Execute(null, redo.CommandTarget);
+                Assert.Equal(before + " added", editor.Text);
+            }
+            Thread.Sleep(1100);
+            window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            var saved = Assert.Single(storage.Load());
+            Assert.Equal(body.Text, saved.Content);
+            Assert.Equal(title.Text, saved.Title);
+        }
+        finally
+        {
+            windows.Clear();
+            window.Close();
+            windows.AddRange(previous);
+            storageField.SetValue(app, previousStorage);
+            app.Settings.Timings.SaveDebounceMs = previousDelay;
+            if (Directory.Exists(tempRoot)) Directory.Delete(tempRoot, true);
+        }
+    }
+
     [WpfTheory]
     [InlineData(false)]
     [InlineData(true)]

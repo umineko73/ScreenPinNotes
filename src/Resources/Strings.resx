@@ -700,4 +700,6 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="HotkeyDisabled" xml:space="preserve"><value>Shortcut disabled.</value></data>
   <data name="HotkeyApplied" xml:space="preserve"><value>Shortcut saved and active.</value></data>
   <data name="ReminderFlashNote" xml:space="preserve"><value>Flash note border for 10 seconds (shows hidden notes)</value></data>
+  <data name="UndoTooltip" xml:space="preserve"><value>Undo (Ctrl+Z)</value></data>
+  <data name="RedoTooltip" xml:space="preserve"><value>Redo (Ctrl+Y)</value></data>
 </root>

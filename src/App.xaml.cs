@@ -789,6 +789,10 @@ public partial class App : System.Windows.Application
             var window = byId[note.Id];
             if (window.IsVisible) window.ChangeZOrder(true);
         }
+        foreach (var window in _windows.Where(w => w.IsVisible && w.IsTemporarilyRaised))
+            window.ChangeZOrder(true);
+        foreach (var window in _windows.Where(w => w.IsVisible))
+            window.RaisePickerPopups();
     }
 
     public void MoveNoteLayers(ISet<string> ids, LayerMove move)

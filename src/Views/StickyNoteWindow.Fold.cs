@@ -49,6 +49,15 @@ namespace ScreenPinNotes.Views;
 
 public partial class StickyNoteWindow
 {
+    internal bool IsTemporarilyRaised { get; private set; }
+
+    private void SetTemporaryRaise(bool raised)
+    {
+        IsTemporarilyRaised = raised;
+        Topmost = ViewModel.IsTopmost || raised;
+        if (raised) ChangeZOrder(true);
+    }
+
     // ─── 閉じた表示 / 開いた表示 ────────────────────────────────
 
     private void Fold_Click(object sender, RoutedEventArgs e) => ToggleFold();
@@ -87,6 +96,8 @@ public partial class StickyNoteWindow
 
             BodyEditBox.Visibility = Visibility.Collapsed;
             ViewModel.IsFolded = false;
+            Activate();
+            SetTemporaryRaise(true);
             UpdateTitleBarButtonsVisibility();
             ScheduleTitlePreview();
             SuppressWindowBoundsSave(() =>
@@ -110,6 +121,7 @@ public partial class StickyNoteWindow
         }
         else
         {
+            SetTemporaryRaise(false);
             if (_isEditMode) EnterViewMode(); // 閉じた表示では閲覧モードに戻す
             ViewModel.Model.X = Left;
             ViewModel.Model.Y = Top;

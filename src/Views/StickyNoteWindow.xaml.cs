@@ -314,6 +314,28 @@ public partial class StickyNoteWindow : Window
             popup.Opened += Popup_Opened;
             popup.Closed += Popup_Closed;
         }
+        // Keep the picker open through the toolbar's mouse-down. Its Click handler
+        // can then toggle the actual open state, without WPF dismissing it first.
+        _colorPopup.StaysOpen = true;
+        _iconPopup.StaysOpen = true;
+    }
+
+    private bool _watchingPickerInput;
+
+    private void Picker_PreProcessInput(object sender, PreProcessInputEventArgs e)
+    {
+        if (e.StagingItem.Input is not MouseButtonEventArgs mouse ||
+            mouse.RoutedEvent != Mouse.PreviewMouseDownEvent) return;
+
+        foreach (var popup in new[] { _colorPopup, _iconPopup })
+        {
+            if (popup?.IsOpen != true) continue;
+            if (popup.Child is FrameworkElement child &&
+                new Rect(child.RenderSize).Contains(mouse.GetPosition(child))) continue;
+            if (popup.PlacementTarget is WpfButton button &&
+                new Rect(button.RenderSize).Contains(mouse.GetPosition(button))) continue;
+            popup.IsOpen = false;
+        }
     }
 
     private static void ClosePopup(Popup? popup)
@@ -325,13 +347,40 @@ public partial class StickyNoteWindow : Window
     private void Popup_Opened(object? sender, EventArgs e)
     {
         _suppressViewMode = true;
+        if (!_watchingPickerInput)
+        {
+            InputManager.Current.PreProcessInput += Picker_PreProcessInput;
+            _watchingPickerInput = true;
+        }
         ShowEditToolbar();
+        RaisePickerPopups();
+    }
+
+    internal void RaisePickerPopups()
+    {
+        foreach (var popup in new[] { _colorPopup, _fontPopup, _iconPopup })
+        {
+            if (popup?.IsOpen != true || PresentationSource.FromVisual(popup.Child) is not HwndSource source)
+                continue;
+            SetWindowPos(source.Handle, new IntPtr(-1), 0, 0, 0, 0,
+                SetWindowPosFlags.NoMove | SetWindowPosFlags.NoSize | SetWindowPosFlags.NoActivate);
+        }
     }
 
     private void Popup_Closed(object? sender, EventArgs e)
     {
-        _suppressViewMode = false;
-        if (_isEditMode && IsVisible) Dispatcher.BeginInvoke(() => ContentBox.Focus());
+        if (_watchingPickerInput && !new[] { _colorPopup, _fontPopup, _iconPopup }.Any(p => p?.IsOpen == true))
+        {
+            InputManager.Current.PreProcessInput -= Picker_PreProcessInput;
+            _watchingPickerInput = false;
+        }
+        _suppressViewMode = new[] { _colorPopup, _fontPopup, _iconPopup }.Any(p => p?.IsOpen == true);
+        if (_isEditMode && IsVisible) Dispatcher.BeginInvoke(() =>
+        {
+            if (_isClosed || !IsActive || _suppressViewMode) return;
+            if (IsBodyEditing()) BodyEditBox.Focus();
+            else TitleEditBox.Focus();
+        });
         ScheduleHideEditToolbar();
     }
 
@@ -427,6 +476,10 @@ public partial class StickyNoteWindow : Window
         FontButton.ToolTip = LocalizationService.T("FontTooltip");
         IconButton.ToolTip = LocalizationService.T("IconTooltip");
         ColorButton.ToolTip = LocalizationService.T("ColorTooltip");
+        UndoButton.ToolTip = LocalizationService.T("UndoTooltip");
+        RedoButton.ToolTip = LocalizationService.T("RedoTooltip");
+        UndoButton.Content = "↶";
+        RedoButton.Content = "↷";
         IconButton.Content = new WpfImage { Source = RenderEmoji(IconPickerGlyph), Width = 20, Height = 20 };
         ColorButton.Content = new WpfImage { Source = RenderEmoji("🎨"), Width = 20, Height = 20 };
         DoneEditingButton.Content = "✓";
@@ -563,34 +616,31 @@ public partial class StickyNoteWindow : Window
 
     // ─── 自動保存（デバウンス） ──────────────────────────────────
 
-    private System.Threading.Timer? _saveTimer;
+    private System.Windows.Threading.DispatcherTimer? _saveTimer;
     private bool _savePending;
+    private long _savePendingSince;
 
     private void RequestSave()
     {
+        if (!_savePending) _savePendingSince = Environment.TickCount64;
         _savePending = true;
-        _saveTimer?.Dispose();
-        _saveTimer = new System.Threading.Timer(_ =>
+        if (_saveTimer == null)
         {
-            try
+            _saveTimer = new System.Windows.Threading.DispatcherTimer();
+            _saveTimer.Tick += (_, _) =>
             {
-                if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
-                    return;
-
-                Dispatcher.Invoke(() =>
+                try { FlushPendingSave(); }
+                catch (Exception ex)
                 {
-                    _savePending = false;
-                    App.Current.SaveAll();
-                });
-            }
-            catch (Exception ex)
-            {
-                // シャットダウン競合（InvalidOperationException/TaskCanceledException/
-                // Win32Exception）だけでなく、ディスクI/Oエラー等の保存失敗も
-                // ここで捕まえてアプリ全体のクラッシュを防ぐ。
-                ErrorReporter.ReportNonFatal("Deferred save", ex);
-            }
-        }, null, Settings.Timings.SaveDebounceMs, System.Threading.Timeout.Infinite);
+                    ErrorReporter.ReportNonFatal("Deferred save", ex);
+                }
+            };
+        }
+        _saveTimer.Stop();
+        // Keep saving during continuous typing, without modifying the editor or its undo history.
+        var remaining = Math.Max(0, 5000 - (Environment.TickCount64 - _savePendingSince));
+        _saveTimer.Interval = TimeSpan.FromMilliseconds(Math.Min(Settings.Timings.SaveDebounceMs, remaining));
+        _saveTimer.Start();
     }
 
     /// <summary>
@@ -601,10 +651,9 @@ public partial class StickyNoteWindow : Window
     public void FlushPendingSave()
     {
         if (!_savePending) return;
-        _savePending = false;
-        _saveTimer?.Dispose();
-        _saveTimer = null;
+        _saveTimer?.Stop();
         App.Current.SaveAll();
+        _savePending = false;
     }
 
 }

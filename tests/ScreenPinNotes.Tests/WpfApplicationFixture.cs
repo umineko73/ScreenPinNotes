@@ -16,6 +16,12 @@ namespace ScreenPinNotes.Tests;
 // ここで一度だけ行い、以降は同じインスタンスを共有する。
 internal static class WpfApplicationFixture
 {
+    // Pumping the dispatcher must not launch the real tray app or load user data.
+    private sealed class TestApplication : App
+    {
+        protected override void OnStartup(StartupEventArgs e) { }
+    }
+
     private static readonly object Gate = new();
     private static Application? _application;
 
@@ -27,8 +33,7 @@ internal static class WpfApplicationFixture
             {
                 if (Application.Current == null)
                 {
-                    var app = new App();
-                    app.InitializeComponent();
+                    var app = new TestApplication();
                     _application = app;
                 }
                 else

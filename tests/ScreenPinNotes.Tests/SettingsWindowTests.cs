@@ -13,6 +13,35 @@ namespace ScreenPinNotes.Tests;
 public class SettingsWindowTests
 {
     [WpfTheory]
+    [InlineData("Light")]
+    [InlineData("Dark")]
+    public void SelectedIcon_HasItsOwnRenderedImageBeforeOpeningDropdown(string theme)
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var settings = new AppSettings { Theme = theme };
+        settings.NoteDefaults.Icon = "🦊";
+        var window = new SettingsWindow(settings, app);
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var picker = Descendants<ComboBox>(window).Single(c =>
+                c.SelectedItem is ComboBoxItem { Tag: "🦊" });
+            var presenter = (ContentPresenter)picker.Template.FindName("SelectionContent", picker);
+            var image = Assert.Single(Descendants<Image>(presenter));
+            Assert.NotNull(image.Source);
+            Assert.True(image.ActualWidth > 0);
+            Assert.True(image.ActualHeight > 0);
+            picker.IsDropDownOpen = true;
+            window.UpdateLayout();
+            picker.IsDropDownOpen = false;
+            window.UpdateLayout();
+            Assert.NotNull(Assert.Single(Descendants<Image>(presenter)).Source);
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfTheory]
     [InlineData("Light", "ja", 720)]
     [InlineData("Dark", "ja", 720)]
     [InlineData("Light", "en", 540)]

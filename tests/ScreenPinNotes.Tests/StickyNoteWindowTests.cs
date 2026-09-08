@@ -18,6 +18,90 @@ public class StickyNoteWindowTests
     [WpfTheory]
     [InlineData(false)]
     [InlineData(true)]
+    public void EditToolbar_StaysInsideWorkAreaAtScreenEdges(bool atBottom)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var window = new StickyNoteWindow(new StickyNoteViewModel(new StickyNote { Content = "body", Width = 400, Height = 180 }, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            InvokePrivate(window, "EnterEditMode");
+            var work = System.Windows.Forms.Screen.FromHandle(new System.Windows.Interop.WindowInteropHelper(window).Handle).WorkingArea;
+            var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(window);
+            window.Left = work.Right / dpi.DpiScaleX - window.Width;
+            window.Top = atBottom ? work.Bottom / dpi.DpiScaleY - window.Height : work.Top / dpi.DpiScaleY;
+            window.Activate();
+            InvokePrivate(window, "ShowEditToolbar");
+            window.UpdateLayout();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            var popup = (Popup)window.FindName("EditToolbarPopup");
+            var toolbar = (Border)window.FindName("StatusBar");
+            Assert.True(popup.IsOpen);
+            var start = toolbar.PointToScreen(new Point());
+            var end = toolbar.PointToScreen(new Point(toolbar.ActualWidth, toolbar.ActualHeight));
+            Assert.True(start.X >= work.Left - 1 && start.Y >= work.Top - 1);
+            Assert.True(end.X <= work.Right + 1 && end.Y <= work.Bottom + 1);
+            if (atBottom) Assert.True(end.Y <= window.PointToScreen(new Point()).Y + 1);
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfFact]
+    public void EditingBadge_ClearsHorizontalScrollbarAndReturnsWhenItDisappears()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var window = new StickyNoteWindow(new StickyNoteViewModel(new StickyNote { Content = "short" }, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            InvokePrivate(window, "EnterEditMode");
+            var editor = (TextBox)window.FindName("BodyEditBox");
+            var badge = (Border)window.FindName("EditingBadge");
+            editor.Text = new string('W', 500);
+            window.UpdateLayout();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            var viewer = (ScrollViewer)editor.Template.FindName("PART_ContentHost", editor);
+            Assert.Equal(Visibility.Visible, viewer.ComputedHorizontalScrollBarVisibility);
+            var bar = (ScrollBar)viewer.Template.FindName("PART_HorizontalScrollBar", viewer);
+            Assert.True(badge.TranslatePoint(new Point(0, badge.ActualHeight), window).Y <= bar.TranslatePoint(new Point(), window).Y);
+            editor.Text = "short";
+            window.UpdateLayout();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            Assert.Equal(Visibility.Collapsed, viewer.ComputedHorizontalScrollBarVisibility);
+            Assert.Equal(6, badge.Margin.Bottom);
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Unfold_RaisesTemporarilyAndRestoresPinOnDeactivation(bool pinned)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { IsFolded = true, IsTopmost = pinned };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            InvokePrivate(window, "ToggleFold", (object?)null);
+            Assert.True(window.Topmost);
+            Assert.Equal(pinned, note.IsTopmost);
+            InvokePrivate(window, "Window_Deactivated", window, EventArgs.Empty);
+            Assert.Equal(pinned, window.Topmost);
+            Assert.Equal(pinned, note.IsTopmost);
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfTheory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void ReminderFlashUsesOverlayAndStopsWhenHidden(bool folded)
     {
         EnsureApplication();
@@ -945,6 +1029,7 @@ public class StickyNoteWindowTests
 
             InvokePrivate(window, "Color_Click", colorButton, new RoutedEventArgs());
             Assert.True(colorPopup.IsOpen);
+            Assert.True(colorPopup.StaysOpen); // Mouse-down must not dismiss before the button's Click.
             InvokePrivate(window, "Color_Click", colorButton, new RoutedEventArgs());
             Assert.False(colorPopup.IsOpen);
 
@@ -953,9 +1038,22 @@ public class StickyNoteWindowTests
 
             InvokePrivate(window, "Icon_Click", iconButton, new RoutedEventArgs());
             Assert.True(iconPopup.IsOpen);
+            Assert.True(iconPopup.StaysOpen);
             Assert.False(colorPopup.IsOpen);
             InvokePrivate(window, "Icon_Click", iconButton, new RoutedEventArgs());
             Assert.False(iconPopup.IsOpen);
+
+            InvokePrivate(window, "OpenIconPickerAtMouse");
+            Assert.True(iconPopup.IsOpen);
+            Assert.Same(window.FindName("RootBorder"), iconPopup.PlacementTarget);
+            InvokePrivate(window, "OpenColorPickerAtMouse");
+            Assert.False(iconPopup.IsOpen);
+            Assert.True(colorPopup.IsOpen);
+            Assert.Same(window.FindName("RootBorder"), colorPopup.PlacementTarget);
+            InvokePrivate(window, "Window_Deactivated", window, EventArgs.Empty);
+            Assert.False(colorPopup.IsOpen);
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            Assert.False(GetPrivateField<bool>(window, "_watchingPickerInput"));
         }
         finally
         {

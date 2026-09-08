@@ -32,7 +32,8 @@ Title bar visibility and collapse/expand are independent settings.
 - Use `⮝` / `⮟` or double-click the title bar to collapse or expand.
 - Image-only notes show their image path in single-line mode. Narrow notes retain the end, such as `…/photos/image.png`.
 - An empty title falls back to the body. A title you enter takes priority.
-- Editing shows Markdown source and an *Editing* label. Edit width and height are remembered separately from view mode.
+- Editing shows Markdown source and an *Editing* label. The label moves above the horizontal scrollbar when it appears. Edit width and height are remembered separately from view mode.
+- Expanding a note temporarily brings it above pinned notes while you work with it. Switching to another window or collapsing the note ends this temporary raise without changing its pin setting.
 
 ## Mouse actions
 
@@ -63,6 +64,7 @@ While the app is running, **Ctrl+Alt+N** creates a new note from other apps. In 
 | `Ctrl+Enter` / `Esc` / `✓` | Finish editing and keep changes |
 | `Enter` while editing the title | Confirm the title |
 | `Ctrl+Z` | Undo an edit |
+| `Ctrl+Y` | Redo an undone edit |
 | `Ctrl+C` / `Ctrl+X` / `Ctrl+V` | Copy/cut/paste |
 | `Alt+F4` / taskbar close | Hide the note |
 
@@ -83,9 +85,14 @@ Normal dragging links expanded and collapsed positions. Use **Align to collapsed
 | `A−` / `A＋` | Body font size |
 | `T−` / `T＋` | Title and single-line font size |
 | `Aa` / `🦊` / `🎨` (mini toolbar) | Font / icon / color picker |
+| `↶` / `↷` (editing toolbar) | Undo / redo |
 | Round `✓` | Finish editing; black in light mode, white in dark mode |
 
-The mini toolbar appears above context menus and below the note while editing. `🔒`, `⛓️‍💥`, and `⏰` are status indicators.
+The mini toolbar appears above context menus and below the note while editing. When there is no room below, such as near the taskbar, the editing toolbar appears above the note and stays within the screen's working area. `🔒`, `⛓️‍💥`, and `⏰` are status indicators.
+
+The editing toolbar's `↶` / `↷` buttons act on the body or title field you are editing. Autosaving preserves undo and redo history. Buttons are disabled when no corresponding history is available.
+
+Icon and color palettes appear in front of notes. Click the same editing toolbar button again to close its palette. Clicking outside the palette or switching to another window also closes it.
 
 ## Context menus
 
@@ -165,6 +172,8 @@ Settings save immediately (shortcut changes require Apply). New-note defaults ap
 External notes show `🔗`. Their menu can open the file or folder, or convert the content into an editable note. Deleting the note or changing image display sizes does not modify the original file.
 
 ## Storage and backups
+
+The body and title autosave during editing. By default, changes save about 0.8 seconds after typing pauses, or about every 5 seconds while typing continuously. Finishing editing also saves pending changes; `Esc` does not discard edits.
 
 Default location: `%AppData%\ScreenPinNotes`.
 

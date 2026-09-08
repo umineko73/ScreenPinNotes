@@ -189,6 +189,11 @@ public partial class StickyNoteWindow
 
     private void EditableControl_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
+        if (sender is System.Windows.Controls.TextBox editor)
+        {
+            UndoButton.CommandTarget = editor;
+            RedoButton.CommandTarget = editor;
+        }
         if (sender is System.Windows.Controls.Control control)
             Dispatcher.BeginInvoke(() => EnableImeForFocusedControl(control));
     }
@@ -198,6 +203,7 @@ public partial class StickyNoteWindow
         if (!_isEditMode || _suppressViewMode) return;
         if (BodyEditBox.Visibility == Visibility.Visible && !TrySetNoteContent(BodyEditBox.Text))
             return;
+        FlushPendingSave();
 
         _isEditMode = false;
         EditingBadge.Visibility = Visibility.Collapsed;
@@ -302,7 +308,7 @@ public partial class StickyNoteWindow
         StatusBar.SetValue(TextElement.ForegroundProperty, ViewModel.TextForeground);
         EditToolbarPopup.IsOpen = true;
         foreach (var button in new[] { FontSmallerButton, FontLargerButton, TitleSmallerButton,
-            TitleLargerButton, FontButton, IconButton, ColorButton })
+            TitleLargerButton, FontButton, IconButton, ColorButton, UndoButton, RedoButton })
             button.Foreground = ViewModel.TextForeground;
     }
 
@@ -312,7 +318,7 @@ public partial class StickyNoteWindow
         StatusBar.BorderBrush = PopupBorderBrush();
         StatusBar.SetValue(TextElement.ForegroundProperty, ViewModel.TextForeground);
         foreach (var button in new[] { FontSmallerButton, FontLargerButton, TitleSmallerButton,
-            TitleLargerButton, FontButton, IconButton, ColorButton })
+            TitleLargerButton, FontButton, IconButton, ColorButton, UndoButton, RedoButton })
             button.Foreground = ViewModel.TextForeground;
         SyncEditToolbarZOrder();
     }
@@ -329,11 +335,32 @@ public partial class StickyNoteWindow
     {
         const double Gap = 2;
         EditToolbarPopup.PlacementTarget = RootBorder;
-        EditToolbarPopup.Placement = PlacementMode.Bottom;
+        EditToolbarPopup.CustomPopupPlacementCallback = PlaceEditToolbar;
+        EditToolbarPopup.Placement = PlacementMode.Custom;
         // Changing an offset forces WPF to reposition an already open Popup.
         if (EditToolbarPopup.IsOpen)
             EditToolbarPopup.VerticalOffset = Gap + 0.01;
         EditToolbarPopup.VerticalOffset = Gap;
+    }
+
+    private CustomPopupPlacement[] PlaceEditToolbar(System.Windows.Size popupSize, System.Windows.Size targetSize, System.Windows.Point offset)
+    {
+        const double Gap = 2;
+        var origin = RootBorder.PointToScreen(new System.Windows.Point());
+        var workArea = System.Windows.Forms.Screen.FromHandle(new WindowInteropHelper(this).Handle).WorkingArea;
+        var (dpiX, dpiY) = GetDpi();
+        // Popup coordinates are relative to the note, while WorkingArea uses screen pixels.
+        var left = (workArea.Left - origin.X) / dpiX;
+        var top = (workArea.Top - origin.Y) / dpiY;
+        var right = (workArea.Right - origin.X) / dpiX;
+        var bottom = (workArea.Bottom - origin.Y) / dpiY;
+        var x = Math.Clamp(4, left, Math.Max(left, right - popupSize.Width));
+        var y = targetSize.Height + Gap;
+        if (y + popupSize.Height > bottom)
+            y = -popupSize.Height - Gap;
+        // A maximized-height note may leave no space outside either edge.
+        y = Math.Clamp(y, top, Math.Max(top, bottom - popupSize.Height));
+        return [new CustomPopupPlacement(new System.Windows.Point(x, y), PopupPrimaryAxis.None)];
     }
 
     private void NoteSurface_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -372,6 +399,8 @@ public partial class StickyNoteWindow
 
     private void Window_Deactivated(object? sender, EventArgs e)
     {
+        ClosePickerPopups();
+        SetTemporaryRaise(false);
         HideEditToolbar();
     }
 
@@ -439,6 +468,17 @@ public partial class StickyNoteWindow
     private void UpdateTitleBarOverlayOffset()
     {
         var scrollViewer = FindVisualChild<ScrollViewer>(IsBodyEditing() ? (DependencyObject)BodyEditBox : ContentBox);
+        var barHeight = 0.0;
+        if (scrollViewer?.ComputedHorizontalScrollBarVisibility == Visibility.Visible)
+        {
+            var bar = scrollViewer.Template.FindName("PART_HorizontalScrollBar", scrollViewer) as System.Windows.Controls.Primitives.ScrollBar;
+            barHeight = bar?.ActualHeight > 0 ? bar.ActualHeight : SystemParameters.HorizontalScrollBarHeight;
+        }
+        var badgeMargin = EditingBadge.Margin;
+        var bottom = 6 + barHeight;
+        if (Math.Abs(badgeMargin.Bottom - bottom) >= 0.5)
+            EditingBadge.Margin = new Thickness(badgeMargin.Left, badgeMargin.Top, badgeMargin.Right, bottom);
+
         var barWidth = scrollViewer?.ComputedVerticalScrollBarVisibility == Visibility.Visible
             ? SystemParameters.VerticalScrollBarWidth
             : 0;
