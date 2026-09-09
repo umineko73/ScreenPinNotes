@@ -416,8 +416,70 @@ public sealed class SettingsWindow : Window
             Save();
         };
         panel.Children.Add(LabeledRow("TrayLanguage", language));
+        panel.Children.Add(LabeledRow("SettingsNoteCorner", BuildNoteCornerPicker()));
+        panel.Children.Add(LabeledRow("SettingsNoteBorder", BuildNoteBorderPicker()));
+        panel.Children.Add(LabeledRow("SettingsIconColor", Toggle("SettingsMonochromeIcons",
+            () => _settings.MonochromeIcons, v => _settings.MonochromeIcons = v)));
         AddTitleBarSpineRows(panel);
         return panel;
+    }
+
+    private WpfComboBox BuildNoteCornerPicker()
+    {
+        var combo = Picker(120);
+        foreach (var radius in new[] { 0, 2, 4, 6, 8, 12, 16 })
+            combo.Items.Add(new WpfComboBoxItem
+            {
+                // 0 は数字より「角のまま」と書いたほうが伝わる。
+                Content = radius == 0 ? LocalizationService.T("SettingsNoteCornerSquare") : radius.ToString(),
+                Tag = (double)radius,
+            });
+        if (!SelectByTag(combo, _settings.Layout.NoteCornerRadius))
+        {
+            combo.Items.Insert(0, new WpfComboBoxItem
+            {
+                Content = _settings.Layout.NoteCornerRadius.ToString("0.#"),
+                Tag = _settings.Layout.NoteCornerRadius,
+            });
+            combo.SelectedIndex = 0;
+        }
+        combo.SelectionChanged += (_, _) =>
+        {
+            if (_loading || combo.SelectedItem is not WpfComboBoxItem { Tag: double radius }) return;
+            _settings.Layout.NoteCornerRadius = radius;
+            Save();
+        };
+        return combo;
+    }
+
+    // 決め打ちの3種類だけ並べる。settings.json に直接 "#RRGGBB" を書いた人は、
+    // その色を選択済みの項目として足し、選び直せるようにする。
+    private WpfComboBox BuildNoteBorderPicker()
+    {
+        var combo = Picker(160);
+        foreach (var (key, value) in new[]
+                 {
+                     ("SettingsNoteBorderNone", AppSettings.NoteBorderNone),
+                     ("SettingsNoteBorderGray", AppSettings.NoteBorderGray),
+                     ("SettingsNoteBorderNoteColor", AppSettings.NoteBorderNoteColor),
+                 })
+            combo.Items.Add(new WpfComboBoxItem { Content = LocalizationService.T(key), Tag = value });
+        if (!SelectByTag(combo, _settings.NoteBorderColor))
+        {
+            combo.Items.Add(new WpfComboBoxItem
+            {
+                Content = _settings.NoteBorderColor,
+                Tag = _settings.NoteBorderColor,
+            });
+            combo.SelectedIndex = combo.Items.Count - 1;
+        }
+        combo.SelectionChanged += (_, _) =>
+        {
+            if (_loading || combo.SelectedItem is not WpfComboBoxItem { Tag: string value }) return;
+            _settings.NoteBorderColor = value;
+            Save();
+        };
+        return combo;
     }
 
     // タイトルバーを隠している付箋の左端に出す帯。太さの選択は、帯そのものを

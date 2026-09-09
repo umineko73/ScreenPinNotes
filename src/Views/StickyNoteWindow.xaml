@@ -45,18 +45,18 @@
     </WindowChrome.WindowChrome>
 
     <Border x:Name="RootBorder"
-            CornerRadius="6"
+            CornerRadius="{Binding NoteCornerRadius}"
             SizeChanged="RootBorder_SizeChanged"
             Background="{Binding BackgroundBrush}"
             BorderThickness="1"
-            BorderBrush="#9A9A9A"
+            BorderBrush="{Binding NoteBorderBrush}"
             MouseEnter="RootBorder_MouseEnter"
             MouseLeave="RootBorder_MouseLeave"
             PreviewMouseLeftButtonDown="RootBorder_PreviewMouseLeftButtonDown"
             PreviewMouseLeftButtonUp="RootBorder_PreviewMouseLeftButtonUp"
             MouseMove="RootBorder_MouseMove"
             LostMouseCapture="RootBorder_LostMouseCapture">
-        <Grid SizeChanged="NoteSurface_SizeChanged">
+        <Grid x:Name="NoteSurface" SizeChanged="NoteSurface_SizeChanged">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/> <!-- タイトルバー -->
                 <RowDefinition Height="*"/>    <!-- コンテンツ -->
@@ -377,7 +377,8 @@
                        Fill="{Binding HeaderBrush}"/>
 
             <Border x:Name="ReminderFlashBorder" Grid.RowSpan="2" Panel.ZIndex="100"
-                    BorderBrush="#FF9800" BorderThickness="4" CornerRadius="5"
+                    BorderBrush="#FF9800" BorderThickness="4"
+                    CornerRadius="{Binding NoteFlashCornerRadius}"
                     Opacity="0" IsHitTestVisible="False"/>
 
             <Border x:Name="SizeOverlay"

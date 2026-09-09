@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 using System.Reflection;
 using ScreenPinNotes.Models;
@@ -1799,6 +1800,111 @@ public class StickyNoteWindowTests
             Assert.False(spine.IsHitTestVisible);
         }
         finally { window.Close(); }
+    }
+
+    // 角の丸みは Border だけでなく、子要素のはみ出しを切る2枚のクリップにも効く。
+    [WpfTheory]
+    [InlineData(0)]
+    [InlineData(12)]
+    public void NoteFrame_FollowsTheCornerRadiusSetting(double radius)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var settings = new AppSettings();
+        settings.Layout.NoteCornerRadius = radius;
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(new StickyNote { Content = "body" }, settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var root = Assert.IsType<Border>(window.FindName("RootBorder"));
+            var surface = Assert.IsType<Grid>(window.FindName("NoteSurface"));
+
+            Assert.Equal(new CornerRadius(radius), root.CornerRadius);
+            Assert.Equal(radius, Assert.IsType<RectangleGeometry>(root.Clip).RadiusX);
+            // 内側は枠線のぶんだけ小さい丸み。
+            Assert.Equal(Math.Max(0, radius - 1), Assert.IsType<RectangleGeometry>(surface.Clip).RadiusX);
+        }
+        finally { window.Close(); }
+    }
+
+    // 丸みを変えても大きさは変わらないので SizeChanged は飛ばない。
+    // それでもクリップが引き直されること。
+    [WpfFact]
+    public void NoteFrame_FollowsACornerRadiusChangeWhileOpen()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var settings = new AppSettings();
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(new StickyNote { Content = "body" }, settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var root = Assert.IsType<Border>(window.FindName("RootBorder"));
+            Assert.Equal(6, Assert.IsType<RectangleGeometry>(root.Clip).RadiusX);
+
+            settings.Layout.NoteCornerRadius = 0;
+            window.RefreshSettings();
+            window.UpdateLayout();
+
+            Assert.Equal(new CornerRadius(0), root.CornerRadius);
+            Assert.Equal(0, Assert.IsType<RectangleGeometry>(root.Clip).RadiusX);
+        }
+        finally { window.Close(); }
+    }
+
+    // 「枠なし」は太さを0にせず透明で塗る。太さを変えると畳んだときの
+    // 高さ（FoldedHeight）まで動いてしまうため。
+    [WpfFact]
+    public void NoteFrame_WithoutABorder_KeepsItsThicknessAndPaintsItTransparent()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var settings = new AppSettings { NoteBorderColor = AppSettings.NoteBorderNone };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(new StickyNote { Content = "body" }, settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var root = Assert.IsType<Border>(window.FindName("RootBorder"));
+
+            Assert.Equal(new Thickness(1), root.BorderThickness);
+            Assert.Equal(0, Assert.IsType<SolidColorBrush>(root.BorderBrush).Color.A);
+        }
+        finally { window.Close(); }
+    }
+
+    // アイコンは App の設定を見る。付箋ごとではなくアプリ全体の見た目の話なので。
+    [WpfFact]
+    public void NoteIcon_FollowsTheMonochromeSetting()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var previous = App.Current.Settings.MonochromeIcons;
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(new StickyNote { Icon = "🔴" }, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            var icon = Assert.IsType<Image>(window.FindName("IconImage"));
+            var colour = icon.Source;
+
+            App.Current.Settings.MonochromeIcons = true;
+            window.RefreshSettings();
+            window.UpdateLayout();
+
+            Assert.NotSame(colour, icon.Source);
+            Assert.Same(EmojiRenderer.Render("🔴", monochrome: true), icon.Source);
+        }
+        finally
+        {
+            App.Current.Settings.MonochromeIcons = previous;
+            window.Close();
+        }
     }
 
     [WpfFact]

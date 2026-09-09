@@ -649,6 +649,14 @@ No: create initial notes in the selected folder. The current notes folder will r
     <value>Delete this note? The linked original file will not be deleted.</value>
   </data>
   <data name="SettingsTitleBar" xml:space="preserve"><value>Title bar</value></data>
+  <data name="SettingsNoteCorner" xml:space="preserve"><value>Corner radius</value></data>
+  <data name="SettingsNoteCornerSquare" xml:space="preserve"><value>Square</value></data>
+  <data name="SettingsNoteBorder" xml:space="preserve"><value>Border color</value></data>
+  <data name="SettingsNoteBorderNone" xml:space="preserve"><value>None</value></data>
+  <data name="SettingsNoteBorderGray" xml:space="preserve"><value>Gray</value></data>
+  <data name="SettingsNoteBorderNoteColor" xml:space="preserve"><value>Note color</value></data>
+  <data name="SettingsIconColor" xml:space="preserve"><value>Icon color</value></data>
+  <data name="SettingsMonochromeIcons" xml:space="preserve"><value>Show in monochrome</value></data>
   <data name="SettingsTitleBarSpine" xml:space="preserve"><value>Hidden title bar marker</value></data>
   <data name="SettingsShowTitleBarSpine" xml:space="preserve"><value>Show a spine on the left edge</value></data>
   <data name="SettingsTitleBarSpineWidth" xml:space="preserve"><value>Spine width</value></data>

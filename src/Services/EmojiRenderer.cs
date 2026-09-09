@@ -28,14 +28,20 @@ namespace ScreenPinNotes.Services;
 public static class EmojiRenderer
 {
     // 同じ絵文字を何度も描き直さない。付箋の数だけ同じアイコンが並ぶことがある。
+    // 色ありと色なしは別物なので、キーに混ぜて取り違えないようにする。
     private static readonly ConcurrentDictionary<string, WpfBitmapImage> Cache = new();
 
     /// <summary>絵文字の画像。空文字なら null（アイコンなし）。</summary>
-    public static WpfBitmapImage? Render(string? icon)
-        => string.IsNullOrEmpty(icon) ? null : Cache.GetOrAdd(icon, RenderCore);
+    /// <param name="monochrome">色を抜いて明度だけで描くかどうか。</param>
+    public static WpfBitmapImage? Render(string? icon, bool monochrome = false)
+        => string.IsNullOrEmpty(icon)
+            ? null
+            : Cache.GetOrAdd((monochrome ? "m:" : "c:") + icon, RenderCore);
 
-    private static WpfBitmapImage RenderCore(string icon)
+    private static WpfBitmapImage RenderCore(string cacheKey)
     {
+        var monochrome = cacheKey[0] == 'm';
+        var icon = cacheKey[2..];
         const int pixelSize = 64;
         using var bitmap = new SKBitmap(pixelSize, pixelSize, SKColorType.Bgra8888, SKAlphaType.Premul);
         using var canvas = new SKCanvas(bitmap);
@@ -44,6 +50,10 @@ public static class EmojiRenderer
         using var typeface = SKTypeface.FromFamilyName("Segoe UI Emoji");
         using var font = new SKFont(typeface, 52) { Subpixel = true };
         using var paint = new SKPaint { IsAntialias = true };
+        // 明度は保ったまま彩度だけ落とす。同じ形のまま線画寄りの見た目になり、
+        // 絵文字どうしの区別（明るい/暗い、細い/太い）は残る。
+        if (monochrome)
+            paint.ColorFilter = SKColorFilter.CreateColorMatrix(GrayscaleMatrix);
 
         font.MeasureText(icon, out SKRect bounds, paint);
         var x = (pixelSize - bounds.Width) / 2 - bounds.Left;
@@ -61,4 +71,13 @@ public static class EmojiRenderer
         result.Freeze();
         return result;
     }
+
+    // 輝度の重み（Rec.601）。アルファはそのまま通し、絵文字の輪郭を保つ。
+    private static readonly float[] GrayscaleMatrix =
+    [
+        0.299f, 0.587f, 0.114f, 0, 0,
+        0.299f, 0.587f, 0.114f, 0, 0,
+        0.299f, 0.587f, 0.114f, 0, 0,
+        0,      0,      0,      1, 0,
+    ];
 }

@@ -422,6 +422,8 @@ public partial class StickyNoteWindow : Window
         _toolbarHideTimer.Interval = TimeSpan.FromMilliseconds(Settings.Timings.ToolbarHideDelayMs);
         _titlePreviewTimer.Interval = TimeSpan.FromMilliseconds(Settings.Timings.TitlePreviewDelayMs);
         ShowInTaskbar = Settings.ShowNotesInTaskbar;
+        UpdateIconImage();      // アイコンの色（カラー/モノクロ）の設定を反映する
+        RefreshCornerClips();   // 角の丸みの設定を反映する
     }
 
     private void ApplyLocalizedText()
@@ -498,7 +500,8 @@ public partial class StickyNoteWindow : Window
     }
 
     // 絵文字の画像化は設定画面とも共有する。実装は Services/EmojiRenderer.cs。
-    private static WpfBitmapImage? RenderEmoji(string icon) => EmojiRenderer.Render(icon);
+    private static WpfBitmapImage? RenderEmoji(string icon)
+        => EmojiRenderer.Render(icon, App.Current.Settings.MonochromeIcons);
 
     // ─── ウィンドウイベント ──────────────────────────────────────
 

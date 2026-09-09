@@ -185,6 +185,53 @@ public class AppSettingsTests
         Assert.Equal(3, settings.Layout.TitleBarHiddenSpineWidth);
     }
 
+    [Fact]
+    public void Defaults_NoteFrame_KeepsTheRoundedGreyLook()
+    {
+        var settings = new AppSettings();
+
+        Assert.Equal(6, settings.Layout.NoteCornerRadius);
+        Assert.Equal(AppSettings.NoteBorderGray, settings.NoteBorderColor);
+        Assert.False(settings.MonochromeIcons);
+    }
+
+    [Theory]
+    [InlineData(-2, 0)]
+    [InlineData(0, 0)]
+    [InlineData(6, 6)]
+    [InlineData(16, 16)]
+    [InlineData(40, 16)]
+    public void Normalize_NoteCornerRadius_ClampedTo0To16(double input, double expected)
+    {
+        var settings = new AppSettings();
+        settings.Layout.NoteCornerRadius = input;
+
+        settings.Normalize();
+
+        Assert.Equal(expected, settings.Layout.NoteCornerRadius);
+    }
+
+    // 決め打ちの3種類は表記ゆれを吸収し、色は "#RRGGBB" だけ通す。
+    [Theory]
+    [InlineData("Gray", "Gray")]
+    [InlineData("gray", "Gray")]
+    [InlineData("none", "None")]
+    [InlineData("notecolor", "NoteColor")]
+    [InlineData("#ff3366", "#FF3366")]
+    [InlineData("#abc", "#ABC")]
+    [InlineData("#12345", "Gray")]
+    [InlineData("cornflowerblue", "Gray")]
+    [InlineData("", "Gray")]
+    [InlineData(null, "Gray")]
+    public void Normalize_NoteBorderColor_KeepsKnownNamesAndHexOnly(string? input, string expected)
+    {
+        var settings = new AppSettings { NoteBorderColor = input! };
+
+        settings.Normalize();
+
+        Assert.Equal(expected, settings.NoteBorderColor);
+    }
+
     // 0 は「出さない」と見分けが付かず、太すぎると本文を圧迫する。
     [Theory]
     [InlineData(0, 1)]

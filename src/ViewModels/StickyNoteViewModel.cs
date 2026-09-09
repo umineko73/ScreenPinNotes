@@ -275,6 +275,16 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     /// <summary>左端の縦線の太さ。設定で変えられる。</summary>
     public double TitleSpineWidth => _settings.Layout.TitleBarHiddenSpineWidth;
 
+    /// <summary>付箋の四隅の丸み。0 なら角のまま。</summary>
+    public CornerRadius NoteCornerRadius => new(_settings.Layout.NoteCornerRadius);
+
+    /// <summary>
+    /// リマインダーの明滅枠は外枠の内側をなぞるので、そのぶん丸みを小さくする。
+    /// 同じ値だと角で外枠からはみ出して見える。
+    /// </summary>
+    public CornerRadius NoteFlashCornerRadius =>
+        new(Math.Max(0, _settings.Layout.NoteCornerRadius - 1));
+
     public string FontFamily
     {
         get => _model.FontFamily;
@@ -381,6 +391,14 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         private set { _titleBarForeground = value; OnPropertyChanged(); }
     }
 
+    // 付箋の外枠。設定で「なし」「グレー」「付箋の色」または任意の色を選べる。
+    private WpfBrush _noteBorderBrush = WpfBrushes.Transparent;
+    public WpfBrush NoteBorderBrush
+    {
+        get => _noteBorderBrush;
+        private set { _noteBorderBrush = value; OnPropertyChanged(); }
+    }
+
     private WpfBrush _textForeground = WpfBrushes.Black;
     public WpfBrush TextForeground
     {
@@ -393,6 +411,8 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         UpdateBrushes();
         OnPropertyChanged(nameof(TitleSpineVisibility));
         OnPropertyChanged(nameof(TitleSpineWidth));
+        OnPropertyChanged(nameof(NoteCornerRadius));
+        OnPropertyChanged(nameof(NoteFlashCornerRadius));
         OnPropertyChanged(nameof(FirstLine));
         OnPropertyChanged(nameof(DisplayTitle));
         OnPropertyChanged(nameof(TitleIconTooltip));
@@ -419,6 +439,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
             TitleBarBrush = new WpfSolidBrush(WithOpacity(Blend(darkHeader, darkPanel, 0.45)));
             TitleBarForeground = new WpfSolidBrush(WpfColor.FromRgb(249, 250, 251));
             TextForeground = new WpfSolidBrush(WpfColor.FromRgb(229, 231, 235));
+            UpdateNoteBorderBrush(darkHeader);
             return;
         }
 
@@ -427,6 +448,40 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         TitleBarBrush = new WpfSolidBrush(WithOpacity(Blend(header, bg, 0.90)));
         TitleBarForeground = new WpfSolidBrush(Blend(header, WpfColor.FromRgb(0, 0, 0), 0.45));
         TextForeground = new WpfSolidBrush(WpfColor.FromRgb(17, 24, 39));
+        UpdateNoteBorderBrush(header);
+    }
+
+    /// <summary>
+    /// 外枠の色を設定から決める。「なし」は太さを0にせず透明で塗る。
+    /// 太さを変えると畳んだときの高さ（FoldedHeight）まで動いてしまうため。
+    /// </summary>
+    private void UpdateNoteBorderBrush(WpfColor header)
+    {
+        var setting = _settings.NoteBorderColor;
+        if (string.Equals(setting, AppSettings.NoteBorderNone, StringComparison.OrdinalIgnoreCase))
+        {
+            NoteBorderBrush = WpfBrushes.Transparent;
+            return;
+        }
+        if (string.Equals(setting, AppSettings.NoteBorderNoteColor, StringComparison.OrdinalIgnoreCase))
+        {
+            NoteBorderBrush = new WpfSolidBrush(WithOpacity(header));
+            return;
+        }
+
+        var hex = string.Equals(setting, AppSettings.NoteBorderGray, StringComparison.OrdinalIgnoreCase)
+            ? AppSettings.DefaultNoteBorderHex
+            : setting;
+        try
+        {
+            NoteBorderBrush = new WpfSolidBrush((WpfColor)WpfColorConverter.ConvertFromString(hex)!);
+        }
+        catch (FormatException)
+        {
+            // Normalize() が弾いたはずの値。付箋が枠なしで浮くより既定へ戻す。
+            NoteBorderBrush = new WpfSolidBrush(
+                (WpfColor)WpfColorConverter.ConvertFromString(AppSettings.DefaultNoteBorderHex)!);
+        }
     }
 
     private WpfColor WithOpacity(WpfColor color)

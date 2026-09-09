@@ -114,4 +114,45 @@ public class StickyNoteViewModelTests
         Assert.Equal(Visibility.Collapsed, vm.ReminderVisibility);
         Assert.Null(vm.ReminderTooltip);
     }
+
+    [Theory]
+    [InlineData(AppSettings.NoteBorderGray, "#FF9A9A9A")]
+    [InlineData(AppSettings.NoteBorderNone, "#00FFFFFF")]
+    [InlineData("#FF3366", "#FFFF3366")]
+    public void NoteBorderBrush_FollowsTheSetting(string setting, string expected)
+    {
+        var settings = new AppSettings { NoteBorderColor = setting };
+        var vm = new StickyNoteViewModel(new StickyNote { ColorKey = "yellow" }, settings);
+
+        var brush = Assert.IsType<System.Windows.Media.SolidColorBrush>(vm.NoteBorderBrush);
+        Assert.Equal(expected, brush.Color.ToString());
+    }
+
+    // 「付箋の色」は色ごとに違う枠になる。不透明度の設定にも従う。
+    [Fact]
+    public void NoteBorderBrush_NoteColor_UsesTheHeaderColourOfEachNote()
+    {
+        var settings = new AppSettings { NoteBorderColor = AppSettings.NoteBorderNoteColor };
+        var yellow = new StickyNoteViewModel(new StickyNote { ColorKey = "yellow" }, settings);
+        var blue = new StickyNoteViewModel(new StickyNote { ColorKey = "blue" }, settings);
+
+        Assert.Equal("#FFF9A825", ((System.Windows.Media.SolidColorBrush)yellow.NoteBorderBrush).Color.ToString());
+        Assert.Equal("#FF1D4ED8", ((System.Windows.Media.SolidColorBrush)blue.NoteBorderBrush).Color.ToString());
+    }
+
+    // 明滅枠は外枠の内側をなぞるので、1つぶん小さい丸みで描く。
+    [Theory]
+    [InlineData(0, 0, 0)]
+    [InlineData(1, 1, 0)]
+    [InlineData(6, 6, 5)]
+    [InlineData(16, 16, 15)]
+    public void NoteCornerRadius_FollowsTheSetting(double setting, double expected, double flashExpected)
+    {
+        var settings = new AppSettings();
+        settings.Layout.NoteCornerRadius = setting;
+        var vm = new StickyNoteViewModel(new StickyNote(), settings);
+
+        Assert.Equal(new CornerRadius(expected), vm.NoteCornerRadius);
+        Assert.Equal(new CornerRadius(flashExpected), vm.NoteFlashCornerRadius);
+    }
 }

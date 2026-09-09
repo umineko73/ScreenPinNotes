@@ -365,26 +365,55 @@ public partial class StickyNoteWindow
     }
 
     private void NoteSurface_SizeChanged(object sender, SizeChangedEventArgs e)
+        => ApplyNoteSurfaceClip(e.NewSize);
+
+    /// <summary>
+    /// タイトル背景が外枠の丸みに重ならないよう、内側の輪郭で切り抜く。
+    /// 本文だけの表示でも同じ輪郭を使う。
+    /// </summary>
+    private void ApplyNoteSurfaceClip(System.Windows.Size size)
     {
-        // タイトル背景が外枠の丸みに重ならないよう、内側の輪郭で切り抜く。
-        // 本文だけの表示でも同じ輪郭を使う。
-        var radius = Math.Max(0, RootBorder.CornerRadius.TopLeft - RootBorder.BorderThickness.Left);
-        var clip = new System.Windows.Media.RectangleGeometry(new Rect(e.NewSize), radius, radius);
+        var radius = Math.Max(0, NoteCornerRadius - RootBorder.BorderThickness.Left);
+        var clip = new System.Windows.Media.RectangleGeometry(new Rect(size), radius, radius);
         clip.Freeze();
-        ((System.Windows.FrameworkElement)sender).Clip = clip;
+        NoteSurface.Clip = clip;
     }
 
     private void RootBorder_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        // Border.CornerRadius だけでは子要素の背景が角にはみ出すため、
-        // 表示領域全体をクリップする。ネイティブのリサイズ枠は変更しない。
-        var clip = new System.Windows.Media.RectangleGeometry(
-            new Rect(e.NewSize), RootBorder.CornerRadius.TopLeft, RootBorder.CornerRadius.TopLeft);
-        clip.Freeze();
-        RootBorder.Clip = clip;
+        ApplyRootBorderClip(e.NewSize);
 
         if (EditToolbarPopup?.IsOpen == true)
             UpdateEditToolbarPlacement();
+    }
+
+    /// <summary>
+    /// Border.CornerRadius だけでは子要素の背景が角にはみ出すため、
+    /// 表示領域全体をクリップする。ネイティブのリサイズ枠は変更しない。
+    /// </summary>
+    private void ApplyRootBorderClip(System.Windows.Size size)
+    {
+        var clip = new System.Windows.Media.RectangleGeometry(new Rect(size), NoteCornerRadius, NoteCornerRadius);
+        clip.Freeze();
+        RootBorder.Clip = clip;
+    }
+
+    // RootBorder.CornerRadius ではなく設定を直接読む。バインディングは
+    // DataBind 優先度で後から反映されるので、最初の SizeChanged の時点では
+    // まだ既定値（0）のことがあり、角が落ちないまま切り抜いてしまう。
+    private double NoteCornerRadius => ViewModel.NoteCornerRadius.TopLeft;
+
+    /// <summary>
+    /// 丸みの設定を変えても大きさは変わらないので SizeChanged は飛ばない。
+    /// 設定を読み直したときは、切り抜きだけここで引き直す。
+    /// </summary>
+    private void RefreshCornerClips()
+    {
+        // 生成中はまだ大きさが決まっていない。最初の切り抜きは SizeChanged に任せる。
+        if (_isInitializing) return;
+        UpdateLayout();
+        ApplyRootBorderClip(new System.Windows.Size(RootBorder.ActualWidth, RootBorder.ActualHeight));
+        ApplyNoteSurfaceClip(new System.Windows.Size(NoteSurface.ActualWidth, NoteSurface.ActualHeight));
     }
 
     private void HideEditToolbar()

@@ -58,7 +58,7 @@ public class SettingsWindowTests
             window.Show();
             window.UpdateLayout();
             var pickers = Descendants<ComboBox>(window).ToArray();
-            Assert.Equal(7, pickers.Length);
+            Assert.Equal(9, pickers.Length);
             var left = pickers[0].TranslatePoint(new Point(), window).X;
             foreach (var picker in pickers)
             {
@@ -99,6 +99,65 @@ public class SettingsWindowTests
             window.Close();
             app.Settings.Language = previousLanguage;
         }
+    }
+
+    [WpfTheory]
+    [InlineData(0.0, AppSettings.NoteBorderNone, true)]
+    [InlineData(12.0, AppSettings.NoteBorderNoteColor, false)]
+    public void NoteFrameEditors_ReflectTheCurrentSettings(double radius, string border, bool monochrome)
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var previousLanguage = app.Settings.Language;
+        app.Settings.Language = "ja";
+        var settings = new AppSettings { Language = "ja", NoteBorderColor = border, MonochromeIcons = monochrome };
+        settings.Layout.NoteCornerRadius = radius;
+        var window = new SettingsWindow(settings, app);
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+
+            // 0 を選べるのは角の丸みの欄だけ（帯の太さは 1 から）。
+            var corner = Descendants<ComboBox>(window).Single(combo =>
+                combo.Items.Cast<object>().Any(item => item is ComboBoxItem { Tag: 0.0 }));
+            Assert.Equal(radius, Assert.IsType<ComboBoxItem>(corner.SelectedItem).Tag);
+
+            var borderPicker = Descendants<ComboBox>(window).Single(combo =>
+                combo.Items.Cast<object>().Any(item =>
+                    item is ComboBoxItem { Tag: AppSettings.NoteBorderNoteColor }));
+            Assert.Equal(border, Assert.IsType<ComboBoxItem>(borderPicker.SelectedItem).Tag);
+
+            var icons = Descendants<CheckBox>(window).Single(box =>
+                box.Content is TextBlock { Text: "モノクロで表示" });
+            Assert.Equal(monochrome, icons.IsChecked);
+        }
+        finally
+        {
+            window.Close();
+            app.Settings.Language = previousLanguage;
+        }
+    }
+
+    // settings.json に直接書いた色は、選択済みの項目として残す。
+    [WpfFact]
+    public void NoteBorderEditor_KeepsACustomColourFromSettingsJson()
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var settings = new AppSettings { NoteBorderColor = "#FF3366" };
+        var window = new SettingsWindow(settings, app);
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var picker = Descendants<ComboBox>(window).Single(combo =>
+                combo.Items.Cast<object>().Any(item =>
+                    item is ComboBoxItem { Tag: AppSettings.NoteBorderNoteColor }));
+
+            var selected = Assert.IsType<ComboBoxItem>(picker.SelectedItem);
+            Assert.Equal("#FF3366", selected.Tag);
+            Assert.Equal("#FF3366", selected.Content);
+        }
+        finally { window.Close(); }
     }
 
     // 帯を出さない設定のときは太さの欄を触れないようにする。効かない欄が残ると迷う。

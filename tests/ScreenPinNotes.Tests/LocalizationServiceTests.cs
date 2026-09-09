@@ -64,6 +64,14 @@ public class LocalizationServiceTests
     [InlineData("SettingsTitleBarSpine", "Hidden title bar marker", "タイトルバー非表示の目印")]
     [InlineData("SettingsShowTitleBarSpine", "Show a spine on the left edge", "左端に帯を出す")]
     [InlineData("SettingsTitleBarSpineWidth", "Spine width", "帯の太さ")]
+    [InlineData("SettingsNoteCorner", "Corner radius", "角の丸み")]
+    [InlineData("SettingsNoteCornerSquare", "Square", "丸めない")]
+    [InlineData("SettingsNoteBorder", "Border color", "枠の色")]
+    [InlineData("SettingsNoteBorderNone", "None", "なし")]
+    [InlineData("SettingsNoteBorderGray", "Gray", "グレー")]
+    [InlineData("SettingsNoteBorderNoteColor", "Note color", "付箋の色")]
+    [InlineData("SettingsIconColor", "Icon color", "アイコンの色")]
+    [InlineData("SettingsMonochromeIcons", "Show in monochrome", "モノクロで表示")]
     public void TitleBarSpineStringsAreInTheCatalog(string key, string english, string japanese)
     {
         Assert.Equal(english, LocalizationService.T(key, "en"));

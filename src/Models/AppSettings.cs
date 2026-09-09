@@ -19,6 +19,20 @@ public sealed class AppSettings
     public bool ShowFoldButton { get; set; }
     /// <summary>タイトルバーを隠している付箋の左端に、見分けのための帯を出すかどうか。</summary>
     public bool ShowTitleBarHiddenSpine { get; set; } = true;
+    /// <summary>
+    /// 付箋の外枠の色。<see cref="NoteBorderNone"/> / <see cref="NoteBorderGray"/> /
+    /// <see cref="NoteBorderNoteColor"/>、または "#RRGGBB" 形式の色。
+    /// </summary>
+    public string NoteBorderColor { get; set; } = NoteBorderGray;
+    /// <summary>付箋のアイコンを色を抜いて描くかどうか。</summary>
+    public bool MonochromeIcons { get; set; }
+
+    public const string NoteBorderNone = "None";
+    public const string NoteBorderGray = "Gray";
+    public const string NoteBorderNoteColor = "NoteColor";
+
+    /// <summary>既定の外枠の色。設定が「グレー」のときに使う。</summary>
+    public const string DefaultNoteBorderHex = "#9A9A9A";
     public bool DoubleClickToToggleView { get; set; } = true;
     /// <summary>各付箋のウィンドウをタスクバーにも表示するかどうか。</summary>
     public bool ShowNotesInTaskbar { get; set; }
@@ -49,6 +63,29 @@ public sealed class AppSettings
 
     public List<string> IconPalette { get; set; } = DefaultIconPalette();
     public int IconPaletteVersion { get; set; }
+
+    /// <summary>
+    /// 外枠の色の設定を読める値にそろえる。決め打ちの3種類は表記ゆれを吸収し、
+    /// それ以外は "#RRGGBB" 形式の色として通す（settings.json を直接書く人向け）。
+    /// どちらでもなければ既定のグレーに戻す。
+    /// </summary>
+    public static string NormalizeNoteBorderColor(string? value)
+    {
+        var text = (value ?? "").Trim();
+        foreach (var known in new[] { NoteBorderNone, NoteBorderGray, NoteBorderNoteColor })
+            if (string.Equals(text, known, StringComparison.OrdinalIgnoreCase))
+                return known;
+        return IsHexColor(text) ? text.ToUpperInvariant() : NoteBorderGray;
+    }
+
+    private static bool IsHexColor(string text)
+    {
+        if (text.Length is not (4 or 7 or 9) || text[0] != '#') return false;
+        for (var i = 1; i < text.Length; i++)
+            if (!Uri.IsHexDigit(text[i]))
+                return false;
+        return true;
+    }
 
     public static AppSettings CreateDefault()
         => new() { Language = GetDefaultLanguage(CultureInfo.CurrentUICulture) };
@@ -128,6 +165,9 @@ public sealed class AppSettings
         // 上限は最小幅140pxの付箋でも本文を圧迫しない範囲。0は「出さない」と
         // 見分けが付かなくなるので、消したいときは ShowTitleBarHiddenSpine を使う。
         Layout.TitleBarHiddenSpineWidth = Math.Clamp(Layout.TitleBarHiddenSpineWidth, 1, 12);
+        // 上限は付箋の高さが最小のとき（畳んだ1行）でも輪郭が破綻しない範囲。
+        Layout.NoteCornerRadius = Math.Clamp(Layout.NoteCornerRadius, 0, 16);
+        NoteBorderColor = NormalizeNoteBorderColor(NoteBorderColor);
         Layout.DefaultNoteWidth = Math.Max(Layout.UnfoldedMinWidth, Layout.DefaultNoteWidth);
         Layout.DefaultNoteHeight = Math.Max(80, Layout.DefaultNoteHeight);
 
@@ -176,6 +216,8 @@ public sealed class LayoutSettings
     public double RootBorderThickness { get; set; } = 1;
     /// <summary>タイトルバーを隠している付箋の左端に出す帯の太さ。</summary>
     public double TitleBarHiddenSpineWidth { get; set; } = 3;
+    /// <summary>付箋の四隅の丸み。0 なら角のままにする。</summary>
+    public double NoteCornerRadius { get; set; } = 6;
     public double NewNoteBaseX { get; set; } = 150;
     public double NewNoteBaseY { get; set; } = 150;
     public double NewNoteCascadeStep { get; set; } = 20;
