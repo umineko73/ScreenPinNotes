@@ -1734,6 +1734,73 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
+    // 畳むとタイトルバー表示の付箋と1行表示の付箋が同じ形になるので、
+    // タイトルバーを隠している側にだけ左端の縦線を出して見分けを付ける。
+    [WpfTheory]
+    [InlineData(true, true)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(false, false)]
+    public void TitleBarHiddenSpine_ShowsOnlyWhileTheTitleBarIsHidden(bool hiddenTitleBar, bool folded)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { IsFolded = folded, IsTitleBarHidden = hiddenTitleBar, Content = "body" };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var spine = Assert.IsType<System.Windows.Shapes.Rectangle>(window.FindName("TitleBarHiddenSpine"));
+            Assert.Equal(hiddenTitleBar ? Visibility.Visible : Visibility.Collapsed, spine.Visibility);
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfFact]
+    public void TitleBarHiddenSpine_FollowsTheTitleBarToggle()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { IsTitleBarHidden = false, Content = "body" };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            var spine = Assert.IsType<System.Windows.Shapes.Rectangle>(window.FindName("TitleBarHiddenSpine"));
+            Assert.Equal(Visibility.Collapsed, spine.Visibility);
+
+            InvokePrivate(window, "ToggleTitleBarHidden");
+            window.UpdateLayout();
+            Assert.Equal(Visibility.Visible, spine.Visibility);
+
+            InvokePrivate(window, "ToggleTitleBarHidden");
+            window.UpdateLayout();
+            Assert.Equal(Visibility.Collapsed, spine.Visibility);
+        }
+        finally { window.Close(); }
+    }
+
+    // 縦線は左端の幅リサイズ枠と重なり、畳んだ1行表示では本文がドラッグの
+    // つかみ代になる。当たり判定を持たせるとどちらも塞いでしまう。
+    [WpfFact]
+    public void TitleBarHiddenSpine_TakesNoMouseInput()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { IsFolded = true, IsTitleBarHidden = true, Content = "body" };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            var spine = Assert.IsType<System.Windows.Shapes.Rectangle>(window.FindName("TitleBarHiddenSpine"));
+            Assert.False(spine.IsHitTestVisible);
+        }
+        finally { window.Close(); }
+    }
+
     // アイコン未設定なら、空の帯が本文に浮くだけなので出さない。
     [WpfFact]
     public void FoldedNote_WithoutAnIcon_ShowsNothingUntilHovered()

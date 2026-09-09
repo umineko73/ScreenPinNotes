@@ -249,6 +249,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
             _model.IsTitleBarHidden = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(TitleBarVisibility));
+            OnPropertyChanged(nameof(TitleSpineVisibility));
             OnPropertyChanged(nameof(ContentFontSize));
         }
     }
@@ -259,6 +260,14 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     /// </summary>
     public Visibility TitleBarVisibility =>
         IsTitleBarHidden ? Visibility.Collapsed : Visibility.Visible;
+
+    /// <summary>
+    /// タイトルバーを隠している付箋の左端に出す縦線。畳むとタイトルバーを
+    /// 出している付箋との違いがアイコンの左右だけになり、見分けが付かない。
+    /// 色や不透明度に左右されない形の手掛かりとして、TitleBarVisibility の裏返しで出す。
+    /// </summary>
+    public Visibility TitleSpineVisibility =>
+        IsTitleBarHidden ? Visibility.Visible : Visibility.Collapsed;
 
     public string FontFamily
     {
