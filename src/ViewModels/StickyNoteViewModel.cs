@@ -478,7 +478,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         }
         catch (FormatException)
         {
-            // Normalize() が弾いたはずの値。枠なしで消すと書き損じに気付けないのでグレーへ。
+            // Normalize() が弾いたはずの値。既定色へ倒すと書き損じに気付けないのでグレーへ。
             NoteBorderBrush = new WpfSolidBrush(
                 (WpfColor)WpfColorConverter.ConvertFromString(AppSettings.DefaultNoteBorderHex)!);
         }

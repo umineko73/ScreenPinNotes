@@ -23,7 +23,7 @@ public sealed class AppSettings
     /// 付箋の外枠の色。<see cref="NoteBorderNone"/> / <see cref="NoteBorderGray"/> /
     /// <see cref="NoteBorderNoteColor"/>、または "#RRGGBB" 形式の色。
     /// </summary>
-    public string NoteBorderColor { get; set; } = NoteBorderNone;
+    public string NoteBorderColor { get; set; } = NoteBorderNoteColor;
     /// <summary>付箋のアイコンを色を抜いて描くかどうか。</summary>
     public bool MonochromeIcons { get; set; }
 
@@ -67,8 +67,8 @@ public sealed class AppSettings
     /// <summary>
     /// 外枠の色の設定を読める値にそろえる。決め打ちの3種類は表記ゆれを吸収し、
     /// それ以外は "#RRGGBB" 形式の色として通す（settings.json を直接書く人向け）。
-    /// どちらでもなければグレーに戻す。既定は「なし」だが、そこへ倒すと枠が
-    /// 消えるだけで書き損じに気付けないので、直すべき状態が見える色を選ぶ。
+    /// どちらでもなければグレーに戻す。既定の「付箋の色」へ倒さないのは、
+    /// 直すべき状態が普通に使える見た目に紛れてしまうため。
     /// </summary>
     public static string NormalizeNoteBorderColor(string? value)
     {
