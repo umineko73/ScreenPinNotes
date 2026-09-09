@@ -118,12 +118,25 @@ public partial class StickyNoteWindow
         }
         SuppressWindowBoundsSave(() =>
         {
+            // 編集モードの大きさと同じく、位置も一時的なものとして扱う。
+            // 閲覧へ戻すときに記憶してある展開時の左上へ戻さないと、編集中に
+            // 左辺・上辺を引っ張ったぶんや、広げた枠を作業領域へ押し戻したぶんだけ、
+            // 大きさだけ元へ戻って位置がずれた付箋になる。
+            if (!editing)
+            {
+                Left = model.X;
+                Top = model.Y;
+            }
             Width = Math.Max(MinWidth, width);
             Height = Math.Max(MinHeight, height);
             KeepInsideWorkArea(Width, Height);
             UpdateLayout();
         });
-        SaveCurrentPositionToModel();
+        // 編集へ入るときは書き戻さない。ここで動くのはアプリ都合の一時的なずれで、
+        // ユーザーが決めた位置ではない。戻すときだけ、作業領域からはみ出して
+        // 補正された場合に備えて記録し直す。
+        if (!editing)
+            StoreCurrentPositionInModel();
         UpdateEditToolbarPlacement();
     }
 

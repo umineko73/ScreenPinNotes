@@ -778,6 +778,145 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
+    // 編集モードは大きさだけでなく位置も一時的に変える。閲覧へ戻したときに
+    // 大きさだけ元へ戻ると、付箋が勝手に動いたように見える。
+    [WpfFact]
+    public void EditSize_LeavingEditMode_RestoresTheExpandedViewPosition()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var model = new StickyNote
+        {
+            IsFolded = true,
+            IsTitleBarHidden = true,
+            IsPositionSeparated = true,
+            X = 500, Y = 400, Width = 300, Height = 250,
+            FoldedX = 100, FoldedY = 200, FoldedWidth = 180,
+            Content = "first line\nsecond line",
+        };
+        var vm = new StickyNoteViewModel(model, new AppSettings { EnableFoldAnimation = false });
+        var window = new StickyNoteWindow(vm, new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            InvokePrivate(window, "ToggleFold", (object?)null);
+            Assert.Equal(500, window.Left);
+            Assert.Equal(400, window.Top);
+
+            InvokePrivate(window, "EnterEditMode");
+            // 左辺・上辺をつかんで広げたときと同じ動き。
+            window.Left -= 120;
+            window.Top -= 60;
+            window.Width += 120;
+            window.Height += 60;
+            window.UpdateLayout();
+            Assert.Equal(500, model.X);
+            Assert.Equal(400, model.Y);
+
+            InvokePrivate(window, "EnterViewMode");
+            Assert.Equal(500, window.Left);
+            Assert.Equal(400, window.Top);
+            Assert.Equal(300, window.Width);
+            Assert.Equal(250, window.Height);
+            Assert.Equal(500, model.X);
+            Assert.Equal(400, model.Y);
+            // 折りたたみ側の位置と幅は巻き込まれない。
+            Assert.Equal(100, model.FoldedX);
+            Assert.Equal(200, model.FoldedY);
+            Assert.Equal(180, model.FoldedWidth);
+        }
+        finally { window.Close(); }
+    }
+
+    // 編集用の大きさへ広げると作業領域からはみ出す付箋は、画面内へ押し戻される。
+    // そのぶんを閲覧時の位置として覚えてしまうと、編集して閉じただけで動く。
+    [WpfFact]
+    public void EditSize_EnteringEditModeNearTheScreenEdge_DoesNotMoveTheNote()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var workArea = System.Windows.Forms.Screen.PrimaryScreen!.WorkingArea;
+        var model = new StickyNote
+        {
+            X = workArea.Right - 320, Y = workArea.Bottom - 270,
+            Width = 300, Height = 250,
+            EditWidth = 420, EditHeight = 360,
+            Content = "body",
+        };
+        var vm = new StickyNoteViewModel(model, new AppSettings());
+        var window = new StickyNoteWindow(vm, new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            var left = window.Left;
+            var top = window.Top;
+
+            InvokePrivate(window, "EnterEditMode");
+            window.UpdateLayout();
+            Assert.Equal(left, model.X);
+            Assert.Equal(top, model.Y);
+
+            InvokePrivate(window, "EnterViewMode");
+            Assert.Equal(left, window.Left);
+            Assert.Equal(top, window.Top);
+            Assert.Equal(left, model.X);
+            Assert.Equal(top, model.Y);
+        }
+        finally { window.Close(); }
+    }
+
+    // 編集中に付箋をつかんで動かしたぶんは、閲覧へ戻しても残す。
+    [WpfFact]
+    public void EditSize_MovingWhileEditing_KeepsTheNewPosition()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var model = new StickyNote { X = 300, Y = 240, Width = 300, Height = 250, Content = "body" };
+        var vm = new StickyNoteViewModel(model, new AppSettings());
+        var window = new StickyNoteWindow(vm, new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            InvokePrivate(window, "EnterEditMode");
+            window.Left = 420;
+            window.Top = 360;
+            // ドラッグの終わりに TitleBar_MouseLeftButtonUp が呼ぶのと同じ保存。
+            InvokePrivate(window, "SaveCurrentPositionToModel");
+
+            InvokePrivate(window, "EnterViewMode");
+            Assert.Equal(420, window.Left);
+            Assert.Equal(360, window.Top);
+            Assert.Equal(420, model.X);
+            Assert.Equal(360, model.Y);
+        }
+        finally { window.Close(); }
+    }
+
+    // Ctrl+Enter で編集を終えると、編集モードの出入りが Ctrl 押下中に走る。
+    // それを Ctrl ドラッグと同じ「位置を分ける」合図と取り違えてはいけない。
+    // Ctrl キーの状態はテストから作れないので、同じ分岐を通る
+    // _dragSeparatesFoldedPosition で代用する。
+    [WpfFact]
+    public void LeavingEditMode_DoesNotSeparateThePositionOnItsOwn()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var model = new StickyNote { X = 300, Y = 240, Width = 300, Height = 250, Content = "body" };
+        var vm = new StickyNoteViewModel(model, new AppSettings());
+        var window = new StickyNoteWindow(vm, new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            SetPrivateField(window, "_dragSeparatesFoldedPosition", true);
+
+            InvokePrivate(window, "EnterEditMode");
+            InvokePrivate(window, "EnterViewMode");
+
+            Assert.False(model.IsPositionSeparated);
+        }
+        finally { window.Close(); }
+    }
+
     [WpfFact]
     public async Task FontPicker_FirstOpeningReplacesLoadingWithNames()
     {

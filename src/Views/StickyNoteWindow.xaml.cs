@@ -545,6 +545,11 @@ public partial class StickyNoteWindow : Window
             UpdateEditToolbarPlacement();
         if (_isDragging || _isInitializing) return;
         if (_suppressWindowBoundsSave) return;
+        // 編集モードの位置は SizeChanged 側の大きさと同じく一時的なもの。
+        // 左辺・上辺のリサイズでもここへ来るので、書き戻すと閲覧へ戻したときに
+        // 大きさだけ戻って位置がずれる。意図して動かしたぶんは、ドラッグの
+        // 終わりに TitleBar_MouseLeftButtonUp が別途保存している。
+        if (_isEditMode && !ViewModel.IsFolded) return;
         SaveCurrentPositionToModel();
         RequestSave();
     }
@@ -563,10 +568,24 @@ public partial class StickyNoteWindow : Window
         }
     }
 
+    /// <summary>
+    /// ユーザーの操作で動いた結果を書き戻す。Ctrl 押しは「この状態の位置だけ
+    /// 動かす」という合図なので、ここで位置分離へ切り替える。
+    /// </summary>
     private void SaveCurrentPositionToModel()
     {
         if (_dragSeparatesFoldedPosition || IsControlPressed())
             ViewModel.IsPositionSeparated = true;
+        StoreCurrentPositionInModel();
+    }
+
+    /// <summary>
+    /// 現在の左上をモデルへ書き戻す。分離していなければもう一方の状態にも同じ値を入れる。
+    /// ユーザーの操作かどうかを判定しないので、アプリ都合で動かしたぶんを記録するときは
+    /// こちらを使う（Ctrl+Enter で編集を終えただけで位置分離が始まるのを避ける）。
+    /// </summary>
+    private void StoreCurrentPositionInModel()
+    {
         var syncOtherState = !ViewModel.IsPositionSeparated;
         if (ViewModel.IsFolded)
         {
