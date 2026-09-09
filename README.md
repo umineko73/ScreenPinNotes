@@ -184,6 +184,8 @@ The app must be running in the tray. Missed reminders are delivered once on rest
 
 With the border set to *None*, a pale note has almost no visible edge over a white background.
 
+Updating from 0.2.0 or earlier changes how notes look on first launch: rounded corners and a gray frame become square corners and a note-colored border. For the old look, set corner radius to 6 and border color to gray in **Settings > Appearance**.
+
 Settings save immediately (shortcut changes require Apply). New-note defaults apply to tray- and shortcut-created notes; `＋` on a note copies its appearance.
 
 External notes show `🔗`. Their menu can open the file or folder, or convert the content into an editable note. Deleting the note or changing image display sizes does not modify the original file.
