@@ -23,7 +23,7 @@ public sealed class AppSettings
     /// 付箋の外枠の色。<see cref="NoteBorderNone"/> / <see cref="NoteBorderGray"/> /
     /// <see cref="NoteBorderNoteColor"/>、または "#RRGGBB" 形式の色。
     /// </summary>
-    public string NoteBorderColor { get; set; } = NoteBorderGray;
+    public string NoteBorderColor { get; set; } = NoteBorderNone;
     /// <summary>付箋のアイコンを色を抜いて描くかどうか。</summary>
     public bool MonochromeIcons { get; set; }
 
@@ -67,7 +67,8 @@ public sealed class AppSettings
     /// <summary>
     /// 外枠の色の設定を読める値にそろえる。決め打ちの3種類は表記ゆれを吸収し、
     /// それ以外は "#RRGGBB" 形式の色として通す（settings.json を直接書く人向け）。
-    /// どちらでもなければ既定のグレーに戻す。
+    /// どちらでもなければグレーに戻す。既定は「なし」だが、そこへ倒すと枠が
+    /// 消えるだけで書き損じに気付けないので、直すべき状態が見える色を選ぶ。
     /// </summary>
     public static string NormalizeNoteBorderColor(string? value)
     {
@@ -217,7 +218,7 @@ public sealed class LayoutSettings
     /// <summary>タイトルバーを隠している付箋の左端に出す帯の太さ。</summary>
     public double TitleBarHiddenSpineWidth { get; set; } = 3;
     /// <summary>付箋の四隅の丸み。0 なら角のままにする。</summary>
-    public double NoteCornerRadius { get; set; } = 6;
+    public double NoteCornerRadius { get; set; }
     public double NewNoteBaseX { get; set; } = 150;
     public double NewNoteBaseY { get; set; } = 150;
     public double NewNoteCascadeStep { get; set; } = 20;

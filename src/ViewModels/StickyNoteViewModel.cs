@@ -478,7 +478,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         }
         catch (FormatException)
         {
-            // Normalize() が弾いたはずの値。付箋が枠なしで浮くより既定へ戻す。
+            // Normalize() が弾いたはずの値。枠なしで消すと書き損じに気付けないのでグレーへ。
             NoteBorderBrush = new WpfSolidBrush(
                 (WpfColor)WpfColorConverter.ConvertFromString(AppSettings.DefaultNoteBorderHex)!);
         }

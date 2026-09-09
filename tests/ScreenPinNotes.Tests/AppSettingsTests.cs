@@ -185,13 +185,14 @@ public class AppSettingsTests
         Assert.Equal(3, settings.Layout.TitleBarHiddenSpineWidth);
     }
 
+    // 既定は角のまま・枠なし。設定を持たない settings.json もこの見た目になる。
     [Fact]
-    public void Defaults_NoteFrame_KeepsTheRoundedGreyLook()
+    public void Defaults_NoteFrame_IsSquareAndBorderless()
     {
         var settings = new AppSettings();
 
-        Assert.Equal(6, settings.Layout.NoteCornerRadius);
-        Assert.Equal(AppSettings.NoteBorderGray, settings.NoteBorderColor);
+        Assert.Equal(0, settings.Layout.NoteCornerRadius);
+        Assert.Equal(AppSettings.NoteBorderNone, settings.NoteBorderColor);
         Assert.False(settings.MonochromeIcons);
     }
 

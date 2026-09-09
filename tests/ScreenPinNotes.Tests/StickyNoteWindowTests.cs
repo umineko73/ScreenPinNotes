@@ -1844,14 +1844,14 @@ public class StickyNoteWindowTests
             window.Show();
             window.UpdateLayout();
             var root = Assert.IsType<Border>(window.FindName("RootBorder"));
-            Assert.Equal(6, Assert.IsType<RectangleGeometry>(root.Clip).RadiusX);
+            Assert.Equal(0, Assert.IsType<RectangleGeometry>(root.Clip).RadiusX);
 
-            settings.Layout.NoteCornerRadius = 0;
+            settings.Layout.NoteCornerRadius = 12;
             window.RefreshSettings();
             window.UpdateLayout();
 
-            Assert.Equal(new CornerRadius(0), root.CornerRadius);
-            Assert.Equal(0, Assert.IsType<RectangleGeometry>(root.Clip).RadiusX);
+            Assert.Equal(new CornerRadius(12), root.CornerRadius);
+            Assert.Equal(12, Assert.IsType<RectangleGeometry>(root.Clip).RadiusX);
         }
         finally { window.Close(); }
     }
