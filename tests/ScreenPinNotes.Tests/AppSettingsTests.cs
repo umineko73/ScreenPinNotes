@@ -174,4 +174,32 @@ public class AppSettingsTests
 
         Assert.Equal(200, settings.Layout.DefaultNoteWidth);
     }
+
+    // 目印は既定で出す。設定を持たない古い settings.json でも出るようにする。
+    [Fact]
+    public void Defaults_TitleBarHiddenSpine_IsShownAtThreePixels()
+    {
+        var settings = new AppSettings();
+
+        Assert.True(settings.ShowTitleBarHiddenSpine);
+        Assert.Equal(3, settings.Layout.TitleBarHiddenSpineWidth);
+    }
+
+    // 0 は「出さない」と見分けが付かず、太すぎると本文を圧迫する。
+    [Theory]
+    [InlineData(0, 1)]
+    [InlineData(-4, 1)]
+    [InlineData(1, 1)]
+    [InlineData(6, 6)]
+    [InlineData(12, 12)]
+    [InlineData(40, 12)]
+    public void Normalize_TitleBarHiddenSpineWidth_ClampedTo1To12(double input, double expected)
+    {
+        var settings = new AppSettings();
+        settings.Layout.TitleBarHiddenSpineWidth = input;
+
+        settings.Normalize();
+
+        Assert.Equal(expected, settings.Layout.TitleBarHiddenSpineWidth);
+    }
 }

@@ -265,9 +265,15 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     /// タイトルバーを隠している付箋の左端に出す縦線。畳むとタイトルバーを
     /// 出している付箋との違いがアイコンの左右だけになり、見分けが付かない。
     /// 色や不透明度に左右されない形の手掛かりとして、TitleBarVisibility の裏返しで出す。
+    /// 目印が要らない人は設定で消せる。
     /// </summary>
     public Visibility TitleSpineVisibility =>
-        IsTitleBarHidden ? Visibility.Visible : Visibility.Collapsed;
+        IsTitleBarHidden && _settings.ShowTitleBarHiddenSpine
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+    /// <summary>左端の縦線の太さ。設定で変えられる。</summary>
+    public double TitleSpineWidth => _settings.Layout.TitleBarHiddenSpineWidth;
 
     public string FontFamily
     {
@@ -385,6 +391,8 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     public void RefreshSettings()
     {
         UpdateBrushes();
+        OnPropertyChanged(nameof(TitleSpineVisibility));
+        OnPropertyChanged(nameof(TitleSpineWidth));
         OnPropertyChanged(nameof(FirstLine));
         OnPropertyChanged(nameof(DisplayTitle));
         OnPropertyChanged(nameof(TitleIconTooltip));

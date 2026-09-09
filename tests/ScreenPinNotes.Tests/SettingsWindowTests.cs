@@ -58,7 +58,7 @@ public class SettingsWindowTests
             window.Show();
             window.UpdateLayout();
             var pickers = Descendants<ComboBox>(window).ToArray();
-            Assert.Equal(6, pickers.Length);
+            Assert.Equal(7, pickers.Length);
             var left = pickers[0].TranslatePoint(new Point(), window).X;
             foreach (var picker in pickers)
             {
@@ -93,6 +93,42 @@ public class SettingsWindowTests
             typeof(SettingsWindow).GetMethod("ApplyTheme", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(window, null);
             Assert.Equal(settings.Theme == "Dark" ? Color.FromRgb(32, 32, 32) : Colors.White,
                 ((SolidColorBrush)window.Background).Color);
+        }
+        finally
+        {
+            window.Close();
+            app.Settings.Language = previousLanguage;
+        }
+    }
+
+    // 帯を出さない設定のときは太さの欄を触れないようにする。効かない欄が残ると迷う。
+    // 書き込み側はここで走らせない。チェックを実際に切り替えると Save() が
+    // App.Current.Settings を本物のデータフォルダへ書き出してしまうため。
+    [WpfTheory]
+    [InlineData(true, 6.0)]
+    [InlineData(false, 3.0)]
+    public void TitleBarSpineEditor_ReflectsTheCurrentSettings(bool showSpine, double width)
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var previousLanguage = app.Settings.Language;
+        app.Settings.Language = "ja";
+        var settings = new AppSettings { Language = "ja", ShowTitleBarHiddenSpine = showSpine };
+        settings.Layout.TitleBarHiddenSpineWidth = width;
+        var window = new SettingsWindow(settings, app);
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+
+            var toggle = Descendants<CheckBox>(window).Single(box =>
+                box.Content is TextBlock { Text: "左端に帯を出す" });
+            Assert.Equal(showSpine, toggle.IsChecked);
+
+            // 1px を選べるのは帯の太さの欄だけ（本文の文字サイズは 8 から）。
+            var picker = Descendants<ComboBox>(window).Single(combo =>
+                combo.Items.Cast<object>().Any(item => item is ComboBoxItem { Tag: 1.0 }));
+            Assert.Equal(width, Assert.IsType<ComboBoxItem>(picker.SelectedItem).Tag);
+            Assert.Equal(showSpine, picker.IsEnabled);
         }
         finally
         {

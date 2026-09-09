@@ -416,7 +416,43 @@ public sealed class SettingsWindow : Window
             Save();
         };
         panel.Children.Add(LabeledRow("TrayLanguage", language));
+        AddTitleBarSpineRows(panel);
         return panel;
+    }
+
+    // タイトルバーを隠している付箋の左端に出す帯。太さの選択は、帯そのものを
+    // 出さない設定のときは触れないようにする（効かない欄が残ると迷う）。
+    // 行を2つに分けているのは、この画面の入力欄が1本の左端にそろえてあるため。
+    private void AddTitleBarSpineRows(StackPanel section)
+    {
+        var width = Picker(84);
+        foreach (var size in new[] { 1, 2, 3, 4, 5, 6, 8, 10, 12 })
+            width.Items.Add(new WpfComboBoxItem { Content = size.ToString(), Tag = (double)size });
+        if (!SelectByTag(width, _settings.Layout.TitleBarHiddenSpineWidth))
+        {
+            width.Items.Insert(0, new WpfComboBoxItem
+            {
+                Content = _settings.Layout.TitleBarHiddenSpineWidth.ToString("0.#"),
+                Tag = _settings.Layout.TitleBarHiddenSpineWidth,
+            });
+            width.SelectedIndex = 0;
+        }
+        width.IsEnabled = _settings.ShowTitleBarHiddenSpine;
+        width.SelectionChanged += (_, _) =>
+        {
+            if (_loading || width.SelectedItem is not WpfComboBoxItem { Tag: double size }) return;
+            _settings.Layout.TitleBarHiddenSpineWidth = size;
+            Save();
+        };
+
+        var toggle = Toggle("SettingsShowTitleBarSpine",
+            () => _settings.ShowTitleBarHiddenSpine, v => _settings.ShowTitleBarHiddenSpine = v);
+        void SyncWidthEnabled(object? _, RoutedEventArgs __) => width.IsEnabled = toggle.IsChecked == true;
+        toggle.Checked += SyncWidthEnabled;
+        toggle.Unchecked += SyncWidthEnabled;
+
+        section.Children.Add(LabeledRow("SettingsTitleBarSpine", toggle));
+        section.Children.Add(LabeledRow("SettingsTitleBarSpineWidth", width));
     }
 
     // ─── 動作 ────────────────────────────────────────────────────

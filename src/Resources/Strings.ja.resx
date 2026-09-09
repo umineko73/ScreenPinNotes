@@ -649,6 +649,9 @@
     <value>この付箋を削除しますか？連動している元のファイルは削除されません。</value>
   </data>
   <data name="SettingsTitleBar" xml:space="preserve"><value>タイトルバー</value></data>
+  <data name="SettingsTitleBarSpine" xml:space="preserve"><value>タイトルバー非表示の目印</value></data>
+  <data name="SettingsShowTitleBarSpine" xml:space="preserve"><value>左端に帯を出す</value></data>
+  <data name="SettingsTitleBarSpineWidth" xml:space="preserve"><value>帯の太さ</value></data>
   <data name="SettingsTheme" xml:space="preserve"><value>テーマ</value></data>
   <data name="SettingsStartup" xml:space="preserve"><value>起動</value></data>
   <data name="SettingsFolding" xml:space="preserve"><value>折りたたみ・展開</value></data>

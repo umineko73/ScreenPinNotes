@@ -649,6 +649,9 @@ No: create initial notes in the selected folder. The current notes folder will r
     <value>Delete this note? The linked original file will not be deleted.</value>
   </data>
   <data name="SettingsTitleBar" xml:space="preserve"><value>Title bar</value></data>
+  <data name="SettingsTitleBarSpine" xml:space="preserve"><value>Hidden title bar marker</value></data>
+  <data name="SettingsShowTitleBarSpine" xml:space="preserve"><value>Show a spine on the left edge</value></data>
+  <data name="SettingsTitleBarSpineWidth" xml:space="preserve"><value>Spine width</value></data>
   <data name="SettingsTheme" xml:space="preserve"><value>Theme</value></data>
   <data name="SettingsStartup" xml:space="preserve"><value>Startup</value></data>
   <data name="SettingsFolding" xml:space="preserve"><value>Fold / expand</value></data>

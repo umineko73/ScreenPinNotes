@@ -17,6 +17,8 @@ public sealed class AppSettings
     public bool ShowTitlePreviewTooltip { get; set; }
     public bool EnableFoldAnimation { get; set; }
     public bool ShowFoldButton { get; set; }
+    /// <summary>タイトルバーを隠している付箋の左端に、見分けのための帯を出すかどうか。</summary>
+    public bool ShowTitleBarHiddenSpine { get; set; } = true;
     public bool DoubleClickToToggleView { get; set; } = true;
     /// <summary>各付箋のウィンドウをタスクバーにも表示するかどうか。</summary>
     public bool ShowNotesInTaskbar { get; set; }
@@ -123,6 +125,9 @@ public sealed class AppSettings
         Layout.UnfoldedMinWidth = Math.Max(80, Layout.UnfoldedMinWidth);
         Layout.ResizeBorder = Math.Max(0, Layout.ResizeBorder);
         Layout.RootBorderThickness = Math.Max(0, Layout.RootBorderThickness);
+        // 上限は最小幅140pxの付箋でも本文を圧迫しない範囲。0は「出さない」と
+        // 見分けが付かなくなるので、消したいときは ShowTitleBarHiddenSpine を使う。
+        Layout.TitleBarHiddenSpineWidth = Math.Clamp(Layout.TitleBarHiddenSpineWidth, 1, 12);
         Layout.DefaultNoteWidth = Math.Max(Layout.UnfoldedMinWidth, Layout.DefaultNoteWidth);
         Layout.DefaultNoteHeight = Math.Max(80, Layout.DefaultNoteHeight);
 
@@ -169,6 +174,8 @@ public sealed class LayoutSettings
     public double UnfoldedMinWidth { get; set; } = 140;
     public double ResizeBorder { get; set; } = 5;
     public double RootBorderThickness { get; set; } = 1;
+    /// <summary>タイトルバーを隠している付箋の左端に出す帯の太さ。</summary>
+    public double TitleBarHiddenSpineWidth { get; set; } = 3;
     public double NewNoteBaseX { get; set; } = 150;
     public double NewNoteBaseY { get; set; } = 150;
     public double NewNoteCascadeStep { get; set; } = 20;

@@ -373,7 +373,7 @@
                        Panel.ZIndex="15"
                        IsHitTestVisible="False"
                        HorizontalAlignment="Left"
-                       Width="3"
+                       Width="{Binding TitleSpineWidth}"
                        Fill="{Binding HeaderBrush}"/>
 
             <Border x:Name="ReminderFlashBorder" Grid.RowSpan="2" Panel.ZIndex="100"

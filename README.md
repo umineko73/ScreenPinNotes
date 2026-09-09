@@ -29,6 +29,7 @@ Title bar visibility and collapse/expand are independent settings.
 | Hidden | Body with controls at the top right | First body line without Markdown formatting |
 
 - Toggle the title bar with **Hide title bar** in the context menu.
+- A note with a hidden title bar carries a spine down its left edge. Collapsed, it looks like any note showing only its title bar, so the spine tells them apart. **Hidden title bar marker** in settings turns it off or changes its width (1-12px).
 - Use `⮝` / `⮟` or double-click the title bar to collapse or expand.
 - Image-only notes show their image path in single-line mode. Narrow notes retain the end, such as `…/photos/image.png`.
 - An empty title falls back to the body. A title you enter takes priority.
@@ -174,7 +175,7 @@ The app must be running in the tray. Missed reminders are delivered once on rest
 | Tray right-click | Create notes, note list, hidden notes, settings, exit |
 | Note list | Search titles, bodies, external paths, and more; manage visibility, reminders, and deletion |
 | Hidden notes | Restore individually hidden notes; Show all does not restore them |
-| Settings | New-note defaults, theme, language, startup, taskbar/tray behavior, and storage |
+| Settings | New-note defaults, theme, language, hidden title bar marker, startup, taskbar/tray behavior, and storage |
 | Open external file as note | Display `.md` / `.txt` read-only and follow file changes |
 
 ![The settings window](docs/settings-en.png)

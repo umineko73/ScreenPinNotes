@@ -58,4 +58,15 @@ public class LocalizationServiceTests
         Assert.Equal(english, LocalizationService.T(key, "en"));
         Assert.Equal(japanese, LocalizationService.T(key, "ja"));
     }
+
+    // タイトルバー非表示の目印を設定画面から変えられるようにしたときのキー。
+    [Theory]
+    [InlineData("SettingsTitleBarSpine", "Hidden title bar marker", "タイトルバー非表示の目印")]
+    [InlineData("SettingsShowTitleBarSpine", "Show a spine on the left edge", "左端に帯を出す")]
+    [InlineData("SettingsTitleBarSpineWidth", "Spine width", "帯の太さ")]
+    public void TitleBarSpineStringsAreInTheCatalog(string key, string english, string japanese)
+    {
+        Assert.Equal(english, LocalizationService.T(key, "en"));
+        Assert.Equal(japanese, LocalizationService.T(key, "ja"));
+    }
 }

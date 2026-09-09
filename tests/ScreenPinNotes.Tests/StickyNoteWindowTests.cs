@@ -1801,6 +1801,76 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
+    [WpfFact]
+    public void TitleBarHiddenSpine_CanBeTurnedOffInSettings()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var settings = new AppSettings { ShowTitleBarHiddenSpine = false };
+        var note = new StickyNote { IsFolded = true, IsTitleBarHidden = true, Content = "body" };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var spine = Assert.IsType<System.Windows.Shapes.Rectangle>(window.FindName("TitleBarHiddenSpine"));
+            Assert.Equal(Visibility.Collapsed, spine.Visibility);
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfFact]
+    public void TitleBarHiddenSpine_UsesTheConfiguredWidth()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var settings = new AppSettings();
+        settings.Layout.TitleBarHiddenSpineWidth = 8;
+        var note = new StickyNote { IsTitleBarHidden = true, Content = "body" };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var spine = Assert.IsType<System.Windows.Shapes.Rectangle>(window.FindName("TitleBarHiddenSpine"));
+            Assert.Equal(8, spine.Width);
+            Assert.Equal(8, spine.ActualWidth);
+        }
+        finally { window.Close(); }
+    }
+
+    // 設定画面は開いている付箋へ RefreshSettings() で反映する。
+    [WpfFact]
+    public void TitleBarHiddenSpine_FollowsASettingsChangeWhileOpen()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var settings = new AppSettings();
+        var note = new StickyNote { IsTitleBarHidden = true, Content = "body" };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            var spine = Assert.IsType<System.Windows.Shapes.Rectangle>(window.FindName("TitleBarHiddenSpine"));
+            Assert.Equal(Visibility.Visible, spine.Visibility);
+            Assert.Equal(3, spine.Width);
+
+            settings.Layout.TitleBarHiddenSpineWidth = 6;
+            window.RefreshSettings();
+            window.UpdateLayout();
+            Assert.Equal(6, spine.Width);
+
+            settings.ShowTitleBarHiddenSpine = false;
+            window.RefreshSettings();
+            window.UpdateLayout();
+            Assert.Equal(Visibility.Collapsed, spine.Visibility);
+        }
+        finally { window.Close(); }
+    }
+
     // アイコン未設定なら、空の帯が本文に浮くだけなので出さない。
     [WpfFact]
     public void FoldedNote_WithoutAnIcon_ShowsNothingUntilHovered()
