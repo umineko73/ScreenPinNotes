@@ -699,6 +699,7 @@ public partial class StickyNoteWindow
 
     private void FitWindowToMarkdownImages(IEnumerable<WpfImage> images)
     {
+        CompleteFoldAnimation();
         var imageList = images.ToList();
         if (imageList.Count == 0)
             return;
@@ -715,17 +716,13 @@ public partial class StickyNoteWindow
 
         SuppressWindowBoundsSave(() =>
         {
-            // 表示切り替えアニメーションが Height プロパティを掴んだままだと、
-            // 直接代入がその場では効いても次のレイアウトパスで
-            // アニメーションの最終値に上書きされてしまう。先に解除する。
-            BeginAnimation(HeightProperty, null);
             Width = targetWidth;
             Height = targetHeight;
             KeepInsideWorkArea(Width, Height);
         });
 
         ViewModel.Model.Width = Width;
-        ViewModel.Model.Height = Height - _statusBarDelta;
+        ViewModel.Model.Height = Height;
         ViewModel.Model.X = Left;
         ViewModel.Model.Y = Top;
         MarkPositionSeparatedIfOpenViewMovedAwayFromClosedView();

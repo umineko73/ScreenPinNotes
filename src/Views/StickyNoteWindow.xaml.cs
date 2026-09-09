@@ -526,7 +526,7 @@ public partial class StickyNoteWindow : Window
             ViewModel.Model.Width = Width;
 
         if (!ViewModel.IsFolded)
-            ViewModel.Model.Height = Height - _statusBarDelta;
+            ViewModel.Model.Height = Height;
         if (e.WidthChanged && !_isEditMode && !ViewModel.IsFolded &&
             _resizeContentRefresh?.Status != System.Windows.Threading.DispatcherOperationStatus.Pending)
             _resizeContentRefresh = Dispatcher.BeginInvoke(() =>
@@ -551,6 +551,7 @@ public partial class StickyNoteWindow : Window
 
     private void SuppressWindowBoundsSave(Action action)
     {
+        var previous = _suppressWindowBoundsSave;
         _suppressWindowBoundsSave = true;
         try
         {
@@ -558,7 +559,7 @@ public partial class StickyNoteWindow : Window
         }
         finally
         {
-            _suppressWindowBoundsSave = false;
+            _suppressWindowBoundsSave = previous;
         }
     }
 
@@ -618,10 +619,12 @@ public partial class StickyNoteWindow : Window
 
     private System.Windows.Threading.DispatcherTimer? _saveTimer;
     private bool _savePending;
+    private bool _savingDisabled;
     private long _savePendingSince;
 
     private void RequestSave()
     {
+        if (_savingDisabled || _isClosed) return;
         if (!_savePending) _savePendingSince = Environment.TickCount64;
         _savePending = true;
         if (_saveTimer == null)
@@ -651,8 +654,22 @@ public partial class StickyNoteWindow : Window
     public void FlushPendingSave()
     {
         if (!_savePending) return;
+        SaveNote();
+    }
+
+    // Both automatic saves and application-wide saves use the injected store.
+    internal void SaveNote()
+    {
+        if (_savingDisabled) return;
+        _storage.SaveNote(ViewModel.Model);
         _saveTimer?.Stop();
-        App.Current.SaveAll();
+        _savePending = false;
+    }
+
+    internal void DisableSaving()
+    {
+        _savingDisabled = true;
+        _saveTimer?.Stop();
         _savePending = false;
     }
 

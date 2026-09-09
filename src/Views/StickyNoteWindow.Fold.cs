@@ -1,4 +1,4 @@
-﻿// ScreenPinNotes - a desktop sticky notes app for Windows 11
+// ScreenPinNotes - a desktop sticky notes app for Windows 11
 // Copyright (C) 2026 umineko73
 //
 // This program is free software: you can redistribute it and/or modify
@@ -14,36 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-using System.Diagnostics;
-using System.IO;
-using System.Runtime.InteropServices;
-using System.Text;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Interop;
-using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Shell;
-using ScreenPinNotes.Models;
-using ScreenPinNotes.Services;
-using ScreenPinNotes.ViewModels;
-using SkiaSharp;
-using WpfBrushes     = System.Windows.Media.Brushes;
-using WpfButton      = System.Windows.Controls.Button;
-using WpfBitmapImage = System.Windows.Media.Imaging.BitmapImage;
-using WpfCheckBox    = System.Windows.Controls.CheckBox;
-using WpfColor       = System.Windows.Media.Color;
-using WpfColorConverter = System.Windows.Media.ColorConverter;
-using WpfCursors     = System.Windows.Input.Cursors;
-using WpfDataFormats = System.Windows.DataFormats;
-using WpfFontFamily  = System.Windows.Media.FontFamily;
-using WpfImage       = System.Windows.Controls.Image;
-using WpfListBox     = System.Windows.Controls.ListBox;
-using WpfSolidBrush  = System.Windows.Media.SolidColorBrush;
-
 
 namespace ScreenPinNotes.Views;
 
@@ -84,11 +57,11 @@ public partial class StickyNoteWindow
     // onUnfolded: 開いた表示へのアニメーション完了後に呼ぶコールバック（省略可）。
     // 閉じた表示から「開いた表示にして編集モードに入る」ような、アニメーション完了を
     // 待ってから続けたい処理のために用意している。アニメーション実行中に
-    // Height へ直接代入する処理（EnterEditMode 経由の GrowForStatusBar 等）を
+    // Height へ直接代入する処理（編集サイズの適用等）を
     // 呼んでしまうと、進行中のアニメーションが中途半端な値で凍結されてしまう。
-    private void ToggleFold(Action? onUnfolded = null)
+    private void ApplyFoldState(bool folded, Action? onUnfolded = null)
     {
-        if (ViewModel.IsFolded)
+        if (!folded)
         {
             ViewModel.Model.FoldedX = Left;
             ViewModel.Model.FoldedY = Top;
@@ -122,7 +95,8 @@ public partial class StickyNoteWindow
         else
         {
             SetTemporaryRaise(false);
-            if (_isEditMode) EnterViewMode(); // 閉じた表示では閲覧モードに戻す
+            if (_isEditMode) EnterViewModeCore(); // 閉じた表示では閲覧モードに戻す
+            if (_isEditMode) return; // 編集終了が抑止された場合は折りたたまない。
             ViewModel.Model.X = Left;
             ViewModel.Model.Y = Top;
             ViewModel.Model.Width = Width;
@@ -166,27 +140,31 @@ public partial class StickyNoteWindow
     // Completed は BeginAnimation の前に購読しないと発火しない。
     // BeginAnimation の時点で Timeline が凍結され AnimationClock が
     // 生成されるため、後から足したハンドラは呼ばれない。
+    private Action? _completeFoldAnimation;
+
+    private void CompleteFoldAnimation() => _completeFoldAnimation?.Invoke();
+
     private void RunFoldAnimation(double from, double to, Action? completed = null)
     {
         _isFoldAnimationRunning = true;
-        if (!Settings.EnableFoldAnimation || Settings.Timings.FoldAnimationMs <= 0)
+        Action finish = null!;
+        finish = () =>
         {
-            BeginAnimation(HeightProperty, null);
-            Height = to;
-            _isFoldAnimationRunning = false;
-            completed?.Invoke();
-            return;
-        }
-
-        AnimateHeight(from, to, () =>
-        {
+            // 取り外したアニメーションの完了通知が遅れて届いても再実行しない。
+            if (_completeFoldAnimation != finish) return;
+            _completeFoldAnimation = null;
             // アニメーション後も Height のベース値を最終値に固定する。
             // これをしないと、後続の BeginAnimation(..., null) で閉じた表示の高さへ戻ることがある。
             Height = to;
             BeginAnimation(HeightProperty, null);
             _isFoldAnimationRunning = false;
             completed?.Invoke();
-        });
+        };
+        _completeFoldAnimation = finish;
+        if (!Settings.EnableFoldAnimation || Settings.Timings.FoldAnimationMs <= 0)
+            finish();
+        else
+            AnimateHeight(from, to, finish);
     }
 
     private void AnimateHeight(double from, double to, Action? completed = null)

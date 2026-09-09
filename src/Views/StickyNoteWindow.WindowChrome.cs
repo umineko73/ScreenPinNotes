@@ -295,7 +295,7 @@ public partial class StickyNoteWindow
 
         foreach (var other in App.Current.NoteWindows)
         {
-            if (other == this) continue;
+            if (other == this || !other.IsVisible) continue;
             double oL = other.Left, oT = other.Top;
             double oR = oL + other.Width, oB = oT + other.Height;
 

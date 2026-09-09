@@ -15,6 +15,258 @@ namespace ScreenPinNotes.Tests;
 
 public class StickyNoteWindowTests
 {
+    public static IEnumerable<object[]> ModeRoundTripCases()
+    {
+        foreach (var hidden in new[] { false, true })
+        foreach (var folded in new[] { false, true })
+        foreach (var separated in new[] { false, true })
+        foreach (var animated in new[] { false, true })
+            yield return new object[] { hidden, folded, separated, animated };
+    }
+
+    public static IEnumerable<object[]> ModeMoveCases()
+        => ModeRoundTripCases().Where(row => !(bool)row[3]).Select(row => row.Take(3).ToArray());
+
+    [WpfTheory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task RapidFoldRoundTrip_PreservesExpandedHeight(bool hidden, bool initiallyFolded)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var settings = App.Current.Settings;
+        var previous = settings.EnableFoldAnimation;
+        settings.EnableFoldAnimation = true;
+        var note = new StickyNote
+        {
+            X = 180, Y = 180, Width = 420, Height = 320,
+            FoldedX = 90, FoldedY = 100, FoldedWidth = 230,
+            IsFolded = initiallyFolded, IsTitleBarHidden = hidden,
+            IsPositionSeparated = true, Content = "日本語\n2行目",
+        };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            InvokePrivate(window, "ToggleFold", (object?)null);
+            await Task.Delay(30);
+            InvokePrivate(window, "ToggleFold", (object?)null);
+            await Task.Delay(settings.Timings.FoldAnimationMs + 100);
+            window.UpdateLayout();
+            Assert.Equal(initiallyFolded, note.IsFolded);
+            Assert.Equal(320, note.Height, 1);
+            Assert.Equal(initiallyFolded ? 90 : 180, window.Left, 1);
+            Assert.Equal(initiallyFolded ? 100 : 180, window.Top, 1);
+            Assert.Equal(initiallyFolded ? 230 : 420, window.Width, 1);
+            Assert.Equal(180, note.X);
+            Assert.Equal(180, note.Y);
+            Assert.Equal(90, note.FoldedX);
+            Assert.Equal(100, note.FoldedY);
+            Assert.Equal(420, note.Width);
+            Assert.Equal(230, note.FoldedWidth);
+            Assert.False(GetPrivateField<bool>(window, "_isFoldAnimationRunning"));
+        }
+        finally { window.Close(); settings.EnableFoldAnimation = previous; }
+    }
+
+    [WpfTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InterruptedUnfold_CompletesEditingCallbackOnlyOnce(bool hidden)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var settings = App.Current.Settings;
+        var previous = settings.EnableFoldAnimation;
+        settings.EnableFoldAnimation = true;
+        var note = new StickyNote { IsFolded = true, IsTitleBarHidden = hidden, Height = 320, Content = "日本語の本文" };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var completions = 0;
+            InvokePrivate(window, "ToggleFold", (Action)(() =>
+            {
+                completions++;
+                InvokePrivate(window, "EnterEditMode");
+            }));
+            InvokePrivate(window, "ToggleFold", (object?)null);
+            await Task.Delay(settings.Timings.FoldAnimationMs + 100);
+            window.UpdateLayout();
+            Assert.Equal(1, completions);
+            Assert.True(note.IsFolded);
+            Assert.False(GetPrivateField<bool>(window, "_isEditMode"));
+            Assert.False(GetPrivateField<bool>(window, "_isFoldAnimationRunning"));
+            Assert.Equal(320, note.Height);
+            Assert.Equal("日本語の本文", note.Content);
+        }
+        finally { window.Close(); settings.EnableFoldAnimation = previous; }
+    }
+
+    [WpfTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EditingSizeRoundTrip_RestoresViewAndRetainsEditSize(bool hidden)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { X = 180, Y = 180, Width = 420, Height = 320, IsTitleBarHidden = hidden, Content = "本文" };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, App.Current.Settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            for (var cycle = 0; cycle < 3; cycle++)
+            {
+                InvokePrivate(window, "EnterEditMode");
+                window.Width = 520;
+                window.Height = 420;
+                window.UpdateLayout();
+                InvokePrivate(window, "EnterViewMode");
+                window.UpdateLayout();
+                Assert.Equal(420, window.Width);
+                Assert.Equal(320, window.Height);
+                Assert.Equal(520, note.EditWidth);
+                Assert.Equal(420, note.EditHeight);
+                InvokePrivate(window, "ToggleTitleBarHidden");
+                window.UpdateLayout();
+            }
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfTheory]
+    [MemberData(nameof(ModeMoveCases))]
+    public void ModeMove_SaveReloadPreservesIndependentPositions(bool hidden, bool folded, bool separated)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote
+        {
+            X = 180, Y = 180, Width = 420, Height = 320,
+            FoldedX = 180, FoldedY = 180, FoldedWidth = 230,
+            IsFolded = folded, IsTitleBarHidden = hidden, Content = "日本語の保存テスト\n2行目🦊",
+        };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, App.Current.Settings), storage);
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            SetPrivateField(window, "_isDragging", true);
+            SetPrivateField(window, "_dragMoved", true);
+            SetPrivateField(window, "_dragSeparatesFoldedPosition", separated);
+            window.Left = 280;
+            window.Top = 290;
+            var root = (UIElement)window.FindName(hidden ? "TitleBarOverlay" : "TitleBar");
+            InvokePrivate(window, "TitleBar_MouseLeftButtonUp", root,
+                new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left));
+            Assert.Equal(separated, note.IsPositionSeparated);
+            Assert.Equal(folded && separated ? 180 : 280, note.X);
+            Assert.Equal(folded && separated ? 180 : 290, note.Y);
+            Assert.Equal(!folded && separated ? 180 : 280, note.FoldedX);
+            Assert.Equal(!folded && separated ? 180 : 290, note.FoldedY);
+            storage.Save(new[] { note });
+            var restored = Assert.Single(storage.Load());
+            Assert.Equal(note.X, restored.X);
+            Assert.Equal(note.Y, restored.Y);
+            Assert.Equal(note.FoldedX, restored.FoldedX);
+            Assert.Equal(note.FoldedY, restored.FoldedY);
+            Assert.Equal(note.IsPositionSeparated, restored.IsPositionSeparated);
+            Assert.Equal(note.Content, restored.Content);
+            Assert.Equal(hidden, restored.IsTitleBarHidden);
+            Assert.Equal(folded, restored.IsFolded);
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfTheory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void JapaneseEditing_UndoRedoEscapeAndTitleEnter(bool hidden, bool titleOnly)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { IsTitleBarHidden = hidden, Content = "元の日本語", Title = "元のタイトル" };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, App.Current.Settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            InvokePrivate(window, titleOnly ? "EnterTitleEditMode" : "EnterEditMode");
+            var editor = (TextBox)window.FindName(titleOnly ? "TitleEditBox" : "BodyEditBox");
+            Assert.True(InputMethod.GetIsInputMethodEnabled(editor));
+            Assert.Equal(InputMethodState.On, InputMethod.GetPreferredImeState(editor));
+            var original = editor.Text;
+            editor.SelectAll();
+            editor.SelectedText = "漢字・かな・カナ・半角ｶﾅ・🦊・か\u3099";
+            var edited = editor.Text;
+            Assert.True(editor.CanUndo);
+            editor.Undo();
+            Assert.Equal(original, editor.Text);
+            editor.Redo();
+            Assert.Equal(edited, editor.Text);
+            var source = PresentationSource.FromVisual(window)!;
+            var imeKey = new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, Key.ImeProcessed) { RoutedEvent = Keyboard.PreviewKeyDownEvent };
+            InvokePrivate(window, "ContentBox_PreviewKeyDown", editor, imeKey);
+            Assert.False(imeKey.Handled);
+            Assert.True(GetPrivateField<bool>(window, "_isEditMode"));
+            var finish = new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, titleOnly ? Key.Enter : Key.Escape) { RoutedEvent = Keyboard.PreviewKeyDownEvent };
+            InvokePrivate(window, "ContentBox_PreviewKeyDown", editor, finish);
+            Assert.True(finish.Handled);
+            Assert.False(GetPrivateField<bool>(window, "_isEditMode"));
+            Assert.Equal(edited, titleOnly ? note.Title : note.Content);
+            Assert.Equal(hidden, note.IsTitleBarHidden);
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfTheory]
+    [MemberData(nameof(ModeRoundTripCases))]
+    public async Task ModeRoundTrip_PreservesBoundsAndJapaneseContent(bool hidden, bool folded, bool separated, bool animated)
+    {
+        EnsureApplication();
+        var settings = App.Current.Settings;
+        var previousAnimation = settings.EnableFoldAnimation;
+        settings.EnableFoldAnimation = animated;
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote
+        {
+            X = 180, Y = 180, Width = 420, Height = 320,
+            FoldedX = separated ? 90 : 180, FoldedY = separated ? 100 : 180,
+            FoldedWidth = 230, IsFolded = folded, IsTitleBarHidden = hidden,
+            IsPositionSeparated = separated, Content = "# 日本語テスト\n漢字・ひらがな・カタカナ・半角ｶﾅ\n絵文字🦊と結合文字か\u3099",
+        };
+        var originalContent = note.Content;
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            for (var cycle = 0; cycle < 4; cycle++)
+            {
+                InvokePrivate(window, "ToggleFold", (object?)null);
+                await Task.Delay(settings.Timings.FoldAnimationMs + 80);
+                window.UpdateLayout();
+                Assert.Equal(note.IsFolded ? (separated ? 90 : 180) : 180, window.Left, 1);
+                Assert.Equal(note.IsFolded ? (separated ? 100 : 180) : 180, window.Top, 1);
+                Assert.Equal(note.IsFolded ? 230 : 420, window.Width, 1);
+                Assert.Equal(320, note.Height, 1);
+                Assert.Equal(originalContent, note.Content);
+                Assert.Equal(separated, note.IsPositionSeparated);
+            }
+            Assert.Equal(folded, note.IsFolded);
+        }
+        finally { window.Close(); settings.EnableFoldAnimation = previousAnimation; }
+    }
+
     [WpfTheory]
     [InlineData(false)]
     [InlineData(true)]

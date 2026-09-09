@@ -408,6 +408,7 @@ public partial class StickyNoteWindow
     // その場で新しい高さに合わせ直す。展開中なら次に畳んだときに効く。
     private void ToggleTitleBarHidden()
     {
+        CompleteFoldAnimation();
         ViewModel.IsTitleBarHidden = !ViewModel.IsTitleBarHidden;
         ApplyTitleBarVisibility();
         TitleBar.GetBindingExpression(HeightProperty)?.UpdateTarget();
@@ -417,7 +418,6 @@ public partial class StickyNoteWindow
             // 畳んだ1行表示の文字サイズがタイトル/本文どちらの基準になるかが
             // 切り替わるので、見出しの先頭行も含めて読み込み直す。
             ApplyFoldedContentPresentation();
-            BeginAnimation(HeightProperty, null);
             // TitleBarVisibility changes the folded height. Reapply the resize
             // constraints as well, otherwise the old one-line height remains as
             // MinHeight/MaxHeight and leaves the previous content area exposed.

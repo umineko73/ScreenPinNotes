@@ -63,14 +63,8 @@ public partial class StickyNoteWindow
         }));
     }
 
-    private void EnterEditMode()
+    private void EnterEditModeCore()
     {
-        if (IsContentReadOnly())
-        {
-            ShowSizeOverlay(LocalizationService.T("EditLockNotice"));
-            return;
-        }
-
         if (_isEditMode && BodyEditBox.Visibility == Visibility.Visible) return;
         var startingEdit = !_isEditMode;
         _isEditMode = true;
@@ -133,14 +127,8 @@ public partial class StickyNoteWindow
         UpdateEditToolbarPlacement();
     }
 
-    private void EnterTitleEditMode()
+    private void EnterTitleEditModeCore()
     {
-        if (IsContentReadOnly())
-        {
-            ShowSizeOverlay(LocalizationService.T("EditLockNotice"));
-            return;
-        }
-
         ViewModel.SetForceOpaque(true);
         if (!_isEditMode)
         {
@@ -198,7 +186,7 @@ public partial class StickyNoteWindow
             Dispatcher.BeginInvoke(() => EnableImeForFocusedControl(control));
     }
 
-    private void EnterViewMode()
+    private void EnterViewModeCore()
     {
         if (!_isEditMode || _suppressViewMode) return;
         if (BodyEditBox.Visibility == Visibility.Visible && !TrySetNoteContent(BodyEditBox.Text))
@@ -497,52 +485,6 @@ public partial class StickyNoteWindow
     /// </summary>
     private void Content_ScrollChanged(object sender, ScrollChangedEventArgs e)
         => UpdateTitleBarOverlayOffset();
-
-    // ─── ステータスバーぶんウィンドウを伸縮させる ────────────────
-    //
-    // ステータスバーを本文と同じ領域に押し込むと、背の低い付箋では
-    // 本文が隠れてしまう。編集モードの間だけウィンドウを下に伸ばし、
-    // 本文の表示領域を変えないようにする。
-
-    private double _statusBarDelta;
-
-    private void GrowForStatusBar()
-    {
-        if (_statusBarDelta > 0) return;          // すでに伸ばしてある
-
-        UpdateLayout();                           // 実際の高さを確定させる
-        double barHeight = StatusBar.ActualHeight;
-        if (barHeight <= 0) return;
-
-        _statusBarDelta = barHeight;
-
-        // 表示切り替えアニメーションが Height プロパティを掴んだままだと、
-        // 以下の直接代入がその場では効いても次のレイアウトパスで
-        // アニメーションの最終値に上書きされてしまう。先に解除する。
-        BeginAnimation(HeightProperty, null);
-
-        // 伸ばす前に上下の制限を緩めておく（閉じた表示用の固定が残っていることがある）
-        MaxHeight = double.PositiveInfinity;
-        Height += barHeight;
-
-        KeepInsideWorkArea();
-    }
-
-    private void ShrinkAfterStatusBar()
-    {
-        if (_statusBarDelta <= 0) return;
-
-        // Height を変えると SizeChanged が走る。そこで差分を引く処理と
-        // 二重に引かないよう、先にクリアしておく。
-        double delta = _statusBarDelta;
-        _statusBarDelta = 0;
-        BeginAnimation(HeightProperty, null); // 同上の理由で解除してから代入する
-        Height = Math.Max(MinHeight, Height - delta);
-    }
-
-    // 下に伸ばした結果、画面外にはみ出すなら上へずらす
-    private void KeepInsideWorkArea()
-        => KeepInsideWorkArea(Width, Height);
 
     private void KeepInsideWorkArea(double targetWidth, double targetHeight)
     {

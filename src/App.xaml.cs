@@ -1076,12 +1076,14 @@ public partial class App : System.Windows.Application
 
     public bool RemoveNote(string id)
     {
-        var note = _windows.FirstOrDefault(w => w.ViewModel.Model.Id == id)?.ViewModel.Model;
+        var window = _windows.FirstOrDefault(w => w.ViewModel.Model.Id == id);
+        var note = window?.ViewModel.Model;
         if (note?.IsReadOnly == true && !note.IsExternalContent)
             return false;
 
-        _windows.RemoveAll(w => w.ViewModel.Model.Id == id);
         _storage.DeleteNote(id);   // 削除はここだけで行う
+        window?.DisableSaving();
+        _windows.RemoveAll(w => w.ViewModel.Model.Id == id);
         SaveAll();
         RefreshTrayMenu();
         _noteManagerWindow?.RefreshNotes();
@@ -1096,8 +1098,9 @@ public partial class App : System.Windows.Application
         if (win.ViewModel.Model.IsReadOnly && !win.ViewModel.Model.IsExternalContent)
             return false;
 
-        _windows.Remove(win);
         _storage.DeleteNote(id);
+        win.DisableSaving();
+        _windows.Remove(win);
         win.Close();
         SaveAll();
         RefreshTrayMenu();
@@ -1117,8 +1120,8 @@ public partial class App : System.Windows.Application
 
     public void SaveAll()
     {
-        var notes = _windows.Select(w => w.ViewModel.Model).ToList();
-        _storage.Save(notes);
+        foreach (var window in _windows)
+            window.SaveNote();
     }
 
     private void StartReminderTimer()
@@ -1218,8 +1221,6 @@ public partial class App : System.Windows.Application
     /// 保留中の保存をすべて確定させてからディスクに書き出す
     public void FlushAndSave()
     {
-        foreach (var win in _windows)
-            win.FlushPendingSave();
         SaveAll();
     }
 

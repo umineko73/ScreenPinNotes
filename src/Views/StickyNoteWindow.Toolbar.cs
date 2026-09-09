@@ -148,6 +148,7 @@ public partial class StickyNoteWindow
 
     private void SetTitleFontSize(double size)
     {
+        CompleteFoldAnimation();
         var newSize = Math.Clamp(size, 8, 28);
         if (Math.Abs(ViewModel.TitleFontSize - newSize) < 0.001)
             return;
@@ -158,7 +159,6 @@ public partial class StickyNoteWindow
         // 閉じた表示ではウィンドウ高さ＝タイトルバー高さなので追従させる
         if (ViewModel.IsFolded)
         {
-            BeginAnimation(HeightProperty, null);   // 表示切り替えアニメーションの保持を解除
             Height = FoldedHeight;
         }
         ShowSizeOverlay(string.Format(LocalizationService.T("TitleSize"), ViewModel.TitleFontSize));
