@@ -180,11 +180,11 @@ The app must be running in the tray. Missed reminders are delivered once on rest
 
 ![The settings window](docs/settings-en.png)
 
-**Settings > Appearance** collects how notes look: corner radius (0-16px, *Square* by default), border color (the note's own color by default; none and gray are also available), icon color (color or monochrome), and the hidden title bar marker. Changes reach open notes right away.
+**Settings > Appearance** collects how notes look: corner radius (0-16px, *Square* by default), border color (none by default; gray and the note's own color are also available), icon color (color or monochrome), and the hidden title bar marker. Changes reach open notes right away.
 
-With the border set to *None*, a pale note has almost no visible edge over a white background.
+The default *None* leaves a pale note with almost no visible edge over a white background. Set the border color to gray or the note's own color to keep one.
 
-Updating from 0.2.0 or earlier changes how notes look on first launch: rounded corners and a gray frame become square corners and a note-colored border. For the old look, set corner radius to 6 and border color to gray in **Settings > Appearance**.
+Updating from 0.2.0 or earlier changes how notes look on first launch: rounded corners and a gray frame become square corners and no border. For the old look, set corner radius to 6 and border color to gray in **Settings > Appearance**.
 
 Settings save immediately (shortcut changes require Apply). New-note defaults apply to tray- and shortcut-created notes; `＋` on a note copies its appearance.
 
