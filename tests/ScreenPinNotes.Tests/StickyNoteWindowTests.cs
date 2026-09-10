@@ -2034,6 +2034,30 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
+    // 両端は半円。太さを変えても丸みが追従する。
+    [WpfTheory]
+    [InlineData(3.0, 1.5)]
+    [InlineData(8.0, 4.0)]
+    public void TitleBarHiddenSpine_HasRoundedCaps(double width, double expectedRadius)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var settings = new AppSettings();
+        settings.Layout.TitleBarHiddenSpineWidth = width;
+        var note = new StickyNote { IsTitleBarHidden = true, Content = "body" };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var spine = Assert.IsType<System.Windows.Shapes.Rectangle>(window.FindName("TitleBarHiddenSpine"));
+            Assert.Equal(expectedRadius, spine.RadiusX);
+            Assert.Equal(expectedRadius, spine.RadiusY);
+        }
+        finally { window.Close(); }
+    }
+
     // 従来の置き方に戻すと、余白なしで左端に貼り付く。
     [WpfFact]
     public void TitleBarHiddenSpine_CanGoBackToTheEdge()
@@ -2051,6 +2075,9 @@ public class StickyNoteWindowTests
             window.UpdateLayout();
             var spine = Assert.IsType<System.Windows.Shapes.Rectangle>(window.FindName("TitleBarHiddenSpine"));
             Assert.Equal(new Thickness(0), spine.Margin);
+            // 端に貼り付ける置き方は以前の見た目のまま。角も丸めない。
+            Assert.Equal(0, spine.RadiusX);
+            Assert.Equal(0, spine.RadiusY);
         }
         finally { window.Close(); }
     }

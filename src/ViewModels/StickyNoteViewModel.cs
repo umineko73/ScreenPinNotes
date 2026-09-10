@@ -252,6 +252,14 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     /// <summary>左端の縦線の太さ。設定で変えられる。</summary>
     public double TitleSpineWidth => _settings.Layout.TitleBarHiddenSpineWidth;
 
+    /// <summary>
+    /// 縦線の角の丸み。太さの半分にして両端を半円にする。端から離して置く
+    /// ときだけ丸める。端に貼り付ける従来の置き方では、丸めても付箋の縁に
+    /// 隠れて見えないうえ、以前の見た目をそのまま残しておきたい。
+    /// </summary>
+    public double TitleSpineCornerRadius =>
+        UsesInsetSpine ? _settings.Layout.TitleBarHiddenSpineWidth / 2 : 0;
+
     /// <summary>付箋の外枠。XAML の RootBorder.BorderThickness と合わせてある。</summary>
     private const double RootBorderThickness = 1;
 
@@ -510,6 +518,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         UpdateBrushes();
         OnPropertyChanged(nameof(TitleSpineVisibility));
         OnPropertyChanged(nameof(TitleSpineWidth));
+        OnPropertyChanged(nameof(TitleSpineCornerRadius));
         OnPropertyChanged(nameof(TitleSpineMargin));
         OnPropertyChanged(nameof(TitleSpineHandleWidth));
         OnPropertyChanged(nameof(NoteContentPadding));

@@ -395,6 +395,8 @@
                        HorizontalAlignment="Left"
                        Margin="{Binding TitleSpineMargin}"
                        Width="{Binding TitleSpineWidth}"
+                       RadiusX="{Binding TitleSpineCornerRadius}"
+                       RadiusY="{Binding TitleSpineCornerRadius}"
                        Fill="{Binding HeaderBrush}"/>
 
             <Border x:Name="ReminderFlashBorder" Grid.RowSpan="2" Panel.ZIndex="100"
