@@ -28,6 +28,7 @@
         SizeChanged="Window_SizeChanged"
         LocationChanged="Window_LocationChanged"
         Activated="Window_Activated"
+        PreviewMouseDown="Window_PreviewMouseDown"
         Deactivated="Window_Deactivated"
         Closing="Window_Closing">
 

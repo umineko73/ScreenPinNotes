@@ -28,6 +28,9 @@ public class NoteManagerWindowTests
             windows.AddRange([front, back]);
             front.Show();
             back.Show();
+            // Show() でも活性化は起きる。起動時と同じく、まだ何も触っていない
+            // 状態にしてから重なり順を確かめる。
+            app.ForgetLastActiveNote();
             manager = new NoteManagerWindow();
             manager.Show();
             manager.UpdateLayout();

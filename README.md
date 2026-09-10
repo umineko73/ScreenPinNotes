@@ -46,6 +46,7 @@ Title bar visibility and collapse/expand are independent settings.
 | Drag the top-right control area with the title bar hidden | Move the note |
 | Double-click the title bar | Collapse/expand; configurable as a single click |
 | Drag an edge | Resize; collapsed notes resize horizontally only |
+| Click a note | Bring it to the front, where it stays until you touch another note. The configured stacking order is left as it is |
 | Right-click the title or body | Open the menu for that area |
 | Click a link | Open it |
 | Click a checklist checkbox | Toggle completion |

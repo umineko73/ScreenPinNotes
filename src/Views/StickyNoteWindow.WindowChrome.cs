@@ -273,6 +273,11 @@ public partial class StickyNoteWindow
         _dragSeparatesFoldedPosition = false;
     }
 
+    // 活性化だけでは足りない。すでに入力先になっている付箋を押しても
+    // Activated は飛ばないので、奥に沈んだままクリックだけが通ってしまう。
+    private void Window_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+        => App.Current?.NoteTouched(this);
+
     private void RootBorder_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
     {
         ViewModel.SetHovered(true);

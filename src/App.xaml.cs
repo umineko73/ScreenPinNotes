@@ -143,6 +143,7 @@ public partial class App : System.Windows.Application
 
         foreach (var note in notes)
             OpenNoteWindow(note);
+        ForgetLastActiveNote();
 
         RefreshTrayMenu();
         StartReminderTimer();
@@ -626,6 +627,29 @@ public partial class App : System.Windows.Application
         });
     }
 
+    // 最後に触られた付箋。重なり順そのものは設定として持っているので書き換え
+    // ないが、これを覚えておかないと、クリックで前に出た付箋をこの直後の
+    // 並べ直しで奥へ送り返してしまい、一瞬表に出てすぐ裏へ戻る。
+    private StickyNoteWindow? _lastActiveWindow;
+
+    /// <summary>
+    /// 触られた付箋を覚えて、前に出し直す。活性化だけを見ていると、
+    /// すでに入力先になっている付箋（起動直後の最後の1枚など）を
+    /// クリックしても活性化が起きず、奥に沈んだままになる。
+    /// </summary>
+    internal void NoteTouched(StickyNoteWindow window)
+    {
+        _lastActiveWindow = window;
+        QueueLayerOrder();
+    }
+
+    /// <summary>
+    /// まとめて出し直すときは、直前に触った付箋の記憶を捨てる。Show() でも
+    /// 活性化は起きるので、残しておくと最後に出した付箋が、設定した重なり順を
+    /// 追い越して前に出てしまう。
+    /// </summary>
+    public void ForgetLastActiveNote() => _lastActiveWindow = null;
+
     public void ApplyLayerOrder()
     {
         // A modal reminder editor must stay above pinned notes. Apply deferred
@@ -639,6 +663,10 @@ public partial class App : System.Windows.Application
         }
         foreach (var window in _windows.Where(w => w.IsVisible && w.IsTemporarilyRaised))
             window.ChangeZOrder(true);
+        // 常に手前・通常の2つの帯をまたぐことはない。Windows 側が常に手前の
+        // ウィンドウを必ず上に置くので、通常の付箋がここで上へ抜けることはない。
+        if (_lastActiveWindow is { } raised && raised.IsVisible && _windows.Contains(raised))
+            raised.ChangeZOrder(true);
         foreach (var window in _windows.Where(w => w.IsVisible))
             window.RaisePickerPopups();
     }
@@ -658,6 +686,7 @@ public partial class App : System.Windows.Application
             if (!win.ViewModel.Model.IsHidden)
                 win.Show();
         }
+        ForgetLastActiveNote();
         ApplyLayerOrder();
     }
 
@@ -893,6 +922,7 @@ public partial class App : System.Windows.Application
 
         foreach (var note in notes)
             OpenNoteWindow(note);
+        ForgetLastActiveNote();
     }
 
     private List<StickyNote> LoadOrCreateInitialNotes(bool showEmptyStorageMessage = true)

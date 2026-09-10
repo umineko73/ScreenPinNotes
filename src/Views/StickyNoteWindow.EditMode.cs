@@ -421,6 +421,9 @@ public partial class StickyNoteWindow
 
     private void Window_Activated(object? sender, EventArgs e)
     {
+        // 触った付箋を覚えてもらう。直後に走る重なり順の並べ直しで、
+        // せっかく前に出たこの付箋を奥へ送り返さないようにするため。
+        App.Current?.NoteTouched(this);
         if (EditToolbarPopup != null) ShowEditToolbar();
     }
 
