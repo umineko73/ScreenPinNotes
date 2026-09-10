@@ -608,15 +608,29 @@ public partial class StickyNoteWindow
     private MarkdownImageContext? FindMarkdownImageContext(object? originalSource)
     {
         var node = originalSource as DependencyObject;
-        while (node != null)
+        // 本文は Run や Paragraph の入れ子なので、いくら深くても十数段。
+        // 打ち切りを置くのは、木を遡る2つの経路が行き来して戻らなくなる
+        // ことがあり得るため。右クリックのたびに通る場所なので止めない。
+        for (var depth = 0; node != null && depth < 64; depth++)
         {
             if (node is WpfImage image && _markdownImageContexts.TryGetValue(image, out var context))
                 return context;
-            node = VisualTreeHelper.GetParent(node) ?? LogicalTreeHelper.GetParent(node);
+            node = GetParentNode(node);
         }
 
         return null;
     }
+
+    /// <summary>
+    /// 木を1段だけ遡る。本文の文字を右クリックすると Run から始まって
+    /// FlowDocument まで来るが、これは Visual ではないので
+    /// <see cref="VisualTreeHelper.GetParent"/> は null ではなく例外を返す。
+    /// Visual かどうかで経路を選び分ける。
+    /// </summary>
+    private static DependencyObject? GetParentNode(DependencyObject node)
+        => node is Visual or System.Windows.Media.Media3D.Visual3D
+            ? VisualTreeHelper.GetParent(node) ?? LogicalTreeHelper.GetParent(node)
+            : LogicalTreeHelper.GetParent(node);
 
     private bool CanResizeMarkdownImage()
         => true;

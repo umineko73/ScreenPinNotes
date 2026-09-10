@@ -2335,6 +2335,49 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
+    // 本文の文字を右クリックしたとき。当たった要素は Run で、そこから木を
+    // 遡ると FlowDocument に行き当たる。FlowDocument は Visual ではないので、
+    // VisualTreeHelper.GetParent は null ではなく例外を返す ―― 右クリック
+    // するたびにアプリごと落ちていた。
+    [WpfFact]
+    public void ContentContextMenu_OnBodyText_DoesNotThrow()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote { Width = 400, Height = 300, Content = "本文\n![](assets/pasted.png)" };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        SavePng(System.IO.Path.Combine(assetsDir, "pasted.png"), CreateBitmapSource());
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), storage);
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            InvokePrivate(window, "LoadContent", note.Content);
+            var box = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            var run = box.Document.Blocks.OfType<Paragraph>()
+                .SelectMany(p => p.Inlines).OfType<Run>()
+                .First(r => r.Text.Contains("本文"));
+
+            // 文字の上、段落、FlowDocument ―― どこから来ても落ちない。
+            foreach (DependencyObject source in new DependencyObject[]
+                     { run, run.Parent, box.Document })
+            {
+                OpenContentContextMenuOver(window, box, source);
+                Assert.Equal(Visibility.Collapsed,
+                    FindMenuItem(box.ContextMenu!, "画像のサイズ").Visibility);
+                Assert.Contains("コピー", MenuHeaders(box.ContextMenu!));
+            }
+
+            // 画像の上から開けば、これまでどおり画像用の項目が出る。
+            var image = Assert.Single(EnumerateImages(box.Document));
+            OpenContentContextMenuOver(window, box, image);
+            Assert.Equal(Visibility.Visible, FindMenuItem(box.ContextMenu!, "画像のサイズ").Visibility);
+        }
+        finally { window.Close(); }
+    }
+
     // 編集禁止の付箋では本文を書き換える項目を止める。大きさを変えるだけの
     // 「付箋のサイズを調整」は本文に触らないので残す。
     [WpfFact]
