@@ -54,6 +54,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
             // 画像1枚だけかどうかで本文の余白と、設定によっては帯の有無も変わる。
             OnPropertyChanged(nameof(IsImageOnlyContent));
             OnPropertyChanged(nameof(NoteContentPadding));
+            OnPropertyChanged(nameof(TitleSpineHandleWidth));
             OnPropertyChanged(nameof(TitleSpineVisibility));
         }
     }
@@ -199,6 +200,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(FoldIcon));
             OnPropertyChanged(nameof(UsesTightImageLayout));
             OnPropertyChanged(nameof(NoteContentPadding));
+            OnPropertyChanged(nameof(TitleSpineHandleWidth));
             OnPropertyChanged(nameof(ContentFontSize));
         }
     }
@@ -215,6 +217,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(TitleBarVisibility));
             OnPropertyChanged(nameof(TitleSpineVisibility));
             OnPropertyChanged(nameof(NoteContentPadding));
+            OnPropertyChanged(nameof(TitleSpineHandleWidth));
             OnPropertyChanged(nameof(NoteEditorPadding));
             OnPropertyChanged(nameof(ContentFontSize));
         }
@@ -284,24 +287,9 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         }
     }
 
-    /// <summary>付箋を掴んで動かせる幅がこれだけ残るように、透明な板を右へ広げる。</summary>
-    private const double MinSpineGrabWidth = 6;
-
-    /// <summary>
-    /// 縦線を掴んで付箋を動かすための、帯に重ねる透明な板の幅。帯そのものは
-    /// 数ピクセルしかなく、しかも左端は幅リサイズの当たり判定（Layout.ResizeBorder）に
-    /// 食われてマウスが届かない。届かない分だけ右へ広げ、掴める幅を確保する。
-    /// 広げた先は本文の左余白（NoteContentPadding）の中なので、文字には被らない。
-    /// </summary>
-    public double TitleSpineHandleWidth
-    {
-        get
-        {
-            var inset = UsesInsetSpine ? _settings.Layout.TitleBarHiddenSpineInset : 0;
-            var deadZone = Math.Max(0, _settings.Layout.ResizeBorder - RootBorderThickness - inset);
-            return Math.Max(_settings.Layout.TitleBarHiddenSpineWidth, deadZone + MinSpineGrabWidth);
-        }
-    }
+    /// <summary>本文の手前まで、帯と左右の余白をまとめて持ち手にする。</summary>
+    public double TitleSpineHandleWidth =>
+        Math.Max(SpineExtent, UsesTightImageLayout ? NoteContentPadding.Left : NoteTextPadding.Left);
 
     private bool UsesInsetSpine =>
         !string.Equals(_settings.TitleBarHiddenSpineStyle, AppSettings.SpineStyleEdge,

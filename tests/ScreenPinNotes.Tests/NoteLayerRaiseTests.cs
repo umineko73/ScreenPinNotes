@@ -36,6 +36,60 @@ public class NoteLayerRaiseTests
                     System.Windows.Input.Mouse.PrimaryDevice, 0, System.Windows.Input.MouseButton.Left),
             });
 
+    [WpfTheory]
+    [InlineData(LayerMove.Top, false)]
+    [InlineData(LayerMove.Up, false)]
+    [InlineData(LayerMove.Down, false)]
+    [InlineData(LayerMove.Bottom, false)]
+    [InlineData(LayerMove.Top, true)]
+    [InlineData(LayerMove.Up, true)]
+    [InlineData(LayerMove.Down, true)]
+    [InlineData(LayerMove.Bottom, true)]
+    public void ExplicitLayerMoveOverridesClickAndPersists(LayerMove move, bool pinned)
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var field = typeof(App).GetField("_windows", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        var windows = (List<StickyNoteWindow>)field.GetValue(app)!;
+        var previous = windows.ToList();
+        var root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ScreenPinNotes.Tests", Guid.NewGuid().ToString("N"));
+        var storage = new StorageService(root);
+        var notes = Enumerable.Range(0, 3).Select(i => new StickyNoteWindow(
+            new StickyNoteViewModel(new StickyNote { LayerOrder = i, IsTopmost = pinned }, app.Settings), storage)).ToArray();
+        try
+        {
+            windows.Clear();
+            windows.AddRange(notes);
+            foreach (var window in notes) window.Show();
+            Click(notes[0]);
+            app.ApplyLayerOrder();
+            var selected = move is LayerMove.Top or LayerMove.Up ? notes[2] : notes[0];
+            app.MoveNoteLayers(new HashSet<string> { selected.ViewModel.Model.Id }, move);
+            // 再適用でもクリックの一時的な前面化が戻らない。
+            app.ApplyLayerOrder();
+            var ordered = NoteLayers.Ordered(notes.Select(w => w.ViewModel.Model));
+            for (var i = 0; i < ordered.Count - 1; i++)
+            {
+                var upper = notes.Single(w => w.ViewModel.Model.Id == ordered[i].Id);
+                var lower = notes.Single(w => w.ViewModel.Model.Id == ordered[i + 1].Id);
+                var upperHandle = new System.Windows.Interop.WindowInteropHelper(upper).Handle;
+                var lowerHandle = new System.Windows.Interop.WindowInteropHelper(lower).Handle;
+                var found = false;
+                for (var h = GetWindow(lowerHandle, GwHwndPrev); h != IntPtr.Zero; h = GetWindow(h, GwHwndPrev))
+                    if (h == upperHandle) { found = true; break; }
+                Assert.True(found, "Native window order must match the explicit layer order.");
+            }
+            Assert.Equal(ordered.Select(n => n.Id), NoteLayers.Ordered(storage.Load()).Select(n => n.Id));
+        }
+        finally
+        {
+            windows.Clear();
+            foreach (var window in notes) window.Close();
+            windows.AddRange(previous);
+            app.ForgetLastActiveNote();
+            if (System.IO.Directory.Exists(root)) System.IO.Directory.Delete(root, true);
+        }
+    }
+
     [WpfFact]
     public void ClickedNoteStaysInFrontUntilAnotherNoteIsClicked()
     {

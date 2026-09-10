@@ -536,7 +536,7 @@ public partial class StickyNoteWindow : Window
             RequestSave();
             return;
         }
-        if (e.WidthChanged && !_isEditMode && !ViewModel.IsFolded &&
+        if ((e.WidthChanged || (e.HeightChanged && ViewModel.UsesTightImageLayout)) && !_isEditMode && !ViewModel.IsFolded &&
             _resizeContentRefresh?.Status != System.Windows.Threading.DispatcherOperationStatus.Pending)
             _resizeContentRefresh = Dispatcher.BeginInvoke(() =>
             {

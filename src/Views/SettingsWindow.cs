@@ -81,13 +81,10 @@ public sealed class SettingsWindow : Window
             Text = Title, FontSize = 23, FontWeight = FontWeights.SemiBold,
             Margin = new Thickness(0, 0, 0, 20),
         });
-        panel.Children.Add(BuildNoteDefaultsSection());
-        panel.Children.Add(SectionDivider());
-        panel.Children.Add(BuildAppearanceSection());
-        panel.Children.Add(SectionDivider());
-        panel.Children.Add(BuildBehaviorSection());
-        panel.Children.Add(SectionDivider());
-        panel.Children.Add(BuildDataSection());
+        panel.Children.Add(Category("SettingsNoteDefaults", BuildNoteDefaultsSection(), true));
+        panel.Children.Add(Category("SettingsAppearance", BuildAppearanceSection()));
+        panel.Children.Add(Category("SettingsBehavior", BuildBehaviorSection()));
+        panel.Children.Add(Category("SettingsData", BuildDataSection()));
 
         var scroll = new WpfScrollViewer
         {
@@ -128,11 +125,19 @@ public sealed class SettingsWindow : Window
 
     // ─── 共通の部品 ──────────────────────────────────────────────
 
-    private static WpfBorder SectionDivider()
+    private static Expander Category(string key, StackPanel content, bool expanded = false)
     {
-        var divider = new WpfBorder { Height = 1, Margin = new Thickness(0, 12, 0, 20) };
-        divider.SetResourceReference(WpfBorder.BackgroundProperty, "SettingsDivider");
-        return divider;
+        // The category header replaces the section's former inline heading.
+        content.Children.RemoveAt(0);
+        content.Margin = new Thickness(0, 12, 0, 12);
+        var category = new Expander
+        {
+            Header = LocalizationService.T(key), Content = content,
+            IsExpanded = expanded, HorizontalContentAlignment = WpfHorizontalAlignment.Stretch,
+            Margin = new Thickness(0, 0, 0, 12),
+        };
+        category.SetResourceReference(ForegroundProperty, "SettingsText");
+        return category;
     }
 
     private void ApplyTheme()

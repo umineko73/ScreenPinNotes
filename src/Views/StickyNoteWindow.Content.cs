@@ -408,8 +408,17 @@ public partial class StickyNoteWindow
             displayWidth = Math.Min(naturalWidth, GetMarkdownImageAvailableWidth(
                 reserveScrollBar: NeedsScrollBarAllowance(naturalWidth, originalWidth, originalHeight)));
             displayHeight = originalHeight * displayWidth / originalWidth;
+            if (ViewModel.UsesTightImageLayout && !markdownImage.Height.HasValue && !_isFittingWindowToImages)
+            {
+                // Fit a standalone, unspecified image to both dimensions without distortion.
+                var scale = Math.Min(1, Math.Min(
+                    GetMarkdownImageAvailableWidth(reserveScrollBar: false) / originalWidth,
+                    Math.Max(1, GetMarkdownImageAvailableHeight()) / originalHeight));
+                displayWidth = originalWidth * scale;
+                displayHeight = originalHeight * scale;
+            }
             image.Width = displayWidth;
-            image.Height = originalHeight * displayWidth / originalWidth;
+            image.Height = displayHeight;
         }
 
         if (markdownImage.Width.HasValue)
@@ -592,6 +601,7 @@ public partial class StickyNoteWindow
         var visibility = _contextMenuImage == null ? Visibility.Collapsed : Visibility.Visible;
         _imageSizeItem.Visibility = visibility;
         _fitWindowToImageItem.Visibility = visibility;
+        _fitWindowToImageItem.IsEnabled = !_isEditMode;
         _detachImageItem.Visibility = visibility;
         _deleteImageFileItem.Visibility = visibility;
         _imageMenuSeparator.Visibility = visibility;
@@ -794,7 +804,11 @@ public partial class StickyNoteWindow
     /// </summary>
     private void FitWindowToMarkdownImages(IReadOnlyCollection<MarkdownImageContext> contexts)
     {
+        // Fitting changes the view bounds, never the temporary editor bounds.
+        if (_isEditMode) return;
         CompleteFoldAnimation();
+        // Completing an unfold can run a callback that enters edit mode.
+        if (_isEditMode) return;
         if (contexts.Count == 0)
             return;
 

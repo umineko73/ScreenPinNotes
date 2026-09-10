@@ -379,7 +379,7 @@
                     Background="Transparent"
                     Cursor="SizeAll"
                     HorizontalAlignment="Left"
-                    Margin="{Binding TitleSpineMargin}"
+                    Margin="0"
                     Width="{Binding TitleSpineHandleWidth}"
                     ToolTip="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=MoveNoteTooltip}"
                     MouseLeftButtonDown="SpineHandle_MouseLeftButtonDown"

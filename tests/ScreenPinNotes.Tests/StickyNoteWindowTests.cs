@@ -17,6 +17,88 @@ namespace ScreenPinNotes.Tests;
 public class StickyNoteWindowTests
 {
     [WpfTheory]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    public void FitImageIsBlockedDuringEditingAndAvailableAfterwards(bool titleOnly, bool hiddenTitle)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote { Width = 400, Height = 320, EditWidth = 500, EditHeight = 420,
+            IsTitleBarHidden = hiddenTitle, Content = "![](assets/test.png)" };
+        var assets = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assets);
+        SavePng(System.IO.Path.Combine(assets, "test.png"), CreateSolidBitmapSource(120, 90));
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, App.Current.Settings), storage);
+        try
+        {
+            window.Show(); window.UpdateLayout();
+            InvokePrivate(window, titleOnly ? "EnterTitleEditMode" : "EnterEditMode");
+            window.UpdateLayout();
+            var contexts = (System.Collections.IDictionary)typeof(StickyNoteWindow).GetField("_markdownImageContexts", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
+            var image = contexts.Keys.Cast<Image>().Single();
+            var context = contexts[image]!;
+            InvokePrivate(window, "CaptureContextMenuImage", image);
+            InvokePrivate(window, "UpdateImageMenuItems", false);
+            var item = GetPrivateField<MenuItem>(window, "_fitWindowToImageItem");
+            Assert.False(item.IsEnabled);
+            // UI 以外から呼ばれた場合も閲覧・編集の保存領域を変更しない。
+            InvokePrivate(window, "FitWindowToMarkdownImage", context);
+            Assert.Equal((400d, 320d), (note.Width, note.Height));
+            Assert.Equal((500d, 420d), (note.EditWidth!.Value, note.EditHeight!.Value));
+            InvokePrivate(window, "SaveNote");
+            var saved = Assert.Single(storage.Load());
+            Assert.Equal((400d, 320d), (saved.Width, saved.Height));
+            InvokePrivate(window, "EnterViewMode");
+            window.UpdateLayout();
+            contexts = (System.Collections.IDictionary)typeof(StickyNoteWindow).GetField("_markdownImageContexts", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
+            image = contexts.Keys.Cast<Image>().Single();
+            InvokePrivate(window, "CaptureContextMenuImage", image);
+            InvokePrivate(window, "UpdateImageMenuItems", false);
+            Assert.True(item.IsEnabled);
+            item.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Assert.True(note.Height < 320);
+            Assert.Equal((500d, 420d), (note.EditWidth!.Value, note.EditHeight!.Value));
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfFact]
+    public async Task UnspecifiedImageFitsHeightAndFollowsHeightOnlyResize()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote { Width = 400, Height = 240, IsTitleBarHidden = true,
+            Content = "![image](assets/tall.png)" };
+        var assets = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assets);
+        SavePng(System.IO.Path.Combine(assets, "tall.png"), CreateSolidBitmapSource(800, 1600));
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, App.Current.Settings), storage);
+        try
+        {
+            window.Show();
+            await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            var box = (RichTextBox)window.FindName("ContentBox");
+            var first = Assert.Single(EnumerateImages(box.Document));
+            Assert.InRange(first.Height, 1, box.ActualHeight);
+            Assert.Equal(2, first.Height / first.Width, 6);
+            var firstHeight = first.Height;
+            window.Height = 160;
+            window.UpdateLayout();
+            await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            var resized = Assert.Single(EnumerateImages(box.Document));
+            Assert.True(resized.Height < firstHeight);
+            Assert.InRange(resized.Height, 1, box.ActualHeight);
+            Assert.Equal(2, resized.Height / resized.Width, 6);
+            Assert.Equal("![image](assets/tall.png)", note.Content);
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfTheory]
     [InlineData(false, false, -1)]
     [InlineData(false, false, 1)]
     [InlineData(true, false, -1)]
@@ -2028,8 +2110,8 @@ public class StickyNoteWindowTests
             // （ContentBox の Padding.Left）を越えないこと。
             var handle = Assert.IsType<Border>(window.FindName("TitleBarHiddenSpineHandle"));
             var box = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
-            Assert.True(3 + handle.ActualWidth <= box.Padding.Left,
-                $"grab handle reaches {3 + handle.ActualWidth}px, text starts at {box.Padding.Left}px");
+            Assert.True(handle.Margin.Left + handle.ActualWidth <= box.Padding.Left,
+                $"grab handle reaches {handle.Margin.Left + handle.ActualWidth}px, text starts at {box.Padding.Left}px");
         }
         finally { window.Close(); }
     }
@@ -2611,15 +2693,13 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
-    // 縦スクロールバーの場所を空けるかどうか。空けたままだと右端に18px残る。
-    // 縦に収まりきる画像なら空けずに済ませ、収まらない画像では空けておく
-    // （空けずに広げると、後からバーが出て画像がはみ出し横スクロールまで増える）。
+    // サイズ未指定の画像は縦横両方に収め、不要なスクロールバー幅を予約しない。
     [WpfTheory]
     // どちらも付箋より横に大きく、幅に合わせて縮小される画像。
     [InlineData(800, 300, false)]     // 横長。縮めても縦に収まるので右端まで使う
-    [InlineData(800, 2000, true)]     // 縦長。バーが出るので場所を空ける
-    public void ImageOnlyNote_ReservesScrollBarRoomOnlyWhenItNeedsIt(
-        int pixelWidth, int pixelHeight, bool reservesRoom)
+    [InlineData(800, 2000, true)]     // 縦長。高さに合わせて縮める
+    public void ImageOnlyNote_FitsBothDimensionsWithoutReservingScrollBarRoom(
+        int pixelWidth, int pixelHeight, bool heightLimited)
     {
         EnsureApplication();
         using var temp = new TempDataDirectory();
@@ -2645,8 +2725,12 @@ public class StickyNoteWindowTests
             var image = Assert.Single(EnumerateImages(box.Document));
 
             var rightGap = box.ActualWidth - box.Padding.Left - image.Width;
-            if (reservesRoom)
-                Assert.Equal(18, rightGap, 1);
+            if (heightLimited)
+            {
+                Assert.InRange(image.Height, 1, box.ActualHeight);
+                Assert.Equal(box.ActualHeight, image.Height, 1);
+                Assert.Equal((double)pixelHeight / pixelWidth, image.Height / image.Width, 6);
+            }
             else
                 Assert.Equal(0, rightGap, 1);
         }
@@ -2678,13 +2762,11 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
-    // 帯そのものは細すぎて狙えないので、当たり判定は下に敷いた透明な板が持つ。
-    // 板は帯と同じ位置から始まり、幅リサイズの当たり判定に食われる分だけ
-    // 右へ広がる。広がった先は本文の左余白（Padding 8px）までに収まる。
+    // 左右の余白を含め、本文の手前までを持ち手にする。
     [WpfTheory]
-    [InlineData(3.0, 7.0)]    // 左端 4px のうち 1px がリサイズ枠。6px 掴めるまで広げる
-    [InlineData(0.0, 10.0)]   // 端に寄せるほどリサイズ枠に食われ、広げる量が増える
-    [InlineData(8.0, 6.0)]    // リサイズ枠の外まで離れていれば、最低限の幅で足りる
+    [InlineData(3.0, 14.0)]
+    [InlineData(0.0, 11.0)]
+    [InlineData(8.0, 19.0)]
     public void TitleBarHiddenSpineHandle_LeavesRoomToGrab(double inset, double expectedWidth)
     {
         EnsureApplication();
@@ -2704,7 +2786,7 @@ public class StickyNoteWindowTests
             Assert.True(handle.IsHitTestVisible);
             Assert.False(spine.IsHitTestVisible);
             Assert.Equal(spine.Visibility, handle.Visibility);
-            Assert.Equal(spine.Margin, handle.Margin);
+            Assert.Equal(new Thickness(0), handle.Margin);
             Assert.Equal(expectedWidth, handle.ActualWidth);
         }
         finally { window.Close(); }
@@ -2772,6 +2854,13 @@ public class StickyNoteWindowTests
             });
             Assert.True(GetPrivateField<bool>(window, "_isDragging"));
 
+            // Native capture is unavailable in some test hosts. Deliver the same
+            // routed notification explicitly so this checks the cleanup handler.
+            handle.RaiseEvent(new MouseEventArgs(Mouse.PrimaryDevice, 0)
+            {
+                RoutedEvent = UIElement.LostMouseCaptureEvent,
+                Source = handle,
+            });
             handle.ReleaseMouseCapture();
             Assert.False(GetPrivateField<bool>(window, "_isDragging"));
             Assert.False(GetPrivateField<bool>(window, "_isDraggingSpine"));

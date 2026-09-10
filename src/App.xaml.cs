@@ -720,6 +720,8 @@ public partial class App : System.Windows.Application
     public void MoveNoteLayers(ISet<string> ids, LayerMove move)
     {
         NoteLayers.Move(_windows.Select(w => w.ViewModel.Model), ids, move);
+        // An explicit ordering command takes precedence over the last clicked note.
+        ForgetLastActiveNote();
         ApplyLayerOrder();
         SaveAll();
         _noteManagerWindow?.RefreshNotes();

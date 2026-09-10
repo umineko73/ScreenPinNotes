@@ -12,6 +12,28 @@ namespace ScreenPinNotes.Tests;
 
 public class SettingsWindowTests
 {
+    [WpfFact]
+    public void CategoriesCanBeOpenedIndependently()
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var window = new SettingsWindow(new AppSettings(), app);
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var categories = Descendants<Expander>(window).ToArray();
+            Assert.Equal(4, categories.Length);
+            Assert.True(categories[0].IsExpanded);
+            Assert.All(categories.Skip(1), category => Assert.False(category.IsExpanded));
+            categories[1].IsExpanded = true;
+            categories[0].IsExpanded = false;
+            window.UpdateLayout();
+            Assert.True(((FrameworkElement)categories[1].Content).IsVisible);
+            Assert.False(((FrameworkElement)categories[0].Content).IsVisible);
+        }
+        finally { window.Close(); }
+    }
+
     [WpfTheory]
     [InlineData("Light")]
     [InlineData("Dark")]
@@ -24,6 +46,7 @@ public class SettingsWindowTests
         try
         {
             window.Show();
+            ExpandCategories(window);
             window.UpdateLayout();
             var picker = Descendants<ComboBox>(window).Single(c =>
                 c.SelectedItem is ComboBoxItem { Tag: "🦊" });
@@ -56,6 +79,7 @@ public class SettingsWindowTests
         try
         {
             window.Show();
+            ExpandCategories(window);
             window.UpdateLayout();
             var pickers = Descendants<ComboBox>(window).ToArray();
             Assert.Equal(12, pickers.Length);
@@ -115,6 +139,7 @@ public class SettingsWindowTests
         try
         {
             window.Show();
+            ExpandCategories(window);
             window.UpdateLayout();
 
             // 0 の次が 2 なのは角の丸みの欄だけ
@@ -149,6 +174,7 @@ public class SettingsWindowTests
         try
         {
             window.Show();
+            ExpandCategories(window);
             window.UpdateLayout();
             var picker = Descendants<ComboBox>(window).Single(combo =>
                 combo.Items.Cast<object>().Any(item =>
@@ -178,6 +204,7 @@ public class SettingsWindowTests
         try
         {
             window.Show();
+            ExpandCategories(window);
             window.UpdateLayout();
 
             var toggle = Descendants<CheckBox>(window).Single(box =>
@@ -214,6 +241,7 @@ public class SettingsWindowTests
         try
         {
             window.Show();
+            ExpandCategories(window);
             window.UpdateLayout();
 
             var placement = Descendants<ComboBox>(window).Single(combo =>
@@ -256,6 +284,7 @@ public class SettingsWindowTests
         try
         {
             window.Show();
+            ExpandCategories(window);
             window.UpdateLayout();
 
             var picker = Descendants<ComboBox>(window).Single(combo =>
@@ -273,6 +302,13 @@ public class SettingsWindowTests
 
     private static bool HasTag(ComboBox combo, double tag) =>
         combo.Items.Cast<object>().Any(item => item is ComboBoxItem entry && Equals(entry.Tag, tag));
+
+    private static void ExpandCategories(Window window)
+    {
+        window.UpdateLayout();
+        foreach (var category in Descendants<Expander>(window)) category.IsExpanded = true;
+        window.UpdateLayout();
+    }
 
     private static IEnumerable<T> Descendants<T>(DependencyObject parent) where T : DependencyObject
     {
