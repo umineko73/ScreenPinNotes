@@ -664,6 +664,10 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="SettingsTitleBarSpineStyleInset" xml:space="preserve"><value>Off the edge</value></data>
   <data name="SettingsTitleBarSpineStyleEdge" xml:space="preserve"><value>Against the edge</value></data>
   <data name="SettingsTitleBarSpineInset" xml:space="preserve"><value>Gap from the edge</value></data>
+  <data name="SettingsTitleBarSpineOnImage" xml:space="preserve"><value>On an image-only note</value></data>
+  <data name="SettingsTitleBarSpineOnImageGutter" xml:space="preserve"><value>Beside the image</value></data>
+  <data name="SettingsTitleBarSpineOnImageOverlay" xml:space="preserve"><value>Over the image</value></data>
+  <data name="SettingsTitleBarSpineOnImageHidden" xml:space="preserve"><value>Hide the spine</value></data>
   <data name="SettingsTheme" xml:space="preserve"><value>Theme</value></data>
   <data name="SettingsStartup" xml:space="preserve"><value>Startup</value></data>
   <data name="SettingsFolding" xml:space="preserve"><value>Fold / expand</value></data>

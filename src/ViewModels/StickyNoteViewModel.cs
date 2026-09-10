@@ -51,9 +51,10 @@ public class StickyNoteViewModel : INotifyPropertyChanged
             OnPropertyChanged();
             OnPropertyChanged(nameof(FirstLine));
             OnPropertyChanged(nameof(DisplayTitle));
-            // 画像1枚だけかどうかで本文の余白が変わる。
+            // 画像1枚だけかどうかで本文の余白と、設定によっては帯の有無も変わる。
             OnPropertyChanged(nameof(IsImageOnlyContent));
             OnPropertyChanged(nameof(NoteContentPadding));
+            OnPropertyChanged(nameof(TitleSpineVisibility));
         }
     }
 
@@ -231,9 +232,20 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     /// 目印が要らない人は設定で消せる。
     /// </summary>
     public Visibility TitleSpineVisibility =>
-        IsTitleBarHidden && _settings.ShowTitleBarHiddenSpine
+        IsTitleBarHidden && _settings.ShowTitleBarHiddenSpine && !HidesSpineOverImage
             ? Visibility.Visible
             : Visibility.Collapsed;
+
+    /// <summary>画像1枚だけの付箋で帯を出さない設定か。</summary>
+    private bool HidesSpineOverImage =>
+        IsImageOnlyContent && MatchesImageSpineStyle(AppSettings.ImageSpineHidden);
+
+    /// <summary>画像1枚だけの付箋で、帯のぶんだけ画像を右へ寄せる設定か。</summary>
+    private bool ReservesSpineGutterOverImage =>
+        !IsImageOnlyContent || MatchesImageSpineStyle(AppSettings.ImageSpineGutter);
+
+    private bool MatchesImageSpineStyle(string style) =>
+        string.Equals(_settings.ImageOnlySpineStyle, style, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>左端の縦線の太さ。設定で変えられる。</summary>
     public double TitleSpineWidth => _settings.Layout.TitleBarHiddenSpineWidth;
@@ -327,7 +339,14 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         get
         {
             if (IsImageOnlyContent)
-                return new Thickness(SpineExtent > 0 ? SpineExtent + SpineInset : 0, 0, 0, 0);
+            {
+                // 帯の場所を空けるのは「並べる」設定のときだけ。重ねる・出さない
+                // なら避けるものが無いので、四方とも縁まで詰める。
+                var gutter = SpineExtent > 0 && ReservesSpineGutterOverImage
+                    ? SpineExtent + SpineInset
+                    : 0;
+                return new Thickness(gutter, 0, 0, 0);
+            }
 
             return new Thickness(
                 SpineExtent + DefaultContentPadding,

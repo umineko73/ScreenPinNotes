@@ -193,6 +193,8 @@ public class AppSettingsTests
 
         Assert.Equal(AppSettings.SpineStyleInset, settings.TitleBarHiddenSpineStyle);
         Assert.Equal(3, settings.Layout.TitleBarHiddenSpineInset);
+        // 画像だけの付箋でも、既定では帯の居場所を残す。
+        Assert.Equal(AppSettings.ImageSpineGutter, settings.ImageOnlySpineStyle);
     }
 
     // 既定は角のまま・枠なし。設定を持たない settings.json もこの見た目になる。
@@ -292,5 +294,21 @@ public class AppSettingsTests
         settings.Normalize();
 
         Assert.Equal(expected, settings.TitleBarHiddenSpineStyle);
+    }
+
+    [Theory]
+    [InlineData("Overlay", AppSettings.ImageSpineOverlay)]
+    [InlineData("overlay", AppSettings.ImageSpineOverlay)]
+    [InlineData("Hidden", AppSettings.ImageSpineHidden)]
+    [InlineData("Gutter", AppSettings.ImageSpineGutter)]
+    [InlineData("", AppSettings.ImageSpineGutter)]
+    [InlineData("Behind", AppSettings.ImageSpineGutter)]
+    public void Normalize_ImageOnlySpineStyle_FallsBackToGutter(string input, string expected)
+    {
+        var settings = new AppSettings { ImageOnlySpineStyle = input };
+
+        settings.Normalize();
+
+        Assert.Equal(expected, settings.ImageOnlySpineStyle);
     }
 }

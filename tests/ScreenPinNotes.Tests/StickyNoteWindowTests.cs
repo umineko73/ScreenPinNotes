@@ -2168,6 +2168,77 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
+    // 画像だけの付箋で帯をどう置くかは設定で選べる。「並べる」だけが場所を空け、
+    // 「重ねる」「出さない」は画像を縁まで広げる。
+    [WpfTheory]
+    [InlineData(AppSettings.ImageSpineGutter, 9.0, true)]
+    [InlineData(AppSettings.ImageSpineOverlay, 0.0, true)]
+    [InlineData(AppSettings.ImageSpineHidden, 0.0, false)]
+    public void ImageOnlyNote_PlacesTheSpineAsConfigured(
+        string style, double expectedLeft, bool spineShown)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var settings = new AppSettings { ImageOnlySpineStyle = style };
+        var note = new StickyNote
+        {
+            Width = 400,
+            Height = 300,
+            IsTitleBarHidden = true,
+            Content = "![](assets/pasted.png)",
+        };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        SavePng(System.IO.Path.Combine(assetsDir, "pasted.png"), CreateBitmapSource());
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, settings), storage);
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            InvokePrivate(window, "LoadContent", note.Content);
+            window.UpdateLayout();
+            var box = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            var spine = Assert.IsType<System.Windows.Shapes.Rectangle>(window.FindName("TitleBarHiddenSpine"));
+            var handle = Assert.IsType<Border>(window.FindName("TitleBarHiddenSpineHandle"));
+
+            Assert.Equal(new Thickness(expectedLeft, 0, 0, 0), box.Padding);
+            var expectedVisibility = spineShown ? Visibility.Visible : Visibility.Collapsed;
+            Assert.Equal(expectedVisibility, spine.Visibility);
+            // 帯を出さないなら、掴んで動かす板も一緒に消える。
+            Assert.Equal(expectedVisibility, handle.Visibility);
+        }
+        finally { window.Close(); }
+    }
+
+    // 設定は画像だけの付箋にしか効かない。文字のある付箋の帯は消えない。
+    [WpfFact]
+    public void ImageOnlySpineStyle_LeavesTextNotesAlone()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var settings = new AppSettings { ImageOnlySpineStyle = AppSettings.ImageSpineHidden };
+        var note = new StickyNote { IsTitleBarHidden = true, Content = "本文" };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var spine = Assert.IsType<System.Windows.Shapes.Rectangle>(window.FindName("TitleBarHiddenSpine"));
+            var box = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+
+            Assert.Equal(Visibility.Visible, spine.Visibility);
+            Assert.Equal(new Thickness(14, 8, 8, 8), box.Padding);
+
+            // 本文を画像1枚に差し替えると、そこで初めて帯が消える。
+            window.ViewModel.Content = "![](assets/pasted.png)";
+            window.UpdateLayout();
+            Assert.Equal(Visibility.Collapsed, spine.Visibility);
+        }
+        finally { window.Close(); }
+    }
+
     // 画像の前後に文字があれば普通の本文。詰めると文字が縁に貼り付く。
     [WpfFact]
     public void NoteContentPadding_StaysNormalWhenTextSurroundsTheImage()

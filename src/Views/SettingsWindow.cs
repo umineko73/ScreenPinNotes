@@ -534,6 +534,24 @@ public sealed class SettingsWindow : Window
             style.Items.Add(new WpfComboBoxItem { Content = LocalizationService.T(key), Tag = value });
         SelectByTag(style, _settings.TitleBarHiddenSpineStyle);
 
+        // 画像1枚だけの付箋は縁まで画像を広げるので、帯の居場所が残らない。
+        var onImage = Picker(160);
+        foreach (var (key, value) in new[]
+                 {
+                     ("SettingsTitleBarSpineOnImageGutter", AppSettings.ImageSpineGutter),
+                     ("SettingsTitleBarSpineOnImageOverlay", AppSettings.ImageSpineOverlay),
+                     ("SettingsTitleBarSpineOnImageHidden", AppSettings.ImageSpineHidden),
+                 })
+            onImage.Items.Add(new WpfComboBoxItem { Content = LocalizationService.T(key), Tag = value });
+        SelectByTag(onImage, _settings.ImageOnlySpineStyle);
+        onImage.SelectionChanged += (_, _) =>
+        {
+            if (_loading || onImage.SelectedItem is not WpfComboBoxItem { Tag: string value }) return;
+            if (string.Equals(value, _settings.ImageOnlySpineStyle, StringComparison.OrdinalIgnoreCase)) return;
+            _settings.ImageOnlySpineStyle = value;
+            Save();
+        };
+
         var toggle = Toggle("SettingsShowTitleBarSpine",
             () => _settings.ShowTitleBarHiddenSpine, v => _settings.ShowTitleBarHiddenSpine = v);
 
@@ -542,6 +560,7 @@ public sealed class SettingsWindow : Window
             var shown = toggle.IsChecked == true;
             width.IsEnabled = shown;
             style.IsEnabled = shown;
+            onImage.IsEnabled = shown;
             inset.IsEnabled = shown
                 && style.SelectedItem is WpfComboBoxItem { Tag: string tag }
                 && !string.Equals(tag, AppSettings.SpineStyleEdge, StringComparison.OrdinalIgnoreCase);
@@ -563,6 +582,7 @@ public sealed class SettingsWindow : Window
         section.Children.Add(LabeledRow("SettingsTitleBarSpineStyle", style));
         section.Children.Add(LabeledRow("SettingsTitleBarSpineWidth", width));
         section.Children.Add(LabeledRow("SettingsTitleBarSpineInset", inset));
+        section.Children.Add(LabeledRow("SettingsTitleBarSpineOnImage", onImage));
     }
 
     // ─── 動作 ────────────────────────────────────────────────────

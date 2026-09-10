@@ -32,6 +32,19 @@ public sealed class AppSettings
     public const string SpineStyleEdge = "Edge";
     /// <summary>端から少し離し、本文との間に浮かせる帯。</summary>
     public const string SpineStyleInset = "Inset";
+
+    /// <summary>
+    /// 本文が画像1枚だけの付箋で、帯をどう置くか。画像は縁まで広げるので、
+    /// 帯の居場所が文字のときと違って残らない。
+    /// </summary>
+    public string ImageOnlySpineStyle { get; set; } = ImageSpineGutter;
+
+    /// <summary>帯のぶんだけ画像を右へ寄せ、帯と画像を並べる。</summary>
+    public const string ImageSpineGutter = "Gutter";
+    /// <summary>画像を縁まで広げ、帯はその上に重ねて描く。</summary>
+    public const string ImageSpineOverlay = "Overlay";
+    /// <summary>画像1枚だけの付箋では帯を出さない。</summary>
+    public const string ImageSpineHidden = "Hidden";
     /// <summary>
     /// 付箋の外枠の色。<see cref="NoteBorderNone"/> / <see cref="NoteBorderGray"/> /
     /// <see cref="NoteBorderNoteColor"/>、または "#RRGGBB" 形式の色。
@@ -183,6 +196,7 @@ public sealed class AppSettings
         // 帯が本文の下に潜り込み、目印として読めなくなる。
         Layout.TitleBarHiddenSpineInset = Math.Clamp(Layout.TitleBarHiddenSpineInset, 0, 12);
         TitleBarHiddenSpineStyle = NormalizeSpineStyle(TitleBarHiddenSpineStyle);
+        ImageOnlySpineStyle = NormalizeImageOnlySpineStyle(ImageOnlySpineStyle);
         // 上限は付箋の高さが最小のとき（畳んだ1行）でも輪郭が破綻しない範囲。
         Layout.NoteCornerRadius = Math.Clamp(Layout.NoteCornerRadius, 0, 16);
         NoteBorderColor = NormalizeNoteBorderColor(NoteBorderColor);
@@ -205,6 +219,16 @@ public sealed class AppSettings
         => string.Equals(value?.Trim(), SpineStyleEdge, StringComparison.OrdinalIgnoreCase)
             ? SpineStyleEdge
             : SpineStyleInset;
+
+    // 同じく、知らない値は既定（帯のぶんを空ける）に倒す。
+    private static string NormalizeImageOnlySpineStyle(string? value)
+    {
+        var trimmed = value?.Trim();
+        foreach (var known in new[] { ImageSpineOverlay, ImageSpineHidden })
+            if (string.Equals(trimmed, known, StringComparison.OrdinalIgnoreCase))
+                return known;
+        return ImageSpineGutter;
+    }
 }
 
 /// <summary>新しい付箋の初期値。</summary>

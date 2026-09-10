@@ -58,7 +58,7 @@ public class SettingsWindowTests
             window.Show();
             window.UpdateLayout();
             var pickers = Descendants<ComboBox>(window).ToArray();
-            Assert.Equal(11, pickers.Length);
+            Assert.Equal(12, pickers.Length);
             var left = pickers[0].TranslatePoint(new Point(), window).X;
             foreach (var picker in pickers)
             {
@@ -228,6 +228,41 @@ public class SettingsWindowTests
                 HasTag(combo, 0.0) && HasTag(combo, 1.0));
             Assert.Equal(4.0, Assert.IsType<ComboBoxItem>(inset.SelectedItem).Tag);
             Assert.Equal(insetEnabled, inset.IsEnabled);
+        }
+        finally
+        {
+            window.Close();
+            app.Settings.Language = previousLanguage;
+        }
+    }
+
+    // 画像だけの付箋での帯の扱い。帯そのものを出さない設定なら触れないようにする。
+    [WpfTheory]
+    [InlineData(AppSettings.ImageSpineGutter, true)]
+    [InlineData(AppSettings.ImageSpineOverlay, true)]
+    [InlineData(AppSettings.ImageSpineHidden, false)]
+    public void TitleBarSpineOnImageEditor_ReflectsTheCurrentSettings(string style, bool showSpine)
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var previousLanguage = app.Settings.Language;
+        app.Settings.Language = "ja";
+        var settings = new AppSettings
+        {
+            Language = "ja",
+            ImageOnlySpineStyle = style,
+            ShowTitleBarHiddenSpine = showSpine,
+        };
+        var window = new SettingsWindow(settings, app);
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+
+            var picker = Descendants<ComboBox>(window).Single(combo =>
+                combo.Items.Cast<object>().Any(item =>
+                    item is ComboBoxItem entry && Equals(entry.Tag, AppSettings.ImageSpineOverlay)));
+            Assert.Equal(style, Assert.IsType<ComboBoxItem>(picker.SelectedItem).Tag);
+            Assert.Equal(showSpine, picker.IsEnabled);
         }
         finally
         {

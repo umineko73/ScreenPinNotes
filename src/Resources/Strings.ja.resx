@@ -664,6 +664,10 @@
   <data name="SettingsTitleBarSpineStyleInset" xml:space="preserve"><value>端から離す</value></data>
   <data name="SettingsTitleBarSpineStyleEdge" xml:space="preserve"><value>端に付ける</value></data>
   <data name="SettingsTitleBarSpineInset" xml:space="preserve"><value>端からの距離</value></data>
+  <data name="SettingsTitleBarSpineOnImage" xml:space="preserve"><value>画像だけの付箋</value></data>
+  <data name="SettingsTitleBarSpineOnImageGutter" xml:space="preserve"><value>画像の横に並べる</value></data>
+  <data name="SettingsTitleBarSpineOnImageOverlay" xml:space="preserve"><value>画像に重ねる</value></data>
+  <data name="SettingsTitleBarSpineOnImageHidden" xml:space="preserve"><value>帯を出さない</value></data>
   <data name="SettingsTheme" xml:space="preserve"><value>テーマ</value></data>
   <data name="SettingsStartup" xml:space="preserve"><value>起動</value></data>
   <data name="SettingsFolding" xml:space="preserve"><value>折りたたみ・展開</value></data>
