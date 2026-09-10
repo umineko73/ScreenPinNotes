@@ -660,7 +660,10 @@ public class StickyNoteWindowTests
         EnsureApplication();
         using var temp = new TempDataDirectory();
         const string path = "assets/very-long-folder-name/0月写真/image.png";
-        var note = new StickyNote { Content = $"![写真]({path})", IsFolded = true, IsTitleBarHidden = true, Width = 165 };
+        // 畳んだ1行表示は画像ではなく画像パスの文字なので、本文の余白は
+        // 文字のときと同じ。アイコンの有無で省略の仕方が変わるだけの幅を
+        // 残すため、帯のぶんの余白を足しておく。
+        var note = new StickyNote { Content = $"![写真]({path})", IsFolded = true, IsTitleBarHidden = true, Width = 171 };
         var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
         try
         {
@@ -2166,6 +2169,54 @@ public class StickyNoteWindowTests
             Assert.Equal(8, editor.Padding.Top);
         }
         finally { window.Close(); }
+    }
+
+    // 畳んで1行になると画像ではなく画像パスの文字が出るので、余白は文字のときと
+    // 同じに戻す。詰めたままだと文字が縁に貼り付き、1行ぶんの高さも余白のぶんだけ
+    // 低くなって、隣に並べた普通の付箋と高さが揃わない。
+    [WpfFact]
+    public void FoldedImageOnlyNote_HasTheSameHeightAsAFoldedTextNote()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var settings = new AppSettings();
+
+        StickyNoteWindow Open(string content)
+        {
+            var note = new StickyNote
+            {
+                Width = 300,
+                Height = 200,
+                IsFolded = true,
+                IsTitleBarHidden = true,
+                Content = content,
+            };
+            var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+            Directory.CreateDirectory(assetsDir);
+            SavePng(System.IO.Path.Combine(assetsDir, "pasted.png"), CreateBitmapSource());
+            var opened = new StickyNoteWindow(new StickyNoteViewModel(note, settings), storage);
+            opened.Show();
+            opened.UpdateLayout();
+            return opened;
+        }
+
+        var textNote = Open("ああああ");
+        var imageNote = Open("![](assets/pasted.png)");
+        try
+        {
+            var imageBox = Assert.IsType<RichTextBox>(imageNote.FindName("ContentBox"));
+            var textBox = Assert.IsType<RichTextBox>(textNote.FindName("ContentBox"));
+
+            Assert.Equal(textBox.Padding, imageBox.Padding);
+            Assert.Equal(textNote.Height, imageNote.Height);
+
+            // 開くと画像が出るので、そこで初めて詰める。
+            imageNote.ViewModel.IsFolded = false;
+            imageNote.UpdateLayout();
+            Assert.Equal(new Thickness(9, 0, 0, 0), imageBox.Padding);
+        }
+        finally { imageNote.Close(); textNote.Close(); }
     }
 
     // 画像の上で右クリックしても、通常の本文メニューがそのまま出る。

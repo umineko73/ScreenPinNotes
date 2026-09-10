@@ -79,8 +79,12 @@ public partial class StickyNoteWindow : Window
             // 見出しであっても拡大せず、タイトル文字サイズをそのまま優先する。
             var fontSize = MarkdownRenderer.GetFirstLineFontSize(
                 ViewModel.Content, ViewModel.TitleFontSize, ignoreHeadingSize: true);
+            // 畳んだ1行表示は必ず文字なので、文字のときの余白で測る。
+            // ContentBox.Padding をそのまま読むと、開く操作の途中で画像用に
+            // 詰まった値を拾ってしまい、アニメーションの開始位置がずれる。
+            var padding = ViewModel.NoteTextPadding;
             return Math.Ceiling(lineSpacing * fontSize)
-                 + ContentBox.Padding.Top + ContentBox.Padding.Bottom
+                 + padding.Top + padding.Bottom
                  + Settings.Layout.RootBorderThickness * 2;
         }
     }

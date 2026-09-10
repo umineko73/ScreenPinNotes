@@ -197,6 +197,8 @@ public class StickyNoteViewModel : INotifyPropertyChanged
             _model.IsFolded = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(FoldIcon));
+            OnPropertyChanged(nameof(UsesTightImageLayout));
+            OnPropertyChanged(nameof(NoteContentPadding));
             OnPropertyChanged(nameof(ContentFontSize));
         }
     }
@@ -316,6 +318,13 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     /// <summary>本文が画像1枚だけか。余白の詰め方が変わる。</summary>
     public bool IsImageOnlyContent => MarkdownRenderer.GetImageOnlyTarget(Content) != null;
 
+    /// <summary>
+    /// 画像を縁まで広げる表示か。畳んで1行になると画像ではなく画像パスの文字が
+    /// 出るので、そのときは詰めない。詰めると文字が縁に貼り付き、1行ぶんの
+    /// 高さも余白のぶんだけ低くなって、他の付箋と並びが揃わなくなる。
+    /// </summary>
+    public bool UsesTightImageLayout => IsImageOnlyContent && !IsFolded;
+
     /// <summary>帯の右端までの幅。帯を出していないときは0。</summary>
     private double SpineExtent =>
         TitleSpineVisibility != Visibility.Visible
@@ -338,7 +347,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     {
         get
         {
-            if (IsImageOnlyContent)
+            if (UsesTightImageLayout)
             {
                 // 帯の場所を空けるのは「並べる」設定のときだけ。重ねる・出さない
                 // なら避けるものが無いので、四方とも縁まで詰める。
@@ -348,19 +357,22 @@ public class StickyNoteViewModel : INotifyPropertyChanged
                 return new Thickness(gutter, 0, 0, 0);
             }
 
-            return new Thickness(
-                SpineExtent + DefaultContentPadding,
-                DefaultContentPadding, DefaultContentPadding, DefaultContentPadding);
+            return NoteTextPadding;
         }
     }
+
+    /// <summary>
+    /// 本文が文字のときの余白。画像以外の本文、編集中、畳んだ1行表示で使う。
+    /// </summary>
+    public Thickness NoteTextPadding => new(
+        SpineExtent + DefaultContentPadding,
+        DefaultContentPadding, DefaultContentPadding, DefaultContentPadding);
 
     /// <summary>
     /// 編集欄の余白。編集中は画像も生の Markdown 文字列なので、本文が画像1枚でも
     /// 詰めない。詰めると文字が付箋の縁に貼り付いて読めなくなる。
     /// </summary>
-    public Thickness NoteEditorPadding => new(
-        SpineExtent + DefaultContentPadding,
-        DefaultContentPadding, DefaultContentPadding, DefaultContentPadding);
+    public Thickness NoteEditorPadding => NoteTextPadding;
 
     /// <summary>付箋の四隅の丸み。0 なら角のまま。</summary>
     public CornerRadius NoteCornerRadius => new(_settings.Layout.NoteCornerRadius);

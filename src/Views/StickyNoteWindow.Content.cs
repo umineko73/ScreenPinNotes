@@ -388,7 +388,7 @@ public partial class StickyNoteWindow
             ToolTip = imagePath,
             // 前後の行と詰まって見えないよう上下を空ける。画像1枚だけの
             // 付箋には空ける相手がいないので、そのぶんも詰める。
-            Margin = ViewModel.IsImageOnlyContent ? default : new Thickness(0, 3, 0, 3),
+            Margin = ViewModel.UsesTightImageLayout ? default : new Thickness(0, 3, 0, 3),
         };
 
         var widthOverride = GetMarkdownImageWidthOverride(markdownImage);
@@ -496,7 +496,7 @@ public partial class StickyNoteWindow
     /// </summary>
     private bool NeedsScrollBarAllowance(double naturalWidth, double originalWidth, double originalHeight)
     {
-        if (!ViewModel.IsImageOnlyContent) return true;
+        if (!ViewModel.UsesTightImageLayout) return true;
 
         var width = Math.Min(naturalWidth, GetMarkdownImageAvailableWidth(reserveScrollBar: false));
         return originalHeight * width / originalWidth > GetMarkdownImageAvailableHeight();
@@ -507,7 +507,7 @@ public partial class StickyNoteWindow
     /// これも詰める。文字のときは既定のままにして、行頭が縁に寄らないようにする。
     /// </summary>
     private void ApplyDocumentPagePadding()
-        => ContentBox.Document.PagePadding = ViewModel.IsImageOnlyContent
+        => ContentBox.Document.PagePadding = ViewModel.UsesTightImageLayout
             ? default
             : new Thickness(DefaultDocumentPagePadding, 0, DefaultDocumentPagePadding, 0);
 
