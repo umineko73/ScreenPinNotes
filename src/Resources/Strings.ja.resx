@@ -658,8 +658,12 @@
   <data name="SettingsIconColor" xml:space="preserve"><value>アイコンの色</value></data>
   <data name="SettingsMonochromeIcons" xml:space="preserve"><value>モノクロで表示</value></data>
   <data name="SettingsTitleBarSpine" xml:space="preserve"><value>タイトルバー非表示の目印</value></data>
-  <data name="SettingsShowTitleBarSpine" xml:space="preserve"><value>左端に帯を出す</value></data>
+  <data name="SettingsShowTitleBarSpine" xml:space="preserve"><value>左側に帯を出す</value></data>
   <data name="SettingsTitleBarSpineWidth" xml:space="preserve"><value>帯の太さ</value></data>
+  <data name="SettingsTitleBarSpineStyle" xml:space="preserve"><value>帯の位置</value></data>
+  <data name="SettingsTitleBarSpineStyleInset" xml:space="preserve"><value>端から離す</value></data>
+  <data name="SettingsTitleBarSpineStyleEdge" xml:space="preserve"><value>端に付ける</value></data>
+  <data name="SettingsTitleBarSpineInset" xml:space="preserve"><value>端からの距離</value></data>
   <data name="SettingsTheme" xml:space="preserve"><value>テーマ</value></data>
   <data name="SettingsStartup" xml:space="preserve"><value>起動</value></data>
   <data name="SettingsFolding" xml:space="preserve"><value>折りたたみ・展開</value></data>

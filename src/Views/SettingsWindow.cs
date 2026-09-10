@@ -481,9 +481,10 @@ public sealed class SettingsWindow : Window
         return combo;
     }
 
-    // タイトルバーを隠している付箋の左端に出す帯。太さの選択は、帯そのものを
-    // 出さない設定のときは触れないようにする（効かない欄が残ると迷う）。
-    // 行を2つに分けているのは、この画面の入力欄が1本の左端にそろえてあるため。
+    // タイトルバーを隠している付箋の左端に出す帯。太さと置き場所の選択は、
+    // 帯そのものを出さない設定のときは触れないようにする（効かない欄が残ると迷う）。
+    // 端からの距離はさらに、端に貼り付ける従来の置き方では意味を持たないので伏せる。
+    // 行を分けているのは、この画面の入力欄が1本の左端にそろえてあるため。
     private void AddTitleBarSpineRows(StackPanel section)
     {
         var width = Picker(84);
@@ -498,7 +499,6 @@ public sealed class SettingsWindow : Window
             });
             width.SelectedIndex = 0;
         }
-        width.IsEnabled = _settings.ShowTitleBarHiddenSpine;
         width.SelectionChanged += (_, _) =>
         {
             if (_loading || width.SelectedItem is not WpfComboBoxItem { Tag: double size }) return;
@@ -506,14 +506,63 @@ public sealed class SettingsWindow : Window
             Save();
         };
 
+        var inset = Picker(84);
+        foreach (var gap in new[] { 0, 1, 2, 3, 4, 5, 6, 8, 10, 12 })
+            inset.Items.Add(new WpfComboBoxItem { Content = gap.ToString(), Tag = (double)gap });
+        if (!SelectByTag(inset, _settings.Layout.TitleBarHiddenSpineInset))
+        {
+            inset.Items.Insert(0, new WpfComboBoxItem
+            {
+                Content = _settings.Layout.TitleBarHiddenSpineInset.ToString("0.#"),
+                Tag = _settings.Layout.TitleBarHiddenSpineInset,
+            });
+            inset.SelectedIndex = 0;
+        }
+        inset.SelectionChanged += (_, _) =>
+        {
+            if (_loading || inset.SelectedItem is not WpfComboBoxItem { Tag: double gap }) return;
+            _settings.Layout.TitleBarHiddenSpineInset = gap;
+            Save();
+        };
+
+        var style = Picker(160);
+        foreach (var (key, value) in new[]
+                 {
+                     ("SettingsTitleBarSpineStyleInset", AppSettings.SpineStyleInset),
+                     ("SettingsTitleBarSpineStyleEdge", AppSettings.SpineStyleEdge),
+                 })
+            style.Items.Add(new WpfComboBoxItem { Content = LocalizationService.T(key), Tag = value });
+        SelectByTag(style, _settings.TitleBarHiddenSpineStyle);
+
         var toggle = Toggle("SettingsShowTitleBarSpine",
             () => _settings.ShowTitleBarHiddenSpine, v => _settings.ShowTitleBarHiddenSpine = v);
-        void SyncWidthEnabled(object? _, RoutedEventArgs __) => width.IsEnabled = toggle.IsChecked == true;
-        toggle.Checked += SyncWidthEnabled;
-        toggle.Unchecked += SyncWidthEnabled;
+
+        void SyncEnabled()
+        {
+            var shown = toggle.IsChecked == true;
+            width.IsEnabled = shown;
+            style.IsEnabled = shown;
+            inset.IsEnabled = shown
+                && style.SelectedItem is WpfComboBoxItem { Tag: string tag }
+                && !string.Equals(tag, AppSettings.SpineStyleEdge, StringComparison.OrdinalIgnoreCase);
+        }
+
+        style.SelectionChanged += (_, _) =>
+        {
+            SyncEnabled();
+            if (_loading || style.SelectedItem is not WpfComboBoxItem { Tag: string value }) return;
+            if (string.Equals(value, _settings.TitleBarHiddenSpineStyle, StringComparison.OrdinalIgnoreCase)) return;
+            _settings.TitleBarHiddenSpineStyle = value;
+            Save();
+        };
+        toggle.Checked += (_, _) => SyncEnabled();
+        toggle.Unchecked += (_, _) => SyncEnabled();
+        SyncEnabled();
 
         section.Children.Add(LabeledRow("SettingsTitleBarSpine", toggle));
+        section.Children.Add(LabeledRow("SettingsTitleBarSpineStyle", style));
         section.Children.Add(LabeledRow("SettingsTitleBarSpineWidth", width));
+        section.Children.Add(LabeledRow("SettingsTitleBarSpineInset", inset));
     }
 
     // ─── 動作 ────────────────────────────────────────────────────

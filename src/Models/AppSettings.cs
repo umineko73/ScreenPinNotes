@@ -20,6 +20,19 @@ public sealed class AppSettings
     /// <summary>タイトルバーを隠している付箋の左端に、見分けのための帯を出すかどうか。</summary>
     public bool ShowTitleBarHiddenSpine { get; set; } = true;
     /// <summary>
+    /// 帯の置き方。<see cref="SpineStyleInset"/> は端から
+    /// <see cref="LayoutSettings.TitleBarHiddenSpineInset"/> だけ離し、角の丸みに
+    /// 食われないよう上下も詰めて、太さの変わらない1本の縦線として描く。
+    /// <see cref="SpineStyleEdge"/> は従来どおり左端いっぱいに敷く
+    /// （角を丸めていると、その分だけ端が細く見える）。
+    /// </summary>
+    public string TitleBarHiddenSpineStyle { get; set; } = SpineStyleInset;
+
+    /// <summary>左端に貼り付ける従来の帯。</summary>
+    public const string SpineStyleEdge = "Edge";
+    /// <summary>端から少し離し、本文との間に浮かせる帯。</summary>
+    public const string SpineStyleInset = "Inset";
+    /// <summary>
     /// 付箋の外枠の色。<see cref="NoteBorderNone"/> / <see cref="NoteBorderGray"/> /
     /// <see cref="NoteBorderNoteColor"/>、または "#RRGGBB" 形式の色。
     /// </summary>
@@ -166,6 +179,10 @@ public sealed class AppSettings
         // 上限は最小幅140pxの付箋でも本文を圧迫しない範囲。0は「出さない」と
         // 見分けが付かなくなるので、消したいときは ShowTitleBarHiddenSpine を使う。
         Layout.TitleBarHiddenSpineWidth = Math.Clamp(Layout.TitleBarHiddenSpineWidth, 1, 12);
+        // 上限は本文の左余白（Padding 8px）を大きく越えない範囲。これ以上ずらすと
+        // 帯が本文の下に潜り込み、目印として読めなくなる。
+        Layout.TitleBarHiddenSpineInset = Math.Clamp(Layout.TitleBarHiddenSpineInset, 0, 12);
+        TitleBarHiddenSpineStyle = NormalizeSpineStyle(TitleBarHiddenSpineStyle);
         // 上限は付箋の高さが最小のとき（畳んだ1行）でも輪郭が破綻しない範囲。
         Layout.NoteCornerRadius = Math.Clamp(Layout.NoteCornerRadius, 0, 16);
         NoteBorderColor = NormalizeNoteBorderColor(NoteBorderColor);
@@ -181,6 +198,13 @@ public sealed class AppSettings
     }
 
     private static bool Blank(string? value) => string.IsNullOrWhiteSpace(value);
+
+    // 知らない値は既定（端から離す方）に倒す。settings.json を手で書き替えて
+    // 綴りを間違えたときに、帯そのものが消えるより分かりやすい。
+    private static string NormalizeSpineStyle(string? value)
+        => string.Equals(value?.Trim(), SpineStyleEdge, StringComparison.OrdinalIgnoreCase)
+            ? SpineStyleEdge
+            : SpineStyleInset;
 }
 
 /// <summary>新しい付箋の初期値。</summary>
@@ -217,6 +241,12 @@ public sealed class LayoutSettings
     public double RootBorderThickness { get; set; } = 1;
     /// <summary>タイトルバーを隠している付箋の左端に出す帯の太さ。</summary>
     public double TitleBarHiddenSpineWidth { get; set; } = 3;
+    /// <summary>
+    /// 帯を付箋の左端から何ピクセル離すか。既定の3pxは、外枠(1px)と本文の
+    /// 左余白(8px)のちょうど中ほどに3px幅の帯が収まる位置。
+    /// <see cref="AppSettings.SpineStyleInset"/> のときだけ使う。
+    /// </summary>
+    public double TitleBarHiddenSpineInset { get; set; } = 3;
     /// <summary>付箋の四隅の丸み。0 なら角のままにする。</summary>
     public double NoteCornerRadius { get; set; }
     public double NewNoteBaseX { get; set; } = 150;

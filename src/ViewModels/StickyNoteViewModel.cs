@@ -233,6 +233,44 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     /// <summary>左端の縦線の太さ。設定で変えられる。</summary>
     public double TitleSpineWidth => _settings.Layout.TitleBarHiddenSpineWidth;
 
+    /// <summary>付箋の外枠。XAML の RootBorder.BorderThickness と合わせてある。</summary>
+    private const double RootBorderThickness = 1;
+
+    /// <summary>
+    /// 縦線の置き場所。従来（Edge）は左端に貼り付けるだけなので余白は要らない。
+    /// Inset のときは設定ぶん右へずらし、さらに角の丸みで切り抜かれる高さだけ
+    /// 上下を詰める。RootBorder には角丸のクリップが掛かっているので、詰めないと
+    /// 端に行くほど縦線が削られ、太さが一定に見えなくなる。
+    /// </summary>
+    public Thickness TitleSpineMargin
+    {
+        get
+        {
+            if (!UsesInsetSpine) return default;
+
+            var inset = _settings.Layout.TitleBarHiddenSpineInset;
+            var vertical = CornerClipDepth(_settings.Layout.NoteCornerRadius, RootBorderThickness + inset);
+            return new Thickness(inset, vertical, 0, vertical);
+        }
+    }
+
+    private bool UsesInsetSpine =>
+        !string.Equals(_settings.TitleBarHiddenSpineStyle, AppSettings.SpineStyleEdge,
+            StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 半径 <paramref name="radius"/> の角丸から左へ <paramref name="x"/> の位置で、
+    /// 上端が何ピクセル削られるかを返す。円弧の中心は (radius, radius) にあるので、
+    /// そこからの高さの差がそのまま削られる量になる。角の外（x >= radius）なら0。
+    /// </summary>
+    private static double CornerClipDepth(double radius, double x)
+    {
+        if (radius <= 0 || x >= radius) return 0;
+        // クリップは RootBorder の内側なので、外枠の分を引いた位置で見る。
+        var depth = radius - Math.Sqrt((radius * radius) - ((radius - x) * (radius - x)));
+        return Math.Max(0, depth - RootBorderThickness);
+    }
+
     /// <summary>付箋の四隅の丸み。0 なら角のまま。</summary>
     public CornerRadius NoteCornerRadius => new(_settings.Layout.NoteCornerRadius);
 
@@ -369,6 +407,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         UpdateBrushes();
         OnPropertyChanged(nameof(TitleSpineVisibility));
         OnPropertyChanged(nameof(TitleSpineWidth));
+        OnPropertyChanged(nameof(TitleSpineMargin));
         OnPropertyChanged(nameof(NoteCornerRadius));
         OnPropertyChanged(nameof(NoteFlashCornerRadius));
         OnPropertyChanged(nameof(FirstLine));

@@ -185,6 +185,16 @@ public class AppSettingsTests
         Assert.Equal(3, settings.Layout.TitleBarHiddenSpineWidth);
     }
 
+    // 既定は端から離す置き方。端に貼り付ける従来の見た目は設定で戻せる。
+    [Fact]
+    public void Defaults_TitleBarHiddenSpine_SitsOffTheEdge()
+    {
+        var settings = new AppSettings();
+
+        Assert.Equal(AppSettings.SpineStyleInset, settings.TitleBarHiddenSpineStyle);
+        Assert.Equal(3, settings.Layout.TitleBarHiddenSpineInset);
+    }
+
     // 既定は角のまま・枠なし。設定を持たない settings.json もこの見た目になる。
     [Fact]
     public void Defaults_NoteFrame_IsSquareAndBorderless()
@@ -249,5 +259,38 @@ public class AppSettingsTests
         settings.Normalize();
 
         Assert.Equal(expected, settings.Layout.TitleBarHiddenSpineWidth);
+    }
+
+    // 離しすぎると帯が本文の下に潜り込む。0（端に接する）までは許す。
+    [Theory]
+    [InlineData(-4, 0)]
+    [InlineData(0, 0)]
+    [InlineData(3, 3)]
+    [InlineData(12, 12)]
+    [InlineData(40, 12)]
+    public void Normalize_TitleBarHiddenSpineInset_ClampedTo0To12(double input, double expected)
+    {
+        var settings = new AppSettings();
+        settings.Layout.TitleBarHiddenSpineInset = input;
+
+        settings.Normalize();
+
+        Assert.Equal(expected, settings.Layout.TitleBarHiddenSpineInset);
+    }
+
+    // 綴り違いで帯が消えるより、既定の置き方に倒したほうが分かりやすい。
+    [Theory]
+    [InlineData("Edge", AppSettings.SpineStyleEdge)]
+    [InlineData("edge", AppSettings.SpineStyleEdge)]
+    [InlineData("Inset", AppSettings.SpineStyleInset)]
+    [InlineData("", AppSettings.SpineStyleInset)]
+    [InlineData("Floating", AppSettings.SpineStyleInset)]
+    public void Normalize_TitleBarHiddenSpineStyle_FallsBackToInset(string input, string expected)
+    {
+        var settings = new AppSettings { TitleBarHiddenSpineStyle = input };
+
+        settings.Normalize();
+
+        Assert.Equal(expected, settings.TitleBarHiddenSpineStyle);
     }
 }

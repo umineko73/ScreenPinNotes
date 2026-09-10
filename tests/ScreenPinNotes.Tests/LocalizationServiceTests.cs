@@ -62,8 +62,12 @@ public class LocalizationServiceTests
     // タイトルバー非表示の目印を設定画面から変えられるようにしたときのキー。
     [Theory]
     [InlineData("SettingsTitleBarSpine", "Hidden title bar marker", "タイトルバー非表示の目印")]
-    [InlineData("SettingsShowTitleBarSpine", "Show a spine on the left edge", "左端に帯を出す")]
+    [InlineData("SettingsShowTitleBarSpine", "Show a spine on the left side", "左側に帯を出す")]
     [InlineData("SettingsTitleBarSpineWidth", "Spine width", "帯の太さ")]
+    [InlineData("SettingsTitleBarSpineStyle", "Spine placement", "帯の位置")]
+    [InlineData("SettingsTitleBarSpineStyleInset", "Off the edge", "端から離す")]
+    [InlineData("SettingsTitleBarSpineStyleEdge", "Against the edge", "端に付ける")]
+    [InlineData("SettingsTitleBarSpineInset", "Gap from the edge", "端からの距離")]
     [InlineData("SettingsNoteCorner", "Corner radius", "角の丸み")]
     [InlineData("SettingsNoteCornerSquare", "Square", "丸めない")]
     [InlineData("SettingsNoteBorder", "Border color", "枠の色")]

@@ -2001,6 +2001,119 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
+    // 既定では端から離して置く。角を丸めていなければ上下は詰めない
+    // ―― 切り抜かれる分が無く、詰めると本文の途中で切れて見えるため。
+    [WpfFact]
+    public void TitleBarHiddenSpine_SitsOffTheEdgeByDefault()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var settings = new AppSettings();
+        var note = new StickyNote { IsTitleBarHidden = true, Content = "body" };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var spine = Assert.IsType<System.Windows.Shapes.Rectangle>(window.FindName("TitleBarHiddenSpine"));
+            Assert.Equal(3, spine.Margin.Left);
+            Assert.Equal(0, spine.Margin.Top);
+            Assert.Equal(0, spine.Margin.Bottom);
+        }
+        finally { window.Close(); }
+    }
+
+    // 従来の置き方に戻すと、余白なしで左端に貼り付く。
+    [WpfFact]
+    public void TitleBarHiddenSpine_CanGoBackToTheEdge()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var settings = new AppSettings { TitleBarHiddenSpineStyle = AppSettings.SpineStyleEdge };
+        settings.Layout.NoteCornerRadius = 8;
+        var note = new StickyNote { IsTitleBarHidden = true, Content = "body" };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var spine = Assert.IsType<System.Windows.Shapes.Rectangle>(window.FindName("TitleBarHiddenSpine"));
+            Assert.Equal(new Thickness(0), spine.Margin);
+        }
+        finally { window.Close(); }
+    }
+
+    // 角を丸めていると RootBorder の切り抜きが帯の端を削り、端ほど細く見える。
+    // 削られる高さだけ上下を詰めて、太さの変わらない1本の線にする。
+    [WpfTheory]
+    [InlineData(0.0, 3.0)]
+    [InlineData(1.0, 3.0)]
+    [InlineData(8.0, 3.0)]
+    [InlineData(16.0, 3.0)]
+    [InlineData(16.0, 12.0)]
+    public void TitleBarHiddenSpine_ClearsTheRoundedCorner(double radius, double inset)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var settings = new AppSettings();
+        settings.Layout.NoteCornerRadius = radius;
+        settings.Layout.TitleBarHiddenSpineInset = inset;
+        var note = new StickyNote { IsTitleBarHidden = true, Content = "body" };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var spine = Assert.IsType<System.Windows.Shapes.Rectangle>(window.FindName("TitleBarHiddenSpine"));
+
+            // 帯の左辺（外枠1px + 端からの距離）で切り抜きに掛かる高さ。
+            var x = 1 + inset;
+            var expected = radius <= 0 || x >= radius
+                ? 0
+                : System.Math.Max(0, radius - System.Math.Sqrt((radius * radius) - ((radius - x) * (radius - x))) - 1);
+
+            Assert.Equal(expected, spine.Margin.Top, 6);
+            Assert.Equal(expected, spine.Margin.Bottom, 6);
+            Assert.Equal(inset, spine.Margin.Left);
+            // 上下に詰めても、太さそのものは設定どおりのまま。
+            Assert.Equal(settings.Layout.TitleBarHiddenSpineWidth, spine.ActualWidth);
+        }
+        finally { window.Close(); }
+    }
+
+    // 設定画面は開いている付箋へ RefreshSettings() で反映する。
+    [WpfFact]
+    public void TitleBarHiddenSpine_PlacementFollowsASettingsChangeWhileOpen()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var settings = new AppSettings();
+        var note = new StickyNote { IsTitleBarHidden = true, Content = "body" };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var spine = Assert.IsType<System.Windows.Shapes.Rectangle>(window.FindName("TitleBarHiddenSpine"));
+            Assert.Equal(3, spine.Margin.Left);
+
+            settings.Layout.TitleBarHiddenSpineInset = 6;
+            window.RefreshSettings();
+            window.UpdateLayout();
+            Assert.Equal(6, spine.Margin.Left);
+
+            settings.TitleBarHiddenSpineStyle = AppSettings.SpineStyleEdge;
+            window.RefreshSettings();
+            window.UpdateLayout();
+            Assert.Equal(new Thickness(0), spine.Margin);
+        }
+        finally { window.Close(); }
+    }
+
     // 設定画面は開いている付箋へ RefreshSettings() で反映する。
     [WpfFact]
     public void TitleBarHiddenSpine_FollowsASettingsChangeWhileOpen()

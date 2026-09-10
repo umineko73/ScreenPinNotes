@@ -658,8 +658,12 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="SettingsIconColor" xml:space="preserve"><value>Icon color</value></data>
   <data name="SettingsMonochromeIcons" xml:space="preserve"><value>Show in monochrome</value></data>
   <data name="SettingsTitleBarSpine" xml:space="preserve"><value>Hidden title bar marker</value></data>
-  <data name="SettingsShowTitleBarSpine" xml:space="preserve"><value>Show a spine on the left edge</value></data>
+  <data name="SettingsShowTitleBarSpine" xml:space="preserve"><value>Show a spine on the left side</value></data>
   <data name="SettingsTitleBarSpineWidth" xml:space="preserve"><value>Spine width</value></data>
+  <data name="SettingsTitleBarSpineStyle" xml:space="preserve"><value>Spine placement</value></data>
+  <data name="SettingsTitleBarSpineStyleInset" xml:space="preserve"><value>Off the edge</value></data>
+  <data name="SettingsTitleBarSpineStyleEdge" xml:space="preserve"><value>Against the edge</value></data>
+  <data name="SettingsTitleBarSpineInset" xml:space="preserve"><value>Gap from the edge</value></data>
   <data name="SettingsTheme" xml:space="preserve"><value>Theme</value></data>
   <data name="SettingsStartup" xml:space="preserve"><value>Startup</value></data>
   <data name="SettingsFolding" xml:space="preserve"><value>Fold / expand</value></data>

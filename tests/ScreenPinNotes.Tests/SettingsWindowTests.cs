@@ -58,7 +58,7 @@ public class SettingsWindowTests
             window.Show();
             window.UpdateLayout();
             var pickers = Descendants<ComboBox>(window).ToArray();
-            Assert.Equal(9, pickers.Length);
+            Assert.Equal(11, pickers.Length);
             var left = pickers[0].TranslatePoint(new Point(), window).X;
             foreach (var picker in pickers)
             {
@@ -117,9 +117,10 @@ public class SettingsWindowTests
             window.Show();
             window.UpdateLayout();
 
-            // 0 を選べるのは角の丸みの欄だけ（帯の太さは 1 から）。
+            // 0 の次が 2 なのは角の丸みの欄だけ
+            // （帯の太さは 1 から、端からの距離は 0 と 1 の両方を持つ）。
             var corner = Descendants<ComboBox>(window).Single(combo =>
-                combo.Items.Cast<object>().Any(item => item is ComboBoxItem { Tag: 0.0 }));
+                HasTag(combo, 0.0) && !HasTag(combo, 1.0));
             Assert.Equal(radius, Assert.IsType<ComboBoxItem>(corner.SelectedItem).Tag);
 
             var borderPicker = Descendants<ComboBox>(window).Single(combo =>
@@ -180,12 +181,13 @@ public class SettingsWindowTests
             window.UpdateLayout();
 
             var toggle = Descendants<CheckBox>(window).Single(box =>
-                box.Content is TextBlock { Text: "左端に帯を出す" });
+                box.Content is TextBlock { Text: "左側に帯を出す" });
             Assert.Equal(showSpine, toggle.IsChecked);
 
-            // 1px を選べるのは帯の太さの欄だけ（本文の文字サイズは 8 から）。
+            // 1px から始まるのは帯の太さの欄だけ。端からの距離は 0 も選べ、
+            // 本文の文字サイズは 8 から始まる。
             var picker = Descendants<ComboBox>(window).Single(combo =>
-                combo.Items.Cast<object>().Any(item => item is ComboBoxItem { Tag: 1.0 }));
+                HasTag(combo, 1.0) && !HasTag(combo, 0.0));
             Assert.Equal(width, Assert.IsType<ComboBoxItem>(picker.SelectedItem).Tag);
             Assert.Equal(showSpine, picker.IsEnabled);
         }
@@ -195,6 +197,47 @@ public class SettingsWindowTests
             app.Settings.Language = previousLanguage;
         }
     }
+
+    // 帯の位置の欄。端に付ける従来の置き方を選ぶと、端からの距離は効かなくなる。
+    // ここでも書き込み側は走らせない（Save() が本物のデータフォルダへ書き出すため）。
+    [WpfTheory]
+    [InlineData(AppSettings.SpineStyleInset, true)]
+    [InlineData(AppSettings.SpineStyleEdge, false)]
+    public void TitleBarSpinePlacementEditor_ReflectsTheCurrentSettings(string style, bool insetEnabled)
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var previousLanguage = app.Settings.Language;
+        app.Settings.Language = "ja";
+        var settings = new AppSettings { Language = "ja", TitleBarHiddenSpineStyle = style };
+        settings.Layout.TitleBarHiddenSpineInset = 4;
+        var window = new SettingsWindow(settings, app);
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+
+            var placement = Descendants<ComboBox>(window).Single(combo =>
+                combo.Items.Cast<object>().Any(item =>
+                    item is ComboBoxItem entry && Equals(entry.Tag, AppSettings.SpineStyleEdge)));
+            Assert.Equal(style, Assert.IsType<ComboBoxItem>(placement.SelectedItem).Tag);
+            Assert.True(placement.IsEnabled);
+
+            // 0 と 1 の両方を選べるのは端からの距離の欄だけ
+            // （帯の太さは 1 から、角の丸みは 0 の次が 2）。
+            var inset = Descendants<ComboBox>(window).Single(combo =>
+                HasTag(combo, 0.0) && HasTag(combo, 1.0));
+            Assert.Equal(4.0, Assert.IsType<ComboBoxItem>(inset.SelectedItem).Tag);
+            Assert.Equal(insetEnabled, inset.IsEnabled);
+        }
+        finally
+        {
+            window.Close();
+            app.Settings.Language = previousLanguage;
+        }
+    }
+
+    private static bool HasTag(ComboBox combo, double tag) =>
+        combo.Items.Cast<object>().Any(item => item is ComboBoxItem entry && Equals(entry.Tag, tag));
 
     private static IEnumerable<T> Descendants<T>(DependencyObject parent) where T : DependencyObject
     {

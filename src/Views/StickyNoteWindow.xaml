@@ -366,13 +366,16 @@
                  （タイトル未設定なら DisplayTitle が本文1行目に落ちるので、
                  出ている文字まで同じになる）。色や不透明度に左右されない形の
                  手掛かりとして左端に縦線を出す。当たり判定は持たせない
-                 ―― 本文のドラッグと左端の幅リサイズを邪魔しないため。 -->
+                 ―― 本文のドラッグと左端の幅リサイズを邪魔しないため。
+                 既定では端から少し離して本文との間に浮かせる（TitleSpineMargin）。
+                 従来どおり端に貼り付けたいときは設定で戻せる。 -->
             <Rectangle x:Name="TitleBarHiddenSpine"
                        Grid.Row="0" Grid.RowSpan="2"
                        Visibility="{Binding TitleSpineVisibility}"
                        Panel.ZIndex="15"
                        IsHitTestVisible="False"
                        HorizontalAlignment="Left"
+                       Margin="{Binding TitleSpineMargin}"
                        Width="{Binding TitleSpineWidth}"
                        Fill="{Binding HeaderBrush}"/>
 
