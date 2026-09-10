@@ -248,7 +248,7 @@
                      Background="Transparent"
                      BorderThickness="2"
                      BorderBrush="CornflowerBlue"
-                     Padding="{Binding NoteContentPadding}"
+                     Padding="{Binding NoteEditorPadding}"
                      AcceptsReturn="True"
                      AcceptsTab="True"
                      TextWrapping="NoWrap"

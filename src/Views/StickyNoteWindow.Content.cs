@@ -183,6 +183,7 @@ public partial class StickyNoteWindow
         {
             _markdownImageContexts.Clear();
             ContentBox.Document.Blocks.Clear();
+            ApplyDocumentPagePadding();
             _requiredMarkdownPageWidth = 0;
             foreach (var block in MarkdownRenderer.Render(
                 text,
@@ -385,7 +386,9 @@ public partial class StickyNoteWindow
             Source = bitmap,
             Stretch = Stretch.Uniform,
             ToolTip = imagePath,
-            Margin = new Thickness(0, 3, 0, 3),
+            // 前後の行と詰まって見えないよう上下を空ける。画像1枚だけの
+            // 付箋には空ける相手がいないので、そのぶんも詰める。
+            Margin = ViewModel.IsImageOnlyContent ? default : new Thickness(0, 3, 0, 3),
         };
 
         var widthOverride = GetMarkdownImageWidthOverride(markdownImage);
@@ -403,7 +406,8 @@ public partial class StickyNoteWindow
                 : originalWidth;
             // サイズ未指定の画像は、付箋に収まる範囲でだけ縮小する。
             // 元のピクセル寸法より拡大すると、低解像度画像がぼやけてしまう。
-            displayWidth = Math.Min(naturalWidth, GetMarkdownImageAvailableWidth());
+            displayWidth = Math.Min(naturalWidth, GetMarkdownImageAvailableWidth(
+                reserveScrollBar: NeedsScrollBarAllowance(naturalWidth, originalWidth, originalHeight)));
             displayHeight = originalHeight * displayWidth / originalWidth;
             image.Width = displayWidth;
             image.Height = originalHeight * displayWidth / originalWidth;
@@ -466,14 +470,50 @@ public partial class StickyNoteWindow
             ? $"![image]({markdownImage.Target})"
             : $"![{markdownImage.Alt}]({markdownImage.Target})");
 
-    private double GetMarkdownImageAvailableWidth()
+    private const double ScrollbarAllowance = 18;
+
+    private double GetMarkdownImageAvailableWidth(bool reserveScrollBar = true)
     {
         var boxWidth = ContentBox.ActualWidth > 0 ? ContentBox.ActualWidth : Width;
         var padding = ContentBox.Padding.Left + ContentBox.Padding.Right;
         var border = ContentBox.BorderThickness.Left + ContentBox.BorderThickness.Right;
-        const double ScrollbarAllowance = 18;
-        return Math.Max(MarkdownImageMinDisplayWidth, boxWidth - padding - border - ScrollbarAllowance);
+        var allowance = reserveScrollBar ? ScrollbarAllowance : 0;
+        return Math.Max(MarkdownImageMinDisplayWidth, boxWidth - padding - border - allowance);
     }
+
+    private double GetMarkdownImageAvailableHeight()
+    {
+        var boxHeight = ContentBox.ActualHeight > 0 ? ContentBox.ActualHeight : Height;
+        return boxHeight
+            - ContentBox.Padding.Top - ContentBox.Padding.Bottom
+            - ContentBox.BorderThickness.Top - ContentBox.BorderThickness.Bottom;
+    }
+
+    /// <summary>
+    /// 縦スクロールバーの場所を空けておくかどうか。文字が続く付箋では、
+    /// 空けずに広げると後からバーが出たときに画像がはみ出して横スクロールまで
+    /// 増えるので、常に空けておく。画像1枚だけの付箋は高さが読み切れるので、
+    /// 縦に収まりきるときだけ空けずに済ませ、右端の隙間をなくす。
+    /// </summary>
+    private bool NeedsScrollBarAllowance(double naturalWidth, double originalWidth, double originalHeight)
+    {
+        if (!ViewModel.IsImageOnlyContent) return true;
+
+        var width = Math.Min(naturalWidth, GetMarkdownImageAvailableWidth(reserveScrollBar: false));
+        return originalHeight * width / originalWidth > GetMarkdownImageAvailableHeight();
+    }
+
+    /// <summary>
+    /// FlowDocument は既定で左右に 5px の余白を持つ。画像1枚だけの付箋では
+    /// これも詰める。文字のときは既定のままにして、行頭が縁に寄らないようにする。
+    /// </summary>
+    private void ApplyDocumentPagePadding()
+        => ContentBox.Document.PagePadding = ViewModel.IsImageOnlyContent
+            ? default
+            : new Thickness(DefaultDocumentPagePadding, 0, DefaultDocumentPagePadding, 0);
+
+    /// <summary>RichTextBox が FlowDocument に与える左右余白の既定値。</summary>
+    private const double DefaultDocumentPagePadding = 5;
 
     private sealed record MarkdownImageContext(
         int LineIndex,

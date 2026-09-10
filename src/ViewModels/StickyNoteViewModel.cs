@@ -51,6 +51,9 @@ public class StickyNoteViewModel : INotifyPropertyChanged
             OnPropertyChanged();
             OnPropertyChanged(nameof(FirstLine));
             OnPropertyChanged(nameof(DisplayTitle));
+            // 画像1枚だけかどうかで本文の余白が変わる。
+            OnPropertyChanged(nameof(IsImageOnlyContent));
+            OnPropertyChanged(nameof(NoteContentPadding));
         }
     }
 
@@ -209,6 +212,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(TitleBarVisibility));
             OnPropertyChanged(nameof(TitleSpineVisibility));
             OnPropertyChanged(nameof(NoteContentPadding));
+            OnPropertyChanged(nameof(NoteEditorPadding));
             OnPropertyChanged(nameof(ContentFontSize));
         }
     }
@@ -297,23 +301,47 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     /// <summary>帯が出ていないときの本文の余白。XAML の既定値と合わせてある。</summary>
     private const double DefaultContentPadding = 8;
 
+    /// <summary>本文が画像1枚だけか。余白の詰め方が変わる。</summary>
+    public bool IsImageOnlyContent => MarkdownRenderer.GetImageOnlyTarget(Content) != null;
+
+    /// <summary>帯の右端までの幅。帯を出していないときは0。</summary>
+    private double SpineExtent =>
+        TitleSpineVisibility != Visibility.Visible
+            ? 0
+            : SpineInset + _settings.Layout.TitleBarHiddenSpineWidth;
+
+    private double SpineInset =>
+        UsesInsetSpine ? _settings.Layout.TitleBarHiddenSpineInset : 0;
+
     /// <summary>
     /// 本文の余白。帯を出しているときは、帯とその手前の余白ぶんだけ左を広げ、
     /// 帯の右側にも余白と同じ間隔を残す。広げないと帯と文字が数ピクセルまで
     /// 近づき、目印ではなく本文の飾り罫のように見えてしまう。
+    ///
+    /// ただし本文が画像1枚だけのときは、余白を詰めて画像を目一杯見せる。
+    /// 文字と違って画像は余白の中で読むものではなく、付箋を画像の額縁として
+    /// 使うことのほうが多い。帯を出しているときだけ、帯とその左右の隙間ぶんを残す。
     /// </summary>
     public Thickness NoteContentPadding
     {
         get
         {
-            if (TitleSpineVisibility != Visibility.Visible)
-                return new Thickness(DefaultContentPadding);
+            if (IsImageOnlyContent)
+                return new Thickness(SpineExtent > 0 ? SpineExtent + SpineInset : 0, 0, 0, 0);
 
-            var inset = UsesInsetSpine ? _settings.Layout.TitleBarHiddenSpineInset : 0;
-            var left = inset + _settings.Layout.TitleBarHiddenSpineWidth + DefaultContentPadding;
-            return new Thickness(left, DefaultContentPadding, DefaultContentPadding, DefaultContentPadding);
+            return new Thickness(
+                SpineExtent + DefaultContentPadding,
+                DefaultContentPadding, DefaultContentPadding, DefaultContentPadding);
         }
     }
+
+    /// <summary>
+    /// 編集欄の余白。編集中は画像も生の Markdown 文字列なので、本文が画像1枚でも
+    /// 詰めない。詰めると文字が付箋の縁に貼り付いて読めなくなる。
+    /// </summary>
+    public Thickness NoteEditorPadding => new(
+        SpineExtent + DefaultContentPadding,
+        DefaultContentPadding, DefaultContentPadding, DefaultContentPadding);
 
     /// <summary>付箋の四隅の丸み。0 なら角のまま。</summary>
     public CornerRadius NoteCornerRadius => new(_settings.Layout.NoteCornerRadius);
@@ -454,6 +482,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(TitleSpineMargin));
         OnPropertyChanged(nameof(TitleSpineHandleWidth));
         OnPropertyChanged(nameof(NoteContentPadding));
+        OnPropertyChanged(nameof(NoteEditorPadding));
         OnPropertyChanged(nameof(NoteCornerRadius));
         OnPropertyChanged(nameof(NoteFlashCornerRadius));
         OnPropertyChanged(nameof(FirstLine));

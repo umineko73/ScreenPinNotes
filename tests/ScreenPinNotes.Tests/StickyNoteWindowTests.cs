@@ -660,9 +660,7 @@ public class StickyNoteWindowTests
         EnsureApplication();
         using var temp = new TempDataDirectory();
         const string path = "assets/very-long-folder-name/0月写真/image.png";
-        // 帯を出している付箋は本文の左余白がその分だけ広い。アイコンの有無で
-        // 省略の仕方が変わるだけの幅を残すため、余白のぶんを足しておく。
-        var note = new StickyNote { Content = $"![写真]({path})", IsFolded = true, IsTitleBarHidden = true, Width = 171 };
+        var note = new StickyNote { Content = $"![写真]({path})", IsFolded = true, IsTitleBarHidden = true, Width = 165 };
         var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
         try
         {
@@ -2126,6 +2124,125 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
+    // 画像1枚だけの付箋は、付箋を画像の額縁として使うことが多い。文字と違って
+    // 余白の中で読むものではないので、帯の場所以外は詰めて画像を目一杯見せる。
+    [WpfTheory]
+    [InlineData(true, 9.0)]    // 端からの距離3px + 帯3px + 帯の右にも3px
+    [InlineData(false, 0.0)]   // 帯が無ければ避けるものが無い
+    public void NoteContentPadding_TightensForAnImageOnlyNote(bool showSpine, double expectedLeft)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var settings = new AppSettings { ShowTitleBarHiddenSpine = showSpine };
+        var note = new StickyNote
+        {
+            Width = 400,
+            Height = 300,
+            IsTitleBarHidden = true,
+            Content = "![](assets/pasted.png)",
+        };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        SavePng(System.IO.Path.Combine(assetsDir, "pasted.png"), CreateBitmapSource());
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, settings), storage);
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            InvokePrivate(window, "LoadContent", note.Content);
+            window.UpdateLayout();
+            var box = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            var editor = Assert.IsType<TextBox>(window.FindName("BodyEditBox"));
+
+            Assert.Equal(new Thickness(expectedLeft, 0, 0, 0), box.Padding);
+            // FlowDocument が既定で持つ左右5pxの余白も詰める。
+            Assert.Equal(new Thickness(0), box.Document.PagePadding);
+            // 画像の上下の空きも、隣り合う行が無いので要らない。
+            Assert.Equal(new Thickness(0), Assert.Single(EnumerateImages(box.Document)).Margin);
+
+            // 編集中は生の Markdown 文字列なので、編集欄は詰めない。
+            Assert.Equal(showSpine ? 14 : 8, editor.Padding.Left);
+            Assert.Equal(8, editor.Padding.Top);
+        }
+        finally { window.Close(); }
+    }
+
+    // 画像の前後に文字があれば普通の本文。詰めると文字が縁に貼り付く。
+    [WpfFact]
+    public void NoteContentPadding_StaysNormalWhenTextSurroundsTheImage()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote
+        {
+            Width = 400,
+            Height = 300,
+            IsTitleBarHidden = true,
+            Content = "見出し\n![](assets/pasted.png)",
+        };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        SavePng(System.IO.Path.Combine(assetsDir, "pasted.png"), CreateBitmapSource());
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), storage);
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            InvokePrivate(window, "LoadContent", note.Content);
+            window.UpdateLayout();
+            var box = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+
+            Assert.Equal(new Thickness(14, 8, 8, 8), box.Padding);
+            Assert.Equal(new Thickness(5, 0, 5, 0), box.Document.PagePadding);
+            Assert.Equal(new Thickness(0, 3, 0, 3), Assert.Single(EnumerateImages(box.Document)).Margin);
+        }
+        finally { window.Close(); }
+    }
+
+    // 縦スクロールバーの場所を空けるかどうか。空けたままだと右端に18px残る。
+    // 縦に収まりきる画像なら空けずに済ませ、収まらない画像では空けておく
+    // （空けずに広げると、後からバーが出て画像がはみ出し横スクロールまで増える）。
+    [WpfTheory]
+    // どちらも付箋より横に大きく、幅に合わせて縮小される画像。
+    [InlineData(800, 300, false)]     // 横長。縮めても縦に収まるので右端まで使う
+    [InlineData(800, 2000, true)]     // 縦長。バーが出るので場所を空ける
+    public void ImageOnlyNote_ReservesScrollBarRoomOnlyWhenItNeedsIt(
+        int pixelWidth, int pixelHeight, bool reservesRoom)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote
+        {
+            Width = 400,
+            Height = 300,
+            IsTitleBarHidden = true,
+            Content = "![](assets/pasted.png)",
+        };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        SavePng(System.IO.Path.Combine(assetsDir, "pasted.png"), CreateSolidBitmapSource(pixelWidth, pixelHeight));
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), storage);
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            InvokePrivate(window, "LoadContent", note.Content);
+            window.UpdateLayout();
+            var box = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            var image = Assert.Single(EnumerateImages(box.Document));
+
+            var rightGap = box.ActualWidth - box.Padding.Left - image.Width;
+            if (reservesRoom)
+                Assert.Equal(18, rightGap, 1);
+            else
+                Assert.Equal(0, rightGap, 1);
+        }
+        finally { window.Close(); }
+    }
+
     // タイトルバーを出している付箋には帯が無いので、余白は元のままでよい。
     [WpfFact]
     public void NoteContentPadding_StaysNarrowWhileTheTitleBarIsShown()
@@ -2847,6 +2964,16 @@ public class StickyNoteWindowTests
             null,
             pixels,
             8);
+    }
+
+    // 付箋より大きく引き伸ばされる画像。縮小の掛かり方を見るテストで使う。
+    private static System.Windows.Media.Imaging.BitmapSource CreateSolidBitmapSource(int width, int height)
+    {
+        var pixels = new byte[width * height * 4];
+        for (var i = 0; i < pixels.Length; i++) pixels[i] = 255;
+        return System.Windows.Media.Imaging.BitmapSource.Create(
+            width, height, 96, 96,
+            System.Windows.Media.PixelFormats.Bgra32, null, pixels, width * 4);
     }
 
     private static void SavePng(string path, System.Windows.Media.Imaging.BitmapSource bitmap)
