@@ -238,9 +238,10 @@ public class StickyNoteViewModel : INotifyPropertyChanged
 
     /// <summary>
     /// 縦線の置き場所。従来（Edge）は左端に貼り付けるだけなので余白は要らない。
-    /// Inset のときは設定ぶん右へずらし、さらに角の丸みで切り抜かれる高さだけ
-    /// 上下を詰める。RootBorder には角丸のクリップが掛かっているので、詰めないと
-    /// 端に行くほど縦線が削られ、太さが一定に見えなくなる。
+    /// Inset のときは設定ぶん右へずらし、上下も同じだけ空けて、四方に等しい
+    /// 余白を持つ1本の線にする。角を大きく丸めていて、それだけでは
+    /// RootBorder の角丸クリップに端が削られてしまうときは、削られる高さまで
+    /// 上下を広げる（削られると端に行くほど細く見え、太さが一定にならない）。
     /// </summary>
     public Thickness TitleSpineMargin
     {
@@ -249,8 +250,29 @@ public class StickyNoteViewModel : INotifyPropertyChanged
             if (!UsesInsetSpine) return default;
 
             var inset = _settings.Layout.TitleBarHiddenSpineInset;
-            var vertical = CornerClipDepth(_settings.Layout.NoteCornerRadius, RootBorderThickness + inset);
+            var vertical = Math.Max(
+                inset,
+                CornerClipDepth(_settings.Layout.NoteCornerRadius, RootBorderThickness + inset));
             return new Thickness(inset, vertical, 0, vertical);
+        }
+    }
+
+    /// <summary>付箋を掴んで動かせる幅がこれだけ残るように、透明な板を右へ広げる。</summary>
+    private const double MinSpineGrabWidth = 6;
+
+    /// <summary>
+    /// 縦線を掴んで付箋を動かすための、帯に重ねる透明な板の幅。帯そのものは
+    /// 数ピクセルしかなく、しかも左端は幅リサイズの当たり判定（Layout.ResizeBorder）に
+    /// 食われてマウスが届かない。届かない分だけ右へ広げ、掴める幅を確保する。
+    /// 広げた先は本文の左余白（Padding 8px）なので、本文の文字には被らない。
+    /// </summary>
+    public double TitleSpineHandleWidth
+    {
+        get
+        {
+            var inset = UsesInsetSpine ? _settings.Layout.TitleBarHiddenSpineInset : 0;
+            var deadZone = Math.Max(0, _settings.Layout.ResizeBorder - RootBorderThickness - inset);
+            return Math.Max(_settings.Layout.TitleBarHiddenSpineWidth, deadZone + MinSpineGrabWidth);
         }
     }
 
@@ -408,6 +430,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(TitleSpineVisibility));
         OnPropertyChanged(nameof(TitleSpineWidth));
         OnPropertyChanged(nameof(TitleSpineMargin));
+        OnPropertyChanged(nameof(TitleSpineHandleWidth));
         OnPropertyChanged(nameof(NoteCornerRadius));
         OnPropertyChanged(nameof(NoteFlashCornerRadius));
         OnPropertyChanged(nameof(FirstLine));

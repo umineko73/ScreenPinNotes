@@ -2001,8 +2001,7 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
-    // 既定では端から離して置く。角を丸めていなければ上下は詰めない
-    // ―― 切り抜かれる分が無く、詰めると本文の途中で切れて見えるため。
+    // 既定では端から離して置く。上下も左と同じだけ空け、四方の余白をそろえる。
     [WpfFact]
     public void TitleBarHiddenSpine_SitsOffTheEdgeByDefault()
     {
@@ -2018,8 +2017,15 @@ public class StickyNoteWindowTests
             window.UpdateLayout();
             var spine = Assert.IsType<System.Windows.Shapes.Rectangle>(window.FindName("TitleBarHiddenSpine"));
             Assert.Equal(3, spine.Margin.Left);
-            Assert.Equal(0, spine.Margin.Top);
-            Assert.Equal(0, spine.Margin.Bottom);
+            Assert.Equal(3, spine.Margin.Top);
+            Assert.Equal(3, spine.Margin.Bottom);
+
+            // 掴むための透明な板が右へはみ出す先は本文の左余白まで。
+            // 外枠(1px) + 端からの距離 + 板の幅 が、本文の文字が始まる位置
+            // （外枠 + ContentBox の Padding 8px）を大きく越えないこと。
+            var handle = Assert.IsType<Border>(window.FindName("TitleBarHiddenSpineHandle"));
+            Assert.True(1 + 3 + handle.ActualWidth <= 1 + 8 + 2,
+                $"grab handle reaches {1 + 3 + handle.ActualWidth}px into the note");
         }
         finally { window.Close(); }
     }
@@ -2045,13 +2051,14 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
-    // 角を丸めていると RootBorder の切り抜きが帯の端を削り、端ほど細く見える。
-    // 削られる高さだけ上下を詰めて、太さの変わらない1本の線にする。
+    // 上下は左と同じだけ空けるのが基本。ただし角を大きく丸めていると、それでも
+    // RootBorder の切り抜きが帯の端を削り、端ほど細く見えてしまう。
+    // そのときは削られる高さまで広げて、太さの変わらない1本の線にする。
     [WpfTheory]
     [InlineData(0.0, 3.0)]
     [InlineData(1.0, 3.0)]
     [InlineData(8.0, 3.0)]
-    [InlineData(16.0, 3.0)]
+    [InlineData(16.0, 3.0)]   // 切り抜きのほうが深く、距離より広く空ける
     [InlineData(16.0, 12.0)]
     public void TitleBarHiddenSpine_ClearsTheRoundedCorner(double radius, double inset)
     {
@@ -2071,15 +2078,117 @@ public class StickyNoteWindowTests
 
             // 帯の左辺（外枠1px + 端からの距離）で切り抜きに掛かる高さ。
             var x = 1 + inset;
-            var expected = radius <= 0 || x >= radius
+            var clipped = radius <= 0 || x >= radius
                 ? 0
                 : System.Math.Max(0, radius - System.Math.Sqrt((radius * radius) - ((radius - x) * (radius - x))) - 1);
+            var expected = System.Math.Max(inset, clipped);
 
             Assert.Equal(expected, spine.Margin.Top, 6);
             Assert.Equal(expected, spine.Margin.Bottom, 6);
             Assert.Equal(inset, spine.Margin.Left);
             // 上下に詰めても、太さそのものは設定どおりのまま。
             Assert.Equal(settings.Layout.TitleBarHiddenSpineWidth, spine.ActualWidth);
+        }
+        finally { window.Close(); }
+    }
+
+    // 帯そのものは細すぎて狙えないので、当たり判定は下に敷いた透明な板が持つ。
+    // 板は帯と同じ位置から始まり、幅リサイズの当たり判定に食われる分だけ
+    // 右へ広がる。広がった先は本文の左余白（Padding 8px）までに収まる。
+    [WpfTheory]
+    [InlineData(3.0, 7.0)]    // 左端 4px のうち 1px がリサイズ枠。6px 掴めるまで広げる
+    [InlineData(0.0, 10.0)]   // 端に寄せるほどリサイズ枠に食われ、広げる量が増える
+    [InlineData(8.0, 6.0)]    // リサイズ枠の外まで離れていれば、最低限の幅で足りる
+    public void TitleBarHiddenSpineHandle_LeavesRoomToGrab(double inset, double expectedWidth)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var settings = new AppSettings();
+        settings.Layout.TitleBarHiddenSpineInset = inset;
+        var note = new StickyNote { IsTitleBarHidden = true, Content = "body" };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var spine = Assert.IsType<System.Windows.Shapes.Rectangle>(window.FindName("TitleBarHiddenSpine"));
+            var handle = Assert.IsType<Border>(window.FindName("TitleBarHiddenSpineHandle"));
+
+            Assert.True(handle.IsHitTestVisible);
+            Assert.False(spine.IsHitTestVisible);
+            Assert.Equal(spine.Visibility, handle.Visibility);
+            Assert.Equal(spine.Margin, handle.Margin);
+            Assert.Equal(expectedWidth, handle.ActualWidth);
+        }
+        finally { window.Close(); }
+    }
+
+    // 帯を押すとタイトルバーと同じドラッグが始まり、離すと終わる。
+    [WpfFact]
+    public void TitleBarHiddenSpineHandle_StartsAndEndsADrag()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var settings = new AppSettings();
+        var note = new StickyNote { IsTitleBarHidden = true, Content = "body" };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var handle = Assert.IsType<Border>(window.FindName("TitleBarHiddenSpineHandle"));
+
+            var down = new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left)
+            {
+                RoutedEvent = UIElement.MouseLeftButtonDownEvent,
+                Source = handle,
+            };
+            handle.RaiseEvent(down);
+            Assert.True(down.Handled);
+            Assert.True(GetPrivateField<bool>(window, "_isDragging"));
+            Assert.True(GetPrivateField<bool>(window, "_isDraggingSpine"));
+
+            var up = new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left)
+            {
+                RoutedEvent = UIElement.MouseLeftButtonUpEvent,
+                Source = handle,
+            };
+            handle.RaiseEvent(up);
+            Assert.True(up.Handled);
+            Assert.False(GetPrivateField<bool>(window, "_isDragging"));
+            Assert.False(GetPrivateField<bool>(window, "_isDraggingSpine"));
+        }
+        finally { window.Close(); }
+    }
+
+    // キャプチャを横取りされたまま _isDragging が残ると、次に触れただけで動く。
+    [WpfFact]
+    public void TitleBarHiddenSpineHandle_DropsTheDragWhenCaptureIsLost()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var settings = new AppSettings();
+        var note = new StickyNote { IsTitleBarHidden = true, Content = "body" };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var handle = Assert.IsType<Border>(window.FindName("TitleBarHiddenSpineHandle"));
+
+            handle.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left)
+            {
+                RoutedEvent = UIElement.MouseLeftButtonDownEvent,
+                Source = handle,
+            });
+            Assert.True(GetPrivateField<bool>(window, "_isDragging"));
+
+            handle.ReleaseMouseCapture();
+            Assert.False(GetPrivateField<bool>(window, "_isDragging"));
+            Assert.False(GetPrivateField<bool>(window, "_isDraggingSpine"));
         }
         finally { window.Close(); }
     }
@@ -2105,6 +2214,7 @@ public class StickyNoteWindowTests
             window.RefreshSettings();
             window.UpdateLayout();
             Assert.Equal(6, spine.Margin.Left);
+            Assert.Equal(6, spine.Margin.Top);
 
             settings.TitleBarHiddenSpineStyle = AppSettings.SpineStyleEdge;
             window.RefreshSettings();

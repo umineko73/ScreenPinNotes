@@ -29,7 +29,7 @@ Title bar visibility and collapse/expand are independent settings.
 | Hidden | Body with controls at the top right | First body line without Markdown formatting |
 
 - Toggle the title bar with **Hide title bar** in the context menu.
-- A note with a hidden title bar carries a spine down its left side. Collapsed, it looks like any note showing only its title bar, so the spine tells them apart. **Hidden title bar marker** in settings turns it off, changes its width (1-12px), and picks how it sits: *Off the edge* keeps an even line in the gap between the edge and the body (0-12px away, 3px by default), while *Against the edge* restores the older look that hugs the edge and tapers where the corners are rounded.
+- A note with a hidden title bar carries a spine down its left side. Collapsed, it looks like any note showing only its title bar, so the spine tells them apart. **Hidden title bar marker** in settings turns it off, changes its width (1-12px), and picks how it sits: *Off the edge* keeps an even line in the gap between the edge and the body, with the same gap above and below it (0-12px away, 3px by default), while *Against the edge* restores the older look that hugs the edge and tapers where the corners are rounded. Either way the spine doubles as a grab handle: drag it to move the note, the same as dragging a title bar.
 - Use `⮝` / `⮟` or double-click the title bar to collapse or expand.
 - Image-only notes show their image path in single-line mode. Narrow notes retain the end, such as `…/photos/image.png`.
 - An empty title falls back to the body. A title you enter takes priority.

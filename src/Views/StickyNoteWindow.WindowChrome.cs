@@ -235,6 +235,44 @@ public partial class StickyNoteWindow
         _dragSeparatesFoldedPosition = false;
     }
 
+    // タイトルバーを隠していると、掴んで動かせる場所が本文しかない
+    // （しかも畳んでいるときだけ）。左の帯もタイトルバーと同じ持ち手にする。
+    // 帯の下に敷いた透明な板が受け取り、処理はタイトルバーへそのまま渡す。
+    private void SpineHandle_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        TitleBar_MouseLeftButtonDown(sender, e);
+        // 折りたたみ切り替えの経路を通ったときはドラッグにならない。
+        _isDraggingSpine = _isDragging;
+        e.Handled = true;
+    }
+
+    private void SpineHandle_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (!_isDraggingSpine) return;
+        TitleBar_MouseMove(sender, e);
+        e.Handled = true;
+    }
+
+    // 先に降ろしておく。TitleBar_MouseLeftButtonUp がキャプチャを返した時点で
+    // LostMouseCapture が同期的に飛び、位置を保存する前に _isDragging を
+    // 落とされてしまうため。
+    private void SpineHandle_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        _isDraggingSpine = false;
+        TitleBar_MouseLeftButtonUp(sender, e);
+        e.Handled = true;
+    }
+
+    private void SpineHandle_LostMouseCapture(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        // キャプチャを外されたまま _isDragging が残ると、次に触れただけで動く。
+        if (!_isDraggingSpine) return;
+        _isDraggingSpine = false;
+        _isDragging = false;
+        _dragMoved = false;
+        _dragSeparatesFoldedPosition = false;
+    }
+
     private void RootBorder_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
     {
         ViewModel.SetHovered(true);

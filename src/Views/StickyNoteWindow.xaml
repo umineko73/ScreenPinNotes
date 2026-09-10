@@ -368,7 +368,24 @@
                  手掛かりとして左端に縦線を出す。当たり判定は持たせない
                  ―― 本文のドラッグと左端の幅リサイズを邪魔しないため。
                  既定では端から少し離して本文との間に浮かせる（TitleSpineMargin）。
-                 従来どおり端に貼り付けたいときは設定で戻せる。 -->
+                 従来どおり端に貼り付けたいときは設定で戻せる。
+                 掴んで動かす当たり判定は、下に敷いた透明な板が引き受ける
+                 （帯そのものは細すぎて狙えない）。 -->
+            <Border x:Name="TitleBarHiddenSpineHandle"
+                    Grid.Row="0" Grid.RowSpan="2"
+                    Visibility="{Binding TitleSpineVisibility}"
+                    Panel.ZIndex="14"
+                    Background="Transparent"
+                    Cursor="SizeAll"
+                    HorizontalAlignment="Left"
+                    Margin="{Binding TitleSpineMargin}"
+                    Width="{Binding TitleSpineHandleWidth}"
+                    ToolTip="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=MoveNoteTooltip}"
+                    MouseLeftButtonDown="SpineHandle_MouseLeftButtonDown"
+                    MouseMove="SpineHandle_MouseMove"
+                    MouseLeftButtonUp="SpineHandle_MouseLeftButtonUp"
+                    LostMouseCapture="SpineHandle_LostMouseCapture"/>
+
             <Rectangle x:Name="TitleBarHiddenSpine"
                        Grid.Row="0" Grid.RowSpan="2"
                        Visibility="{Binding TitleSpineVisibility}"
