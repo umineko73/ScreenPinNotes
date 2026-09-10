@@ -208,6 +208,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
             OnPropertyChanged();
             OnPropertyChanged(nameof(TitleBarVisibility));
             OnPropertyChanged(nameof(TitleSpineVisibility));
+            OnPropertyChanged(nameof(NoteContentPadding));
             OnPropertyChanged(nameof(ContentFontSize));
         }
     }
@@ -232,6 +233,11 @@ public class StickyNoteViewModel : INotifyPropertyChanged
 
     /// <summary>左端の縦線の太さ。設定で変えられる。</summary>
     public double TitleSpineWidth => _settings.Layout.TitleBarHiddenSpineWidth;
+
+    /// <summary>帯の左余白6pxと幅を避け、本文まで8pxの間隔を保つ。</summary>
+    public Thickness NoteContentPadding => new(
+        TitleSpineVisibility == Visibility.Visible ? 6 + TitleSpineWidth + 8 : 8,
+        8, 8, 8);
 
     /// <summary>付箋の四隅の丸み。0 なら角のまま。</summary>
     public CornerRadius NoteCornerRadius => new(_settings.Layout.NoteCornerRadius);
@@ -369,6 +375,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         UpdateBrushes();
         OnPropertyChanged(nameof(TitleSpineVisibility));
         OnPropertyChanged(nameof(TitleSpineWidth));
+        OnPropertyChanged(nameof(NoteContentPadding));
         OnPropertyChanged(nameof(NoteCornerRadius));
         OnPropertyChanged(nameof(NoteFlashCornerRadius));
         OnPropertyChanged(nameof(FirstLine));

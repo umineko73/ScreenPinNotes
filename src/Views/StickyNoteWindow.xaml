@@ -210,7 +210,7 @@
                          Foreground="{Binding TextForeground}"
                          Background="Transparent"
                          BorderThickness="0"
-                         Padding="8"
+                         Padding="{Binding NoteContentPadding}"
                          AcceptsReturn="True"
                          AcceptsTab="True"
                          IsReadOnly="True"
@@ -248,7 +248,7 @@
                      Background="Transparent"
                      BorderThickness="2"
                      BorderBrush="CornflowerBlue"
-                     Padding="8"
+                     Padding="{Binding NoteContentPadding}"
                      AcceptsReturn="True"
                      AcceptsTab="True"
                      TextWrapping="NoWrap"
@@ -365,7 +365,7 @@
                  出している付箋との違いがアイコンの左右だけになり見分けが付かない
                  （タイトル未設定なら DisplayTitle が本文1行目に落ちるので、
                  出ている文字まで同じになる）。色や不透明度に左右されない形の
-                 手掛かりとして左端に縦線を出す。当たり判定は持たせない
+                 手掛かりとして左端から離した丸い帯を出す。当たり判定は持たせない
                  ―― 本文のドラッグと左端の幅リサイズを邪魔しないため。 -->
             <Rectangle x:Name="TitleBarHiddenSpine"
                        Grid.Row="0" Grid.RowSpan="2"
@@ -373,6 +373,8 @@
                        Panel.ZIndex="15"
                        IsHitTestVisible="False"
                        HorizontalAlignment="Left"
+                       Margin="6,6,0,6"
+                       RadiusX="99" RadiusY="99"
                        Width="{Binding TitleSpineWidth}"
                        Fill="{Binding HeaderBrush}"/>
 
