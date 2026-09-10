@@ -208,6 +208,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
             OnPropertyChanged();
             OnPropertyChanged(nameof(TitleBarVisibility));
             OnPropertyChanged(nameof(TitleSpineVisibility));
+            OnPropertyChanged(nameof(NoteContentPadding));
             OnPropertyChanged(nameof(ContentFontSize));
         }
     }
@@ -264,7 +265,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     /// 縦線を掴んで付箋を動かすための、帯に重ねる透明な板の幅。帯そのものは
     /// 数ピクセルしかなく、しかも左端は幅リサイズの当たり判定（Layout.ResizeBorder）に
     /// 食われてマウスが届かない。届かない分だけ右へ広げ、掴める幅を確保する。
-    /// 広げた先は本文の左余白（Padding 8px）なので、本文の文字には被らない。
+    /// 広げた先は本文の左余白（NoteContentPadding）の中なので、文字には被らない。
     /// </summary>
     public double TitleSpineHandleWidth
     {
@@ -291,6 +292,27 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         // クリップは RootBorder の内側なので、外枠の分を引いた位置で見る。
         var depth = radius - Math.Sqrt((radius * radius) - ((radius - x) * (radius - x)));
         return Math.Max(0, depth - RootBorderThickness);
+    }
+
+    /// <summary>帯が出ていないときの本文の余白。XAML の既定値と合わせてある。</summary>
+    private const double DefaultContentPadding = 8;
+
+    /// <summary>
+    /// 本文の余白。帯を出しているときは、帯とその手前の余白ぶんだけ左を広げ、
+    /// 帯の右側にも余白と同じ間隔を残す。広げないと帯と文字が数ピクセルまで
+    /// 近づき、目印ではなく本文の飾り罫のように見えてしまう。
+    /// </summary>
+    public Thickness NoteContentPadding
+    {
+        get
+        {
+            if (TitleSpineVisibility != Visibility.Visible)
+                return new Thickness(DefaultContentPadding);
+
+            var inset = UsesInsetSpine ? _settings.Layout.TitleBarHiddenSpineInset : 0;
+            var left = inset + _settings.Layout.TitleBarHiddenSpineWidth + DefaultContentPadding;
+            return new Thickness(left, DefaultContentPadding, DefaultContentPadding, DefaultContentPadding);
+        }
     }
 
     /// <summary>付箋の四隅の丸み。0 なら角のまま。</summary>
@@ -431,6 +453,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(TitleSpineWidth));
         OnPropertyChanged(nameof(TitleSpineMargin));
         OnPropertyChanged(nameof(TitleSpineHandleWidth));
+        OnPropertyChanged(nameof(NoteContentPadding));
         OnPropertyChanged(nameof(NoteCornerRadius));
         OnPropertyChanged(nameof(NoteFlashCornerRadius));
         OnPropertyChanged(nameof(FirstLine));

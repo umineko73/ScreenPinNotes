@@ -660,7 +660,9 @@ public class StickyNoteWindowTests
         EnsureApplication();
         using var temp = new TempDataDirectory();
         const string path = "assets/very-long-folder-name/0月写真/image.png";
-        var note = new StickyNote { Content = $"![写真]({path})", IsFolded = true, IsTitleBarHidden = true, Width = 165 };
+        // 帯を出している付箋は本文の左余白がその分だけ広い。アイコンの有無で
+        // 省略の仕方が変わるだけの幅を残すため、余白のぶんを足しておく。
+        var note = new StickyNote { Content = $"![写真]({path})", IsFolded = true, IsTitleBarHidden = true, Width = 171 };
         var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
         try
         {
@@ -2020,12 +2022,13 @@ public class StickyNoteWindowTests
             Assert.Equal(3, spine.Margin.Top);
             Assert.Equal(3, spine.Margin.Bottom);
 
-            // 掴むための透明な板が右へはみ出す先は本文の左余白まで。
-            // 外枠(1px) + 端からの距離 + 板の幅 が、本文の文字が始まる位置
-            // （外枠 + ContentBox の Padding 8px）を大きく越えないこと。
+            // 掴むための透明な板が右へはみ出す先は本文の左余白の中まで。
+            // 端からの距離 + 板の幅 が、本文の文字が始まる位置
+            // （ContentBox の Padding.Left）を越えないこと。
             var handle = Assert.IsType<Border>(window.FindName("TitleBarHiddenSpineHandle"));
-            Assert.True(1 + 3 + handle.ActualWidth <= 1 + 8 + 2,
-                $"grab handle reaches {1 + 3 + handle.ActualWidth}px into the note");
+            var box = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            Assert.True(3 + handle.ActualWidth <= box.Padding.Left,
+                $"grab handle reaches {3 + handle.ActualWidth}px, text starts at {box.Padding.Left}px");
         }
         finally { window.Close(); }
     }
@@ -2088,6 +2091,62 @@ public class StickyNoteWindowTests
             Assert.Equal(inset, spine.Margin.Left);
             // 上下に詰めても、太さそのものは設定どおりのまま。
             Assert.Equal(settings.Layout.TitleBarHiddenSpineWidth, spine.ActualWidth);
+        }
+        finally { window.Close(); }
+    }
+
+    // 本文は帯を避けて始まる。帯のすぐ隣から文字が始まると、目印ではなく
+    // 本文の飾り罫のように見えてしまう。
+    [WpfTheory]
+    [InlineData(true, 3.0, 3.0, 14.0)]    // 端からの距離3px + 帯3px + 本来の余白8px
+    [InlineData(true, 6.0, 8.0, 22.0)]
+    [InlineData(false, 3.0, 3.0, 8.0)]    // 帯を出さないなら広げる理由がない
+    public void NoteContentPadding_KeepsTheBodyClearOfTheSpine(
+        bool showSpine, double inset, double spineWidth, double expectedLeft)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var settings = new AppSettings { ShowTitleBarHiddenSpine = showSpine };
+        settings.Layout.TitleBarHiddenSpineInset = inset;
+        settings.Layout.TitleBarHiddenSpineWidth = spineWidth;
+        var note = new StickyNote { IsTitleBarHidden = true, Content = "body" };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var box = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            var editor = Assert.IsType<TextBox>(window.FindName("BodyEditBox"));
+
+            Assert.Equal(new Thickness(expectedLeft, 8, 8, 8), box.Padding);
+            // 編集欄も同じ。切り替えで文字が横に跳ねると読みにくい。
+            Assert.Equal(box.Padding, editor.Padding);
+        }
+        finally { window.Close(); }
+    }
+
+    // タイトルバーを出している付箋には帯が無いので、余白は元のままでよい。
+    [WpfFact]
+    public void NoteContentPadding_StaysNarrowWhileTheTitleBarIsShown()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var settings = new AppSettings();
+        var note = new StickyNote { IsTitleBarHidden = false, Content = "body" };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var box = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            Assert.Equal(new Thickness(8), box.Padding);
+
+            // タイトルバーを隠すと帯が出るので、そのぶん本文をずらす。
+            window.ViewModel.IsTitleBarHidden = true;
+            window.UpdateLayout();
+            Assert.Equal(new Thickness(14, 8, 8, 8), box.Padding);
         }
         finally { window.Close(); }
     }
