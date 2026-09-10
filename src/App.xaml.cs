@@ -585,11 +585,57 @@ public partial class App : System.Windows.Application
     /// exe のアイコンと同じファイルを使うことで、デザインの管理を1箇所にまとめている。
     /// app.ico は複数サイズを含むので、画面の DPI に応じた大きさが選ばれる。
     /// </summary>
+    /// <summary>
+    /// タスクトレイのアイコン。読めなくても起動は続ける。ここで例外を投げると
+    /// OnStartup の途中で落ち、トレイどころか付箋の表示・作成まで巻き添えになる
+    /// ―― 絵が既定に変わるだけの話なので、割に合わない。
+    /// </summary>
     private static Icon LoadTrayIcon()
+        => TryLoadTrayIconResource()
+           ?? TryLoadExecutableIcon()
+           ?? SystemIcons.Application;
+
+    /// <summary>
+    /// exe の Win32 リソースではなく WPF リソースから読むのは、.ico に入っている
+    /// 複数の絵からトレイの大きさに合ったものを選ぶため。
+    /// </summary>
+    public static Icon? TryLoadTrayIconResource()
     {
-        var uri = new Uri("pack://application:,,,/app.ico");
-        using var stream = System.Windows.Application.GetResourceStream(uri)!.Stream;
-        return new Icon(stream, SystemInformation.SmallIconSize);
+        try
+        {
+            // 実行アセンブリ名で明示する。"pack://application:,,,/app.ico" だと
+            // エントリアセンブリ側を見に行くので、テストなど別の exe から
+            // 動かしたときに見つからない。
+            var assembly = typeof(App).Assembly.GetName().Name;
+            var uri = new Uri($"pack://application:,,,/{assembly};component/app.ico");
+            if (System.Windows.Application.GetResourceStream(uri) is not { } resource)
+                return null;
+
+            using var stream = resource.Stream;
+            return new Icon(stream, SystemInformation.SmallIconSize);
+        }
+        catch (Exception ex)
+        {
+            ErrorReporter.ReportNonFatal("Load tray icon resource", ex);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 予備。ApplicationIcon で exe 自身にも同じ絵が埋まっているので、
+    /// WPF リソースが欠けていても見た目は変わらずに済む。
+    /// </summary>
+    private static Icon? TryLoadExecutableIcon()
+    {
+        try
+        {
+            return Environment.ProcessPath is { } path ? Icon.ExtractAssociatedIcon(path) : null;
+        }
+        catch (Exception ex)
+        {
+            ErrorReporter.ReportNonFatal("Load executable icon", ex);
+            return null;
+        }
     }
 
     // ─── 付箋表示制御 ────────────────────────────────────────────
