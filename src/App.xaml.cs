@@ -37,7 +37,7 @@ public partial class App : System.Windows.Application
     private NotifyIcon? _trayIcon;
     private NoteManagerWindow? _noteManagerWindow;
     private readonly DispatcherTimer _reminderTimer = new();
-    private readonly HashSet<string> _activeReminderAlerts = [];
+    private readonly ReminderDelivery _reminderDelivery = new();
     private bool _shuttingDown;
     private GlobalNoteHotkey? _newNoteHotkey;
     public string NewNoteHotkeyError { get; private set; } = "";
@@ -75,8 +75,6 @@ public partial class App : System.Windows.Application
     // 効かなくなる穴があった。settings.json をアプリとして読み込む前に軽く覗き見て
     // 実際の notes フォルダを特定し、それをキーにする（未設定/読み込み不可なら
     // DataRoot 配下の既定 notes フォルダにフォールバック）。
-    private string _instanceKey = "";
-    private string _mutexName = "";
     private int _showAllMessage;
     private const int HWND_BROADCAST = 0xFFFF;
 
@@ -100,11 +98,11 @@ public partial class App : System.Windows.Application
         base.OnStartup(e);
         ConfigureExceptionHandling();
 
-        _instanceKey = ResolveInstanceKey();
-        _mutexName = "ScreenPinNotes.SingleInstance." + _instanceKey;
-        _showAllMessage = RegisterWindowMessage("ScreenPinNotes.ShowAll." + _instanceKey);
+        var instanceKey = ResolveInstanceKey();
+        var mutexName = "ScreenPinNotes.SingleInstance." + instanceKey;
+        _showAllMessage = RegisterWindowMessage("ScreenPinNotes.ShowAll." + instanceKey);
 
-        _instanceMutex = new Mutex(initiallyOwned: true, _mutexName, out bool isFirstInstance);
+        _instanceMutex = new Mutex(initiallyOwned: true, mutexName, out bool isFirstInstance);
         if (!isFirstInstance)
         {
             // 既に起動済み。既存インスタンスに全表示を依頼して自分は終了する
@@ -314,27 +312,6 @@ public partial class App : System.Windows.Application
         return hiddenNotesItem;
     }
 
-    private ToolStripMenuItem BuildSelectNotesRootItem()
-    {
-        var item = new ToolStripMenuItem(LocalizationService.T("TraySelectNotesRoot"));
-        item.Click += (_, _) => SelectNotesRootFromTray();
-        return item;
-    }
-
-    private ToolStripMenuItem BuildExportNotesItem()
-    {
-        var item = new ToolStripMenuItem(LocalizationService.T("TrayExportNotes"));
-        item.Click += (_, _) => ExportNotesFromTray();
-        return item;
-    }
-
-    private ToolStripMenuItem BuildImportNotesItem()
-    {
-        var item = new ToolStripMenuItem(LocalizationService.T("TrayImportNotes"));
-        item.Click += (_, _) => ImportNotesFromTray();
-        return item;
-    }
-
     private async void ExportNotesFromTray()
     {
         using var dialog = new SaveFileDialog
@@ -540,132 +517,6 @@ public partial class App : System.Windows.Application
         Directory.Delete(source, recursive: true);
     }
 
-    private ToolStripMenuItem BuildTitlePreviewTooltipItem()
-    {
-        var item = new ToolStripMenuItem(LocalizationService.T("TrayTitlePreviewTooltip"))
-        {
-            Checked = _settings.ShowTitlePreviewTooltip,
-            CheckOnClick = false,
-        };
-        item.Click += (_, _) => SetTitlePreviewTooltipEnabled(!_settings.ShowTitlePreviewTooltip);
-        return item;
-    }
-
-    private ToolStripMenuItem BuildFoldAnimationItem()
-    {
-        var item = new ToolStripMenuItem(LocalizationService.T("TrayFoldAnimation"))
-        {
-            Checked = _settings.EnableFoldAnimation,
-            CheckOnClick = false,
-        };
-        item.Click += (_, _) => SetFoldAnimationEnabled(!_settings.EnableFoldAnimation);
-        return item;
-    }
-
-    private ToolStripMenuItem BuildFoldButtonItem()
-    {
-        var item = new ToolStripMenuItem(LocalizationService.T("TrayFoldButton"))
-        {
-            Checked = _settings.ShowFoldButton,
-            CheckOnClick = false,
-        };
-        item.Click += (_, _) => SetFoldButtonVisible(!_settings.ShowFoldButton);
-        return item;
-    }
-
-    private ToolStripMenuItem BuildDoubleClickToToggleViewItem()
-    {
-        var item = new ToolStripMenuItem(LocalizationService.T("TrayDoubleClickToToggleView"))
-        {
-            Checked = _settings.DoubleClickToToggleView,
-            CheckOnClick = false,
-        };
-        item.Click += (_, _) => SetDoubleClickToToggleView(!_settings.DoubleClickToToggleView);
-        return item;
-    }
-
-    private ToolStripMenuItem BuildLanguageMenu()
-    {
-        var languageItem = new ToolStripMenuItem(LocalizationService.T("TrayLanguage"));
-        foreach (var language in LocalizationService.Languages)
-        {
-            var item = new ToolStripMenuItem(language.NativeName)
-            {
-                Checked = string.Equals(_settings.Language, language.Code, StringComparison.OrdinalIgnoreCase),
-                CheckOnClick = false,
-            };
-            item.Click += (_, _) => SetLanguage(language.Code);
-            languageItem.DropDownItems.Add(item);
-        }
-        return languageItem;
-    }
-
-    private ToolStripMenuItem BuildDarkModeItem()
-    {
-        var item = new ToolStripMenuItem(LocalizationService.T("TrayDarkMode"))
-        {
-            Checked = IsDarkTheme(),
-            CheckOnClick = false,
-        };
-        item.Click += (_, _) => SetTheme(IsDarkTheme() ? "Light" : "Dark");
-        return item;
-    }
-
-    private void SetLanguage(string language)
-    {
-        if (string.Equals(_settings.Language, language, StringComparison.OrdinalIgnoreCase))
-            return;
-
-        _settings.Language = language;
-        ApplySettingsChange();
-    }
-
-    private void SetTheme(string theme)
-    {
-        if (string.Equals(_settings.Theme, theme, StringComparison.OrdinalIgnoreCase))
-            return;
-
-        _settings.Theme = theme;
-        ApplySettingsChange();
-    }
-
-    private void SetTitlePreviewTooltipEnabled(bool enabled)
-    {
-        if (_settings.ShowTitlePreviewTooltip == enabled)
-            return;
-
-        _settings.ShowTitlePreviewTooltip = enabled;
-        ApplySettingsChange();
-    }
-
-    private void SetFoldAnimationEnabled(bool enabled)
-    {
-        if (_settings.EnableFoldAnimation == enabled)
-            return;
-
-        _settings.EnableFoldAnimation = enabled;
-        ApplySettingsChange();
-    }
-
-    private void SetFoldButtonVisible(bool visible)
-    {
-        if (_settings.ShowFoldButton == visible)
-            return;
-
-        _settings.ShowFoldButton = visible;
-        ApplySettingsChange();
-    }
-
-    private void SetDoubleClickToToggleView(bool enabled)
-    {
-        if (_settings.DoubleClickToToggleView == enabled)
-            return;
-
-        _settings.DoubleClickToToggleView = enabled;
-        ApplySettingsChange();
-    }
-
-
     /// <summary>
     /// スタートアップ登録。レジストリの登録解除まで伴うので、
     /// 設定を書き換えるだけの他の項目とは分けて1箇所に置く。
@@ -706,9 +557,6 @@ public partial class App : System.Windows.Application
 
     /// <summary>保存先を変えたら、開いている設定画面の表示も追従させる。</summary>
     private void RefreshSettingsWindowNotesRoot() => _settingsWindow?.RefreshNotesRoot();
-
-    private bool IsDarkTheme()
-        => string.Equals(_settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase);
 
     private void ApplySettingsChange()
     {
@@ -1132,32 +980,18 @@ public partial class App : System.Windows.Application
         Dispatcher.BeginInvoke(CheckDueReminders);
     }
 
-    // ReminderAlertWindow.ShowFor は ShowDialog でネストしたメッセージループを
-    // 回すため、モーダルを開いている間も _reminderTimer の Tick はそのまま
-    // 再入してくる。ここを単純なフラグで丸ごとブロックすると、そのモーダルとは
-    // 無関係な（トースト通知だけで済むはずの）他の付箋のリマインダーまで、
-    // モーダルを閉じるまで一切届かなくなってしまう。個々の付箋の二重発火は
-    // _activeReminderAlerts（発火中の付箋だけを due から除外する）で
-    // 十分に防げているので、ここでは全体をブロックするフラグを持たない。
     private void CheckDueReminders() => DeliverDueReminders();
 
     private void DeliverDueReminders()
     {
         var now = DateTime.Now;
-        var due = _windows.Where(w => w.ViewModel.Model.Reminder?.NextAt is DateTime at && at <= now && !_activeReminderAlerts.Contains(w.ViewModel.Model.Id)).ToList();
+        var due = _windows.Where(w => _reminderDelivery.IsDue(w.ViewModel.Model, now)).ToList();
         var notifications = due.Where(w => w.ViewModel.Model.Reminder!.WindowsNotification).ToList();
         if (notifications.Count > 0 && _trayIcon != null)
         {
             // One Windows banner for simultaneous reminders, so later notices do not replace earlier ones.
-            var message = string.Join("\n", notifications.Select(w => $"{w.ViewModel.Model.Reminder!.NextAt:HH:mm}  {w.ViewModel.DisplayTitle}"));
-            if (message.Length > 240)
-            {
-                // 絵文字などのサロゲートペアの真ん中で切らないよう、
-                // 高位サロゲートで終わる場合は1文字手前まで戻す。
-                var cut = 237;
-                if (char.IsHighSurrogate(message[cut - 1])) cut--;
-                message = message[..cut] + "…";
-            }
+            var message = ReminderDelivery.FormatNotification(notifications.Select(w =>
+                (w.ViewModel.Model.Reminder!.NextAt, w.ViewModel.DisplayTitle)));
             _trayIcon.ShowBalloonTip(10000, "ScreenPinNotes", message, ToolTipIcon.Info);
         }
         foreach (var win in due)
@@ -1165,9 +999,7 @@ public partial class App : System.Windows.Application
             var note = win.ViewModel.Model;
             if (note.Reminder?.NextAt is not DateTime nextAt)
                 continue;
-            if (nextAt > now)
-                continue;
-            if (_activeReminderAlerts.Contains(note.Id))
+            if (!_reminderDelivery.IsDue(note, now))
                 continue;
 
             TriggerReminder(win, nextAt);
@@ -1177,15 +1009,8 @@ public partial class App : System.Windows.Application
     private void TriggerReminder(StickyNoteWindow win, DateTime dueAt)
     {
         var note = win.ViewModel.Model;
-        _activeReminderAlerts.Add(note.Id);
-        try
+        _reminderDelivery.Deliver(note, dueAt, DateTime.Now, reminder =>
         {
-            note.Reminder ??= new ReminderSettings();
-            note.Reminder.LastTriggeredAt = DateTime.Now;
-            note.UpdatedAt = DateTime.Now;
-            var reminder = note.Reminder;
-            reminder.TimeOfDay ??= dueAt.TimeOfDay;
-            reminder.NextAt = ReminderSchedule.Next(reminder, DateTime.Now);
             win.ViewModel.RefreshReminder();
             SaveAll();
             if (reminder.FlashNote)
@@ -1211,11 +1036,7 @@ public partial class App : System.Windows.Application
             }
             SaveAll();
             _noteManagerWindow?.RefreshNotes();
-        }
-        finally
-        {
-            _activeReminderAlerts.Remove(note.Id);
-        }
+        });
     }
 
     /// 保留中の保存をすべて確定させてからディスクに書き出す

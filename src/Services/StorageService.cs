@@ -49,18 +49,17 @@ public class StorageService
             return Path.GetFullPath(custom);
 
         var appDataDir = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var newRoot = Path.Combine(appDataDir, "ScreenPinNotes");
-        return newRoot;
+        return Path.Combine(appDataDir, "ScreenPinNotes");
     }
 
-    private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
     // ─── インスタンスごとの保存先 ──────────────────────────────────
     // 通常は上記の静的な既定フォルダを使うが、テストでは互いに独立した
     // 一時フォルダを渡してデータを隔離できるようにする。
 
-    private readonly string _root;
-    private readonly string _notesDir;
+    private readonly string _settingsRoot;
+    private readonly string _notesRoot;
     private readonly string _settingsPath;
 
     public StorageService() : this(AppRoot) { }
@@ -69,17 +68,17 @@ public class StorageService
 
     public StorageService(string settingsRoot, string notesRoot)
     {
-        _root = Path.GetFullPath(settingsRoot);
-        _notesDir = Path.GetFullPath(notesRoot);
-        _settingsPath = Path.Combine(_root, "settings.json");
+        _settingsRoot = Path.GetFullPath(settingsRoot);
+        _notesRoot = Path.GetFullPath(notesRoot);
+        _settingsPath = Path.Combine(_settingsRoot, "settings.json");
     }
 
-    public string NotesRoot => _notesDir;
+    public string NotesRoot => _notesRoot;
 
     public sealed record ImportResult(int ImportedCount, int SkippedCount);
 
     public StorageService WithNotesRoot(string notesRoot)
-        => new(_root, notesRoot);
+        => new(_settingsRoot, notesRoot);
 
     public StorageService WithStorageRoot(string storageRoot)
         => WithNotesRoot(GetNotesRootFromStorageRoot(storageRoot));
@@ -165,7 +164,7 @@ public class StorageService
         try
         {
             var settings = JsonSerializer.Deserialize<AppSettings>(
-                File.ReadAllText(_settingsPath, Encoding.UTF8), JsonOpts)
+                File.ReadAllText(_settingsPath, Encoding.UTF8), JsonOptions)
                 ?? AppSettings.CreateDefault();
             settings.Normalize();
             return settings;
@@ -181,8 +180,8 @@ public class StorageService
     public void SaveSettings(AppSettings settings)
     {
         settings.Normalize();
-        Directory.CreateDirectory(_root);
-        AtomicWrite(_settingsPath, JsonSerializer.Serialize(settings, JsonOpts));
+        Directory.CreateDirectory(_settingsRoot);
+        AtomicWrite(_settingsPath, JsonSerializer.Serialize(settings, JsonOptions));
     }
 
     // ─── 読み込み ────────────────────────────────────────────────
@@ -190,17 +189,17 @@ public class StorageService
     public List<StickyNote> Load()
     {
 
-        if (!Directory.Exists(_notesDir)) return [];
+        if (!Directory.Exists(_notesRoot)) return [];
 
         var notes = new List<StickyNote>();
-        foreach (var dir in Directory.GetDirectories(_notesDir))
+        foreach (var dir in Directory.GetDirectories(_notesRoot))
         {
             var metaPath = Path.Combine(dir, "meta.json");
             if (!File.Exists(metaPath)) continue;
             try
             {
                 var note = JsonSerializer.Deserialize<StickyNote>(
-                    File.ReadAllText(metaPath, Encoding.UTF8), JsonOpts);
+                    File.ReadAllText(metaPath, Encoding.UTF8), JsonOptions);
                 if (note == null) continue;
 
                 var noteId = Path.GetFileName(dir);
@@ -240,7 +239,7 @@ public class StorageService
     // 削除はユーザーが明示的に削除したときの DeleteNote だけが行う。
     public void Save(IEnumerable<StickyNote> notes)
     {
-        Directory.CreateDirectory(_notesDir);
+        Directory.CreateDirectory(_notesRoot);
         foreach (var note in notes)
             WriteNote(note);
     }
@@ -267,15 +266,15 @@ public class StorageService
             File.Delete(fullZipPath);
 
         using var archive = ZipFile.Open(fullZipPath, ZipArchiveMode.Create);
-        if (!Directory.Exists(_notesDir))
+        if (!Directory.Exists(_notesRoot))
             return;
 
-        foreach (var file in Directory.EnumerateFiles(_notesDir, "*", SearchOption.AllDirectories))
+        foreach (var file in Directory.EnumerateFiles(_notesRoot, "*", SearchOption.AllDirectories))
         {
             if (string.Equals(Path.GetFullPath(file), fullZipPath, StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            var relativePath = Path.GetRelativePath(_notesDir, file)
+            var relativePath = Path.GetRelativePath(_notesRoot, file)
                 .Replace(Path.DirectorySeparatorChar, '/')
                 .Replace(Path.AltDirectorySeparatorChar, '/');
             archive.CreateEntryFromFile(file, "notes/" + relativePath, CompressionLevel.Optimal);
@@ -299,7 +298,7 @@ public class StorageService
             var stagingStorage = new StorageService(stagingRoot, extractedNotesRoot);
             var notes = stagingStorage.Load();
 
-            Directory.CreateDirectory(_notesDir);
+            Directory.CreateDirectory(_notesRoot);
             foreach (var note in notes)
             {
                 if (!TryGetNoteDirectoryPath(note.Id, out var targetDir))
@@ -366,7 +365,7 @@ public class StorageService
 
         // meta.json（Content は [JsonIgnore] により除外される）
         AtomicWrite(Path.Combine(dir, "meta.json"),
-            JsonSerializer.Serialize(note, JsonOpts));
+            JsonSerializer.Serialize(note, JsonOptions));
     }
 
     public static string ReadExternalContent(StickyNote note)
@@ -421,9 +420,9 @@ public class StorageService
 
     private static void AtomicWrite(string path, string content)
     {
-        var tmp = path + ".tmp";
-        File.WriteAllText(tmp, content, Encoding.UTF8);
-        File.Move(tmp, path, overwrite: true);
+        var temporaryPath = path + ".tmp";
+        File.WriteAllText(temporaryPath, content, Encoding.UTF8);
+        File.Move(temporaryPath, path, overwrite: true);
     }
 
     private bool TryGetNoteDirectoryPath(string id, out string dir)
@@ -432,8 +431,8 @@ public class StorageService
         if (!IsSafeNoteId(id))
             return false;
 
-        var fullPath = Path.GetFullPath(Path.Combine(_notesDir, id));
-        var notesRoot = Path.GetFullPath(_notesDir) + Path.DirectorySeparatorChar;
+        var fullPath = Path.GetFullPath(Path.Combine(_notesRoot, id));
+        var notesRoot = Path.GetFullPath(_notesRoot) + Path.DirectorySeparatorChar;
         if (!fullPath.StartsWith(notesRoot, StringComparison.OrdinalIgnoreCase))
             return false;
 

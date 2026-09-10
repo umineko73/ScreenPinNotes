@@ -85,7 +85,7 @@ public partial class StickyNoteWindow : Window
         }
     }
 
-    private double     _unfoldedHeight;
+    private readonly NoteGeometryState _geometry;
     // コンストラクタ〜Loaded の初期値設定中は true。
     // その間の SizeChanged/LocationChanged はモデルへ書き戻さない。
     private bool       _isInitializing;
@@ -159,6 +159,7 @@ public partial class StickyNoteWindow : Window
 
     public StickyNoteWindow(StickyNoteViewModel vm, StorageService? storage = null)
     {
+        _geometry = new NoteGeometryState(vm.Model);
         InitializeComponent();
         _uiDispatcher = Dispatcher;
         DataContext = vm;
@@ -196,7 +197,6 @@ public partial class StickyNoteWindow : Window
         Height  = vm.IsFolded ? FoldedHeight : vm.Model.Height;
         Topmost = vm.IsTopmost;
         ShowInTaskbar = Settings.ShowNotesInTaskbar;
-        _unfoldedHeight = vm.Model.Height;
         // バインディングは DispatcherPriority.DataBind で後から反映されるので、
         // Show() より前のここで決めきる。任せると初回フレームで一瞬見えてしまう。
         ApplyTitleBarVisibility();
@@ -512,24 +512,13 @@ public partial class StickyNoteWindow : Window
         if (_isInitializing) return; // コンストラクタ〜Loaded の初期値設定はモデルに書き戻さない
         if (_suppressWindowBoundsSave) return;
         if (_isFoldAnimationRunning) return; // アニメーション途中の高さを開いた表示サイズとして保存しない
+        var (dpiX, dpiY) = GetDpi();
+        _geometry.StoreSize(Width, Height, _isEditMode, dpiX, dpiY);
         if (_isEditMode && !ViewModel.IsFolded)
         {
-            ViewModel.Model.EditWidth = Width;
-            ViewModel.Model.EditHeight = Height;
             RequestSave();
             return;
         }
-        // 幅は開いた表示/閉じた表示で別々のフィールドに保存する
-        // （ToggleFold() が状態切り替え時にどちらか一方へスナップする）。
-        // 高さは閉じた表示中は見た目上のタイトルバー高さでしかないため、
-        // 開いた表示のみ保存する（編集モードで一時的に伸ばしたぶんも除く）。
-        if (ViewModel.IsFolded)
-            ViewModel.Model.FoldedWidth = Width;
-        else
-            ViewModel.Model.Width = Width;
-
-        if (!ViewModel.IsFolded)
-            ViewModel.Model.Height = Height;
         if (e.WidthChanged && !_isEditMode && !ViewModel.IsFolded &&
             _resizeContentRefresh?.Status != System.Windows.Threading.DispatcherOperationStatus.Pending)
             _resizeContentRefresh = Dispatcher.BeginInvoke(() =>
@@ -587,30 +576,7 @@ public partial class StickyNoteWindow : Window
     /// ユーザーの操作かどうかを判定しないので、アプリ都合で動かしたぶんを記録するときは
     /// こちらを使う（Ctrl+Enter で編集を終えただけで位置分離が始まるのを避ける）。
     /// </summary>
-    private void StoreCurrentPositionInModel()
-    {
-        var syncOtherState = !ViewModel.IsPositionSeparated;
-        if (ViewModel.IsFolded)
-        {
-            ViewModel.Model.FoldedX = Left;
-            ViewModel.Model.FoldedY = Top;
-            if (syncOtherState)
-            {
-                ViewModel.Model.X = Left;
-                ViewModel.Model.Y = Top;
-            }
-        }
-        else
-        {
-            ViewModel.Model.X = Left;
-            ViewModel.Model.Y = Top;
-            if (syncOtherState)
-            {
-                ViewModel.Model.FoldedX = Left;
-                ViewModel.Model.FoldedY = Top;
-            }
-        }
-    }
+    private void StoreCurrentPositionInModel() => _geometry.StorePosition(Left, Top);
 
     private void MarkPositionSeparatedIfOpenViewMovedAwayFromClosedView()
     {

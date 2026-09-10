@@ -61,9 +61,9 @@ public partial class StickyNoteWindow
         var panel = new WrapPanel { Width = Columns * (Swatch + Gap * 2) + 2 };
         _colorPanel = panel;
 
-        foreach (var (key, preset) in StickyNoteViewModel.ColorPresets)
+        foreach (var key in NoteAppearance.Presets.Keys)
         {
-            var preview = new StickyNoteViewModel(new StickyNote { ColorKey = key, OpacityPercent = 100 }, Settings);
+            var preview = new NoteAppearance(new StickyNote { ColorKey = key, OpacityPercent = 100 }, Settings);
             var header = preview.HeaderBrush;
             var btn = new WpfButton
             {

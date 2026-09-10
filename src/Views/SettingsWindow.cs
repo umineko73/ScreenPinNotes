@@ -19,7 +19,6 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using ScreenPinNotes.Models;
 using ScreenPinNotes.Services;
-using ScreenPinNotes.ViewModels;
 using WpfBrushes = System.Windows.Media.Brushes;
 using WpfComboBox = System.Windows.Controls.ComboBox;
 using WpfComboBoxItem = System.Windows.Controls.ComboBoxItem;
@@ -256,7 +255,7 @@ public sealed class SettingsWindow : Window
     private WpfComboBox BuildColorPicker(NoteDefaultSettings defaults)
     {
         var combo = Picker();
-        foreach (var (key, preset) in StickyNoteViewModel.ColorPresets)
+        foreach (var (key, preset) in NoteAppearance.Presets)
         {
             var row = new StackPanel { Orientation = WpfOrientation.Horizontal };
             row.Children.Add(new WpfBorder

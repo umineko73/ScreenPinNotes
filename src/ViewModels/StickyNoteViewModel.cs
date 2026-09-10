@@ -17,58 +17,16 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows;
-using System.Windows.Input;
 using ScreenPinNotes.Models;
 using ScreenPinNotes.Services;
 using WpfBrush = System.Windows.Media.Brush;
 using WpfBrushes = System.Windows.Media.Brushes;
-using WpfColor = System.Windows.Media.Color;
-using WpfColorConverter = System.Windows.Media.ColorConverter;
-using WpfSolidBrush = System.Windows.Media.SolidColorBrush;
 
 namespace ScreenPinNotes.ViewModels;
 
 public class StickyNoteViewModel : INotifyPropertyChanged
 {
-    // 背景（淡色）とヘッダー（濃色）の組。暖色→寒色→無彩色の順に並べる。
-    // 既存ノートの互換のため yellow/blue/green/pink/purple/gray のキーは変更しない。
-    public static readonly Dictionary<string, (string Bg, string Header)> ColorPresets = new()
-    {
-        // 暖色
-        ["yellow"]  = ("#FFFDE7", "#F9A825"),
-        ["amber"]   = ("#FEF3C7", "#B45309"),
-        ["orange"]  = ("#FFEDD5", "#C2410C"),
-        ["red"]     = ("#FEE2E2", "#B91C1C"),
-        ["rose"]    = ("#FFE4E6", "#BE123C"),
-        ["pink"]    = ("#FCE7F3", "#BE185D"),
-        // 紫〜青
-        ["fuchsia"] = ("#FAE8FF", "#A21CAF"),
-        ["purple"]  = ("#EDE9FE", "#6D28D9"),
-        ["violet"]  = ("#DDD6FE", "#5B21B6"),
-        ["indigo"]  = ("#E0E7FF", "#4338CA"),
-        ["blue"]    = ("#DBEAFE", "#1D4ED8"),
-        ["sky"]     = ("#E0F2FE", "#0369A1"),
-        // 寒色〜緑
-        ["cyan"]    = ("#CFFAFE", "#0E7490"),
-        ["teal"]    = ("#CCFBF1", "#0F766E"),
-        ["emerald"] = ("#D1FAE5", "#047857"),
-        ["green"]   = ("#DCFCE7", "#15803D"),
-        ["lime"]    = ("#ECFCCB", "#4D7C0F"),
-        ["olive"]   = ("#F7F7DC", "#827717"),
-        // 無彩色・その他
-        ["brown"]   = ("#EFEBE9", "#6D4C41"),
-        ["stone"]   = ("#F5F5F4", "#57534E"),
-        ["gray"]    = ("#F3F4F6", "#4B5563"),
-        ["slate"]   = ("#F1F5F9", "#334155"),
-        ["white"]   = ("#FFFFFF", "#9CA3AF"),
-        ["dark"]    = ("#E5E7EB", "#111827"),
-        ["dark-charcoal"] = ("#252A32", "#667085"),
-        ["dark-navy"] = ("#1E293B", "#5277AC"),
-        ["dark-teal"] = ("#193631", "#43877B"),
-        ["dark-plum"] = ("#35283F", "#946AAC"),
-        ["dark-wine"] = ("#3F252D", "#AC657B"),
-        ["dark-coffee"] = ("#352D25", "#A0825F"),
-    };
+    public static IReadOnlyDictionary<string, (string Bg, string Header)> ColorPresets => NoteAppearance.Presets;
 
     private readonly StickyNote _model;
     private readonly AppSettings _settings;
@@ -421,93 +379,16 @@ public class StickyNoteViewModel : INotifyPropertyChanged
 
     private void UpdateBrushes()
     {
-        if (!ColorPresets.TryGetValue(_model.ColorKey, out var preset))
-            preset = ColorPresets["yellow"];
-
-        var bg = (WpfColor)WpfColorConverter.ConvertFromString(preset.Bg);
-        var header = (WpfColor)WpfColorConverter.ConvertFromString(preset.Header);
-
-        if (UsesDarkNoteColors)
-        {
-            var darkBase = WpfColor.FromRgb(17, 24, 39);
-            var explicitDark = _model.ColorKey.StartsWith("dark-", StringComparison.Ordinal);
-            var darkPanel = explicitDark ? bg : Blend(header, darkBase, 0.86);
-            var darkHeader = explicitDark ? header : Blend(header, WpfColor.FromRgb(0, 0, 0), 0.25);
-
-            BackgroundBrush = new WpfSolidBrush(WithOpacity(darkPanel));
-            HeaderBrush = new WpfSolidBrush(WithOpacity(darkHeader));
-            TitleBarBrush = new WpfSolidBrush(WithOpacity(Blend(darkHeader, darkPanel, 0.45)));
-            TitleBarForeground = new WpfSolidBrush(WpfColor.FromRgb(249, 250, 251));
-            TextForeground = new WpfSolidBrush(WpfColor.FromRgb(229, 231, 235));
-            UpdateNoteBorderBrush(darkHeader);
-            return;
-        }
-
-        BackgroundBrush = new WpfSolidBrush(WithOpacity(bg));
-        HeaderBrush = new WpfSolidBrush(WithOpacity(header));
-        TitleBarBrush = new WpfSolidBrush(WithOpacity(Blend(header, bg, 0.90)));
-        TitleBarForeground = new WpfSolidBrush(Blend(header, WpfColor.FromRgb(0, 0, 0), 0.45));
-        TextForeground = new WpfSolidBrush(WpfColor.FromRgb(17, 24, 39));
-        UpdateNoteBorderBrush(header);
+        var appearance = new NoteAppearance(_model, _settings, _forceOpaque, _isHovered);
+        BackgroundBrush = appearance.BackgroundBrush;
+        HeaderBrush = appearance.HeaderBrush;
+        TitleBarBrush = appearance.TitleBarBrush;
+        TitleBarForeground = appearance.TitleBarForeground;
+        TextForeground = appearance.TextForeground;
+        NoteBorderBrush = appearance.NoteBorderBrush;
     }
 
-    /// <summary>
-    /// 外枠の色を設定から決める。「なし」は太さを0にせず透明で塗る。
-    /// 太さを変えると畳んだときの高さ（FoldedHeight）まで動いてしまうため。
-    /// </summary>
-    private void UpdateNoteBorderBrush(WpfColor header)
-    {
-        var setting = _settings.NoteBorderColor;
-        if (string.Equals(setting, AppSettings.NoteBorderNone, StringComparison.OrdinalIgnoreCase))
-        {
-            NoteBorderBrush = WpfBrushes.Transparent;
-            return;
-        }
-        if (string.Equals(setting, AppSettings.NoteBorderNoteColor, StringComparison.OrdinalIgnoreCase))
-        {
-            NoteBorderBrush = new WpfSolidBrush(WithOpacity(header));
-            return;
-        }
-
-        var hex = string.Equals(setting, AppSettings.NoteBorderGray, StringComparison.OrdinalIgnoreCase)
-            ? AppSettings.DefaultNoteBorderHex
-            : setting;
-        try
-        {
-            NoteBorderBrush = new WpfSolidBrush((WpfColor)WpfColorConverter.ConvertFromString(hex)!);
-        }
-        catch (FormatException)
-        {
-            // Normalize() が弾いたはずの値。枠なしで消すと書き損じに気付けないのでグレーへ。
-            NoteBorderBrush = new WpfSolidBrush(
-                (WpfColor)WpfColorConverter.ConvertFromString(AppSettings.DefaultNoteBorderHex)!);
-        }
-    }
-
-    private WpfColor WithOpacity(WpfColor color)
-        => WpfColor.FromArgb(
-            (byte)Math.Round(255 * GetEffectiveOpacity()),
-            color.R,
-            color.G,
-            color.B);
-
-    private double GetEffectiveOpacity()
-    {
-        if (_forceOpaque) return 1.0;
-        var boost = _isHovered ? Math.Clamp(_settings.HoverOpacityBoostPercent, 0, 90) : 0;
-        return Math.Min(100, OpacityPercent + boost) / 100.0;
-    }
-
-    private static WpfColor Blend(WpfColor from, WpfColor to, double t)
-    {
-        byte Lerp(byte a, byte b) => (byte)Math.Round(a + (b - a) * t);
-        return WpfColor.FromRgb(Lerp(from.R, to.R), Lerp(from.G, to.G), Lerp(from.B, to.B));
-    }
-
-    private bool IsDarkTheme()
-        => string.Equals(_settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase);
-
-    public bool UsesDarkNoteColors => IsDarkTheme() || _model.ColorKey.StartsWith("dark-", StringComparison.Ordinal);
+    public bool UsesDarkNoteColors => NoteAppearance.UsesDarkColors(_model, _settings);
 
     private string ExternalFileLabel()
         => LocalizationService.T("ExternalFile", _settings.Language);

@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+using ScreenPinNotes.Services;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Animation;
@@ -63,9 +64,8 @@ public partial class StickyNoteWindow
     {
         if (!folded)
         {
-            ViewModel.Model.FoldedX = Left;
-            ViewModel.Model.FoldedY = Top;
-            ViewModel.Model.FoldedWidth = Width;
+            var (dpiX, dpiY) = GetDpi();
+            _geometry.CaptureFolded(Left, Top, Width, dpiX, dpiY);
 
             BodyEditBox.Visibility = Visibility.Collapsed;
             ViewModel.IsFolded = false;
@@ -78,15 +78,13 @@ public partial class StickyNoteWindow
                 Width = ViewModel.Model.Width; // 開いた表示専用の幅に戻す
                 Left = ViewModel.Model.X;
                 Top = ViewModel.Model.Y;
-                KeepInsideWorkArea(Width, _unfoldedHeight);
+                KeepInsideWorkArea(Width, _geometry.ExpandedHeight);
             });
-            ViewModel.Model.X = Left;
-            ViewModel.Model.Y = Top;
+            _geometry.CaptureExpanded(Left, Top, ViewModel.Model.Width, _geometry.ExpandedHeight, dpiX, dpiY);
             SetResizeEnabled(true);
             ApplyFoldedContentPresentation();
-            RunFoldAnimation(FoldedHeight, _unfoldedHeight, () =>
+            RunFoldAnimation(FoldedHeight, _geometry.ExpandedHeight, () =>
             {
-                ViewModel.Model.Height = _unfoldedHeight;
                 if (!_isEditMode)
                     LoadContent(ViewModel.Content);
                 onUnfolded?.Invoke();
@@ -97,10 +95,8 @@ public partial class StickyNoteWindow
             SetTemporaryRaise(false);
             if (_isEditMode) EnterViewModeCore(); // 閉じた表示では閲覧モードに戻す
             if (_isEditMode) return; // 編集終了が抑止された場合は折りたたまない。
-            ViewModel.Model.X = Left;
-            ViewModel.Model.Y = Top;
-            ViewModel.Model.Width = Width;
-            _unfoldedHeight = Height;
+            var (dpiX, dpiY) = GetDpi();
+            _geometry.CaptureExpanded(Left, Top, Width, Height, dpiX, dpiY);
             // アニメーション中の SizeChanged で Model.Height が
             // 途中の値に上書きされないよう先にフラグを立てる
             ViewModel.IsFolded = true;
@@ -125,10 +121,7 @@ public partial class StickyNoteWindow
                     Top = foldedTop;
                     Width = foldedWidth;
                 });
-                ViewModel.Model.FoldedX = Left;
-                ViewModel.Model.FoldedY = Top;
-                ViewModel.Model.FoldedWidth = Width;
-                ViewModel.Model.Height = _unfoldedHeight;
+                _geometry.CaptureFolded(Left, Top, Width, dpiX, dpiY);
                 SetResizeEnabled(false); // タイトルバーのみの時はリサイズ不可
                 UpdateLayout();
                 UpdateImagePathPreview();

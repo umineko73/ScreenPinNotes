@@ -106,16 +106,7 @@ public partial class StickyNoteWindow
     {
         if (ViewModel.IsFolded) return;
         var model = ViewModel.Model;
-        static double Valid(double? value, double fallback)
-            => value is double size && double.IsFinite(size) && size > 0 ? size : fallback;
-        var width = editing ? Valid(model.EditWidth, model.Width) : model.Width;
-        var height = editing ? Valid(model.EditHeight, model.Height) : model.Height;
-        if (editing)
-        {
-            // Editing must never make either dimension smaller than expanded view.
-            width = Math.Max(width, model.Width);
-            height = Math.Max(height, model.Height);
-        }
+        var (width, height) = _geometry.GetSize(editing);
         SuppressWindowBoundsSave(() =>
         {
             // 編集モードの大きさと同じく、位置も一時的なものとして扱う。
@@ -136,7 +127,12 @@ public partial class StickyNoteWindow
         // ユーザーが決めた位置ではない。戻すときだけ、作業領域からはみ出して
         // 補正された場合に備えて記録し直す。
         if (!editing)
-            StoreCurrentPositionInModel();
+        {
+            var (dpiX, dpiY) = GetDpi();
+            _geometry.StorePosition(
+                NoteGeometryState.PreserveLogicalValue(model.X, Left, dpiX),
+                NoteGeometryState.PreserveLogicalValue(model.Y, Top, dpiY));
+        }
         UpdateEditToolbarPlacement();
     }
 
@@ -334,14 +330,14 @@ public partial class StickyNoteWindow
 
     private void UpdateEditToolbarPlacement()
     {
-        const double Gap = 2;
+        EditToolbarPopup.HorizontalOffset = 0;
         EditToolbarPopup.PlacementTarget = RootBorder;
         EditToolbarPopup.CustomPopupPlacementCallback = PlaceEditToolbar;
         EditToolbarPopup.Placement = PlacementMode.Custom;
         // Changing an offset forces WPF to reposition an already open Popup.
         if (EditToolbarPopup.IsOpen)
-            EditToolbarPopup.VerticalOffset = Gap + 0.01;
-        EditToolbarPopup.VerticalOffset = Gap;
+            EditToolbarPopup.VerticalOffset = 0.01;
+        EditToolbarPopup.VerticalOffset = 0;
     }
 
     private CustomPopupPlacement[] PlaceEditToolbar(System.Windows.Size popupSize, System.Windows.Size targetSize, System.Windows.Point offset)
@@ -350,15 +346,16 @@ public partial class StickyNoteWindow
         var origin = RootBorder.PointToScreen(new System.Windows.Point());
         var workArea = System.Windows.Forms.Screen.FromHandle(new WindowInteropHelper(this).Handle).WorkingArea;
         var (dpiX, dpiY) = GetDpi();
-        // Popup coordinates are relative to the note, while WorkingArea uses screen pixels.
-        var left = (workArea.Left - origin.X) / dpiX;
-        var top = (workArea.Top - origin.Y) / dpiY;
-        var right = (workArea.Right - origin.X) / dpiX;
-        var bottom = (workArea.Bottom - origin.Y) / dpiY;
-        var x = Math.Clamp(4, left, Math.Max(left, right - popupSize.Width));
-        var y = targetSize.Height + Gap;
+        // WPF passes transformed (device pixel) sizes to this callback. Keep the
+        // working area and returned positions in those same units.
+        var left = workArea.Left - origin.X;
+        var top = workArea.Top - origin.Y;
+        var right = workArea.Right - origin.X;
+        var bottom = workArea.Bottom - origin.Y;
+        var x = Math.Clamp(4 * dpiX, left, Math.Max(left, right - popupSize.Width));
+        var y = targetSize.Height + Gap * dpiY;
         if (y + popupSize.Height > bottom)
-            y = -popupSize.Height - Gap;
+            y = -popupSize.Height - Gap * dpiY;
         // A maximized-height note may leave no space outside either edge.
         y = Math.Clamp(y, top, Math.Max(top, bottom - popupSize.Height));
         return [new CustomPopupPlacement(new System.Windows.Point(x, y), PopupPrimaryAxis.None)];

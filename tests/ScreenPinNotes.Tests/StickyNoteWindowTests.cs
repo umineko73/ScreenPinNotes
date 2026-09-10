@@ -16,6 +16,54 @@ namespace ScreenPinNotes.Tests;
 
 public class StickyNoteWindowTests
 {
+    [WpfTheory]
+    [InlineData(false, false, -1)]
+    [InlineData(false, false, 1)]
+    [InlineData(true, false, -1)]
+    [InlineData(true, false, 1)]
+    [InlineData(false, true, -1)]
+    [InlineData(false, true, 1)]
+    public void SinglePixelResizeSurvivesSaveAndReload(bool folded, bool editing, int delta)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        // 編集サイズは閲覧サイズより大きくし、縮小しても最小サイズに戻されないようにする。
+        var note = new StickyNote { Width = 230, Height = 320, FoldedWidth = 230,
+            EditWidth = 430, EditHeight = 420, IsFolded = folded };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, App.Current.Settings), storage);
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            if (editing) InvokePrivate(window, "EnterEditMode");
+            window.UpdateLayout();
+            var dpi = VisualTreeHelper.GetDpi(window).DpiScaleX;
+            var expectedPixels = Math.Round(window.ActualWidth * dpi) + delta;
+            window.Width = expectedPixels / dpi;
+            window.UpdateLayout();
+            InvokePrivate(window, "SaveNote");
+            var restored = Assert.Single(storage.Load());
+            var restoredWindow = new StickyNoteWindow(new StickyNoteViewModel(restored, App.Current.Settings), storage);
+            try
+            {
+                restoredWindow.Show();
+                if (editing) InvokePrivate(restoredWindow, "EnterEditMode");
+                restoredWindow.UpdateLayout();
+                Assert.Equal(expectedPixels, Math.Round(restoredWindow.ActualWidth * dpi));
+            }
+            finally { restoredWindow.Close(); }
+        }
+        finally { window.Close(); }
+    }
+
+    private static void AssertWindowCoordinate(double expected, double actual, Window window, bool vertical = false)
+    {
+        var dpi = VisualTreeHelper.GetDpi(window);
+        var scale = vertical ? dpi.DpiScaleY : dpi.DpiScaleX;
+        Assert.InRange(Math.Abs(actual - expected), 0, 0.5 / scale + 1e-7);
+    }
+
     public static IEnumerable<object[]> ModeRoundTripCases()
     {
         foreach (var hidden in new[] { false, true })
@@ -59,9 +107,9 @@ public class StickyNoteWindowTests
             window.UpdateLayout();
             Assert.Equal(initiallyFolded, note.IsFolded);
             Assert.Equal(320, note.Height, 1);
-            Assert.Equal(initiallyFolded ? 90 : 180, window.Left, 1);
-            Assert.Equal(initiallyFolded ? 100 : 180, window.Top, 1);
-            Assert.Equal(initiallyFolded ? 230 : 420, window.Width, 1);
+            AssertWindowCoordinate(initiallyFolded ? 90 : 180, window.Left, window);
+            AssertWindowCoordinate(initiallyFolded ? 100 : 180, window.Top, window, vertical: true);
+            AssertWindowCoordinate(initiallyFolded ? 230 : 420, window.Width, window);
             Assert.Equal(180, note.X);
             Assert.Equal(180, note.Y);
             Assert.Equal(90, note.FoldedX);
@@ -163,14 +211,16 @@ public class StickyNoteWindowTests
             SetPrivateField(window, "_dragSeparatesFoldedPosition", separated);
             window.Left = 280;
             window.Top = 290;
+            var movedX = window.Left;
+            var movedY = window.Top;
             var root = (UIElement)window.FindName(hidden ? "TitleBarOverlay" : "TitleBar");
             InvokePrivate(window, "TitleBar_MouseLeftButtonUp", root,
                 new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left));
             Assert.Equal(separated, note.IsPositionSeparated);
-            Assert.Equal(folded && separated ? 180 : 280, note.X);
-            Assert.Equal(folded && separated ? 180 : 290, note.Y);
-            Assert.Equal(!folded && separated ? 180 : 280, note.FoldedX);
-            Assert.Equal(!folded && separated ? 180 : 290, note.FoldedY);
+            Assert.Equal(folded && separated ? 180 : movedX, note.X);
+            Assert.Equal(folded && separated ? 180 : movedY, note.Y);
+            Assert.Equal(!folded && separated ? 180 : movedX, note.FoldedX);
+            Assert.Equal(!folded && separated ? 180 : movedY, note.FoldedY);
             storage.Save(new[] { note });
             var restored = Assert.Single(storage.Load());
             Assert.Equal(note.X, restored.X);
@@ -256,9 +306,9 @@ public class StickyNoteWindowTests
                 InvokePrivate(window, "ToggleFold", (object?)null);
                 await Task.Delay(settings.Timings.FoldAnimationMs + 80);
                 window.UpdateLayout();
-                Assert.Equal(note.IsFolded ? (separated ? 90 : 180) : 180, window.Left, 1);
-                Assert.Equal(note.IsFolded ? (separated ? 100 : 180) : 180, window.Top, 1);
-                Assert.Equal(note.IsFolded ? 230 : 420, window.Width, 1);
+                AssertWindowCoordinate(note.IsFolded ? (separated ? 90 : 180) : 180, window.Left, window);
+                AssertWindowCoordinate(note.IsFolded ? (separated ? 100 : 180) : 180, window.Top, window, vertical: true);
+                AssertWindowCoordinate(note.IsFolded ? 230 : 420, window.Width, window);
                 Assert.Equal(320, note.Height, 1);
                 Assert.Equal(originalContent, note.Content);
                 Assert.Equal(separated, note.IsPositionSeparated);
@@ -296,7 +346,7 @@ public class StickyNoteWindowTests
             var end = toolbar.PointToScreen(new Point(toolbar.ActualWidth, toolbar.ActualHeight));
             Assert.True(start.X >= work.Left - 1 && start.Y >= work.Top - 1);
             Assert.True(end.X <= work.Right + 1 && end.Y <= work.Bottom + 1);
-            if (atBottom) Assert.True(end.Y <= window.PointToScreen(new Point()).Y + 1);
+            if (atBottom) Assert.True(end.Y <= window.PointToScreen(new Point()).Y + 1, $"toolbar={start}..{end}; window={window.PointToScreen(new Point())}; size={window.Width}x{window.Height}; dpi={dpi.DpiScaleX}; work={work}");
         }
         finally { window.Close(); }
     }
@@ -818,7 +868,7 @@ public class StickyNoteWindowTests
             Assert.Equal(500, window.Left);
             Assert.Equal(400, window.Top);
             Assert.Equal(300, window.Width);
-            Assert.Equal(250, window.Height);
+            AssertWindowCoordinate(250, window.Height, window, vertical: true);
             Assert.Equal(500, model.X);
             Assert.Equal(400, model.Y);
             // 折りたたみ側の位置と幅は巻き込まれない。
@@ -849,8 +899,11 @@ public class StickyNoteWindowTests
         try
         {
             window.Show();
-            var left = window.Left;
-            var top = window.Top;
+            var dpi = VisualTreeHelper.GetDpi(window);
+            window.Left = workArea.Right / dpi.DpiScaleX - 320;
+            window.Top = workArea.Bottom / dpi.DpiScaleY - 270;
+            var left = model.X;
+            var top = model.Y;
 
             InvokePrivate(window, "EnterEditMode");
             window.UpdateLayout();
@@ -858,8 +911,8 @@ public class StickyNoteWindowTests
             Assert.Equal(top, model.Y);
 
             InvokePrivate(window, "EnterViewMode");
-            Assert.Equal(left, window.Left);
-            Assert.Equal(top, window.Top);
+            AssertWindowCoordinate(left, window.Left, window);
+            AssertWindowCoordinate(top, window.Top, window, vertical: true);
             Assert.Equal(left, model.X);
             Assert.Equal(top, model.Y);
         }
@@ -1208,7 +1261,7 @@ public class StickyNoteWindowTests
             var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
             var image = Assert.Single(EnumerateImages(contentBox.Document));
 
-            Assert.Equal(2, image.Width);
+            Assert.Equal(2 / VisualTreeHelper.GetDpi(window).DpiScaleX, image.Width, 8);
         }
         finally
         {
@@ -1544,7 +1597,8 @@ public class StickyNoteWindowTests
 
             InvokePrivate(window, "ResizeMarkdownImage", context, 200);
 
-            Assert.Equal("![image](assets/pasted.png){width=4}", note.Content);
+            var expectedWidth = (int)Math.Round(4 / VisualTreeHelper.GetDpi(window).DpiScaleX);
+            Assert.Equal($"![image](assets/pasted.png){{width={expectedWidth}}}", note.Content);
         }
         finally
         {
@@ -2181,8 +2235,8 @@ public class StickyNoteWindowTests
             InvokePrivate(window, "ToggleFold", (object?)null);
             var unfoldedImage = Assert.Single(EnumerateImages(contentBox.Document));
 
-            Assert.Equal(2, foldedImage.Width);
-            Assert.Equal(2, unfoldedImage.Width);
+            Assert.Equal(2 / VisualTreeHelper.GetDpi(window).DpiScaleX, foldedImage.Width, 8);
+            Assert.Equal(2 / VisualTreeHelper.GetDpi(window).DpiScaleX, unfoldedImage.Width, 8);
         }
         finally
         {

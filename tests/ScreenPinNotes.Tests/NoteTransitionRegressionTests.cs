@@ -22,8 +22,9 @@ public class NoteTransitionRegressionTests
             windows.Add(hidden);
             window.Show(); window.UpdateLayout();
             Assert.False(hidden.IsVisible);
+            var leftBeforeSnap = window.Left;
             typeof(StickyNoteWindow).GetMethod("SnapToAll", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(window, null);
-            Assert.Equal(195, window.Left);
+            Assert.Equal(leftBeforeSnap, window.Left);
         }
         finally { windows.Remove(hidden); window.Close(); hidden.Close(); if (System.IO.Directory.Exists(root)) System.IO.Directory.Delete(root, true); }
     }
