@@ -2168,6 +2168,224 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
+    // 画像の上で右クリックしても、通常の本文メニューがそのまま出る。
+    // 以前は画像に専用のメニューを持たせていたので、画像の上では
+    // コピーも削除もリマインダーも出せなかった。
+    [WpfFact]
+    public void ContentContextMenu_OverAnImage_KeepsTheOrdinaryItems()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote { Width = 400, Height = 300, Content = "![](assets/pasted.png)" };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        SavePng(System.IO.Path.Combine(assetsDir, "pasted.png"), CreateBitmapSource());
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), storage);
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            InvokePrivate(window, "LoadContent", note.Content);
+            var box = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            var image = Assert.Single(EnumerateImages(box.Document));
+
+            // 画像そのものは自前のメニューを持たない。持つと本文のメニューが出せない。
+            Assert.Null(image.ContextMenu);
+
+            OpenContentContextMenuOver(window, box, image);
+
+            var headers = MenuHeaders(box.ContextMenu!);
+            // 画像用の項目
+            Assert.Contains("画像のサイズ", headers);
+            Assert.Contains("この画像に合わせて付箋のサイズを調整", headers);
+            // 付箋の全画像版は引っ込む。画像1枚だと同じ動きの項目が2つ並ぶため。
+            Assert.DoesNotContain("画像に合わせて付箋のサイズを調整", headers);
+            Assert.Contains("付箋から画像を外す", headers);
+            Assert.Contains("画像ファイルごと削除", headers);
+            // 通常の項目も一緒に出る
+            Assert.Contains("コピー", headers);
+            Assert.Contains("すべて選択", headers);
+            Assert.Contains("付箋を非表示", headers);
+            Assert.Contains("付箋を削除", headers);
+
+            // 倍率は小メニューの中。通常の項目まで並ぶと画面に収まらない。
+            var sizeItem = FindMenuItem(box.ContextMenu!, "画像のサイズ");
+            var percents = MenuHeaders(sizeItem);
+            Assert.Contains("20%", percents);
+            Assert.Contains("200%", percents);
+            Assert.Contains("画像サイズを自動調整に戻す", percents);
+        }
+        finally { window.Close(); }
+    }
+
+    // 画像の外で開いたときは画像用の項目を出さない。押しても効かない項目が
+    // 並んでいると、どれが今の右クリックに効くのか分からなくなる。
+    [WpfFact]
+    public void ContentContextMenu_AwayFromAnImage_HidesTheImageItems()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote { Width = 400, Height = 300, Content = "本文\n![](assets/pasted.png)" };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        SavePng(System.IO.Path.Combine(assetsDir, "pasted.png"), CreateBitmapSource());
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), storage);
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            InvokePrivate(window, "LoadContent", note.Content);
+            var box = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            var image = Assert.Single(EnumerateImages(box.Document));
+
+            OpenContentContextMenuOver(window, box, image);
+            Assert.Equal(Visibility.Visible, FindMenuItem(box.ContextMenu!, "画像のサイズ").Visibility);
+
+            // 本文の文字の上で開き直すと引っ込む。
+            OpenContentContextMenuOver(window, box, box);
+            foreach (var header in new[]
+                     {
+                         "画像のサイズ", "この画像に合わせて付箋のサイズを調整",
+                         "付箋から画像を外す", "画像ファイルごと削除",
+                     })
+                Assert.Equal(Visibility.Collapsed, FindMenuItem(box.ContextMenu!, header).Visibility);
+
+            Assert.Contains("コピー", MenuHeaders(box.ContextMenu!));
+        }
+        finally { window.Close(); }
+    }
+
+    // 編集禁止の付箋では本文を書き換える項目を止める。大きさを変えるだけの
+    // 「付箋のサイズを調整」は本文に触らないので残す。
+    [WpfFact]
+    public void ContentContextMenu_OverAnImage_RespectsReadOnly()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote
+        {
+            Width = 400,
+            Height = 300,
+            IsReadOnly = true,
+            Content = "![](assets/pasted.png)",
+        };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        SavePng(System.IO.Path.Combine(assetsDir, "pasted.png"), CreateBitmapSource());
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), storage);
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            InvokePrivate(window, "LoadContent", note.Content);
+            var box = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            var image = Assert.Single(EnumerateImages(box.Document));
+
+            OpenContentContextMenuOver(window, box, image);
+
+            Assert.False(FindMenuItem(box.ContextMenu!, "付箋から画像を外す").IsEnabled);
+            Assert.False(FindMenuItem(box.ContextMenu!, "画像ファイルごと削除").IsEnabled);
+            Assert.True(FindMenuItem(box.ContextMenu!, "この画像に合わせて付箋のサイズを調整").IsEnabled);
+        }
+        finally { window.Close(); }
+    }
+
+    // 付箋の assets の外にある画像は、付箋から外せてもファイルは消せない。
+    [WpfFact]
+    public void ContentContextMenu_ForAnImageOutsideTheNote_KeepsTheFile()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        Directory.CreateDirectory(temp.Path);
+        var outside = System.IO.Path.Combine(temp.Path, "outside.png");
+        SavePng(outside, CreateBitmapSource());
+        var note = new StickyNote { Width = 400, Height = 300, Content = $"![]({outside.Replace("\\", "/")})" };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), storage);
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            InvokePrivate(window, "LoadContent", note.Content);
+            var box = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            var image = Assert.Single(EnumerateImages(box.Document));
+
+            OpenContentContextMenuOver(window, box, image);
+
+            Assert.True(FindMenuItem(box.ContextMenu!, "付箋から画像を外す").IsEnabled);
+            Assert.False(FindMenuItem(box.ContextMenu!, "画像ファイルごと削除").IsEnabled);
+        }
+        finally { window.Close(); }
+    }
+
+    // キーボード（Shift+F10）から開いたときは、直前の右クリックの記憶を捨てる。
+    // 残していると、関係のない場所から画像用の項目が出てしまう。
+    [WpfFact]
+    public void ContentContextMenu_OpenedFromTheKeyboard_ForgetsTheLastImage()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote { Width = 400, Height = 300, Content = "![](assets/pasted.png)" };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        SavePng(System.IO.Path.Combine(assetsDir, "pasted.png"), CreateBitmapSource());
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), storage);
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            InvokePrivate(window, "LoadContent", note.Content);
+            var box = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            var image = Assert.Single(EnumerateImages(box.Document));
+
+            OpenContentContextMenuOver(window, box, image);
+            Assert.Equal(Visibility.Visible, FindMenuItem(box.ContextMenu!, "画像のサイズ").Visibility);
+
+            // マウスを経由せず、カーソル位置を持たないまま開く。
+            InvokePrivate(window, "ContentBox_ContextMenuOpening", box, ContextMenuArgs(box, fromKeyboard: true));
+            Assert.Equal(Visibility.Collapsed, FindMenuItem(box.ContextMenu!, "画像のサイズ").Visibility);
+        }
+        finally { window.Close(); }
+    }
+
+    // 右クリック → メニューを開く、の2段階をそのまま踏む。
+    private static void OpenContentContextMenuOver(
+        StickyNoteWindow window, RichTextBox box, DependencyObject target)
+    {
+        var down = new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Right)
+        {
+            RoutedEvent = UIElement.PreviewMouseRightButtonDownEvent,
+            Source = target,
+        };
+        InvokePrivate(window, "ContentBox_PreviewMouseRightButtonDown", box, down);
+        InvokePrivate(window, "ContentBox_ContextMenuOpening", box, ContextMenuArgs(box, fromKeyboard: false));
+    }
+
+    // ContextMenuEventArgs のコンストラクタは internal なので、リフレクションで作る。
+    private static ContextMenuEventArgs ContextMenuArgs(object source, bool fromKeyboard)
+        => (ContextMenuEventArgs)Activator.CreateInstance(
+            typeof(ContextMenuEventArgs),
+            BindingFlags.NonPublic | BindingFlags.Instance,
+            null,
+            fromKeyboard
+                ? new object[] { source, true }
+                : new object[] { source, true, 10.0, 10.0 },
+            null)!;
+
+    // 実際に見える項目だけ。隠してあるだけの項目も混ざると、出ている・出て
+    // いないの確認にならない。
+    private static IEnumerable<string> MenuHeaders(ItemsControl menu)
+        => menu.Items.OfType<MenuItem>()
+            .Where(item => item.Visibility == Visibility.Visible)
+            .Select(item => item.Header as string ?? "");
+
+    private static MenuItem FindMenuItem(ItemsControl menu, string header)
+        => menu.Items.OfType<MenuItem>().Single(item => (item.Header as string) == header);
+
     // 画像だけの付箋で帯をどう置くかは設定で選べる。「並べる」だけが場所を空け、
     // 「重ねる」「出さない」は画像を縁まで広げる。
     [WpfTheory]

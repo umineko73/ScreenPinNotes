@@ -592,6 +592,9 @@ public partial class StickyNoteWindow
 
     private void ContentBox_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
+        // 本文がスクロールしないときはここで抜けるので、先に拾っておく。
+        CaptureContextMenuImage(e.OriginalSource);
+
         var scrollViewer = FindVisualChild<ScrollViewer>(ContentBox);
         if (scrollViewer == null ||
             scrollViewer.ScrollableWidth <= 0 && scrollViewer.ScrollableHeight <= 0)

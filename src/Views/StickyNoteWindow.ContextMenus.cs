@@ -80,6 +80,10 @@ public partial class StickyNoteWindow
             Setters = { new Setter(MenuItem.ForegroundProperty, ViewModel.TextForeground),
                 new Setter(MenuItem.BackgroundProperty, WpfBrushes.Transparent) }
         };
+        // 画像の上で開いたときだけ出す項目。先頭に置くのは、画像を右クリック
+        // した人が探しに行かなくて済むようにするため。
+        foreach (var imageItem in BuildImageMenuItems())
+            cm.Items.Add(imageItem);
         cm.Items.Add(cutItem);
         cm.Items.Add(new MenuItem { Header = LocalizationService.T("Copy"), Command = ApplicationCommands.Copy, CommandTarget = ContentBox });
         cm.Items.Add(pasteItem);
@@ -88,7 +92,10 @@ public partial class StickyNoteWindow
         cm.Items.Add(new Separator());
         cm.Items.Add(_pasteExcelTableItem);
         cm.Items.Add(_copyExcelTableItem);
-        cm.Items.Add(new Separator());
+        // 設定を読み直すとメニューごと作り直すので、区切り線も毎回新しく作る
+        // （同じ Separator は2つのメニューにぶら下げられない）。
+        _fitWindowToImagesSeparator = new Separator();
+        cm.Items.Add(_fitWindowToImagesSeparator);
         cm.Items.Add(_fitWindowToImagesItem);
         cm.Items.Add(new Separator());
         cm.Items.Add(_openLinkItem);
@@ -590,6 +597,9 @@ public partial class StickyNoteWindow
         // EnterViewMode() が走ってしまう（ドキュメント再構築・IsReadOnly=true）。
         _suppressViewMode = true;
         _isContentContextMenuOpen = true;
+
+        // CursorLeft が負なら、マウスではなくキーボードから開かれている。
+        UpdateImageMenuItems(fromKeyboard: e.CursorLeft < 0);
 
         _contextMenuLink = GetHyperlinkAtCaret();
         _openLinkItem.IsEnabled = _contextMenuLink != null;

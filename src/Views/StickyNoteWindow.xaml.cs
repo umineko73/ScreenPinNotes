@@ -139,6 +139,17 @@ public partial class StickyNoteWindow : Window
     private MenuItem   _pasteExcelTableItem = new();
     private MenuItem   _copyExcelTableItem = new();
     private MenuItem   _fitWindowToImagesItem = new();
+    // 右クリックが画像の上だったときだけ本文メニューの先頭に出す一式。
+    // 画像ごとに別のメニューを持たせると通常の項目が出せなくなるので、
+    // 本文のメニューに畳み込み、対象の画像だけを開くたびに差し替える。
+    private MarkdownImageContext? _contextMenuImage;
+    private MenuItem   _imageSizeItem = new();
+    private MenuItem   _removeImageWidthItem = new();
+    private MenuItem   _fitWindowToImageItem = new();
+    private MenuItem   _detachImageItem = new();
+    private MenuItem   _deleteImageFileItem = new();
+    private Separator  _imageMenuSeparator = new();
+    private Separator  _fitWindowToImagesSeparator = new();
     private readonly StorageService _storage;
     private readonly System.Windows.Threading.Dispatcher _uiDispatcher;
 

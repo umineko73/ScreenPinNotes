@@ -72,6 +72,7 @@ public class LocalizationServiceTests
     [InlineData("SettingsTitleBarSpineOnImageGutter", "Beside the image", "画像の横に並べる")]
     [InlineData("SettingsTitleBarSpineOnImageOverlay", "Over the image", "画像に重ねる")]
     [InlineData("SettingsTitleBarSpineOnImageHidden", "Hide the spine", "帯を出さない")]
+    [InlineData("ImageSizeMenu", "Image size", "画像のサイズ")]
     [InlineData("SettingsNoteCorner", "Corner radius", "角の丸み")]
     [InlineData("SettingsNoteCornerSquare", "Square", "丸めない")]
     [InlineData("SettingsNoteBorder", "Border color", "枠の色")]

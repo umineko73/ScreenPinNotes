@@ -439,7 +439,6 @@ public partial class StickyNoteWindow
                 displayWidth,
                 displayHeight);
             _markdownImageContexts[image] = context;
-            image.ContextMenu = BuildImageContextMenu(context);
             image.PreviewMouseWheel += (_, e) =>
             {
                 try
@@ -528,56 +527,95 @@ public partial class StickyNoteWindow
 
     private sealed record PendingMarkdownImageResize(MarkdownImageContext Context, int Percent);
 
-    private ContextMenu BuildImageContextMenu(MarkdownImageContext context)
+    /// <summary>
+    /// 本文メニューの先頭へ差し込む画像用の項目を作る。中身は開くたびに
+    /// <see cref="UpdateImageMenuItems"/> が右クリック先の画像へ向け直すので、
+    /// ここでは画像を特定せず、器だけを1回作る。
+    /// 倍率だけ小メニューに畳んであるのは、通常の項目まで並ぶと画面に
+    /// 収まらなくなるため。よく使う4つは開いてすぐ押せる位置に残す。
+    /// </summary>
+    private IReadOnlyList<FrameworkElement> BuildImageMenuItems()
     {
-        var cm = new ContextMenu();
+        _imageSizeItem = new MenuItem { Header = LocalizationService.T("ImageSizeMenu") };
         for (var percent = MarkdownImageMinPercent; percent <= MarkdownImageMaxPercent; percent += 20)
         {
-            var percentItem = new MenuItem { Header = $"{percent}%", Tag = "ImageResize" };
+            var percentItem = new MenuItem { Header = $"{percent}%" };
             var selectedPercent = percent;
-            percentItem.Click += (_, _) => ResizeMarkdownImage(context, selectedPercent);
-            cm.Items.Add(percentItem);
+            percentItem.Click += (_, _) => WithContextMenuImage(c => ResizeMarkdownImage(c, selectedPercent));
+            _imageSizeItem.Items.Add(percentItem);
         }
-        cm.Items.Add(new Separator());
-        var removeWidthItem = new MenuItem { Header = LocalizationService.T("RemoveImageWidth"), Tag = "ImageResize" };
-        removeWidthItem.Click += (_, _) => RemoveMarkdownImageWidth(context);
-        cm.Items.Add(removeWidthItem);
+        _imageSizeItem.Items.Add(new Separator());
+        _removeImageWidthItem = new MenuItem { Header = LocalizationService.T("RemoveImageWidth") };
+        _removeImageWidthItem.Click += (_, _) => WithContextMenuImage(RemoveMarkdownImageWidth);
+        _imageSizeItem.Items.Add(_removeImageWidthItem);
 
-        cm.Items.Add(new Separator());
-        var fitWindowItem = new MenuItem { Header = LocalizationService.T("FitWindowToImage") };
-        fitWindowItem.Click += (_, _) => FitWindowToMarkdownImage(context);
-        cm.Items.Add(fitWindowItem);
+        _fitWindowToImageItem = new MenuItem { Header = LocalizationService.T("FitWindowToImage") };
+        _fitWindowToImageItem.Click += (_, _) => WithContextMenuImage(FitWindowToMarkdownImage);
 
-        cm.Items.Add(new Separator());
-        var detachItem = new MenuItem { Header = LocalizationService.T("DetachImageFromNote"), Tag = "ContentChange" };
-        detachItem.Click += (_, _) => RemoveMarkdownImage(context, deleteFile: false);
-        cm.Items.Add(detachItem);
+        _detachImageItem = new MenuItem { Header = LocalizationService.T("DetachImageFromNote") };
+        _detachImageItem.Click += (_, _) => WithContextMenuImage(c => RemoveMarkdownImage(c, deleteFile: false));
 
-        var deleteFileItem = new MenuItem
+        _deleteImageFileItem = new MenuItem { Header = LocalizationService.T("DeleteImageFile") };
+        _deleteImageFileItem.Click += (_, _) => WithContextMenuImage(c => RemoveMarkdownImage(c, deleteFile: true));
+
+        _imageMenuSeparator = new Separator();
+        return new FrameworkElement[]
         {
-            Header = LocalizationService.T("DeleteImageFile"),
-            Tag = "ContentChange",
-            IsEnabled = IsImageFileInNoteAssets(context.Target),
+            _imageSizeItem, _fitWindowToImageItem, _detachImageItem, _deleteImageFileItem, _imageMenuSeparator,
         };
-        deleteFileItem.Click += (_, _) => RemoveMarkdownImage(context, deleteFile: true);
-        cm.Items.Add(deleteFileItem);
+    }
 
-        cm.Opened += (_, _) =>
+    private void WithContextMenuImage(Action<MarkdownImageContext> action)
+    {
+        if (_contextMenuImage is { } context) action(context);
+    }
+
+    /// <summary>
+    /// 右クリックがどの画像に当たったかを覚える。ContextMenuOpening の
+    /// OriginalSource はメニューの持ち主（ContentBox）になってしまい、
+    /// 実際に押された要素が分からないので、押した時点で拾っておく。
+    /// </summary>
+    private void CaptureContextMenuImage(object? originalSource)
+        => _contextMenuImage = FindMarkdownImageContext(originalSource);
+
+    /// <summary>
+    /// 覚えておいた画像に合わせて、画像用の項目の表示と可否を整える。
+    /// 画像の上でなければ丸ごと隠し、通常の本文メニューだけにする。
+    /// </summary>
+    private void UpdateImageMenuItems(bool fromKeyboard)
+    {
+        // キーボードから開いたときは直前の右クリックの記憶が残っているだけなので捨てる。
+        if (fromKeyboard) _contextMenuImage = null;
+        var visibility = _contextMenuImage == null ? Visibility.Collapsed : Visibility.Visible;
+        _imageSizeItem.Visibility = visibility;
+        _fitWindowToImageItem.Visibility = visibility;
+        _detachImageItem.Visibility = visibility;
+        _deleteImageFileItem.Visibility = visibility;
+        _imageMenuSeparator.Visibility = visibility;
+        // 付箋の全画像版は、右クリックした画像を対象にする版と入れ替える。
+        // 画像1枚の付箋では同じ動きの項目が2つ並んでしまうため。
+        var wholeNoteVisibility = _contextMenuImage == null ? Visibility.Visible : Visibility.Collapsed;
+        _fitWindowToImagesItem.Visibility = wholeNoteVisibility;
+        _fitWindowToImagesSeparator.Visibility = wholeNoteVisibility;
+        if (_contextMenuImage is not { } context) return;
+
+        var canEdit = !IsContentReadOnly();
+        _imageSizeItem.IsEnabled = CanResizeMarkdownImage();
+        _detachImageItem.IsEnabled = canEdit;
+        _deleteImageFileItem.IsEnabled = canEdit && IsImageFileInNoteAssets(context.Target);
+    }
+
+    private MarkdownImageContext? FindMarkdownImageContext(object? originalSource)
+    {
+        var node = originalSource as DependencyObject;
+        while (node != null)
         {
-            _suppressViewMode = true;
-            _isContentContextMenuOpen = true;
-            foreach (var item in cm.Items.OfType<MenuItem>())
-            {
-                if (item.Tag is string tag && tag == "ImageResize")
-                    item.IsEnabled = CanResizeMarkdownImage();
-                if (item.Tag is string contentTag && contentTag == "ContentChange")
-                    item.IsEnabled = IsContentReadOnly()
-                        ? item == fitWindowItem
-                        : item != deleteFileItem || IsImageFileInNoteAssets(context.Target);
-            }
-        };
-        cm.Closed += ContentContextMenu_Closed;
-        return cm;
+            if (node is WpfImage image && _markdownImageContexts.TryGetValue(image, out var context))
+                return context;
+            node = VisualTreeHelper.GetParent(node) ?? LogicalTreeHelper.GetParent(node);
+        }
+
+        return null;
     }
 
     private bool CanResizeMarkdownImage()

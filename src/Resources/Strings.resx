@@ -540,11 +540,12 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="ImageOriginal" xml:space="preserve">
     <value>Original size (100%)</value>
   </data>
+  <data name="ImageSizeMenu" xml:space="preserve"><value>Image size</value></data>
   <data name="RemoveImageWidth" xml:space="preserve">
     <value>Reset image size to automatic</value>
   </data>
   <data name="FitWindowToImage" xml:space="preserve">
-    <value>Resize note to fit image</value>
+    <value>Resize note to fit this image</value>
   </data>
   <data name="FitWindowToImages" xml:space="preserve">
     <value>Resize note to fit images</value>

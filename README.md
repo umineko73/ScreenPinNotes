@@ -107,7 +107,7 @@ Icon and color palettes appear in front of notes. Click the same editing toolbar
 | Title | Edit/copy title, stacking order, opacity, reconnect positions |
 | Body in view mode | Copy, open links, copy Excel tables, fit the window to images |
 | Body in edit mode | Cut/paste/select all, Markdown formatting, edit links, paste Excel tables |
-| Image | Image sizing and other image actions |
+| Image | The body menu gains image actions at the top (image size, fit the note to this image, detach or delete it). Everything else in the menu stays available |
 | Shared by title and body | Hide title bar, opacity, reminders, edit lock, hide, delete |
 
 Use the mini toolbar for colors, fonts, and icons. Unavailable actions are disabled or hidden.

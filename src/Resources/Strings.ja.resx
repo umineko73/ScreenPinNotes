@@ -540,11 +540,12 @@
   <data name="ImageOriginal" xml:space="preserve">
     <value>元のサイズ（100%）</value>
   </data>
+  <data name="ImageSizeMenu" xml:space="preserve"><value>画像のサイズ</value></data>
   <data name="RemoveImageWidth" xml:space="preserve">
     <value>画像サイズを自動調整に戻す</value>
   </data>
   <data name="FitWindowToImage" xml:space="preserve">
-    <value>画像に合わせて付箋のサイズを調整</value>
+    <value>この画像に合わせて付箋のサイズを調整</value>
   </data>
   <data name="FitWindowToImages" xml:space="preserve">
     <value>画像に合わせて付箋のサイズを調整</value>
