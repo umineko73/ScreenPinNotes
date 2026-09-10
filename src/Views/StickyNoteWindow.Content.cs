@@ -51,7 +51,6 @@ public partial class StickyNoteWindow
 {
     private const int MarkdownImageMinPercent = 20;
     private const int MarkdownImageMaxPercent = 200;
-    private const double MarkdownImageVerticalMargin = 6;
     private const double MarkdownImageMinDisplayWidth = 80;
 
     // ─── FlowDocument ↔ プレーンテキスト / Markdown ──────────────
@@ -496,6 +495,10 @@ public partial class StickyNoteWindow
     /// </summary>
     private bool NeedsScrollBarAllowance(double naturalWidth, double originalWidth, double originalHeight)
     {
+        // 付箋を画像に合わせている最中は、収まる大きさをこれから決めるところ。
+        // ここで場所を空けると、空けたぶん画像が縮み、その縮んだ姿に高さを
+        // 合わせ、また空ける、と堂々巡りになって下に隙間が残り続ける。
+        if (_isFittingWindowToImages) return false;
         if (!ViewModel.UsesTightImageLayout) return true;
 
         var width = Math.Min(naturalWidth, GetMarkdownImageAvailableWidth(reserveScrollBar: false));
@@ -780,38 +783,52 @@ public partial class StickyNoteWindow
         => $"{context.LineIndex}:{context.Start}:{context.Target}";
 
     private void FitWindowToMarkdownImage(MarkdownImageContext context)
-    {
-        var image = _markdownImageContexts.FirstOrDefault(pair => pair.Value.Equals(context)).Key;
-        if (image != null)
-            FitWindowToMarkdownImages([image]);
-    }
+        => FitWindowToMarkdownImages([context]);
 
     private void FitWindowToMarkdownImages()
-        => FitWindowToMarkdownImages(_markdownImageContexts.Keys);
+        => FitWindowToMarkdownImages(_markdownImageContexts.Values.ToList());
 
-    private void FitWindowToMarkdownImages(IEnumerable<WpfImage> images)
+    /// <summary>
+    /// 付箋を画像にぴったり合わせる。<see cref="MarkdownImageContext"/> で受けるのは、
+    /// 途中で LoadContent が走ると Image の実体が作り直されるため。
+    /// </summary>
+    private void FitWindowToMarkdownImages(IReadOnlyCollection<MarkdownImageContext> contexts)
     {
         CompleteFoldAnimation();
-        var imageList = images.ToList();
-        if (imageList.Count == 0)
+        if (contexts.Count == 0)
             return;
 
-        UpdateLayout();
-        var contentExtent = GetMarkdownImageContentExtent(imageList);
-        var (maxWidth, maxHeight) = GetWorkAreaSize();
-        var targetWidth = Math.Min(
-            maxWidth,
-            Math.Max(MinWidth, contentExtent.Width + GetWindowExtraWidthForContent()));
-        var targetHeight = Math.Min(
-            maxHeight,
-            Math.Max(FoldedHeight, contentExtent.Height + GetWindowExtraHeightForContent()));
-
-        SuppressWindowBoundsSave(() =>
+        _isFittingWindowToImages = true;
+        try
         {
-            Width = targetWidth;
-            Height = targetHeight;
-            KeepInsideWorkArea(Width, Height);
-        });
+
+        // 大きさを変えると、幅に合わせて縮めている画像はその場で伸び縮みし、
+        // 必要な高さも変わる。1回測って当てるだけでは下に隙間が残るので、
+        // 動かなくなるまで測り直す。数回で収まらない組み合わせもあり得るため
+        // 上限を置く（振動したままだと操作が返ってこない）。
+        for (var pass = 0; pass < 4; pass++)
+        {
+            UpdateLayout();
+            var images = ResolveMarkdownImages(contexts);
+            if (images.Count == 0)
+                return;
+
+            var (targetWidth, targetHeight) = GetFitToImagesSize(images);
+            var settled = Math.Abs(targetWidth - Width) < 1 && Math.Abs(targetHeight - Height) < 1;
+            SuppressWindowBoundsSave(() =>
+            {
+                Width = targetWidth;
+                Height = targetHeight;
+                KeepInsideWorkArea(Width, Height);
+            });
+            LoadContent(ViewModel.Content);
+            if (settled) break;
+        }
+        }
+        finally
+        {
+            _isFittingWindowToImages = false;
+        }
 
         ViewModel.Model.Width = Width;
         ViewModel.Model.Height = Height;
@@ -819,7 +836,36 @@ public partial class StickyNoteWindow
         ViewModel.Model.Y = Top;
         MarkPositionSeparatedIfOpenViewMovedAwayFromClosedView();
         RequestSave();
-        LoadContent(ViewModel.Content);
+    }
+
+    private List<WpfImage> ResolveMarkdownImages(IReadOnlyCollection<MarkdownImageContext> contexts)
+        => _markdownImageContexts
+            .Where(pair => contexts.Any(context => IsSameMarkdownImage(context, pair.Value)))
+            .Select(pair => pair.Key)
+            .ToList();
+
+    /// <summary>
+    /// 同じ画像を指しているか。record の等値では駄目で、表示中の大きさまで
+    /// 一致を求めてしまう ―― measure して当てるたびに変わる値なので、
+    /// 測り直しの2周目で見失う。本文のどこを指しているかだけで見る。
+    /// </summary>
+    private static bool IsSameMarkdownImage(MarkdownImageContext a, MarkdownImageContext b)
+        => a.LineIndex == b.LineIndex && a.Start == b.Start && a.Target == b.Target;
+
+    private (double Width, double Height) GetFitToImagesSize(IReadOnlyCollection<WpfImage> images)
+    {
+        var contentExtent = GetMarkdownImageContentExtent(images);
+        var (maxWidth, maxHeight) = GetWorkAreaSize();
+        var desiredWidth = Math.Max(MinWidth, contentExtent.Width + GetWindowExtraWidthForContent());
+        var desiredHeight = Math.Max(FoldedHeight, contentExtent.Height + GetWindowExtraHeightForContent());
+
+        // ここまでは中身がぴったり収まる大きさ。画面に入りきらず切り詰める側には
+        // スクロールバーが出るので、そのときだけ直交する向きにバーの幅を足す。
+        // 常に足していたころは、収まっている付箋にも下と右に隙間が残っていた。
+        if (desiredHeight > maxHeight) desiredWidth += ScrollbarAllowance;
+        if (desiredWidth > maxWidth) desiredHeight += ScrollbarAllowance;
+
+        return (Math.Min(maxWidth, desiredWidth), Math.Min(maxHeight, desiredHeight));
     }
 
     private System.Windows.Size GetMarkdownImageContentExtent(IReadOnlyCollection<WpfImage> images)
@@ -852,12 +898,15 @@ public partial class StickyNoteWindow
                 var bounds = image.TransformToAncestor(ContentBox)
                     .TransformBounds(new Rect(0, 0, actualWidth, actualHeight));
                 width = Math.Max(width, bounds.Right + horizontalOffset + ContentBox.Padding.Right);
-                height = Math.Max(height, bounds.Bottom + verticalOffset + ContentBox.Padding.Bottom + MarkdownImageVerticalMargin);
+                // bounds は画像そのものの矩形。上の余白は位置に織り込み済みなので、
+                // 足すのは下の余白だけ。決め打ちの値ではなく実物から取るのは、
+                // 画像1枚だけの付箋では余白を 0 にしてあるため。
+                height = Math.Max(height, bounds.Bottom + verticalOffset + ContentBox.Padding.Bottom + image.Margin.Bottom);
             }
             catch (InvalidOperationException)
             {
                 width = Math.Max(width, actualWidth + ContentBox.Padding.Left + ContentBox.Padding.Right);
-                fallbackStackedHeight += actualHeight + MarkdownImageVerticalMargin;
+                fallbackStackedHeight += actualHeight + image.Margin.Top + image.Margin.Bottom;
             }
         }
 
@@ -865,22 +914,22 @@ public partial class StickyNoteWindow
         return new System.Windows.Size(Math.Max(1, width), Math.Max(1, height));
     }
 
+    // 本文の余白は contentExtent 側で見ているので、ここでは数えない。
     private double GetWindowExtraWidthForContent()
-    {
-        var padding = ContentBox.Padding.Left + ContentBox.Padding.Right;
-        var border = ContentBox.BorderThickness.Left + ContentBox.BorderThickness.Right;
-        var rootBorder = RootBorder.BorderThickness.Left + RootBorder.BorderThickness.Right;
-        const double ScrollbarAllowance = 18;
-        return border + rootBorder + ScrollbarAllowance;
-    }
+        => ContentBox.BorderThickness.Left + ContentBox.BorderThickness.Right
+           + RootBorder.BorderThickness.Left + RootBorder.BorderThickness.Right;
 
     private double GetWindowExtraHeightForContent()
-    {
-        var border = ContentBox.BorderThickness.Top + ContentBox.BorderThickness.Bottom;
-        var rootBorder = RootBorder.BorderThickness.Top + RootBorder.BorderThickness.Bottom;
-        const double ScrollbarAllowance = 18;
-        return ViewModel.TitleBarHeight + border + rootBorder + ScrollbarAllowance;
-    }
+        => TitleBarExtraHeight
+           + ContentBox.BorderThickness.Top + ContentBox.BorderThickness.Bottom
+           + RootBorder.BorderThickness.Top + RootBorder.BorderThickness.Bottom;
+
+    /// <summary>
+    /// タイトルバーが占める高さ。隠しているときは行ごと畳んであるので 0。
+    /// 数えたままだと、本文の下にタイトルバー1本分の空きが残る。
+    /// </summary>
+    private double TitleBarExtraHeight
+        => ViewModel.TitleBarVisibility == Visibility.Visible ? ViewModel.TitleBarHeight : 0;
 
     private (double Width, double Height) GetWorkAreaSize()
     {

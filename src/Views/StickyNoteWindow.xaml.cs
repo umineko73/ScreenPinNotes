@@ -100,6 +100,7 @@ public partial class StickyNoteWindow : Window
     private double     _dragOffsetX, _dragOffsetY;
     private bool       _dragMoved;               // しきい値を超えて実際に動かしたか
     private bool       _isDraggingSpine;         // 左の帯を掴んでのドラッグか
+    private bool       _isFittingWindowToImages; // 付箋を画像に合わせている最中か
     private System.Drawing.Point _dragStartCursor; // ドラッグ開始時のカーソル位置（しきい値判定用）
     private bool       _suppressTextChange;
     private bool       _suppressWindowBoundsSave;
