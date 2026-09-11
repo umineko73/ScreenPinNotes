@@ -106,7 +106,7 @@ public partial class StickyNoteWindow
                 return;
 
             e.Handled = true;
-            if (ResizeMarkdownImageAtPoint(e.GetPosition(ContentBox), e.Delta))
+            if (!_isEditMode && ResizeMarkdownImageAtPoint(e.GetPosition(ContentBox), e.Delta))
                 return;
 
             var delta = e.Delta > 0 ? 1 : -1;

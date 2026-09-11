@@ -84,7 +84,6 @@ public partial class StickyNoteWindow
 
         ContentBox.Visibility = Visibility.Collapsed;
         BodyEditBox.Visibility = Visibility.Visible;
-        EnableIme(BodyEditBox);
         ContentBox.ToolTip = null;
         // タイトルも同時に編集可能にする。フォーカスは本文に置いたままにし、
         // タイトルを直したい人だけ自分でクリックしてもらう。
@@ -96,7 +95,6 @@ public partial class StickyNoteWindow
             BodyEditBox.Focus();
             Keyboard.Focus(BodyEditBox);
         }
-        Dispatcher.BeginInvoke(() => EnableImeForFocusedControl(BodyEditBox));
     }
 
     private bool IsBodyEditing()
@@ -144,7 +142,6 @@ public partial class StickyNoteWindow
             _isEditMode = true;
             ApplyEditingSize(true);
             ContentBox.IsReadOnly = true;
-            EnableIme(TitleEditBox);
             BodyEditBox.Visibility = Visibility.Collapsed;
             ContentBox.Visibility = Visibility.Visible;
             ContentBox.Cursor = WpfCursors.Arrow;
@@ -164,24 +161,6 @@ public partial class StickyNoteWindow
         TitleEditBox.Focus();
         Keyboard.Focus(TitleEditBox);
         TitleEditBox.SelectAll();
-        Dispatcher.BeginInvoke(() => EnableImeForFocusedControl(TitleEditBox));
-    }
-
-    private static void EnableIme(System.Windows.Controls.Control control)
-    {
-        InputMethod.SetIsInputMethodEnabled(control, true);
-        InputMethod.SetPreferredImeState(control, InputMethodState.On);
-        InputMethod.SetPreferredImeConversionMode(control, ImeConversionModeValues.Native | ImeConversionModeValues.FullShape);
-    }
-
-    private static void EnableImeForFocusedControl(System.Windows.Controls.Control control)
-    {
-        EnableIme(control);
-        if (control.IsKeyboardFocusWithin)
-        {
-            InputMethod.Current.ImeState = InputMethodState.On;
-            InputMethod.Current.ImeConversionMode = ImeConversionModeValues.Native | ImeConversionModeValues.FullShape;
-        }
     }
 
     private void EditableControl_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
@@ -191,8 +170,6 @@ public partial class StickyNoteWindow
             UndoButton.CommandTarget = editor;
             RedoButton.CommandTarget = editor;
         }
-        if (sender is System.Windows.Controls.Control control)
-            Dispatcher.BeginInvoke(() => EnableImeForFocusedControl(control));
     }
 
     private void EnterViewModeCore()
@@ -583,6 +560,12 @@ public partial class StickyNoteWindow
 
             // シングルクリックでは編集モードに入らない。誤って文字を
             // 選択しただけで編集が始まるのを避けるため、ダブルクリックを要求する。
+            if (e.ClickCount == 1 && IsDescendantOfType<WpfImage>(e.OriginalSource as DependencyObject))
+            {
+                // Do not move the RichTextBox caret to the start of a tall image.
+                e.Handled = true;
+                return;
+            }
             if (e.ClickCount == 2)
                 EnterEditMode();
         }

@@ -679,14 +679,19 @@ public partial class App : System.Windows.Application
     private StickyNoteWindow? _lastActiveWindow;
 
     /// <summary>
-    /// 触られた付箋を覚えて、前に出し直す。活性化だけを見ていると、
+    /// 触られた付箋だけを前に出す。全体の並べ直しは他アプリよりも
+    /// 全付箋を前に出してしまうため、ここでは実行しない。活性化だけを見ていると、
     /// すでに入力先になっている付箋（起動直後の最後の1枚など）を
     /// クリックしても活性化が起きず、奥に沈んだままになる。
     /// </summary>
     internal void NoteTouched(StickyNoteWindow window)
     {
         _lastActiveWindow = window;
-        QueueLayerOrder();
+        if (_openReminderDialogs == 0 && window.IsVisible)
+        {
+            window.ChangeZOrder(true);
+            window.RaisePickerPopups();
+        }
     }
 
     /// <summary>
@@ -854,7 +859,6 @@ public partial class App : System.Windows.Application
         var vm  = new StickyNoteViewModel(note, _settings);
         var win = new StickyNoteWindow(vm, _storage);
         _windows.Add(win);
-        win.Activated += (_, _) => QueueLayerOrder();
         win.ViewModel.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(StickyNoteViewModel.IsTopmost)) QueueLayerOrder();

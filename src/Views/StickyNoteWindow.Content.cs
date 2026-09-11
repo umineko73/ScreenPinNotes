@@ -194,10 +194,33 @@ public partial class StickyNoteWindow
                 ignoreFirstLineHeadingSize: ViewModel.IsFolded && ViewModel.IsTitleBarHidden))
             {
                 ContentBox.Document.Blocks.Add(block);
+                if (block is Table table)
+                    SizeMarkdownTableColumns(table);
             }
             ApplyMarkdownPageWidth();
         }
         finally { _suppressTextChange = false; }
+    }
+
+    private void SizeMarkdownTableColumns(Table table)
+    {
+        for (var column = 0; column < table.Columns.Count; column++)
+        {
+            var width = 0.0;
+            foreach (var row in table.RowGroups.SelectMany(group => group.Rows))
+            {
+                var cell = row.Cells[column];
+                var paragraph = (Paragraph)cell.Blocks.FirstBlock;
+                var text = new TextRange(cell.ContentStart, cell.ContentEnd).Text.TrimEnd('\r', '\n');
+                var measured = new FormattedText(text,
+                    System.Globalization.CultureInfo.CurrentCulture, System.Windows.FlowDirection.LeftToRight,
+                    new Typeface(new WpfFontFamily(ViewModel.FontFamily), paragraph.FontStyle, paragraph.FontWeight, paragraph.FontStretch),
+                    ViewModel.ContentFontSize, ViewModel.TextForeground, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+                width = Math.Max(width, measured.WidthIncludingTrailingWhitespace + 12);
+            }
+            table.Columns[column].Width = new GridLength(Math.Max(12, width));
+        }
+        _requiredMarkdownPageWidth = Math.Max(_requiredMarkdownPageWidth, table.Columns.Sum(column => column.Width.Value));
     }
 
     private static string GetFoldedPreviewSource(string text)
@@ -747,7 +770,7 @@ public partial class StickyNoteWindow
     private void ResizeMarkdownImage(MarkdownImageContext context, int percent)
     {
         percent = Math.Clamp(percent, MarkdownImageMinPercent, MarkdownImageMaxPercent);
-        var width = Math.Clamp(Math.Round(context.OriginalWidth * percent / 100.0), 1, 2000);
+        var width = Math.Max(1, Math.Round(context.OriginalWidth * percent / 100.0));
         if (ShouldUseImageWidthOverrides())
         {
             SetMarkdownImageWidthOverride(context, width);

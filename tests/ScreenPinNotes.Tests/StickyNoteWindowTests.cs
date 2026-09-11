@@ -335,7 +335,7 @@ public class StickyNoteWindowTests
             InvokePrivate(window, titleOnly ? "EnterTitleEditMode" : "EnterEditMode");
             var editor = (TextBox)window.FindName(titleOnly ? "TitleEditBox" : "BodyEditBox");
             Assert.True(InputMethod.GetIsInputMethodEnabled(editor));
-            Assert.Equal(InputMethodState.On, InputMethod.GetPreferredImeState(editor));
+            Assert.Equal(InputMethodState.DoNotCare, InputMethod.GetPreferredImeState(editor));
             var original = editor.Text;
             editor.SelectAll();
             editor.SelectedText = "漢字・かな・カナ・半角ｶﾅ・🦊・か\u3099";
@@ -1385,7 +1385,7 @@ public class StickyNoteWindowTests
     }
 
     [WpfFact]
-    public void EnterEditMode_PrefersFullWidthNativeIme()
+    public void EnterEditMode_DoesNotControlIme()
     {
         EnsureApplication();
         using var temp = new TempDataDirectory();
@@ -1394,18 +1394,41 @@ public class StickyNoteWindowTests
         var window = new StickyNoteWindow(vm, storage);
         try
         {
+            window.Show();
+            window.UpdateLayout();
             InvokePrivate(window, "EnterEditMode");
             var bodyEditBox = Assert.IsType<TextBox>(window.FindName("BodyEditBox"));
             var conversionMode = InputMethod.GetPreferredImeConversionMode(bodyEditBox);
 
-            Assert.True((conversionMode & ImeConversionModeValues.Native) != 0);
-            Assert.True((conversionMode & ImeConversionModeValues.FullShape) != 0);
-            Assert.False((conversionMode & ImeConversionModeValues.Katakana) != 0);
+            Assert.Equal(ImeConversionModeValues.DoNotCare, conversionMode);
+            Assert.Equal(InputMethodState.DoNotCare, InputMethod.GetPreferredImeState(bodyEditBox));
+            bodyEditBox.GetBindingExpression(System.Windows.Controls.Primitives.TextBoxBase.CaretBrushProperty)!.UpdateTarget();
+            Assert.Equal(bodyEditBox.Foreground, bodyEditBox.CaretBrush);
         }
         finally
         {
             window.Close();
         }
+    }
+
+    [WpfFact]
+    public void MarkdownTable_UsesContentWidths()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { Content = "| A | B |\n| --- | --- |\n| short | longer content |" };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            InvokePrivate(window, "LoadContent", note.Content);
+            window.UpdateLayout();
+            var box = (RichTextBox)window.FindName("ContentBox");
+            var table = Assert.IsType<Table>(box.Document.Blocks.FirstBlock);
+            Assert.All(table.Columns.Cast<TableColumn>(), column => Assert.True(column.Width.IsAbsolute));
+            Assert.True(table.Columns[1].Width.Value > table.Columns[0].Width.Value);
+        }
+        finally { window.Close(); }
     }
 
     [WpfFact]
@@ -1622,8 +1645,10 @@ public class StickyNoteWindowTests
         }
     }
 
-    [WpfFact]
-    public void ResizeMarkdownImage_ReadOnlyNote_SavesDisplayOverrideWithoutChangingContent()
+    [WpfTheory]
+    [InlineData(2)]
+    [InlineData(3000)]
+    public void ResizeMarkdownImage_ReadOnlyNote_SavesDisplayOverrideWithoutChangingContent(int imageWidth)
     {
         EnsureApplication();
         using var temp = new TempDataDirectory();
@@ -1635,7 +1660,9 @@ public class StickyNoteWindowTests
         };
         var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
         Directory.CreateDirectory(assetsDir);
-        SavePng(System.IO.Path.Combine(assetsDir, "pasted.png"), CreateBitmapSource());
+        var bitmap = System.Windows.Media.Imaging.BitmapSource.Create(imageWidth, 2, 96, 96,
+            PixelFormats.Bgra32, null, new byte[imageWidth * 2 * 4], imageWidth * 4);
+        SavePng(System.IO.Path.Combine(assetsDir, "pasted.png"), bitmap);
         var vm = new StickyNoteViewModel(note, new AppSettings());
         var window = new StickyNoteWindow(vm, storage);
         try
@@ -1649,7 +1676,8 @@ public class StickyNoteWindowTests
             InvokePrivate(window, "ResizeMarkdownImage", context, 200);
 
             Assert.Equal("![image](assets/pasted.png)", note.Content);
-            Assert.Contains(note.ExternalImageWidthOverrides, pair => pair.Key.EndsWith(":assets/pasted.png") && pair.Value > 0);
+            var expectedWidth = Math.Round(imageWidth * 2 / VisualTreeHelper.GetDpi(window).DpiScaleX);
+            Assert.Contains(note.ExternalImageWidthOverrides, pair => pair.Key.EndsWith(":assets/pasted.png") && pair.Value == expectedWidth);
         }
         finally
         {
