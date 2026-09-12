@@ -202,7 +202,8 @@ public partial class StickyNoteWindow
     private void RootBorder_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (!BodyActsAsTitleBar) return;
-        if (e.OriginalSource is not DependencyObject source || !IsDescendantOf(source, ContentBox)) return;
+        if (e.OriginalSource is not DependencyObject source ||
+            (!IsDescendantOf(source, ContentBox) && !IsDescendantOf(source, FoldedPreviewHost))) return;
 
         TitleBar_MouseLeftButtonDown(RootBorder, e);
         // 折りたたみ切り替えの経路を通ったときはドラッグにならない。

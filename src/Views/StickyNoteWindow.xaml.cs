@@ -181,6 +181,7 @@ public partial class StickyNoteWindow : Window
         _uiDispatcher = Dispatcher;
         DataContext = vm;
         ContentBox.SizeChanged += (_, _) => UpdateImagePathPreview();
+        FoldedPreviewHost.SizeChanged += (_, _) => UpdateImagePathPreview();
         TitleText.SizeChanged += (_, _) => UpdateImagePathPreview();
         _storage = storage ?? new StorageService();
         vm.PropertyChanged += (_, e) =>
@@ -313,6 +314,7 @@ public partial class StickyNoteWindow : Window
 
         var titleContextMenu = BuildTitleContextMenu();
         TitleText.ContextMenu = titleContextMenu;
+        FoldedPreviewHost.ContextMenu = titleContextMenu;
         TitleEditBox.ContextMenu = titleContextMenu;
     }
 

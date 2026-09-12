@@ -38,21 +38,16 @@ public partial class StickyNoteWindow
 
     /// <summary>
     /// 折りたたみ中の本文の見せ方をそろえる。タイトルバーを隠しているときは
-    /// 本文を残して1行だけ見せるので、消さずに高さで切る。1行しか出ないところに
-    /// スクロールバーが出ると畳んだ見た目が壊れるため、そのときだけ止める。
+    /// 専用のプレビューだけを表示する。本文は再展開で再利用するため保持する。
     /// </summary>
     private void ApplyFoldedContentPresentation()
     {
         var foldedToFirstLine = ViewModel.IsFolded && ViewModel.IsTitleBarHidden;
-        ContentBox.Visibility = ViewModel.IsFolded && !ViewModel.IsTitleBarHidden
+        ContentBox.Visibility = ViewModel.IsFolded
             ? Visibility.Collapsed
             : Visibility.Visible;
-        ContentBox.VerticalScrollBarVisibility = foldedToFirstLine
-            ? ScrollBarVisibility.Disabled
-            : ScrollBarVisibility.Auto;
-        ContentBox.HorizontalScrollBarVisibility = foldedToFirstLine
-            ? ScrollBarVisibility.Disabled
-            : ScrollBarVisibility.Auto;
+        FoldedPreviewHost.Visibility = foldedToFirstLine ? Visibility.Visible : Visibility.Collapsed;
+        if (foldedToFirstLine) UpdateFoldedPreview(ViewModel.Content);
     }
 
     // onUnfolded: 開いた表示へのアニメーション完了後に呼ぶコールバック（省略可）。
@@ -62,6 +57,7 @@ public partial class StickyNoteWindow
     // 呼んでしまうと、進行中のアニメーションが中途半端な値で凍結されてしまう。
     private void ApplyFoldState(bool folded, Action? onUnfolded = null)
     {
+        _resizeContentRefresh?.Abort();
         if (!folded)
         {
             var (dpiX, dpiY) = GetDpi();
@@ -82,11 +78,13 @@ public partial class StickyNoteWindow
             });
             _geometry.CaptureExpanded(Left, Top, ViewModel.Model.Width, _geometry.ExpandedHeight, dpiX, dpiY);
             SetResizeEnabled(true);
-            ApplyFoldedContentPresentation();
             RunFoldAnimation(FoldedHeight, _geometry.ExpandedHeight, () =>
             {
+                // Keep the retained document collapsed during height animation:
+                // showing it earlier repeatedly lays out the entire long document.
+                ApplyFoldedContentPresentation();
                 if (!_isEditMode)
-                    LoadContent(ViewModel.Content);
+                    EnsureExpandedContent();
                 onUnfolded?.Invoke();
             });
         }
@@ -95,15 +93,18 @@ public partial class StickyNoteWindow
             SetTemporaryRaise(false);
             if (_isEditMode) EnterViewModeCore(); // 閉じた表示では閲覧モードに戻す
             if (_isEditMode) return; // 編集終了が抑止された場合は折りたたまない。
+            _expandedScrollX = ContentBox.HorizontalOffset;
+            _expandedScrollY = ContentBox.VerticalOffset;
             var (dpiX, dpiY) = GetDpi();
             _geometry.CaptureExpanded(Left, Top, Width, Height, dpiX, dpiY);
             // アニメーション中の SizeChanged で Model.Height が
             // 途中の値に上書きされないよう先にフラグを立てる
             ViewModel.IsFolded = true;
-            // タイトルバーを隠しているときは、見出しの先頭行がタイトル文字サイズを
-            // 基準に描き直されるよう、見た目を畳む前に読み込み直しておく。
+            // 先頭行だけ更新し、本文の表示要素と画像は保持する。
             if (ViewModel.IsTitleBarHidden)
-                LoadContent(ViewModel.Content);
+            {
+                ApplyFoldedContentPresentation();
+            }
             UpdateTitleBarButtonsVisibility();
             ScheduleTitlePreview();
             HideEditToolbar();

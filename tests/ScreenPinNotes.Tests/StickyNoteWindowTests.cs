@@ -532,8 +532,8 @@ public class StickyNoteWindowTests
             {
                 InvokePrivate(window, "ToggleTitleBarHidden");
                 window.UpdateLayout();
-                Assert.Equal(Visibility.Visible, content.Visibility);
-                Assert.EndsWith("image.png", new TextRange(content.Document.ContentStart, content.Document.ContentEnd).Text.Trim());
+                Assert.Equal(Visibility.Visible, ((Border)window.FindName("FoldedPreviewHost")).Visibility);
+                Assert.EndsWith("image.png", ((TextBlock)window.FindName("FoldedPreviewText")).Text.Trim());
                 Assert.Equal(0, content.VerticalOffset);
                 InvokePrivate(window, "ToggleTitleBarHidden");
                 window.UpdateLayout();
@@ -567,11 +567,12 @@ public class StickyNoteWindowTests
             InvokePrivate(window, "ToggleTitleBarHidden");
             window.UpdateLayout();
             Assert.True(window.ViewModel.IsTitleBarHidden);
-            Assert.Equal(Visibility.Visible, content.Visibility);
+            Assert.Equal(Visibility.Visible, ((Border)window.FindName("FoldedPreviewHost")).Visibility);
             Assert.Equal(firstLineHeight, window.ActualHeight, 1);
             Assert.Equal(window.ActualHeight, window.MinHeight, 1);
             Assert.Equal(window.ActualHeight, window.MaxHeight, 1);
-            Assert.Equal(window.ViewModel.TitleFontSize, content.FontSize);
+            Assert.Equal(window.ViewModel.FontSize, content.FontSize);
+            Assert.Equal(window.ViewModel.TitleFontSize, ((TextBlock)window.FindName("FoldedPreviewText")).FontSize);
             Assert.Equal(0, content.VerticalOffset);
         }
         finally { window.Close(); }
@@ -721,7 +722,7 @@ public class StickyNoteWindowTests
             window.UpdateLayout();
             InvokePrivate(window, "LoadContent", note.Content);
             var box = (RichTextBox)window.FindName("ContentBox");
-            string Text() => new TextRange(box.Document.ContentStart, box.Document.ContentEnd).Text.Trim();
+            string Text() => ((TextBlock)window.FindName("FoldedPreviewText")).Text.Trim();
             Assert.StartsWith("…", Text());
             Assert.EndsWith("image.png", Text());
             window.Width = 800;
@@ -745,7 +746,7 @@ public class StickyNoteWindowTests
         // 畳んだ1行表示は画像ではなく画像パスの文字なので、本文の余白は
         // 文字のときと同じ。アイコンの有無で省略の仕方が変わるだけの幅を
         // 残すため、帯のぶんの余白を足しておく。
-        var note = new StickyNote { Content = $"![写真]({path})", IsFolded = true, IsTitleBarHidden = true, Width = 171 };
+        var note = new StickyNote { Content = $"![写真]({path})", IsFolded = true, IsTitleBarHidden = true, Width = 181 };
         var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
         try
         {
@@ -753,7 +754,7 @@ public class StickyNoteWindowTests
             window.UpdateLayout();
             InvokePrivate(window, "LoadContent", note.Content);
             var box = (RichTextBox)window.FindName("ContentBox");
-            string Text() => new TextRange(box.Document.ContentStart, box.Document.ContentEnd).Text.Trim();
+            string Text() => ((TextBlock)window.FindName("FoldedPreviewText")).Text.Trim();
             var withoutIcon = Text();
 
             window.ViewModel.Icon = "💡";
@@ -811,16 +812,17 @@ public class StickyNoteWindowTests
             window.Show();
             window.UpdateLayout();
             var box = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
-            Assert.Equal(hiddenTitleBar ? Visibility.Visible : Visibility.Collapsed, box.Visibility);
+            Assert.Equal(Visibility.Collapsed, box.Visibility);
+            Assert.Equal(hiddenTitleBar ? Visibility.Visible : Visibility.Collapsed,
+                ((Border)window.FindName("FoldedPreviewHost")).Visibility);
             if (hiddenTitleBar)
             {
-                var paragraph = Assert.IsType<Paragraph>(box.Document.Blocks.FirstBlock);
-                var run = Assert.IsType<Run>(Assert.Single(paragraph.Inlines.Cast<Inline>()));
+                var run = (TextBlock)window.FindName("FoldedPreviewText");
                 Assert.Equal("操作ヘルプ 斜体 取消 code リンク", run.Text);
                 Assert.Equal(FontWeights.Normal, run.FontWeight);
                 Assert.Equal(FontStyles.Normal, run.FontStyle);
                 Assert.True(run.TextDecorations == null || run.TextDecorations.Count == 0);
-                Assert.True(box.ActualHeight > 0);
+                Assert.True(run.ActualHeight > 0);
             }
             Assert.Equal(source, note.Content);
             window.ViewModel.IsFolded = false;
@@ -1806,11 +1808,104 @@ public class StickyNoteWindowTests
         try
         {
             var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
-            Assert.Equal(Visibility.Visible, contentBox.Visibility);
-            // 1行しか出ない高さにスクロールバーが出ると畳んだ見た目が壊れる。
-            Assert.Equal(ScrollBarVisibility.Disabled, contentBox.VerticalScrollBarVisibility);
+            Assert.Equal(Visibility.Collapsed, contentBox.Visibility);
+            Assert.Equal(Visibility.Visible, ((Border)window.FindName("FoldedPreviewHost")).Visibility);
+            Assert.Equal("first line", ((TextBlock)window.FindName("FoldedPreviewText")).Text);
             Assert.True(window.Height < note.Height,
                 $"folded height {window.Height} should be below the open height {note.Height}");
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void FoldedPreview_ReusesMarkdownAndImagesAndRestoresScroll(bool animated)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote { IsTitleBarHidden = true, Width = 420, Height = 300,
+            Content = "# Heading\n![image](assets/pasted.png)\n" + string.Join("\n\n", Enumerable.Repeat("**本文** with [link](https://example.com)", 150)) };
+        Directory.CreateDirectory(storage.GetNoteAssetsDirectoryPath(note.Id));
+        SavePng(System.IO.Path.Combine(storage.GetNoteAssetsDirectoryPath(note.Id), "pasted.png"), CreateBitmapSource());
+        var previous = App.Current.Settings.EnableFoldAnimation;
+        App.Current.Settings.EnableFoldAnimation = animated;
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, App.Current.Settings), storage);
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            var box = (RichTextBox)window.FindName("ContentBox");
+            box.ScrollToVerticalOffset(200);
+            window.UpdateLayout();
+            var offset = box.VerticalOffset;
+            Assert.True(offset > 0);
+            var blocks = box.Document.Blocks.Cast<Block>().ToArray();
+            var image = Assert.Single(EnumerateImages(box.Document));
+            for (var i = 0; i < 3; i++)
+            {
+                InvokePrivate(window, "ToggleFold", (object?)null);
+                InvokePrivate(window, "CompleteFoldAnimation");
+                Assert.Equal("Heading", ((TextBlock)window.FindName("FoldedPreviewText")).Text);
+                Assert.Equal(window.ViewModel.FontSize, box.FontSize);
+                Assert.Same(blocks[0], box.Document.Blocks.FirstBlock);
+                InvokePrivate(window, "ToggleFold", (object?)null);
+                if (animated)
+                    Assert.Equal(Visibility.Collapsed, box.Visibility);
+                InvokePrivate(window, "CompleteFoldAnimation");
+                window.UpdateLayout();
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                Assert.Equal(blocks, box.Document.Blocks.Cast<Block>().ToArray());
+                Assert.Same(image, Assert.Single(EnumerateImages(box.Document)));
+                Assert.Equal(offset, box.VerticalOffset, 1);
+            }
+            InvokePrivate(window, "ToggleFold", (object?)null);
+            InvokePrivate(window, "CompleteFoldAnimation");
+            window.ViewModel.Content = "# Updated\nnew body";
+            InvokePrivate(window, "LoadContent", window.ViewModel.Content);
+            Assert.Equal("Updated", ((TextBlock)window.FindName("FoldedPreviewText")).Text);
+            Assert.Same(blocks[0], box.Document.Blocks.FirstBlock);
+            InvokePrivate(window, "ToggleFold", (object?)null);
+            InvokePrivate(window, "CompleteFoldAnimation");
+            Assert.NotSame(blocks[0], box.Document.Blocks.FirstBlock);
+            Assert.Contains("new body", new TextRange(box.Document.ContentStart, box.Document.ContentEnd).Text);
+        }
+        finally { window.Close(); App.Current.Settings.EnableFoldAnimation = previous; }
+    }
+
+    [WpfFact]
+    public void FoldedPreview_ReloadsImagesCreatedOrChangedWhileFolded()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote { IsTitleBarHidden = true, Content = "![image](assets/pasted.png)" };
+        var directory = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(directory);
+        var path = System.IO.Path.Combine(directory, "pasted.png");
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), storage);
+        void Toggle()
+        {
+            InvokePrivate(window, "ToggleFold", (object?)null);
+            InvokePrivate(window, "CompleteFoldAnimation");
+            window.UpdateLayout();
+        }
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var box = (RichTextBox)window.FindName("ContentBox");
+            Assert.Empty(EnumerateImages(box.Document));
+            Toggle();
+            SavePng(path, CreateBitmapSource());
+            Toggle();
+            var image = Assert.Single(EnumerateImages(box.Document));
+            Toggle();
+            File.SetLastWriteTimeUtc(path, File.GetLastWriteTimeUtc(path).AddSeconds(5));
+            Toggle();
+            Assert.NotSame(image, Assert.Single(EnumerateImages(box.Document)));
         }
         finally { window.Close(); }
     }
@@ -3156,12 +3251,11 @@ public class StickyNoteWindowTests
         {
             InvokePrivate(window, "LoadContent", note.Content);
             var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
-            var foldedImage = Assert.Single(EnumerateImages(contentBox.Document));
+            Assert.Empty(EnumerateImages(contentBox.Document));
 
             InvokePrivate(window, "ToggleFold", (object?)null);
             var unfoldedImage = Assert.Single(EnumerateImages(contentBox.Document));
 
-            Assert.Equal(2 / VisualTreeHelper.GetDpi(window).DpiScaleX, foldedImage.Width, 8);
             Assert.Equal(2 / VisualTreeHelper.GetDpi(window).DpiScaleX, unfoldedImage.Width, 8);
         }
         finally

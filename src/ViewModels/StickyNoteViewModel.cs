@@ -420,7 +420,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         IsFolded && IsTitleBarHidden ? TitleFontSize : FontSize;
 
     public double TitleIconSize =>
-        Math.Clamp(Math.Ceiling(_model.TitleFontSize * 1.5), 20, 38);
+        Math.Clamp(Math.Ceiling(_model.TitleFontSize * 1.5), 20, 54);
 
     public int OpacityPercent
     {

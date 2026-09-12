@@ -149,7 +149,7 @@ public partial class StickyNoteWindow
     private void SetTitleFontSize(double size)
     {
         CompleteFoldAnimation();
-        var newSize = Math.Clamp(size, 8, 28);
+        var newSize = Math.Clamp(size, 8, 36);
         if (Math.Abs(ViewModel.TitleFontSize - newSize) < 0.001)
             return;
 

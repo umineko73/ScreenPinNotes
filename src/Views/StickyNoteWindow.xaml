@@ -204,7 +204,7 @@
             <RichTextBox x:Name="ContentBox"
                          Grid.Row="1"
                          FontFamily="{Binding FontFamily}"
-                         FontSize="{Binding ContentFontSize}"
+                         FontSize="{Binding FontSize}"
                          Foreground="{Binding TextForeground}" CaretBrush="{Binding TextForeground}"
                          Background="Transparent"
                          BorderThickness="0"
@@ -234,6 +234,16 @@
                     </Style>
                 </RichTextBox.Resources>
             </RichTextBox>
+
+            <Border x:Name="FoldedPreviewHost" Grid.Row="1" Visibility="Collapsed"
+                    Background="Transparent" Padding="{Binding NoteContentPadding}" ClipToBounds="True"
+                    ContextMenuOpening="TitleContextMenuOpening"
+                    PreviewMouseWheel="TitleBar_PreviewMouseWheel">
+                <TextBlock x:Name="FoldedPreviewText" FontFamily="{Binding FontFamily}"
+                           FontSize="{Binding TitleFontSize}" Foreground="{Binding TextForeground}"
+                           Margin="5,0,5,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                           IsHitTestVisible="False"/>
+            </Border>
 
             <TextBox x:Name="BodyEditBox"
                      Grid.Row="1"

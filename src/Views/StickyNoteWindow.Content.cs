@@ -52,14 +52,37 @@ public partial class StickyNoteWindow
     private const int MarkdownImageMinPercent = 20;
     private const int MarkdownImageMaxPercent = 200;
     private const double MarkdownImageMinDisplayWidth = 80;
+    private bool _expandedContentValid;
+    private string? _expandedContentText;
+    private double _expandedScrollX;
+    private double _expandedScrollY;
+    private readonly Dictionary<string, DateTime> _renderedImageFiles = new(StringComparer.OrdinalIgnoreCase);
+
+    private void EnsureExpandedContent()
+    {
+        // Cached pixels still need to reflect images edited outside the app.
+        var imagesChanged = _renderedImageFiles.Any(pair => File.GetLastWriteTimeUtc(pair.Key) != pair.Value);
+        if (!_expandedContentValid || _expandedContentText != ViewModel.Content || imagesChanged)
+            LoadContent(ViewModel.Content);
+        ContentBox.UpdateLayout();
+        ContentBox.ScrollToHorizontalOffset(_expandedScrollX);
+        ContentBox.ScrollToVerticalOffset(_expandedScrollY);
+    }
 
     // ─── FlowDocument ↔ プレーンテキスト / Markdown ──────────────
 
     private void LoadContent(string text)
     {
+        _expandedContentValid = false;
+        if (ViewModel.IsFolded)
+        {
+            UpdateFoldedPreview(text);
+            return;
+        }
         // Rendering replaces many blocks. Batch them into one layout/change notification
         // and do not retain generated documents in the editor's undo history.
         var undoEnabled = ContentBox.IsUndoEnabled;
+        _renderedImageFiles.Clear();
         ContentBox.IsUndoEnabled = false;
         ContentBox.BeginChange();
         try { LoadMarkdownContent(text); UpdateImagePathPreview(); }
@@ -74,6 +97,8 @@ public partial class StickyNoteWindow
             ContentBox.EndChange();
             ContentBox.IsUndoEnabled = undoEnabled;
         }
+        _expandedContentText = text;
+        _expandedContentValid = true;
     }
 
     public void ReloadExternalContent()
@@ -155,28 +180,6 @@ public partial class StickyNoteWindow
     private void LoadMarkdownContent(string text)
     {
         text = NormalizeLineEndings(text);
-        // 1行表示ではMarkdownを読み取り、装飾と構文記号を除いた文字だけを表示する。
-        // Render() は WPF の Inline/Block しか返さないので、装飾除去そのものは
-        // そのパーサーに任せつつ、使い捨ての FlowDocument は作らずに各 Block
-        // 自身の TextRange だけで文字列に変換する（Paragraph 等は単体でも
-        // 自前の TextContainer を持つため、これだけで完結する）。
-        if (ViewModel.IsFolded && ViewModel.IsTitleBarHidden)
-        {
-            var preview = string.Concat(MarkdownRenderer.Render(
-                    GetFoldedPreviewSource(text), ViewModel.TitleFontSize,
-                    (label, target) => new Hyperlink(new Run(label)),
-                    image => new Run(image.Alt))
-                .Select(block => new TextRange(block.ContentStart, block.ContentEnd).Text));
-            _markdownImageContexts.Clear();
-            _requiredMarkdownPageWidth = 0;
-            LoadPlainContent(preview.TrimEnd('\r', '\n'));
-            // 畳む前の選択が1行表示に残っていると、その上で押した瞬間に
-            // RichTextBox が選択テキストのドラッグ＆ドロップを始めてしまい、
-            // 付箋を掴んで動かせなくなる。ここは掴む場所なので選択を解く。
-            ContentBox.Selection.Select(ContentBox.Document.ContentStart, ContentBox.Document.ContentStart);
-            ContentBox.ScrollToHome();
-            return;
-        }
         _suppressTextChange = true;
         try
         {
@@ -202,6 +205,17 @@ public partial class StickyNoteWindow
         finally { _suppressTextChange = false; }
     }
 
+    private void UpdateFoldedPreview(string text)
+    {
+        var preview = string.Concat(MarkdownRenderer.Render(
+                GetFoldedPreviewSource(text), ViewModel.TitleFontSize,
+                (label, target) => new Hyperlink(new Run(label)),
+                image => new Run(image.Alt))
+            .Select(block => new TextRange(block.ContentStart, block.ContentEnd).Text));
+        FoldedPreviewText.Text = preview.TrimEnd('\r', '\n');
+        UpdateImagePathPreview();
+    }
+
     private void SizeMarkdownTableColumns(Table table)
     {
         for (var column = 0; column < table.Columns.Count; column++)
@@ -225,7 +239,8 @@ public partial class StickyNoteWindow
 
     private static string GetFoldedPreviewSource(string text)
     {
-        foreach (var line in text.Split('\n'))
+        using var reader = new StringReader(text);
+        while (reader.ReadLine() is { } line)
         {
             if (!string.IsNullOrWhiteSpace(line))
                 return line;
@@ -237,6 +252,8 @@ public partial class StickyNoteWindow
     private void UpdateImagePathPreview()
     {
         if (_isEditMode || !ViewModel.IsFolded || _isFoldAnimationRunning || DataContext is not StickyNoteViewModel) return;
+        var iconWidth = string.IsNullOrEmpty(ViewModel.Icon) ? 24 : ViewModel.TitleIconSize + 18;
+        FoldedPreviewText.Margin = new Thickness(5, 0, iconWidth + 5, 0);
         var path = MarkdownRenderer.GetImageOnlyTarget(ViewModel.Content);
         if (path == null) return;
         double Measure(string value, double size) => new FormattedText(value,
@@ -246,14 +263,12 @@ public partial class StickyNoteWindow
         if (ViewModel.IsFolded && ViewModel.IsTitleBarHidden)
         {
             // Reserve room for the always-visible icon and its overlay padding.
-            var iconWidth = string.IsNullOrEmpty(ViewModel.Icon) ? 24 : ViewModel.TitleIconSize + 18;
-            var contentWidth = ContentBox.ActualWidth > 0
-                ? ContentBox.ActualWidth
+            var contentWidth = FoldedPreviewHost.ActualWidth > 0
+                ? FoldedPreviewHost.ActualWidth
                 : Math.Max(0, Width - RootBorder.BorderThickness.Left - RootBorder.BorderThickness.Right);
-            var width = contentWidth - ContentBox.Padding.Left - ContentBox.Padding.Right - iconWidth;
+            var width = contentWidth - FoldedPreviewHost.Padding.Left - FoldedPreviewHost.Padding.Right - iconWidth - 10;
             var display = PathDisplay.Fit(path, width, s => Measure(s, ViewModel.TitleFontSize));
-            LoadPlainContent(display);
-            ContentBox.ScrollToHome();
+            FoldedPreviewText.Text = display;
         }
         if (string.IsNullOrWhiteSpace(ViewModel.Title))
             TitleText.SetCurrentValue(System.Windows.Controls.TextBlock.TextProperty,
@@ -387,10 +402,13 @@ public partial class StickyNoteWindow
         try
         {
             var resolvedImagePath = ResolveImagePath(markdownImage.Target);
-            if (resolvedImagePath == null || !File.Exists(resolvedImagePath))
+            if (resolvedImagePath == null)
                 return fallback;
 
             imagePath = Path.GetFullPath(resolvedImagePath);
+            _renderedImageFiles[imagePath] = File.GetLastWriteTimeUtc(imagePath);
+            if (!File.Exists(imagePath))
+                return fallback;
             bitmap = GetOrLoadNormalizedImage(imagePath);
         }
         catch (Exception ex)

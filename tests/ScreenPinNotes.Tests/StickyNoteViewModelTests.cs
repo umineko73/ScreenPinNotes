@@ -30,8 +30,9 @@ public class StickyNoteViewModelTests
     [InlineData(8, 20)]
     [InlineData(12, 20)]
     [InlineData(20, 30)]
-    [InlineData(28, 38)]
-    [InlineData(48, 38)]
+    [InlineData(28, 42)]
+    [InlineData(36, 54)]
+    [InlineData(48, 54)]
     public void TitleIconSize_FollowsTitleFontSizeWithinBounds(double titleFontSize, double expectedIconSize)
     {
         var vm = new StickyNoteViewModel(
