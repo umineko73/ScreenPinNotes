@@ -887,9 +887,13 @@ public partial class StickyNoteWindow
 
         ViewModel.Model.Width = Width;
         ViewModel.Model.Height = Height;
-        ViewModel.Model.X = Left;
-        ViewModel.Model.Y = Top;
-        MarkPositionSeparatedIfOpenViewMovedAwayFromClosedView();
+        // 一時的に別モニタへ寄せているあいだは、その位置を本来の位置にしない。
+        if (TryStampPositionContext())
+        {
+            ViewModel.Model.X = Left;
+            ViewModel.Model.Y = Top;
+            MarkPositionSeparatedIfOpenViewMovedAwayFromClosedView();
+        }
         RequestSave();
     }
 

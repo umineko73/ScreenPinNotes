@@ -176,7 +176,7 @@ public partial class StickyNoteWindow : Window
 
     public StickyNoteWindow(StickyNoteViewModel vm, StorageService? storage = null)
     {
-        _geometry = new NoteGeometryState(vm.Model);
+        _geometry = new NoteGeometryState(vm.Model, CurrentPositionContext);
         InitializeComponent();
         _uiDispatcher = Dispatcher;
         DataContext = vm;
@@ -227,8 +227,12 @@ public partial class StickyNoteWindow : Window
         ConfigurePopups();
         IsVisibleChanged += (_, _) =>
         {
+            // 隠しているあいだにモニタ構成が変わっていることがあるので、
+            // 表示に戻るときは置き場所を確かめ直す。
             if (!IsVisible)
                 HideTransientPopups();
+            else
+                ReconcileScreenPlacement();
         };
         ApplySettings();
         ApplyLocalizedText();
@@ -277,6 +281,9 @@ public partial class StickyNoteWindow : Window
             // 初期値設定はここまで。以降の SizeChanged/LocationChanged は
             // 通常どおりモデルに書き戻してよい。
             _isInitializing = false;
+            // 置き場所は最後にもう一度確かめる。ここまでに WPF 自身の初期配置と
+            // 画像に合わせたサイズ調整が済んでいる。
+            ReconcileScreenPlacement();
         };
         Closed += (_, _) =>
         {

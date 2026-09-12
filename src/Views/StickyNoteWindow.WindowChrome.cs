@@ -125,6 +125,8 @@ public partial class StickyNoteWindow
 
         if (_dragMoved)
         {
+            // 自分で置き直したのだから、今のモニタ構成での位置として覚えてよい。
+            AdoptCurrentLayoutAsHome();
             SaveCurrentPositionToModel();
             RequestSave();
             _dragSeparatesFoldedPosition = false;
@@ -390,6 +392,9 @@ public partial class StickyNoteWindow
         if (PresentationSource.FromVisual(this) is HwndSource src)
             src.AddHook(WndProc);
         ApplyWindowAppearance();
+        // 最初の描画より前に置き場所を決める。表示してから動かすと、
+        // 前回のモニタ構成の位置に一瞬出てしまう。
+        ReconcileScreenPlacement();
     }
 
     // ─── ウィンドウの影と角丸 ──────────────────────────────────
@@ -537,6 +542,7 @@ public partial class StickyNoteWindow
     {
         NoSize = 0x0001,
         NoMove = 0x0002,
+        NoZOrder = 0x0004,
         NoActivate = 0x0010,
     }
 

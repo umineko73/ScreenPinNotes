@@ -91,4 +91,56 @@ public class NoteGeometryStateTests
         var note = new StickyNote { Width = 300, Height = 250, EditWidth = width, EditHeight = height };
         Assert.Equal((300d, 250d), new NoteGeometryState(note).GetSize(true));
     }
+
+    // ─── モニタ構成が違うあいだの位置 ──────────────────────────
+
+    private static NotePositionContext Home(bool canStore)
+        => new(canStore, "1920,0,2560x1400@1.5", 1.5);
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void PositionIsStoredOnlyUnderTheLayoutItBelongsTo(bool canStore)
+    {
+        var note = new StickyNote { X = 90, Y = 91, FoldedX = 90, FoldedY = 91,
+            PositionLayout = "old", PositionScale = 1 };
+        var state = new NoteGeometryState(note, () => Home(canStore));
+
+        state.StorePosition(500, 600);
+
+        Assert.Equal(canStore ? 500 : 90, note.X);
+        Assert.Equal(canStore ? 600 : 91, note.Y);
+        Assert.Equal(canStore ? 500 : 90, note.FoldedX);
+        // 書き戻したときだけ基準も更新する。位置と基準がずれると復元先が分からなくなる。
+        Assert.Equal(canStore ? "1920,0,2560x1400@1.5" : "old", note.PositionLayout);
+        Assert.Equal(canStore ? 1.5 : 1, note.PositionScale);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void CapturingKeepsSizesButGuardsThePosition(bool canStore)
+    {
+        var note = new StickyNote { X = 90, Y = 91, Width = 230, Height = 251,
+            FoldedX = 93, FoldedY = 94, FoldedWidth = 231 };
+        var state = new NoteGeometryState(note, () => Home(canStore));
+
+        state.CaptureExpanded(500, 600, 240, 260, 1, 1);
+        note.IsFolded = true;
+        state.CaptureFolded(700, 800, 241, 1, 1);
+
+        Assert.Equal(canStore ? (500d, 600d) : (90d, 91d), (note.X, note.Y));
+        Assert.Equal(canStore ? (700d, 800d) : (93d, 94d), (note.FoldedX!.Value, note.FoldedY!.Value));
+        // 大きさは構成に関係なく記録する（どのモニタでも同じ見た目にしたい）。
+        Assert.Equal((240d, 260d, 241d), (note.Width, note.Height, note.FoldedWidth!.Value));
+    }
+
+    [Fact]
+    public void NotesWithoutARecordedLayoutAreLeftToTheCaller()
+    {
+        // 基準を渡さない使い方（従来どおり）では、いつでも書き戻す。
+        var note = new StickyNote { X = 90, Y = 91, PositionLayout = "old", PositionScale = 1 };
+        new NoteGeometryState(note).StorePosition(500, 600);
+        Assert.Equal((500d, 600d, "old", 1d), (note.X, note.Y, note.PositionLayout, note.PositionScale));
+    }
 }
