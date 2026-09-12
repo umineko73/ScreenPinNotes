@@ -55,7 +55,8 @@ public partial class StickyNoteWindow
     private void AddNote_Click(object sender, RoutedEventArgs e)
     {
         var (x, y) = GetNewNotePositionNearCursor();
-        App.Current.AddNewNote(ViewModel.Model, x, y);
+        // 位置はこのウィンドウの拡大率を基準に出しているので、基準も一緒に渡す。
+        App.Current.AddNewNote(ViewModel.Model, x, y, GetDpi().dpiX);
     }
 
     private (double x, double y) GetNewNotePositionNearCursor()

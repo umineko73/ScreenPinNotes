@@ -131,6 +131,7 @@ public partial class App : System.Windows.Application
 
         InitIpcWindow();
         InitTrayIcon();
+        InitScreenLayoutWatch();
         if (!TrySetNewNoteHotkey(_settings.NewNoteHotkey))
             _trayIcon?.ShowBalloonTip(5000, "ScreenPinNotes", NewNoteHotkeyError, ToolTipIcon.Warning);
 
@@ -649,6 +650,44 @@ public partial class App : System.Windows.Application
             ToggleAllNotes();
     }
 
+    // ─── モニタ構成の変更 ────────────────────────────────────────
+    //
+    // 解像度が変わったり、付箋が出ているモニタの接続が切れたりすると、
+    // 保存された位置には出せなくなる。そのままだと画面の外に残り、
+    // 「すべて表示」でも戻ってこない付箋になるので、映せるモニタへ寄せる。
+    // 寄せた位置は保存しない（StickyNote.PositionLayout）。構成が戻れば元へ帰る。
+
+    private readonly DispatcherTimer _screenLayoutTimer = new();
+
+    private void InitScreenLayoutWatch()
+    {
+        // 構成変更の通知は連続して届き、タスクバーの位置（作業領域）は
+        // 最後の通知より少し遅れて落ち着く。まとめて一度だけ見直す。
+        _screenLayoutTimer.Interval = TimeSpan.FromMilliseconds(500);
+        _screenLayoutTimer.Tick += (_, _) =>
+        {
+            _screenLayoutTimer.Stop();
+            ReconcileNoteScreenPlacement();
+        };
+        Microsoft.Win32.SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
+    }
+
+    // SystemEvents は専用スレッドで上がるので UI スレッドへ渡す。
+    private void OnDisplaySettingsChanged(object? sender, EventArgs e)
+        => Dispatcher.BeginInvoke(() =>
+        {
+            if (_shuttingDown) return;
+            _screenLayoutTimer.Stop();
+            _screenLayoutTimer.Start();
+        });
+
+    private void ReconcileNoteScreenPlacement()
+    {
+        foreach (var win in _windows)
+            win.ReconcileScreenPlacement();
+        ApplyLayerOrder();
+    }
+
     private bool _layerOrderQueued;
     private int _openReminderDialogs;
 
@@ -781,15 +820,25 @@ public partial class App : System.Windows.Application
     /// （色・アイコン・フォント）を引き継ぐ。タスクトレイからの
     /// 新規作成は引き継ぎ元が無いため既定の書式になる。
     /// </summary>
-    public void AddNewNote(StickyNote? template = null, double? x = null, double? y = null)
+    /// <param name="scale">
+    /// x/y がどの拡大率を基準にした論理ピクセルかを示す。カーソルの近くに出すときは
+    /// 計算元のウィンドウの拡大率を渡す。null なら既定の段差位置と同じプライマリ基準。
+    /// </param>
+    public void AddNewNote(StickyNote? template = null, double? x = null, double? y = null,
+        double? scale = null)
     {
         var layout = _settings.Layout;
+        var monitors = MonitorLayout.Current();
         var note = NewNoteFactory.Create(
             _settings,
             template,
             x ?? layout.NewNoteBaseX + _windows.Count * layout.NewNoteCascadeStep,
             y ?? layout.NewNoteBaseY + _windows.Count * layout.NewNoteCascadeStep,
             DateTime.Now);
+        // 作った場所を物理ピクセルで復元できるようにしておく。基準を残さないと、
+        // 拡大率の違うモニタに出した付箋が次回の起動で別のモニタへ移ってしまう。
+        note.PositionScale = scale is > 0 ? scale.Value : MonitorLayout.PrimaryScale(monitors);
+        note.PositionLayout = MonitorLayout.Signature(monitors);
 
         note.LayerOrder = _windows.Select(w => w.ViewModel.Model.LayerOrder).DefaultIfEmpty(0).Min() - 1;
         var window = OpenNoteWindow(note);
@@ -1139,6 +1188,8 @@ public partial class App : System.Windows.Application
     {
         _shuttingDown = true;
         _reminderTimer.Stop();
+        _screenLayoutTimer.Stop();
+        Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
 
         // Mutex を持つ本来のインスタンスのときだけ保存する。
         // 二重起動をブロックされた側は _instanceMutex が null で、

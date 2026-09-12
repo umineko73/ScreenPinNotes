@@ -566,10 +566,13 @@ public partial class StickyNoteWindow
             Top = titleBarTop;
             KeepInsideWorkArea(Width, Height);
         });
-        ViewModel.Model.X = Left;
-        ViewModel.Model.Y = Top;
-        ViewModel.Model.FoldedX = Left;
-        ViewModel.Model.FoldedY = Top;
+        if (TryStampPositionContext())
+        {
+            ViewModel.Model.X = Left;
+            ViewModel.Model.Y = Top;
+            ViewModel.Model.FoldedX = Left;
+            ViewModel.Model.FoldedY = Top;
+        }
         ViewModel.IsPositionSeparated = false;
         RequestSave();
     }

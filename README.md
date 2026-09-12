@@ -32,6 +32,7 @@ A darker palette for your desktop, including notes without title bars and notes 
 | Excel tables | Paste tables from Excel and copy Markdown tables back to Excel |
 | Appearance | Choose colors, fonts, icons, opacity, corners, borders, and title bar visibility |
 | Placement | Pin notes on top, collapse them, snap to screen edges or other notes, and save stacking order |
+| Multiple monitors | Notes that a resolution change or an unplugged monitor would leave off-screen move to a monitor that can show them, and return to their own place once that layout is back |
 | Reminders | Schedule once, daily, weekly, or monthly; use flashing borders and snooze alerts |
 | Note list | Search notes, show or hide them, and manage stacking order and reminders |
 | External files | Open `.md` / `.txt` files as read-only notes that follow file changes |

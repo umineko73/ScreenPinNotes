@@ -57,6 +57,21 @@ public class StickyNote
     public bool IsPositionSeparated { get; set; } = false;
 
     /// <summary>
+    /// X/Y（と FoldedX/FoldedY）を保存したときのモニタ構成。
+    /// <see cref="Services.MonitorLayout.Signature"/> の文字列で、空は未記録
+    /// （この機能より前に保存された付箋・作りたて）。構成が違うあいだは
+    /// 位置を書き換えず、一時的に映せるモニタへ寄せるだけにする。
+    /// </summary>
+    public string PositionLayout { get; set; } = "";
+
+    /// <summary>
+    /// X/Y を保存したときの拡大率。論理ピクセルはそのウィンドウが居たモニタの
+    /// 拡大率が基準なので、これが無いと拡大率の違うモニタへ戻せない。
+    /// 0 は未記録（プライマリの拡大率として扱う）。
+    /// </summary>
+    public double PositionScale { get; set; }
+
+    /// <summary>
     /// タイトルバーを常時は出さず、右上にホバーで重ねる表示にするか。
     /// 本文だけの見た目にしたい人向け。このとき折りたたみは本文の1行目だけを残す。
     /// </summary>
