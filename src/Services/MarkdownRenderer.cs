@@ -386,7 +386,7 @@ public static class MarkdownRenderer
 
         return new TableCell(paragraph)
         {
-            BorderBrush = GetBorderBrush(darkMode),
+            BorderBrush = darkMode ? GetBorderBrush(true) : new WpfSolidBrush(WpfColor.FromArgb(64, 0, 0, 0)),
             BorderThickness = new Thickness(1),
             Padding = new Thickness(5, 2, 5, 2),
             Background = isHeader ? GetTableHeaderBackground(darkMode) : null,

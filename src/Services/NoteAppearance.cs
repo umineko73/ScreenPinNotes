@@ -41,17 +41,17 @@ public sealed class NoteAppearance
         ["pink"]    = ("#FCE7F3", "#BE185D"),
         // 紫〜青
         ["fuchsia"] = ("#FAE8FF", "#A21CAF"),
-        ["purple"]  = ("#EDE9FE", "#6D28D9"),
-        ["violet"]  = ("#DDD6FE", "#5B21B6"),
+        ["purple"]  = ("#EEEBFC", "#6D28D9"),
+        ["violet"]  = ("#DFD9FB", "#5B21B6"),
         ["indigo"]  = ("#E0E7FF", "#4338CA"),
         ["blue"]    = ("#DBEAFE", "#1D4ED8"),
         ["sky"]     = ("#E0F2FE", "#0369A1"),
         // 寒色〜緑
         ["cyan"]    = ("#CFFAFE", "#0E7490"),
-        ["teal"]    = ("#CCFBF1", "#0F766E"),
+        ["teal"]    = ("#D0F7EF", "#0F766E"),
         ["emerald"] = ("#D1FAE5", "#047857"),
-        ["green"]   = ("#DCFCE7", "#15803D"),
-        ["lime"]    = ("#ECFCCB", "#4D7C0F"),
+        ["green"]   = ("#DEFAE8", "#15803D"),
+        ["lime"]    = ("#EBF8CF", "#4D7C0F"),
         ["olive"]   = ("#F7F7DC", "#827717"),
         // 無彩色・その他
         ["brown"]   = ("#EFEBE9", "#6D4C41"),
