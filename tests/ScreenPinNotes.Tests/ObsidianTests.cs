@@ -6,6 +6,20 @@ namespace ScreenPinNotes.Tests;
 
 public class ObsidianTests
 {
+    [WpfTheory]
+    [InlineData("---\ntitle: 公演\n---\n\n  \n# 東京公演\n本文", "# 東京公演")]
+    [InlineData("\uFEFF---\r\ntags: [live, music]\r\n...\r\n\r\n東京公演", "東京公演")]
+    [InlineData("---\ntitle: 公演\n---\n\n", "")]
+    [InlineData("\n\n通常の本文\n次の行", "通常の本文")]
+    [InlineData("---\nbroken: [\n---\n本文", "---")]
+    [InlineData("---\ntitle: unclosed\n本文", "---")]
+    public void FoldedPreviewSkipsPropertiesAndBlankLines(string source, string expected)
+    {
+        var method = typeof(ScreenPinNotes.Views.StickyNoteWindow).GetMethod(
+            "GetFoldedPreviewSource", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+        Assert.Equal(expected, method.Invoke(null, new object[] { source }));
+    }
+
     [WpfFact]
     public void PropertiesPreserveNestedValuesAndSourceLineNumbers()
     {

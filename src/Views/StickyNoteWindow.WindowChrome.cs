@@ -392,6 +392,7 @@ public partial class StickyNoteWindow
         if (PresentationSource.FromVisual(this) is HwndSource src)
             src.AddHook(WndProc);
         ApplyWindowAppearance();
+        ConfigureTaskbarPreview();
         // 最初の描画より前に置き場所を決める。表示してから動かすと、
         // 前回のモニタ構成の位置に一瞬出てしまう。
         ReconcileScreenPlacement();
@@ -435,6 +436,8 @@ public partial class StickyNoteWindow
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
+        HandleTaskbarMessage(hwnd, msg, wParam, lParam, ref handled);
+        if (handled) return IntPtr.Zero;
         // 上下のリサイズ枠をダブルクリックすると Windows が縦方向に最大化する。
         // 付箋では意図しない動きなので握りつぶす（ドラッグでのリサイズは残る）。
         if (msg == WM_NCLBUTTONDBLCLK)

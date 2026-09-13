@@ -487,7 +487,8 @@ public partial class StickyNoteWindow
         if (Math.Abs(badgeMargin.Bottom - bottom) >= 0.5)
             EditingBadge.Margin = new Thickness(badgeMargin.Left, badgeMargin.Top, badgeMargin.Right, bottom);
 
-        var barWidth = scrollViewer?.ComputedVerticalScrollBarVisibility == Visibility.Visible
+        var barWidth = !ViewModel.IsFolded && scrollViewer?.IsVisible == true &&
+            scrollViewer.ComputedVerticalScrollBarVisibility == Visibility.Visible
             ? SystemParameters.VerticalScrollBarWidth
             : 0;
 

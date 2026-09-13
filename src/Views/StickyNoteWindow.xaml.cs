@@ -186,6 +186,7 @@ public partial class StickyNoteWindow : Window
         _storage = storage ?? new StorageService();
         vm.PropertyChanged += (_, e) =>
         {
+            InvalidateTaskbarPreview();
             if (e.PropertyName is nameof(StickyNoteViewModel.Icon) or null)
             {
                 UpdateIconImage();
@@ -290,6 +291,7 @@ public partial class StickyNoteWindow : Window
             // 初期値設定はここまで。以降の SizeChanged/LocationChanged は
             // 通常どおりモデルに書き戻してよい。
             _isInitializing = false;
+            InvalidateTaskbarPreview();
             // 置き場所は最後にもう一度確かめる。ここまでに WPF 自身の初期配置と
             // 画像に合わせたサイズ調整が済んでいる。
             ReconcileScreenPlacement();
@@ -460,6 +462,7 @@ public partial class StickyNoteWindow : Window
         ShowInTaskbar = Settings.ShowNotesInTaskbar;
         UpdateIconImage();      // アイコンの色（カラー/モノクロ）の設定を反映する
         RefreshCornerClips();   // 角の丸みの設定を反映する
+        ConfigureTaskbarPreview();
     }
 
     private void ApplyLocalizedText()
@@ -648,6 +651,7 @@ public partial class StickyNoteWindow : Window
 
     private void RequestSave()
     {
+        InvalidateTaskbarPreview();
         if (_savingDisabled || _isClosed) return;
         if (!_savePending) _savePendingSince = Environment.TickCount64;
         _savePending = true;

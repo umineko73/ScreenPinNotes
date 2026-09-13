@@ -16,6 +16,36 @@ namespace ScreenPinNotes.Tests;
 
 public class StickyNoteWindowTests
 {
+    [WpfFact]
+    public void FoldedOverlayDoesNotReserveHiddenContentScrollbarSpace()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { Width = 400, Height = 300, IsTitleBarHidden = true,
+            Content = string.Join("\n\n", Enumerable.Repeat("本文", 100)) };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, App.Current.Settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show(); window.UpdateLayout();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            InvokePrivate(window, "UpdateTitleBarOverlayOffset");
+            var overlay = (Grid)window.FindName("TitleBarOverlay");
+            Assert.True(overlay.Margin.Right > 4);
+
+            InvokePrivate(window, "ToggleFold", (object?)null);
+            InvokePrivate(window, "CompleteFoldAnimation");
+            window.UpdateLayout();
+            Assert.Equal(4, overlay.Margin.Right);
+
+            InvokePrivate(window, "ToggleFold", (object?)null);
+            InvokePrivate(window, "CompleteFoldAnimation");
+            window.UpdateLayout();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            Assert.True(overlay.Margin.Right > 4);
+        }
+        finally { window.Close(); }
+    }
+
     [WpfTheory]
     [InlineData(true, false)]
     [InlineData(true, true)]

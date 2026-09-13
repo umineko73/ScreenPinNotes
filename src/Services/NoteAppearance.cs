@@ -41,8 +41,8 @@ public sealed class NoteAppearance
         ["pink"]    = ("#FCE7F3", "#BE185D"),
         // 紫〜青
         ["fuchsia"] = ("#FAE8FF", "#A21CAF"),
-        ["purple"]  = ("#EEEBFC", "#6D28D9"),
-        ["violet"]  = ("#DFD9FB", "#5B21B6"),
+        ["purple"]  = ("#EEECFB", "#6D28D9"),
+        ["violet"]  = ("#E0DAFA", "#5B21B6"),
         ["indigo"]  = ("#E0E7FF", "#4338CA"),
         ["blue"]    = ("#DBEAFE", "#1D4ED8"),
         ["sky"]     = ("#E0F2FE", "#0369A1"),

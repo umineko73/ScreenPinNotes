@@ -88,6 +88,7 @@ public partial class StickyNoteWindow
 
     private void LoadContent(string text)
     {
+        InvalidateTaskbarPreview();
         _expandedContentValid = false;
         if (ViewModel.IsFolded)
         {
@@ -275,8 +276,12 @@ public partial class StickyNoteWindow
 
     private static string GetFoldedPreviewSource(string text)
     {
-        using var reader = new StringReader(text);
-        while (reader.ReadLine() is { } line)
+        var lines = NormalizeLineEndings(text).Split('\n');
+        // Match the expanded view's frontmatter recognition, including validation.
+        // Malformed YAML remains ordinary Markdown rather than hiding source text.
+        var start = MarkdownProperties.TryRender(lines, false, out _, out var afterProperties)
+            ? afterProperties : 0;
+        foreach (var line in lines.Skip(start))
         {
             if (!string.IsNullOrWhiteSpace(line))
                 return line;
