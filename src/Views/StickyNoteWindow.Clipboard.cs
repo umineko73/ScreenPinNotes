@@ -84,6 +84,13 @@ public partial class StickyNoteWindow
 
     private void PasteFromDataObject(System.Windows.IDataObject dataObject)
     {
+        // エクスプローラーでコピーした画像ファイルは、画像データより先に見て元の形式のまま取り込む。
+        if (TryGetImageFiles(dataObject, out var imageFiles))
+        {
+            InsertImageFiles(imageFiles);
+            return;
+        }
+
         if (TryGetPastedImage(dataObject, out var image))
         {
             // すでに編集中だった場合はそのまま編集モードを維持する
@@ -107,6 +114,107 @@ public partial class StickyNoteWindow
 
         if (!TryGetClipboardText(dataObject, out var clipboardText)) return;
         InsertTextAtSelection(clipboardText.TrimEnd('\n'));
+    }
+
+    // ─── 画像ファイルの貼り付け・ドロップ ──────────────────────────
+    // エクスプローラーでコピー・ドラッグした画像ファイルは、元のファイルに触れずに付箋の assets へ
+    // 元の形式のままコピーして参照する（PNG に変換して保存する画像データの貼り付けとは別の経路）。
+
+    private static bool TryGetImageFiles(
+        System.Windows.IDataObject? dataObject,
+        out IReadOnlyList<string> files)
+    {
+        files = [];
+        try
+        {
+            if (dataObject == null || !dataObject.GetDataPresent(WpfDataFormats.FileDrop))
+                return false;
+
+            files = ImageAssetImport.GetImageFiles(dataObject.GetData(WpfDataFormats.FileDrop) as string[]);
+            return files.Count > 0;
+        }
+        catch (Exception ex) when (ex is ExternalException or InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    private void InsertImageFiles(IReadOnlyList<string> files, int? insertionIndex = null)
+    {
+        if (IsContentReadOnly())
+        {
+            ShowSizeOverlay(LocalizationService.T("EditLockNotice"));
+            return;
+        }
+
+        var assetsDir = _storage.GetNoteAssetsDirectoryPath(ViewModel.Model.Id);
+        var images = new List<string>();
+        foreach (var file in files)
+        {
+            try
+            {
+                var name = ImageAssetImport.CopyIntoAssets(file, assetsDir);
+                images.Add($"![{Path.GetFileNameWithoutExtension(name)}](assets/{name})");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                ErrorReporter.ReportNonFatal("Copy an image file into note assets", ex);
+                ShowSizeOverlay(LocalizationService.T("ImageImportFailed"));
+            }
+        }
+
+        if (images.Count == 0)
+            return;
+
+        // 画像データの貼り付けと同じく、編集中でなければ一時的に編集モードにして末尾へ入れる。
+        var wasEditing = IsBodyEditing();
+        if (!wasEditing)
+            EnterEditMode();
+        else if (insertionIndex is { } index)
+            BodyEditBox.Select(Math.Clamp(index, 0, BodyEditBox.Text.Length), 0);
+
+        InsertTextAtSelection(BuildBlockMarkdown(string.Join("\n", images)));
+        if (!wasEditing)
+            EnterViewMode();
+    }
+
+    private void OnImageFileDragEnter(object sender, System.Windows.DragEventArgs e)
+    {
+        OnImageFileDragOver(sender, e);
+        if (e.Handled && !ViewModel.IsFolded && IsContentReadOnly())
+            ShowSizeOverlay(LocalizationService.T("EditLockNotice"));
+    }
+
+    private void OnImageFileDragOver(object sender, System.Windows.DragEventArgs e)
+    {
+        // 画像ファイル以外のドラッグ（本文内の文字の移動など）は、これまでどおり各コントロールに任せる。
+        if (!TryGetImageFiles(e.Data, out _))
+            return;
+
+        e.Effects = ViewModel.IsFolded || IsContentReadOnly()
+            ? System.Windows.DragDropEffects.None
+            : System.Windows.DragDropEffects.Copy;
+        e.Handled = true;
+    }
+
+    private void OnImageFileDrop(object sender, System.Windows.DragEventArgs e)
+    {
+        if (!TryGetImageFiles(e.Data, out var files))
+            return;
+
+        e.Handled = true;
+        if (ViewModel.IsFolded)
+            return;
+
+        // 編集中はドロップした行の直後に入れる（行の途中で分けない）。表示中は末尾に入れる。
+        int? insertionIndex = null;
+        if (IsBodyEditing())
+        {
+            var index = BodyEditBox.GetCharacterIndexFromPoint(e.GetPosition(BodyEditBox), snapToText: true);
+            insertionIndex = TextInsertion.GetLineEnd(BodyEditBox.Text, index < 0 ? BodyEditBox.Text.Length : index);
+        }
+
+        InsertImageFiles(files, insertionIndex);
     }
 
     private static bool TryGetClipboardText(

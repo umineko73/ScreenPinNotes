@@ -279,6 +279,9 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="EditLockNotice" xml:space="preserve">
     <value>Editing is locked</value>
   </data>
+  <data name="ImageImportFailed" xml:space="preserve">
+    <value>Could not add the image file</value>
+  </data>
   <data name="EditLockDeleteBlockedTitle" xml:space="preserve">
     <value>Editing locked</value>
   </data>

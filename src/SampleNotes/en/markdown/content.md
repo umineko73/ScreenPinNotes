@@ -92,13 +92,14 @@ Console.WriteLine(note);
 | Image | `![description](assets/image.png)` |
 | Width | `![description](assets/image.png){width=320}` |
 
-Only local images render inline: files in this note's `assets` folder or Windows paths. Remote image URLs do not display an image preview. Pasted images are saved into this note's `assets` folder.
+Only local images render inline: files in this note's `assets` folder or Windows paths. Remote image URLs do not display an image preview. Pasted images are saved into this note's `assets` folder. Image files dropped onto the note are copied there in their original format.
 
 ## Syntax Created by Operations
 
 | Operation | Result |
 | --- | --- |
 | Paste an image | `![description](assets/...)` |
+| Drop an image file | `![name](assets/name.png)` |
 | `Ctrl + mouse wheel` over an image | Changes the image `{width=...}` |
 | `Ctrl + mouse wheel` over the body | Changes the body font size |
 | `Ctrl + mouse wheel` over the title bar | Changes the title font size |

@@ -279,6 +279,9 @@
   <data name="EditLockNotice" xml:space="preserve">
     <value>編集がロックされています</value>
   </data>
+  <data name="ImageImportFailed" xml:space="preserve">
+    <value>画像ファイルを追加できませんでした</value>
+  </data>
   <data name="EditLockDeleteBlockedTitle" xml:space="preserve">
     <value>編集ロック中</value>
   </data>

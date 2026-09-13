@@ -35,6 +35,14 @@ public static class TextInsertion
         var suffix = selectionEnd < text.Length && text[selectionEnd] != '\n' ? "\n" : "";
         return $"{prefix}{blockText}{suffix}";
     }
+
+    /// <summary><paramref name="index"/> を含む行の末尾（改行の手前）の位置。</summary>
+    public static int GetLineEnd(string text, int index)
+    {
+        index = Math.Clamp(index, 0, text.Length);
+        var end = text.IndexOfAny(['\r', '\n'], index);
+        return end < 0 ? text.Length : end;
+    }
 }
 
 public sealed record TextInsertionResult(string Text, int CaretIndex);

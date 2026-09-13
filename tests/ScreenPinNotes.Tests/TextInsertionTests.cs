@@ -39,4 +39,15 @@ public class TextInsertionTests
 
         Assert.Equal(expected, result.Text);
     }
+
+    // ドロップした行の途中で分けず、その行の直後に画像を入れるための位置。
+    [Theory]
+    [InlineData("first\nsecond", 2, 5)]
+    [InlineData("first\nsecond", 5, 5)]
+    [InlineData("first\nsecond", 6, 12)]
+    [InlineData("first\r\nsecond", 1, 5)]
+    [InlineData("first", 99, 5)]
+    [InlineData("", 0, 0)]
+    public void GetLineEnd_ReturnsTheEndOfTheLineHoldingTheIndex(string text, int index, int expected)
+        => Assert.Equal(expected, TextInsertion.GetLineEnd(text, index));
 }

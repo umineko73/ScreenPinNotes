@@ -115,6 +115,7 @@ Use the mini toolbar for colors, fonts, and icons. Unavailable actions are disab
 
 - Use **Markdown formatting** while editing to insert syntax. **Edit link** changes a link's label and URL.
 - Pasted images are saved as PNGs in the note's `assets` folder. Local images render inline; web image URLs do not.
+- Dropping image files onto a note, or pasting files copied in Explorer, copies them into the note's `assets` folder in their original format. The original files stay where they were.
 - Resize images between 20% and 200% using their context menu or `Ctrl` + wheel.
 - Use the context menu to paste/copy Excel tables. Pasting images is also supported.
 - Very large documents or deeply nested formatting fall back to source text without discarding content.

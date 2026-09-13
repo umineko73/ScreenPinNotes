@@ -244,6 +244,12 @@ public partial class StickyNoteWindow : Window
         TitleEditBox.ContextMenuOpening += TitleContextMenuOpening;
         System.Windows.DataObject.AddPastingHandler(ContentBox, OnPaste);
         System.Windows.DataObject.AddPastingHandler(BodyEditBox, OnPaste);
+        // エクスプローラーからの画像ファイルは、本文コントロール自身のドロップ処理より先に
+        // ウィンドウで受け取る（トンネルイベント）。AllowDrop は子要素に継承される。
+        AllowDrop = true;
+        PreviewDragEnter += OnImageFileDragEnter;
+        PreviewDragOver += OnImageFileDragOver;
+        PreviewDrop += OnImageFileDrop;
 
         // ポップアップ・コンテキストメニューは別HWNDのため開くとウィンドウが
         // 非アクティブになり、フォーカスもそちらへ移る。ContentBox 自身の

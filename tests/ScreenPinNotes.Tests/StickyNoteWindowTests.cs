@@ -1276,6 +1276,108 @@ public class StickyNoteWindowTests
         }
     }
 
+    [WpfFact]
+    public void PasteFromDataObject_ImageFiles_CopiesOriginalsIntoAssets()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var sourceDir = Path.Combine(temp.Path, "source");
+        Directory.CreateDirectory(sourceDir);
+        var photo = Path.Combine(sourceDir, "旅行 写真 (1).PNG");
+        WritePngFile(photo);
+        var memo = Path.Combine(sourceDir, "memo.txt");
+        File.WriteAllText(memo, "not an image");
+        var vm = new StickyNoteViewModel(new StickyNote { Content = "first\nsecond" }, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            var files = new DataObject();
+            files.SetData(DataFormats.FileDrop, new[] { photo, memo });
+
+            InvokePrivate(window, "PasteFromDataObject", files);
+
+            Assert.Equal("first\nsecond\n![旅行-写真-1](assets/旅行-写真-1.PNG)", vm.Content);
+            var assets = storage.GetNoteAssetsDirectoryPath(vm.Model.Id);
+            var copied = Assert.Single(Directory.GetFiles(assets));
+            Assert.Equal("旅行-写真-1.PNG", Path.GetFileName(copied));
+            Assert.Equal(File.ReadAllBytes(photo), File.ReadAllBytes(copied));
+            Assert.True(File.Exists(photo));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // WPF の OLE ドロップと同じく、同じ引数でトンネル→バブルの順に流す。
+    // 本文の TextBox 自身のドロップ処理より先にウィンドウが受け取れているかを確かめる。
+    [WpfFact]
+    public void ImageFileDrop_IsTakenBeforeTheBodyEditorAndRefusedWhileLocked()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        Directory.CreateDirectory(temp.Path);
+        var photo = Path.Combine(temp.Path, "photo.png");
+        WritePngFile(photo);
+        var data = new DataObject(DataFormats.FileDrop, new[] { photo });
+        var vm = new StickyNoteViewModel(new StickyNote { Content = "first\nsecond" }, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        var lockedVm = new StickyNoteViewModel(new StickyNote { Content = "locked", IsReadOnly = true }, new AppSettings());
+        var lockedWindow = new StickyNoteWindow(lockedVm, storage);
+        try
+        {
+            InvokePrivate(window, "EnterEditMode");
+            var body = Assert.IsType<TextBox>(window.FindName("BodyEditBox"));
+
+            var over = RaiseDragEvent(body, data, DragDrop.PreviewDragOverEvent, DragDrop.DragOverEvent);
+            Assert.True(over.Handled);
+            Assert.Equal(DragDropEffects.Copy, over.Effects);
+
+            var drop = RaiseDragEvent(body, data, DragDrop.PreviewDropEvent, DragDrop.DropEvent);
+            Assert.True(drop.Handled);
+            Assert.Contains("![photo](assets/photo.png)", vm.Content);
+            Assert.Contains("first", vm.Content);
+            Assert.Single(Directory.GetFiles(storage.GetNoteAssetsDirectoryPath(vm.Model.Id)));
+
+            var lockedBody = Assert.IsType<RichTextBox>(lockedWindow.FindName("ContentBox"));
+            var lockedOver = RaiseDragEvent(lockedBody, data, DragDrop.PreviewDragOverEvent, DragDrop.DragOverEvent);
+            Assert.Equal(DragDropEffects.None, lockedOver.Effects);
+            RaiseDragEvent(lockedBody, data, DragDrop.PreviewDropEvent, DragDrop.DropEvent);
+            Assert.Equal("locked", lockedVm.Content);
+            Assert.False(Directory.Exists(storage.GetNoteAssetsDirectoryPath(lockedVm.Model.Id)));
+        }
+        finally
+        {
+            window.Close();
+            lockedWindow.Close();
+        }
+    }
+
+    private static DragEventArgs RaiseDragEvent(UIElement target, IDataObject data, RoutedEvent tunnel, RoutedEvent bubble)
+    {
+        var constructor = typeof(DragEventArgs)
+            .GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic)
+            .Single(candidate => candidate.GetParameters().Length == 5);
+        var allowed = DragDropEffects.Copy | DragDropEffects.Move;
+        var args = (DragEventArgs)constructor.Invoke([data, DragDropKeyStates.None, allowed, target, new Point(1, 1)]);
+        args.Effects = allowed;
+        args.RoutedEvent = tunnel;
+        target.RaiseEvent(args);
+        args.RoutedEvent = bubble;
+        target.RaiseEvent(args);
+        return args;
+    }
+
+    private static void WritePngFile(string path)
+    {
+        var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+        encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(CreateBitmapSource()));
+        using var stream = File.Create(path);
+        encoder.Save(stream);
+    }
+
     // クイックアクション行は押しても何も起きないので、矢印キーの
     // 移動先にしない。キーボードからは通常のメニュー項目を使う。
     [WpfFact]
