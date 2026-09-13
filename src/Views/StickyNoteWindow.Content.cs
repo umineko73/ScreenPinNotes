@@ -875,8 +875,15 @@ public partial class StickyNoteWindow
             return;
 
         _isFittingWindowToImages = true;
+        var verticalScrollBarVisibility = ContentBox.VerticalScrollBarVisibility;
+        var horizontalScrollBarVisibility = ContentBox.HorizontalScrollBarVisibility;
         try
         {
+        // Existing Auto bars can keep each other visible: each consumes the space
+        // needed to hide the other. Measure the fitted content without either bar,
+        // then let Auto decide again (including when the screen limits the size).
+        ContentBox.VerticalScrollBarVisibility = ScrollBarVisibility.Hidden;
+        ContentBox.HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden;
 
         // 大きさを変えると、幅に合わせて縮めている画像はその場で伸び縮みし、
         // 必要な高さも変わる。1回測って当てるだけでは下に隙間が残るので、
@@ -903,6 +910,9 @@ public partial class StickyNoteWindow
         }
         finally
         {
+            UpdateLayout();
+            ContentBox.VerticalScrollBarVisibility = verticalScrollBarVisibility;
+            ContentBox.HorizontalScrollBarVisibility = horizontalScrollBarVisibility;
             _isFittingWindowToImages = false;
         }
 

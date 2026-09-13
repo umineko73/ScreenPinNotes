@@ -60,6 +60,8 @@ public class FitWindowToImageTests
     [InlineData(120, 91, true)]
     [InlineData(600, 413, true, 477)]
     [InlineData(601, 399, false, 477)]
+    [InlineData(600, 700, false, 600)]
+    [InlineData(600, 700, true, 600)]
     public void FitToImage_LeavesNothingToScroll(int pixelWidth, int pixelHeight, bool hiddenTitleBar, int? width = null)
     {
         WpfApplicationFixture.Ensure();
@@ -81,6 +83,48 @@ public class FitWindowToImageTests
             Assert.Equal(0, scrollViewer.ScrollableWidth, 0);
             Assert.Equal(Visibility.Collapsed, scrollViewer.ComputedVerticalScrollBarVisibility);
             Assert.Equal(Visibility.Collapsed, scrollViewer.ComputedHorizontalScrollBarVisibility);
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void FitToImage_AfterSelecting100Percent_ClearsExistingScrollBars(bool hiddenTitleBar)
+    {
+        WpfApplicationFixture.Ensure();
+        var storage = new StorageService(Path.Combine(Path.GetTempPath(), "ScreenPinNotes.Tests", Guid.NewGuid().ToString()));
+        var note = NoteWithImage(storage, 600, 700, hiddenTitleBar);
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), storage);
+        try
+        {
+            Open(window, note);
+            var contexts = (System.Collections.IDictionary)typeof(StickyNoteWindow)
+                .GetField("_markdownImageContexts", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .GetValue(window)!;
+            var context = contexts.Values.Cast<object>().Single();
+            typeof(StickyNoteWindow)
+                .GetMethod("ResizeMarkdownImage", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(window, new[] { context, (object)100 });
+            window.UpdateLayout();
+            window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
+            var box = (RichTextBox)window.FindName("ContentBox");
+            var scrollViewer = FindScrollViewer(box)!;
+            Assert.Equal(Visibility.Visible, scrollViewer.ComputedVerticalScrollBarVisibility);
+            Assert.Equal(Visibility.Visible, scrollViewer.ComputedHorizontalScrollBarVisibility);
+            box.ScrollToEnd();
+            box.ScrollToHorizontalOffset(40);
+            window.UpdateLayout();
+
+            FitToImages(window);
+
+            Assert.Equal(Visibility.Collapsed, scrollViewer.ComputedVerticalScrollBarVisibility);
+            Assert.Equal(Visibility.Collapsed, scrollViewer.ComputedHorizontalScrollBarVisibility);
+            Assert.Equal(0, scrollViewer.ScrollableHeight, 0);
+            Assert.Equal(0, scrollViewer.ScrollableWidth, 0);
+            var dpi = VisualTreeHelper.GetDpi(window);
+            Assert.Equal(Math.Round(600 / dpi.DpiScaleX), SingleImage(box).ActualWidth, 1);
         }
         finally { window.Close(); }
     }
