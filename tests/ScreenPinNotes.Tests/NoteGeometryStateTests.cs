@@ -5,6 +5,16 @@ namespace ScreenPinNotes.Tests;
 
 public class NoteGeometryStateTests
 {
+    [Fact]
+    public void SavingAtAnotherDpiPreservesOtherModesPhysicalPosition()
+    {
+        var note = new StickyNote { X = 100, Y = 200, FoldedX = 1800, FoldedY = 300,
+            IsPositionSeparated = true, PositionScale = 1.5, PositionLayout = "home" };
+        var state = new NoteGeometryState(note, () => new(true, "home", 1));
+        state.StorePosition(120, 130);
+        Assert.Equal((2700d, 450d), (note.FoldedX!.Value * note.PositionScale, note.FoldedY!.Value * note.PositionScale));
+        Assert.Equal((120d, 130d), (note.X, note.Y));
+    }
     [Theory]
     [InlineData(false, false, -1)]
     [InlineData(false, false, 1)]

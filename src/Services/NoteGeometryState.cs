@@ -27,9 +27,24 @@ public sealed class NoteGeometryState(StickyNote note, Func<NotePositionContext>
         if (positionContext is null) return true;
         var context = positionContext();
         if (!context.CanStore) return false;
+        StampPositionContext(note, context);
+        return true;
+    }
+
+    public static void StampPositionContext(StickyNote note, NotePositionContext context)
+    {
+        // Both presentation modes share the scale. Rebase the untouched mode too,
+        // otherwise storing one mode on another-DPI monitor moves the other's home.
+        if (note.PositionScale > 0 && context.Scale > 0 && note.PositionScale != context.Scale)
+        {
+            var ratio = note.PositionScale / context.Scale;
+            note.X *= ratio;
+            note.Y *= ratio;
+            note.FoldedX *= ratio;
+            note.FoldedY *= ratio;
+        }
         note.PositionLayout = context.Layout;
         note.PositionScale = context.Scale;
-        return true;
     }
 
     public (double Width, double Height) GetSize(bool editing)

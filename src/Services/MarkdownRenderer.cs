@@ -51,7 +51,10 @@ public static class MarkdownRenderer
         Func<MarkdownImage, Inline>? createImage = null,
         Func<int, bool, WpfCheckBox>? createTaskCheckbox = null,
         bool darkMode = false,
-        bool ignoreFirstLineHeadingSize = false)
+        bool ignoreFirstLineHeadingSize = false,
+        string language = "en",
+        bool propertiesCollapsed = false,
+        Action<bool>? propertiesCollapsedChanged = null)
     {
         // Bound UI element creation and parser work without discarding source text.
         if (text.Length > 131072 || text.Count(ch => ch == '\n') > 2000)
@@ -66,7 +69,14 @@ public static class MarkdownRenderer
             yield break;
         }
 
-        for (int i = 0; i < lines.Length;)
+        var startLine = 0;
+        if (MarkdownProperties.TryRender(lines, darkMode, out var properties, out var afterProperties, language,
+            propertiesCollapsed, propertiesCollapsedChanged))
+        {
+            yield return properties;
+            startLine = afterProperties;
+        }
+        for (int i = startLine; i < lines.Length;)
         {
             var line = lines[i];
             var trimmed = line.Trim();
@@ -599,6 +609,13 @@ public static class MarkdownRenderer
                 continue;
             }
 
+            if (TryGetWikiImage(text, pos, out var wikiTarget, out var wikiLength, out var wikiWidth, out var wikiHeight))
+            {
+                yield return createImage?.Invoke(new MarkdownImage(wikiTarget, wikiTarget, lineIndex, lineOffset + pos, wikiLength, wikiWidth, wikiHeight))
+                    ?? new Run(text.Substring(pos, wikiLength));
+                pos += wikiLength;
+                continue;
+            }
             if (IsLinkStart(text, pos) && pos >= linkRetryFrom && pos < lastLinkStart)
             {
                 if (TryGetMarkdownImage(text, pos, out var alt, out var imageTarget, out var imageLength, out var width, out var height))
@@ -669,6 +686,7 @@ public static class MarkdownRenderer
             {
                 return i;
             }
+            if (text.AsSpan(i).StartsWith("![[", StringComparison.Ordinal)) return i;
         }
 
         return text.Length;
@@ -755,6 +773,27 @@ public static class MarkdownRenderer
         return LinkDetector.IsLink(target);
     }
 
+    private static bool TryGetWikiImage(string text, int start, out string target, out int length, out double? width, out double? height)
+    {
+        target = ""; length = 0; width = null; height = null;
+        if (!text.AsSpan(start).StartsWith("![[", StringComparison.Ordinal)) return false;
+        var end = text.IndexOf("]]", start + 3, StringComparison.Ordinal);
+        if (end < 0) return false;
+        var parts = text[(start + 3)..end].Split('|', 2);
+        target = parts[0].Trim();
+        if (!LinkDetector.IsRenderableImageTarget(target)) return false;
+        if (parts.Length == 2)
+        {
+            var dimensions = parts[1].Split('x', 2);
+            static double? Dimension(string value) => double.TryParse(value, System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out var number) && number > 0 && double.IsFinite(number) ? number : null;
+            width = Dimension(dimensions[0]);
+            if (dimensions.Length == 2) height = Dimension(dimensions[1]);
+        }
+        length = end + 2 - start;
+        return true;
+    }
+
     private static bool TryGetMarkdownImage(
         string text,
         int start,
@@ -769,6 +808,9 @@ public static class MarkdownRenderer
         length = 0;
         width = null;
         height = null;
+
+        if (TryGetWikiImage(text, start, out target, out length, out width, out height))
+        { alt = target; return true; }
 
         if (start + 1 >= text.Length || text[start] != '!' || text[start + 1] != '[')
             return false;

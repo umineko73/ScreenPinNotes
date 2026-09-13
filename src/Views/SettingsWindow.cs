@@ -143,6 +143,7 @@ public sealed class SettingsWindow : Window
     private void ApplyTheme()
     {
         var dark = string.Equals(_settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase);
+        ControlTheme.Apply(this, dark);
         Resources["SettingsBackground"] = Brush(dark ? "#202020" : "#FFFFFF");
         Resources["SettingsSurface"] = Brush(dark ? "#303030" : "#FFFFFF");
         Resources["SettingsText"] = Brush(dark ? "#EEEEEE" : "#242424");

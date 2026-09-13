@@ -179,6 +179,8 @@ public partial class StickyNoteWindow
 
     private void LoadMarkdownContent(string text)
     {
+        _obsidianAttachments = ViewModel.Model.IsExternalContent && !string.IsNullOrWhiteSpace(ViewModel.Model.ExternalContentPath)
+            ? new ObsidianAttachments(ViewModel.Model.ExternalContentPath) : null;
         text = NormalizeLineEndings(text);
         _suppressTextChange = true;
         try
@@ -194,16 +196,32 @@ public partial class StickyNoteWindow
                 CreateMarkdownImage,
                 CreateTaskCheckbox,
                 ViewModel.UsesDarkNoteColors,
-                ignoreFirstLineHeadingSize: ViewModel.IsFolded && ViewModel.IsTitleBarHidden))
+                ignoreFirstLineHeadingSize: ViewModel.IsFolded && ViewModel.IsTitleBarHidden,
+                language: Settings.Language,
+                propertiesCollapsed: ViewModel.Model.ArePropertiesCollapsed,
+                propertiesCollapsedChanged: collapsed =>
+                {
+                    ViewModel.Model.ArePropertiesCollapsed = collapsed;
+                    RequestSave();
+                }))
             {
                 ContentBox.Document.Blocks.Add(block);
                 if (block is Table table)
                     SizeMarkdownTableColumns(table);
+                else if (block is Section { Tag: Table propertyTable })
+                    {
+                        var available = Math.Max(40, GetMarkdownImageAvailableWidth());
+                        var labelWidth = Math.Min(150, available * 0.35);
+                        propertyTable.Columns[0].Width = new GridLength(labelWidth);
+                        propertyTable.Columns[1].Width = new GridLength(available - labelWidth);
+                    }
             }
             ApplyMarkdownPageWidth();
         }
         finally { _suppressTextChange = false; }
     }
+
+    private string _foldedPreviewSourceText = string.Empty;
 
     private void UpdateFoldedPreview(string text)
     {
@@ -212,7 +230,9 @@ public partial class StickyNoteWindow
                 (label, target) => new Hyperlink(new Run(label)),
                 image => new Run(image.Alt))
             .Select(block => new TextRange(block.ContentStart, block.ContentEnd).Text));
-        FoldedPreviewText.Text = preview.TrimEnd('\r', '\n');
+        _foldedPreviewSourceText = preview.TrimEnd('\r', '\n');
+        FoldedPreviewText.Text = _foldedPreviewSourceText;
+        FitFoldedWidth();
         UpdateImagePathPreview();
     }
 
@@ -918,6 +938,13 @@ public partial class StickyNoteWindow
         var desiredWidth = Math.Max(MinWidth, contentExtent.Width + GetWindowExtraWidthForContent());
         var desiredHeight = Math.Max(FoldedHeight, contentExtent.Height + GetWindowExtraHeightForContent());
 
+        // Aspect-ratio scaling can leave a fractional physical pixel. Rounding the
+        // window down clips the document and triggers Auto scrollbars, which then
+        // consume more of the viewport. Round outward before applying screen limits.
+        var (dpiX, dpiY) = GetDpi();
+        desiredWidth = Math.Ceiling(desiredWidth * dpiX) / dpiX;
+        desiredHeight = Math.Ceiling(desiredHeight * dpiY) / dpiY;
+
         // ここまでは中身がぴったり収まる大きさ。画面に入りきらず切り詰める側には
         // スクロールバーが出るので、そのときだけ直交する向きにバーの幅を足す。
         // 常に足していたころは、収まっている付箋にも下と右に隙間が残っていた。
@@ -1184,6 +1211,8 @@ public partial class StickyNoteWindow
             ? FormattableString.Invariant($"![{context.Alt}]({context.Target}){{width={width.Value:0}}}")
             : $"![{context.Alt}]({context.Target})";
 
+    private ObsidianAttachments? _obsidianAttachments;
+
     private string? ResolveImagePath(string target)
     {
         if (string.IsNullOrWhiteSpace(target))
@@ -1193,6 +1222,8 @@ public partial class StickyNoteWindow
             return Path.GetFullPath(target);
 
         var noteDir = GetMarkdownBaseDirectory();
+        var attachment = _obsidianAttachments?.Resolve(target);
+        if (attachment != null) return attachment;
         if ((target.Contains("://", StringComparison.Ordinal) ||
              target.StartsWith("file:", StringComparison.OrdinalIgnoreCase)) &&
             Uri.TryCreate(target, UriKind.Absolute, out var uri))

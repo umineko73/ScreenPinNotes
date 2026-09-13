@@ -198,6 +198,7 @@ public partial class StickyNoteWindow
         UpdateControlsVisibility();
         HideEditToolbar();
         Keyboard.ClearFocus();
+        ReconcileScreenPlacement();
     }
 
     // リサイズ可否を切り替える。

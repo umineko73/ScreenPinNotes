@@ -8,6 +8,87 @@ namespace ScreenPinNotes.Tests;
 
 public class NoteTransitionRegressionTests
 {
+    [WpfTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ManualFoldedWidthSurvivesContentChangesAndReload(bool hiddenTitle)
+    {
+        WpfApplicationFixture.Ensure();
+        var root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ScreenPinNotes.Tests", Guid.NewGuid().ToString("N"));
+        var settings = new AppSettings { EnableFoldAnimation = false };
+        var note = new StickyNote { Width = 1000, IsFolded = true, IsTitleBarHidden = hiddenTitle, Content = "短い文章" };
+        var storage = new StorageService(root);
+        var vm = new StickyNoteViewModel(note, settings);
+        var window = new StickyNoteWindow(vm, storage);
+        void Call(string name, params object?[] args) => typeof(StickyNoteWindow).GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(window, args);
+        var rect = System.Runtime.InteropServices.Marshal.AllocHGlobal(16);
+        try
+        {
+            window.Show(); window.UpdateLayout();
+            Assert.Null(note.ManualFoldedWidth);
+            var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(window).DpiScaleX;
+            var pixels = (int)Math.Round(700 * dpi);
+            System.Runtime.InteropServices.Marshal.Copy(new[] { 100, 100, 100 + pixels, 140 }, 0, rect, 4);
+            Call("WndProc", IntPtr.Zero, 0x0214, (IntPtr)2, rect, false);
+            Assert.InRange(note.ManualFoldedWidth!.Value, 680, 720); // edge snapping may adjust a few pixels
+            window.Width = note.ManualFoldedWidth.Value; // apply the sizing rectangle as Windows would
+            var manual = window.Width;
+            vm.Content = "変更後";
+            Call("LoadContent", vm.Content);
+            Call("SetTitleFontSize", 30d);
+            Assert.Equal(manual, window.Width);
+            Call("ToggleFold", (object?)null);
+            Assert.Equal(1000, window.Width);
+            Call("ToggleFold", (object?)null);
+            Assert.Equal(manual, window.Width);
+            Call("SaveNote");
+            var restored = Assert.Single(storage.Load());
+            Assert.Equal(manual, restored.ManualFoldedWidth);
+            var reopened = new StickyNoteWindow(new StickyNoteViewModel(restored, settings), storage);
+            try { reopened.Show(); reopened.UpdateLayout(); Assert.Equal(manual, reopened.Width); }
+            finally { reopened.Close(); }
+        }
+        finally
+        {
+            System.Runtime.InteropServices.Marshal.FreeHGlobal(rect);
+            window.Close();
+            if (System.IO.Directory.Exists(root)) System.IO.Directory.Delete(root, true);
+        }
+    }
+
+    [WpfTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void FoldFitsTextAndRestoresWideBody(bool hiddenTitle)
+    {
+        WpfApplicationFixture.Ensure();
+        var root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ScreenPinNotes.Tests", Guid.NewGuid().ToString("N"));
+        var settings = new AppSettings { EnableFoldAnimation = false };
+        var note = new StickyNote { Width = 1000, Height = 320, FoldedWidth = 1000,
+            IsTitleBarHidden = hiddenTitle, Content = "短い文章\n![写真](missing.png)" };
+        var vm = new StickyNoteViewModel(note, settings);
+        var window = new StickyNoteWindow(vm, new StorageService(root));
+        void Call(string name, params object?[] args) => typeof(StickyNoteWindow).GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(window, args);
+        try
+        {
+            window.Show(); window.UpdateLayout();
+            Call("ToggleFold", (object?)null); window.UpdateLayout();
+            var shortWidth = window.Width;
+            Assert.InRange(shortWidth, window.MinWidth, 300);
+            Assert.Equal(1000, note.Width);
+            Call("ToggleFold", (object?)null);
+            Assert.Equal(1000, window.Width);
+            vm.Content = new string('あ', 200) + "\n![写真](missing.png)";
+            Call("ToggleFold", (object?)null); window.UpdateLayout();
+            Assert.True(window.Width > shortWidth);
+            Assert.InRange(window.Width, window.MinWidth, 480);
+            Call("ToggleFold", (object?)null);
+            Assert.Equal(1000, window.Width);
+            Assert.Equal(320, note.Height);
+        }
+        finally { window.Close(); if (System.IO.Directory.Exists(root)) System.IO.Directory.Delete(root, true); }
+    }
+
     [WpfFact]
     public void MoveDoesNotSnapToHiddenNote()
     {

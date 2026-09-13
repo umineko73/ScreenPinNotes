@@ -31,11 +31,13 @@ public class StickyNote
     public double Y { get; set; } = 100;
     public double Width { get; set; } = 260;
 
-    // 折りたたみ時専用の幅。null なら Width をそのまま使う
-    // （＝まだ折りたたみ時に個別リサイズされたことがない付箋）。
+    // 折りたたみ時の位置と直近の表示幅。
     public double? FoldedX { get; set; }
     public double? FoldedY { get; set; }
     public double? FoldedWidth { get; set; }
+    // 手動リサイズで指定した幅。未指定なら内容に合わせて自動調整する。
+    public double? ManualFoldedWidth { get; set; }
+    public bool ArePropertiesCollapsed { get; set; }
 
     public double Height { get; set; } = 220;
     public double? EditWidth { get; set; }

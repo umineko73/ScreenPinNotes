@@ -23,6 +23,42 @@ namespace ScreenPinNotes.Views;
 
 public partial class StickyNoteWindow
 {
+    private double MeasureFoldedWidth()
+    {
+        if (ViewModel.Model.ManualFoldedWidth is > 0 and var manual && double.IsFinite(manual))
+            return Math.Max(MinWidth, manual);
+        var hidden = ViewModel.IsTitleBarHidden;
+        var text = hidden ? _foldedPreviewSourceText : ViewModel.DisplayTitle;
+        // Measure the unshortened path, not the text fitted to the previous width.
+        var path = MarkdownRenderer.GetImageOnlyTarget(ViewModel.Content);
+        if (path != null && (hidden || string.IsNullOrWhiteSpace(ViewModel.Title))) text = path;
+        var font = hidden ? new System.Windows.Media.FontFamily(ViewModel.FontFamily) : TitleText.FontFamily;
+        var measured = new System.Windows.Media.FormattedText(text,
+            System.Globalization.CultureInfo.CurrentCulture, System.Windows.FlowDirection.LeftToRight,
+            new System.Windows.Media.Typeface(font, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal),
+            ViewModel.TitleFontSize, ViewModel.TextForeground,
+            System.Windows.Media.VisualTreeHelper.GetDpi(this).PixelsPerDip);
+        var icon = string.IsNullOrEmpty(ViewModel.Icon) ? 0 : ViewModel.TitleIconSize;
+        var padding = ViewModel.NoteContentPadding;
+        var chrome = hidden
+            ? padding.Left + padding.Right + 10 + (icon == 0 ? 24 : icon + 18)
+            : 10 + (icon == 0 ? 0 : icon + 6) + 26 * (Settings.ShowFoldButton ? 3 : 2);
+        if (!hidden)
+            foreach (var child in TitleBar.Children.OfType<TextBlock>().Where(c => Grid.GetColumn(c) is >= 2 and <= 4))
+            {
+                child.Measure(new System.Windows.Size(double.PositiveInfinity, double.PositiveInfinity));
+                chrome += child.DesiredSize.Width;
+            }
+        return Math.Clamp(Math.Ceiling(measured.WidthIncludingTrailingWhitespace + chrome),
+            MinWidth, Math.Max(MinWidth, Math.Min(480, ViewModel.Model.Width)));
+    }
+
+    private void FitFoldedWidth()
+    {
+        if (!ViewModel.IsFolded || _isEditMode || _isFoldAnimationRunning) return;
+        SuppressWindowBoundsSave(() => Width = MeasureFoldedWidth());
+    }
+
     internal bool IsTemporarilyRaised { get; private set; }
 
     private void SetTemporaryRaise(bool raised)
@@ -75,6 +111,7 @@ public partial class StickyNoteWindow
                 Left = ViewModel.Model.X;
                 Top = ViewModel.Model.Y;
                 KeepInsideWorkArea(Width, _geometry.ExpandedHeight);
+                ReconcileScreenPlacement();
             });
             _geometry.CaptureExpanded(Left, Top, ViewModel.Model.Width, _geometry.ExpandedHeight, dpiX, dpiY);
             SetResizeEnabled(true);
@@ -85,6 +122,7 @@ public partial class StickyNoteWindow
                 ApplyFoldedContentPresentation();
                 if (!_isEditMode)
                     EnsureExpandedContent();
+                ReconcileScreenPlacement();
                 onUnfolded?.Invoke();
             });
         }
@@ -110,8 +148,7 @@ public partial class StickyNoteWindow
             HideEditToolbar();
             var foldedLeft = ViewModel.Model.FoldedX ?? Left;
             var foldedTop = ViewModel.Model.FoldedY ?? Top;
-            var foldedWidth = ViewModel.Model.FoldedWidth ?? Width;
-            // 閉じた表示専用の幅へスナップ（未設定なら現在の幅のまま）
+            // 本文の幅は保持し、閉じた表示は内容に合わせる。
             RunFoldAnimation(Height, FoldedHeight, () =>
             {
                 ApplyFoldedContentPresentation();
@@ -120,7 +157,8 @@ public partial class StickyNoteWindow
                 {
                     Left = foldedLeft;
                     Top = foldedTop;
-                    Width = foldedWidth;
+                    Width = MeasureFoldedWidth();
+                    ReconcileScreenPlacement();
                 });
                 _geometry.CaptureFolded(Left, Top, Width, dpiX, dpiY);
                 SetResizeEnabled(false); // タイトルバーのみの時はリサイズ不可

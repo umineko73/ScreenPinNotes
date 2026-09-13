@@ -101,10 +101,9 @@ public class StickyNoteWindowTests
     [WpfTheory]
     [InlineData(false, false, -1)]
     [InlineData(false, false, 1)]
-    [InlineData(true, false, -1)]
-    [InlineData(true, false, 1)]
     [InlineData(false, true, -1)]
     [InlineData(false, true, 1)]
+    // Manual folded resizing is covered by ManualFoldedWidthSurvivesContentChangesAndReload.
     public void SinglePixelResizeSurvivesSaveAndReload(bool folded, bool editing, int delta)
     {
         EnsureApplication();
@@ -191,13 +190,14 @@ public class StickyNoteWindowTests
             Assert.Equal(320, note.Height, 1);
             AssertWindowCoordinate(initiallyFolded ? 90 : 180, window.Left, window);
             AssertWindowCoordinate(initiallyFolded ? 100 : 180, window.Top, window, vertical: true);
-            AssertWindowCoordinate(initiallyFolded ? 230 : 420, window.Width, window);
+            if (initiallyFolded) Assert.InRange(window.Width, window.MinWidth, 420);
+            else AssertWindowCoordinate(420, window.Width, window);
             Assert.Equal(180, note.X);
             Assert.Equal(180, note.Y);
             Assert.Equal(90, note.FoldedX);
             Assert.Equal(100, note.FoldedY);
             Assert.Equal(420, note.Width);
-            Assert.Equal(230, note.FoldedWidth);
+            Assert.InRange(note.FoldedWidth!.Value, window.MinWidth, 420);
             Assert.False(GetPrivateField<bool>(window, "_isFoldAnimationRunning"));
         }
         finally { window.Close(); settings.EnableFoldAnimation = previous; }
@@ -390,7 +390,8 @@ public class StickyNoteWindowTests
                 window.UpdateLayout();
                 AssertWindowCoordinate(note.IsFolded ? (separated ? 90 : 180) : 180, window.Left, window);
                 AssertWindowCoordinate(note.IsFolded ? (separated ? 100 : 180) : 180, window.Top, window, vertical: true);
-                AssertWindowCoordinate(note.IsFolded ? 230 : 420, window.Width, window);
+                if (note.IsFolded) Assert.InRange(window.Width, window.MinWidth, 420);
+                else AssertWindowCoordinate(420, window.Width, window);
                 Assert.Equal(320, note.Height, 1);
                 Assert.Equal(originalContent, note.Content);
                 Assert.Equal(separated, note.IsPositionSeparated);
@@ -940,6 +941,7 @@ public class StickyNoteWindowTests
             InvokePrivate(window, "ToggleFold", (object?)null);
             Assert.Equal(500, window.Left);
             Assert.Equal(400, window.Top);
+            var foldedWidthBeforeEdit = model.FoldedWidth;
 
             InvokePrivate(window, "EnterEditMode");
             // 左辺・上辺をつかんで広げたときと同じ動き。
@@ -961,7 +963,7 @@ public class StickyNoteWindowTests
             // 折りたたみ側の位置と幅は巻き込まれない。
             Assert.Equal(100, model.FoldedX);
             Assert.Equal(200, model.FoldedY);
-            Assert.Equal(180, model.FoldedWidth);
+            Assert.Equal(foldedWidthBeforeEdit, model.FoldedWidth);
         }
         finally { window.Close(); }
     }
@@ -3357,6 +3359,35 @@ public class StickyNoteWindowTests
         }
     }
 
+    [WpfTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ResetPositionSeparation_PreservesFoldedWidth(bool folded)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote
+        {
+            Title = "Title", Width = 420, Height = 320,
+            FoldedWidth = 310, FoldedX = 100, FoldedY = 100,
+            IsFolded = folded, IsPositionSeparated = true,
+        };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, new AppSettings { EnableFoldAnimation = false }),
+            new StorageService(temp.Path));
+        try
+        {
+            window.Width = folded ? 310 : 420;
+            InvokePrivate(window, "ResetPositionSeparation");
+            Assert.Equal(folded ? 310 : 420, window.Width);
+            if (folded) InvokePrivate(window, "ToggleFold", (object?)null);
+            InvokePrivate(window, "ToggleFold", (object?)null);
+            Assert.Equal(310, window.Width);
+            Assert.Equal(310, note.FoldedWidth);
+        }
+        finally { window.Close(); }
+    }
+
     [WpfFact]
     public void ResetPositionSeparation_WhileUnfolded_ReconnectsToTitleBarPosition()
     {
@@ -3424,10 +3455,10 @@ public class StickyNoteWindowTests
             Assert.True(note.IsFolded);
             Assert.Equal(10, window.Left);
             Assert.Equal(20, window.Top);
-            Assert.Equal(180, window.Width);
+            Assert.InRange(window.Width, window.MinWidth, 420);
             Assert.Equal(10, note.FoldedX);
             Assert.Equal(20, note.FoldedY);
-            Assert.Equal(180, note.FoldedWidth);
+            Assert.Equal(window.Width, note.FoldedWidth);
             Assert.Equal(320, note.Height);
         }
         finally

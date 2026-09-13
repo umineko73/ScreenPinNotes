@@ -52,13 +52,21 @@ public class FitWindowToImageTests
 
     // ぴったり合わせたのだからスクロールするものは無い。バーが出ていたら、
     // その幅ぶんどこかが足りていない。
-    [WpfFact]
-    public void FitToImage_LeavesNothingToScroll()
+    [WpfTheory]
+    [InlineData(600, 600, true)]
+    [InlineData(600, 413, true)]
+    [InlineData(600, 413, false)]
+    [InlineData(601, 399, true)]
+    [InlineData(120, 91, true)]
+    [InlineData(600, 413, true, 477)]
+    [InlineData(601, 399, false, 477)]
+    public void FitToImage_LeavesNothingToScroll(int pixelWidth, int pixelHeight, bool hiddenTitleBar, int? width = null)
     {
         WpfApplicationFixture.Ensure();
         var root = Path.Combine(Path.GetTempPath(), "ScreenPinNotes.Tests", Guid.NewGuid().ToString());
         var storage = new StorageService(root);
-        var note = NoteWithImage(storage, 600, 600, hiddenTitleBar: true);
+        var note = NoteWithImage(storage, pixelWidth, pixelHeight, hiddenTitleBar);
+        if (width.HasValue) note.Content += $"{{width={width}}}";
         var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), storage);
         try
         {
@@ -71,6 +79,8 @@ public class FitWindowToImageTests
             Assert.NotNull(scrollViewer);
             Assert.Equal(0, scrollViewer!.ScrollableHeight, 0);
             Assert.Equal(0, scrollViewer.ScrollableWidth, 0);
+            Assert.Equal(Visibility.Collapsed, scrollViewer.ComputedVerticalScrollBarVisibility);
+            Assert.Equal(Visibility.Collapsed, scrollViewer.ComputedHorizontalScrollBarVisibility);
         }
         finally { window.Close(); }
     }
@@ -132,6 +142,7 @@ public class FitWindowToImageTests
             .GetMethod("LoadContent", BindingFlags.Instance | BindingFlags.NonPublic)!
             .Invoke(window, new object[] { note.Content });
         window.UpdateLayout();
+        window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
     }
 
     private static void FitToImages(StickyNoteWindow window)
@@ -141,6 +152,7 @@ public class FitWindowToImageTests
                 null, Type.EmptyTypes, null)!
             .Invoke(window, null);
         window.UpdateLayout();
+        window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
     }
 
     private static Image SingleImage(RichTextBox box)

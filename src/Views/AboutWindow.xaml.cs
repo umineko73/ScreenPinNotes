@@ -30,6 +30,7 @@ public partial class AboutWindow : Window
     public AboutWindow()
     {
         InitializeComponent();
+        ControlTheme.Apply(this, App.Current.Settings.Theme == "Dark", dialog: true);
         Title = LocalizationService.T("AboutTitle");
         AppIconImage.Source = LoadAppIconImage();
         VersionText.Text = "v" + GetVersionString();

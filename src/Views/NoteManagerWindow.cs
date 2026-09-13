@@ -65,6 +65,7 @@ public sealed class NoteManagerWindow : Window
         Resources["SettingsHover"] = Brush(dark ? "#444444" : "#EAF0F8");
         Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/ScreenPinNotes;component/Resources/SettingsStyles.xaml") });
         Content = BuildContent();
+        ControlTheme.Apply(this, dark);
         RefreshNotes();
         Closing += (_, _) => RememberSearch();
     }
