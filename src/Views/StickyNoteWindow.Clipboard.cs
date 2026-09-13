@@ -191,7 +191,8 @@ public partial class StickyNoteWindow
         if (!TryGetImageFiles(e.Data, out _))
             return;
 
-        e.Effects = ViewModel.IsFolded || IsContentReadOnly()
+        e.Effects = ViewModel.IsFolded || IsContentReadOnly() ||
+                    !e.AllowedEffects.HasFlag(System.Windows.DragDropEffects.Copy)
             ? System.Windows.DragDropEffects.None
             : System.Windows.DragDropEffects.Copy;
         e.Handled = true;
@@ -203,8 +204,14 @@ public partial class StickyNoteWindow
             return;
 
         e.Handled = true;
-        if (ViewModel.IsFolded)
+        // Report Copy at completion too: the source may delete its original if
+        // a Move effect survives from the incoming OLE drop event.
+        e.Effects = System.Windows.DragDropEffects.None;
+        if (ViewModel.IsFolded || IsContentReadOnly() ||
+            !e.AllowedEffects.HasFlag(System.Windows.DragDropEffects.Copy))
             return;
+
+        e.Effects = System.Windows.DragDropEffects.Copy;
 
         // 編集中はドロップした行の直後に入れる（行の途中で分けない）。表示中は末尾に入れる。
         int? insertionIndex = null;

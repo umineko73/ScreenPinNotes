@@ -1337,14 +1337,23 @@ public class StickyNoteWindowTests
 
             var drop = RaiseDragEvent(body, data, DragDrop.PreviewDropEvent, DragDrop.DropEvent);
             Assert.True(drop.Handled);
+            Assert.Equal(DragDropEffects.Copy, drop.Effects);
             Assert.Contains("![photo](assets/photo.png)", vm.Content);
             Assert.Contains("first", vm.Content);
+            Assert.Single(Directory.GetFiles(storage.GetNoteAssetsDirectoryPath(vm.Model.Id)));
+
+            var beforeMoveOnlyDrop = vm.Content;
+            var moveOnlyDrop = RaiseDragEvent(body, data, DragDrop.PreviewDropEvent,
+                DragDrop.DropEvent, DragDropEffects.Move);
+            Assert.Equal(DragDropEffects.None, moveOnlyDrop.Effects);
+            Assert.Equal(beforeMoveOnlyDrop, vm.Content);
             Assert.Single(Directory.GetFiles(storage.GetNoteAssetsDirectoryPath(vm.Model.Id)));
 
             var lockedBody = Assert.IsType<RichTextBox>(lockedWindow.FindName("ContentBox"));
             var lockedOver = RaiseDragEvent(lockedBody, data, DragDrop.PreviewDragOverEvent, DragDrop.DragOverEvent);
             Assert.Equal(DragDropEffects.None, lockedOver.Effects);
-            RaiseDragEvent(lockedBody, data, DragDrop.PreviewDropEvent, DragDrop.DropEvent);
+            var lockedDrop = RaiseDragEvent(lockedBody, data, DragDrop.PreviewDropEvent, DragDrop.DropEvent);
+            Assert.Equal(DragDropEffects.None, lockedDrop.Effects);
             Assert.Equal("locked", lockedVm.Content);
             Assert.False(Directory.Exists(storage.GetNoteAssetsDirectoryPath(lockedVm.Model.Id)));
         }
@@ -1355,12 +1364,12 @@ public class StickyNoteWindowTests
         }
     }
 
-    private static DragEventArgs RaiseDragEvent(UIElement target, IDataObject data, RoutedEvent tunnel, RoutedEvent bubble)
+    private static DragEventArgs RaiseDragEvent(UIElement target, IDataObject data, RoutedEvent tunnel, RoutedEvent bubble,
+        DragDropEffects allowed = DragDropEffects.Copy | DragDropEffects.Move)
     {
         var constructor = typeof(DragEventArgs)
             .GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic)
             .Single(candidate => candidate.GetParameters().Length == 5);
-        var allowed = DragDropEffects.Copy | DragDropEffects.Move;
         var args = (DragEventArgs)constructor.Invoke([data, DragDropKeyStates.None, allowed, target, new Point(1, 1)]);
         args.Effects = allowed;
         args.RoutedEvent = tunnel;
