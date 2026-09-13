@@ -64,6 +64,21 @@ public partial class StickyNoteWindow
         var imagesChanged = _renderedImageFiles.Any(pair => File.GetLastWriteTimeUtc(pair.Key) != pair.Value);
         if (!_expandedContentValid || _expandedContentText != ViewModel.Content || imagesChanged)
             LoadContent(ViewModel.Content);
+        // The retained document may have acquired both Auto bars while folded.
+        // Measure against the restored viewport before deciding which bars it needs.
+        var vertical = ContentBox.VerticalScrollBarVisibility;
+        var horizontal = ContentBox.HorizontalScrollBarVisibility;
+        try
+        {
+            ContentBox.VerticalScrollBarVisibility = ScrollBarVisibility.Hidden;
+            ContentBox.HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden;
+            ContentBox.UpdateLayout();
+        }
+        finally
+        {
+            ContentBox.VerticalScrollBarVisibility = vertical;
+            ContentBox.HorizontalScrollBarVisibility = horizontal;
+        }
         ContentBox.UpdateLayout();
         ContentBox.ScrollToHorizontalOffset(_expandedScrollX);
         ContentBox.ScrollToVerticalOffset(_expandedScrollY);

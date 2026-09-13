@@ -129,6 +129,43 @@ public class FitWindowToImageTests
         finally { window.Close(); }
     }
 
+    [WpfTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void FitToImage_FoldAndUnfold_LeavesNothingToScroll(bool hiddenTitleBar)
+    {
+        WpfApplicationFixture.Ensure();
+        var storage = new StorageService(Path.Combine(Path.GetTempPath(), "ScreenPinNotes.Tests", Guid.NewGuid().ToString()));
+        var note = NoteWithImage(storage, 600, 700, hiddenTitleBar);
+        note.Content += "{width=600}";
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), storage);
+        void Call(string method, params object?[] args) => typeof(StickyNoteWindow)
+            .GetMethod(method, BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(window, args);
+        try
+        {
+            Open(window, note);
+            FitToImages(window);
+            var width = window.Width;
+            var height = window.Height;
+            for (var cycle = 0; cycle < 2; cycle++)
+            {
+                Call("ToggleFold", (object?)null);
+                Call("CompleteFoldAnimation");
+                window.UpdateLayout();
+                Call("ToggleFold", (object?)null);
+                Call("CompleteFoldAnimation");
+                window.UpdateLayout();
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                var scrollViewer = FindScrollViewer((RichTextBox)window.FindName("ContentBox"))!;
+                Assert.Equal(width, window.Width, 1);
+                Assert.Equal(height, window.Height, 1);
+                Assert.Equal(Visibility.Collapsed, scrollViewer.ComputedVerticalScrollBarVisibility);
+                Assert.Equal(Visibility.Collapsed, scrollViewer.ComputedHorizontalScrollBarVisibility);
+            }
+        }
+        finally { window.Close(); }
+    }
+
     // 元の寸法より小さい付箋に合わせても、画像を引き伸ばしはしない。
     // 小さい画像は等倍のまま、付箋のほうがその大きさに縮む。
     [WpfFact]
