@@ -58,6 +58,7 @@ public sealed class ReminderDialog : Window
         FontFamily = new System.Windows.Media.FontFamily("Yu Gothic UI");
         FontSize = 13;
         var dark = string.Equals(App.Current.Settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase);
+        ControlTheme.Apply(this, dark);
         System.Windows.Media.Brush Color(string value) => new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(value));
         Background = Color(dark ? "#202020" : "#FFFFFF");
         Foreground = Color(dark ? "#EEEEEE" : "#242424");

@@ -17,6 +17,33 @@ namespace ScreenPinNotes.Tests;
 public class NoteScreenPlacementTests
 {
     [WpfFact]
+    public void RescuedNoteStaysReachableAcrossFoldAndEditTransitions()
+    {
+        WpfApplicationFixture.Ensure();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { X = 20000, Y = 12000, FoldedX = -20000, FoldedY = 12000,
+            PositionLayout = "disconnected-layout", PositionScale = 1.5, IsPositionSeparated = true };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, App.Current.Settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show(); window.UpdateLayout();
+            for (var i = 0; i < 2; i++)
+            {
+                typeof(StickyNoteWindow).GetMethod("ToggleFold", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(window, new object?[] { null });
+                Invoke(window, "CompleteFoldAnimation");
+                window.UpdateLayout();
+                Assert.True(MonitorLayout.IsReachable(PhysicalRect(window), MonitorLayout.Current()));
+            }
+            Invoke(window, "EnterEditMode");
+            Invoke(window, "EnterViewMode");
+            window.UpdateLayout();
+            Assert.True(MonitorLayout.IsReachable(PhysicalRect(window), MonitorLayout.Current()));
+            Assert.Equal((20000d, 12000d, -20000d, 12000d), (note.X, note.Y, note.FoldedX!.Value, note.FoldedY!.Value));
+            Assert.Equal("disconnected-layout", note.PositionLayout);
+        }
+        finally { window.Close(); }
+    }
+    [WpfFact]
     public void NoteSavedOnAMonitorThatIsGoneIsShownWhereItCanBeGrabbed()
     {
         WpfApplicationFixture.Ensure();

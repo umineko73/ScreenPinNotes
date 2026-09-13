@@ -558,6 +558,12 @@ public partial class StickyNoteWindow
 
     private void ResetPositionSeparation()
     {
+        // Removing the separation indicator changes the automatic title measurement.
+        // This command only aligns positions; retain the existing closed-view width
+        // through subsequent fold/unfold cycles as well.
+        var foldedWidth = ViewModel.IsFolded ? Width : ViewModel.Model.FoldedWidth;
+        if (foldedWidth is > 0 and var width && double.IsFinite(width))
+            ViewModel.Model.ManualFoldedWidth ??= width;
         var titleBarLeft = ViewModel.IsFolded ? Left : ViewModel.Model.FoldedX ?? Left;
         var titleBarTop = ViewModel.IsFolded ? Top : ViewModel.Model.FoldedY ?? Top;
         SuppressWindowBoundsSave(() =>

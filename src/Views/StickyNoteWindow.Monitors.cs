@@ -65,8 +65,7 @@ public partial class StickyNoteWindow
     {
         var context = CurrentPositionContext();
         if (!context.CanStore) return false;
-        ViewModel.Model.PositionLayout = context.Layout;
-        ViewModel.Model.PositionScale = context.Scale;
+        NoteGeometryState.StampPositionContext(ViewModel.Model, context);
         return true;
     }
 

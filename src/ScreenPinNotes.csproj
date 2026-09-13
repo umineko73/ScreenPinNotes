@@ -28,6 +28,7 @@
     <Resource Include="app.ico" />
     <PackageReference Include="SkiaSharp" Version="3.119.4-preview.1.1" />
     <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="3.119.4-preview.1.1" />
+    <PackageReference Include="YamlDotNet" Version="18.1.0" />
   </ItemGroup>
 
   <ItemGroup>

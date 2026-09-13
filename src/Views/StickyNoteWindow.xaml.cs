@@ -189,11 +189,13 @@ public partial class StickyNoteWindow : Window
             if (e.PropertyName is nameof(StickyNoteViewModel.Icon) or null)
             {
                 UpdateIconImage();
-                // アイコンの有無で UpdateImagePathPreview の予約幅（iconWidth）が
-                // 変わる。アイコンだけを付け外ししてもウィンドウ幅は変わらず
-                // SizeChanged が飛ばないので、ここで明示的に引き直す。
+                // アイコンの予約幅が変わるため、パスの省略表示と折りたたみ幅を更新する。
                 UpdateImagePathPreview();
+                FitFoldedWidth();
             }
+            if (e.PropertyName is nameof(StickyNoteViewModel.TitleFontSize) or nameof(StickyNoteViewModel.FontFamily)
+                || (e.PropertyName == nameof(StickyNoteViewModel.DisplayTitle) && !ViewModel.IsTitleBarHidden))
+                FitFoldedWidth();
             if (e.PropertyName is nameof(StickyNoteViewModel.IsReadOnly) or null)
                 ApplyReadOnlyState();
         };
@@ -235,6 +237,7 @@ public partial class StickyNoteWindow : Window
                 ReconcileScreenPlacement();
         };
         ApplySettings();
+        FitFoldedWidth();
         ApplyLocalizedText();
         ConfigureContextMenus();
         TitleText.ContextMenuOpening += TitleContextMenuOpening;
@@ -436,6 +439,7 @@ public partial class StickyNoteWindow : Window
 
     private void ApplySettings()
     {
+        ControlTheme.Apply(this, IsDarkTheme());
         var editBackground = IsDarkTheme() ? WpfBrushes.White : WpfBrushes.Black;
         var editForeground = IsDarkTheme() ? WpfBrushes.Black : WpfBrushes.White;
         EditingBadge.Background = editBackground;

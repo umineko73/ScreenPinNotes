@@ -453,7 +453,16 @@ public partial class StickyNoteWindow
         if (msg != WM_SIZING) return IntPtr.Zero;
 
         var rect = Marshal.PtrToStructure<RECT>(lParam);
-        if (SnapSizingRect(ref rect, wParam.ToInt32()))
+        var snapped = SnapSizingRect(ref rect, wParam.ToInt32());
+        // WM_SIZING はユーザーの辺ドラッグ時だけ届く。自動調整やDPI変更を
+        // 手動指定として記録しないよう、SizeChanged では判定しない。
+        if (ViewModel.IsFolded && !_isFoldAnimationRunning && !_isInitializing)
+        {
+            var (dpiX, _) = GetDpi();
+            ViewModel.Model.ManualFoldedWidth = Math.Max(MinWidth, (rect.Right - rect.Left) / dpiX);
+            RequestSave();
+        }
+        if (snapped)
         {
             Marshal.StructureToPtr(rect, lParam, false);
             handled = true;

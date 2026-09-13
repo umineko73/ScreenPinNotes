@@ -16,6 +16,7 @@ public sealed class LinkEditDialog : Window
     public LinkEditDialog(Window owner, string label, string url)
     {
         Owner = owner;
+        ControlTheme.Apply(this, App.Current.Settings.Theme == "Dark", dialog: true);
         Title = LocalizationService.T("EditMarkdownLink");
         Width = 560; Height = 340; MinWidth = 360; MinHeight = 280;
         ShowInTaskbar = false;

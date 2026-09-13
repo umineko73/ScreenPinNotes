@@ -161,6 +161,7 @@ public partial class StickyNoteWindow
         if (ViewModel.IsFolded)
         {
             Height = FoldedHeight;
+            FitFoldedWidth();
         }
         ShowSizeOverlay(string.Format(LocalizationService.T("TitleSize"), ViewModel.TitleFontSize));
         UpdateToolbarTooltips();

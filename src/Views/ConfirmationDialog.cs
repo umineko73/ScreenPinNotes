@@ -20,6 +20,7 @@ public sealed class ConfirmationDialog : Window
     private ConfirmationDialog(string title, string message)
     {
         Title = title;
+        ControlTheme.Apply(this, App.Current.Settings.Theme == "Dark", dialog: true);
         Width = 380;
         MinWidth = 320;
         SizeToContent = SizeToContent.Height;
