@@ -60,8 +60,10 @@ public class FitWindowToImageTests
     [InlineData(120, 91, true)]
     [InlineData(600, 413, true, 477)]
     [InlineData(601, 399, false, 477)]
-    [InlineData(600, 700, false, 600)]
-    [InlineData(600, 700, true, 600)]
+    // Keep the fitted image plus title bar within a 720px CI desktop.
+    // It must still exceed the initial 400x500 note to exercise existing bars.
+    [InlineData(600, 600, false, 600)]
+    [InlineData(600, 600, true, 600)]
     public void FitToImage_LeavesNothingToScroll(int pixelWidth, int pixelHeight, bool hiddenTitleBar, int? width = null)
     {
         WpfApplicationFixture.Ensure();
@@ -94,7 +96,7 @@ public class FitWindowToImageTests
     {
         WpfApplicationFixture.Ensure();
         var storage = new StorageService(Path.Combine(Path.GetTempPath(), "ScreenPinNotes.Tests", Guid.NewGuid().ToString()));
-        var note = NoteWithImage(storage, 600, 700, hiddenTitleBar);
+        var note = NoteWithImage(storage, 600, 600, hiddenTitleBar);
         var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), storage);
         try
         {
@@ -136,7 +138,7 @@ public class FitWindowToImageTests
     {
         WpfApplicationFixture.Ensure();
         var storage = new StorageService(Path.Combine(Path.GetTempPath(), "ScreenPinNotes.Tests", Guid.NewGuid().ToString()));
-        var note = NoteWithImage(storage, 600, 700, hiddenTitleBar);
+        var note = NoteWithImage(storage, 600, 600, hiddenTitleBar);
         note.Content += "{width=600}";
         var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), storage);
         void Call(string method, params object?[] args) => typeof(StickyNoteWindow)
