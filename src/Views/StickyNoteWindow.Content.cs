@@ -210,7 +210,8 @@ public partial class StickyNoteWindow
         var preview = string.Concat(MarkdownRenderer.Render(
                 GetFoldedPreviewSource(text), ViewModel.TitleFontSize,
                 (label, target) => new Hyperlink(new Run(label)),
-                image => new Run(image.Alt))
+                image => new Run(image.Alt),
+                referenceSource: text)
             .Select(block => new TextRange(block.ContentStart, block.ContentEnd).Text));
         FoldedPreviewText.Text = preview.TrimEnd('\r', '\n');
         UpdateImagePathPreview();

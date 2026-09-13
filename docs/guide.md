@@ -110,7 +110,7 @@ Use the mini toolbar for colors, fonts, and icons. Unavailable actions are disab
 | Lists | `- item`, `1. item`, `- [ ] task` |
 | Quotes and rules | `> quote`, `---` |
 | Tables | Pipe-separated Markdown tables, with column alignment |
-| Links | `[label](URL)` or a plain URL |
+| Links | `[label](URL)`, `[label][1]` with a separate `[1]: URL` line, or a plain URL |
 | Images | `![alt](assets/image.png)`; append `{width=240}` to set width |
 
 - Use **Markdown formatting** while editing to insert syntax. **Edit link** changes a link's label and URL.

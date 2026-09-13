@@ -16,6 +16,7 @@
 
 using System.Windows;
 using System.Windows.Documents;
+using WpfBorder = System.Windows.Controls.Border;
 using WpfBrushes = System.Windows.Media.Brushes;
 using WpfCheckBox = System.Windows.Controls.CheckBox;
 using WpfColor = System.Windows.Media.Color;
@@ -51,7 +52,8 @@ public static class MarkdownRenderer
         Func<MarkdownImage, Inline>? createImage = null,
         Func<int, bool, WpfCheckBox>? createTaskCheckbox = null,
         bool darkMode = false,
-        bool ignoreFirstLineHeadingSize = false)
+        bool ignoreFirstLineHeadingSize = false,
+        string? referenceSource = null)
     {
         // Bound UI element creation and parser work without discarding source text.
         if (text.Length > 131072 || text.Count(ch => ch == '\n') > 2000)
@@ -66,7 +68,26 @@ public static class MarkdownRenderer
             yield break;
         }
 
-        for (int i = 0; i < lines.Length;)
+        // [表示名][1] が参照する "[1]: URL" 定義行は表示しない。折りたたみ表示のように本文の
+        // 一部だけを描くときは、referenceSource に本文全体を渡すと定義をそこから拾う。
+        var references = CollectReferenceDefinitions(lines, out var definitionLines);
+        if (referenceSource != null)
+        {
+            foreach (var (label, target) in CollectReferenceDefinitions(NormalizeLines(referenceSource), out _))
+                references.TryAdd(label, target);
+        }
+
+        // 末尾にまとめて置かれた定義行と、その手前の空行は描かない（空の段落が残るだけになる）。
+        var renderEnd = lines.Length;
+        var tailHasDefinition = false;
+        for (var j = lines.Length - 1; j >= 0 && (lines[j].Trim().Length == 0 || definitionLines.Contains(j)); j--)
+        {
+            tailHasDefinition |= definitionLines.Contains(j);
+            if (tailHasDefinition)
+                renderEnd = j;
+        }
+
+        for (int i = 0; i < renderEnd;)
         {
             var line = lines[i];
             var trimmed = line.Trim();
@@ -83,6 +104,12 @@ public static class MarkdownRenderer
                 continue;
             }
 
+            if (definitionLines.Contains(i))
+            {
+                i++;
+                continue;
+            }
+
             if (trimmed.Length == 0)
             {
                 yield return CreateParagraph();
@@ -90,7 +117,7 @@ public static class MarkdownRenderer
                 continue;
             }
 
-            if (TryParseTable(lines, i, createHyperlink, createImage, darkMode, out var table, out var nextIndex))
+            if (TryParseTable(lines, i, createHyperlink, createImage, references, darkMode, out var table, out var nextIndex))
             {
                 yield return table;
                 i = nextIndex;
@@ -105,7 +132,7 @@ public static class MarkdownRenderer
                 para.FontSize = ignoreFirstLineHeadingSize && i == 0
                     ? baseFontSize
                     : HeadingFontSize(baseFontSize, level);
-                AddInlineContent(para.Inlines, headingText, i, level + 1, createHyperlink, createImage, darkMode);
+                AddInlineContent(para.Inlines, headingText, i, level + 1, createHyperlink, createImage, references, darkMode);
                 yield return para;
                 i++;
                 continue;
@@ -137,18 +164,40 @@ public static class MarkdownRenderer
                     var para = CreateParagraph();
                     if (taskState.HasValue)
                     {
-                        para.Inlines.Add(new InlineUIContainer(
-                            createTaskCheckbox?.Invoke(i, taskState.Value) ??
-                            new WpfCheckBox { IsChecked = taskState.Value })
+                        var checkbox = createTaskCheckbox?.Invoke(i, taskState.Value) ??
+                            new WpfCheckBox { IsChecked = taskState.Value };
+                        // チェックボックスの枠と同じ幅のぶら下げインデントを付け、折り返しや続きの行を
+                        // チェックボックスの左端ではなく項目の文字位置にそろえる。チェックボックスは
+                        // 文書に入るまでテンプレートが当たらず事前に測れないので、配置後の実際の幅を使う。
+                        // 本文との間には、以前の半角スペース1つぶんに近い空きを残す。
+                        var marker = new WpfBorder { Padding = new Thickness(0, 0, Math.Ceiling(baseFontSize * 0.3), 0), Child = checkbox };
+                        var itemParagraph = para;
+                        marker.SizeChanged += (_, e) =>
+                        {
+                            itemParagraph.Margin = new Thickness(e.NewSize.Width, 0, 0, 0);
+                            itemParagraph.TextIndent = -e.NewSize.Width;
+                        };
+                        para.Inlines.Add(new InlineUIContainer(marker)
                         {
                             BaselineAlignment = BaselineAlignment.Center,
                         });
-                        para.Inlines.Add(new Run(" "));
                     }
                     var itemTextOffset = lines[i].IndexOf(itemText, StringComparison.Ordinal);
-                    AddInlineContent(para.Inlines, itemText, i, itemTextOffset < 0 ? 0 : itemTextOffset, createHyperlink, createImage, darkMode);
-                    list.ListItems.Add(new ListItem(para) { Margin = new Thickness(0) });
+                    AddInlineContent(para.Inlines, itemText, i, itemTextOffset < 0 ? 0 : itemTextOffset, createHyperlink, createImage, references, darkMode);
+                    var itemIndent = GetIndentWidth(lines[i]);
                     i++;
+
+                    // 項目より深く字下げされた続きの行は、改行を挟んで同じ項目の本文として並べる
+                    // (リストの外に出すと、2行目の先頭が項目の文字位置とそろわない)。
+                    while (i < lines.Length && !definitionLines.Contains(i) && IsListContinuation(lines[i], itemIndent))
+                    {
+                        var continuation = lines[i].TrimStart();
+                        para.Inlines.Add(new LineBreak());
+                        AddInlineContent(para.Inlines, continuation, i, lines[i].Length - continuation.Length, createHyperlink, createImage, references, darkMode);
+                        i++;
+                    }
+
+                    list.ListItems.Add(new ListItem(para) { Margin = new Thickness(0) });
                 }
 
                 yield return list;
@@ -164,14 +213,14 @@ public static class MarkdownRenderer
                 para.BorderThickness = new Thickness(3, 0, 0, 0);
                 para.Foreground = darkMode ? WpfBrushes.LightGray : WpfBrushes.DimGray;
                 var quoteTextOffset = line.IndexOf(quoteText, StringComparison.Ordinal);
-                AddInlineContent(para.Inlines, quoteText, i, quoteTextOffset < 0 ? 0 : quoteTextOffset, createHyperlink, createImage, darkMode);
+                AddInlineContent(para.Inlines, quoteText, i, quoteTextOffset < 0 ? 0 : quoteTextOffset, createHyperlink, createImage, references, darkMode);
                 yield return para;
                 i++;
                 continue;
             }
 
             var paragraph = CreateParagraph();
-            AddInlineContent(paragraph.Inlines, line, i, 0, createHyperlink, createImage, darkMode);
+            AddInlineContent(paragraph.Inlines, line, i, 0, createHyperlink, createImage, references, darkMode);
             yield return paragraph;
             i++;
         }
@@ -254,6 +303,7 @@ public static class MarkdownRenderer
         int start,
         Func<string, string, Hyperlink> createHyperlink,
         Func<MarkdownImage, Inline>? createImage,
+        IReadOnlyDictionary<string, string> references,
         bool darkMode,
         out Table table,
         out int nextIndex)
@@ -288,7 +338,7 @@ public static class MarkdownRenderer
         var headerRow = new TableRow();
         group.Rows.Add(headerRow);
         for (var columnIndex = 0; columnIndex < columnCount; columnIndex++)
-            headerRow.Cells.Add(CreateTableCell(headers[columnIndex], createHyperlink, createImage, alignments[columnIndex], isHeader: true, darkMode));
+            headerRow.Cells.Add(CreateTableCell(headers[columnIndex], createHyperlink, createImage, references, alignments[columnIndex], isHeader: true, darkMode));
 
         int rowIndex = start + 2;
         while (rowIndex < lines.Length && TrySplitTableRow(lines[rowIndex], out var cells))
@@ -299,7 +349,7 @@ public static class MarkdownRenderer
             var row = new TableRow();
             group.Rows.Add(row);
             for (var columnIndex = 0; columnIndex < columnCount; columnIndex++)
-                row.Cells.Add(CreateTableCell(cells[columnIndex], createHyperlink, createImage, alignments[columnIndex], isHeader: false, darkMode));
+                row.Cells.Add(CreateTableCell(cells[columnIndex], createHyperlink, createImage, references, alignments[columnIndex], isHeader: false, darkMode));
 
             rowIndex++;
         }
@@ -312,13 +362,14 @@ public static class MarkdownRenderer
         string text,
         Func<string, string, Hyperlink> createHyperlink,
         Func<MarkdownImage, Inline>? createImage,
+        IReadOnlyDictionary<string, string> references,
         TextAlignment textAlignment,
         bool isHeader,
         bool darkMode)
     {
         var paragraph = CreateParagraph();
         paragraph.TextAlignment = textAlignment;
-        AddInlineContent(paragraph.Inlines, text.Trim(), -1, 0, createHyperlink, createImage, darkMode);
+        AddInlineContent(paragraph.Inlines, text.Trim(), -1, 0, createHyperlink, createImage, references, darkMode);
         if (isHeader)
             paragraph.FontWeight = FontWeights.Bold;
 
@@ -490,6 +541,121 @@ public static class MarkdownRenderer
         return true;
     }
 
+    private static bool IsListContinuation(string line, int itemIndent)
+        => line.Trim().Length > 0 &&
+           GetIndentWidth(line) > itemIndent &&
+           !TryGetListItem(line, out _, out _, out _) &&
+           !IsFence(line) &&
+           !TryGetQuote(line, out _);
+
+    private static int GetIndentWidth(string line)
+    {
+        var width = 0;
+        foreach (var ch in line)
+        {
+            if (ch == ' ') width++;
+            else if (ch == '\t') width += 4 - width % 4;
+            else break;
+        }
+        return width;
+    }
+
+    private static Dictionary<string, string> CollectReferenceDefinitions(string[] lines, out HashSet<int> definitionLines)
+    {
+        var references = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        definitionLines = [];
+        for (var i = 0; i < lines.Length; i++)
+        {
+            // コードブロック内の "[1]: URL" は定義ではなく本文として残す（Render のフェンス判定と同じ）。
+            if (IsFence(lines[i]))
+            {
+                for (i++; i < lines.Length && !IsFence(lines[i]); i++) { }
+                continue;
+            }
+
+            if (!TryGetReferenceDefinition(lines[i], out var label, out var target))
+                continue;
+
+            references.TryAdd(label, target);
+            definitionLines.Add(i);
+        }
+        return references;
+    }
+
+    private static bool TryGetReferenceDefinition(string line, out string label, out string target)
+    {
+        label = "";
+        target = "";
+        if (GetIndentWidth(line) > 3)
+            return false;
+
+        var trimmed = line.Trim();
+        if (!trimmed.StartsWith('['))
+            return false;
+
+        var labelEnd = FindUnescaped(trimmed, "]", 1);
+        if (labelEnd <= 1 || labelEnd + 1 >= trimmed.Length || trimmed[labelEnd + 1] != ':')
+            return false;
+
+        var rawTarget = trimmed[(labelEnd + 2)..].Trim();
+        label = NormalizeReferenceLabel(trimmed[1..labelEnd]);
+        target = UnescapeMarkdownText(StripOptionalMarkdownTitle(rawTarget));
+        // "[重要]: 明日までに提出" のような普通のメモを定義として隠さないよう、リンク先に見えるものだけを採る。
+        return label.Length > 0 &&
+               target.Length > 0 &&
+               (rawTarget.StartsWith('<') || IndexOfWhitespace(target) < 0) &&
+               LinkDetector.IsLink(target);
+    }
+
+    private static string NormalizeReferenceLabel(string label)
+        => string.Join(' ', label.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    // [表示名][1]、[表示名][]、[表示名] の3形式。定義が無いものはリンクにしない。
+    private static bool TryGetReferenceLink(
+        string text,
+        int start,
+        IReadOnlyDictionary<string, string> references,
+        out string label,
+        out string target,
+        out int length)
+    {
+        label = "";
+        target = "";
+        length = 0;
+
+        // ']' の直後の '[' は [表示名][未定義] の後半なので、単独の [表示名] として読まない。
+        if (references.Count == 0 || text[start] != '[' || GetCharOrDefault(text, start - 1) == ']')
+            return false;
+
+        var labelEnd = FindUnescaped(text, "]", start + 1);
+        if (labelEnd <= start + 1)
+            return false;
+
+        var key = text[(start + 1)..labelEnd];
+        var end = labelEnd;
+        var after = GetCharOrDefault(text, labelEnd + 1);
+        if (after == '[')
+        {
+            end = FindUnescaped(text, "]", labelEnd + 2);
+            if (end < 0)
+                return false;
+            if (end > labelEnd + 2)
+                key = text[(labelEnd + 2)..end];
+        }
+        else if (after is '(' or ':')
+        {
+            return false;
+        }
+
+        if (!references.TryGetValue(NormalizeReferenceLabel(key), out var found) || !LinkDetector.IsLink(found))
+            return false;
+
+        label = UnescapeMarkdownText(text[(start + 1)..labelEnd]);
+        target = found;
+        length = end + 1 - start;
+        return true;
+    }
+
     private static void ReadTaskState(ref string text, out bool? taskState)
     {
         taskState = null;
@@ -510,9 +676,10 @@ public static class MarkdownRenderer
         int lineOffset,
         Func<string, string, Hyperlink> createHyperlink,
         Func<MarkdownImage, Inline>? createImage,
+        IReadOnlyDictionary<string, string> references,
         bool darkMode, int depth = 0)
     {
-        foreach (var inline in ParseInline(text, lineIndex, lineOffset, createHyperlink, createImage, darkMode, depth))
+        foreach (var inline in ParseInline(text, lineIndex, lineOffset, createHyperlink, createImage, references, darkMode, depth))
             inlines.Add(inline);
     }
 
@@ -522,6 +689,7 @@ public static class MarkdownRenderer
         int lineOffset,
         Func<string, string, Hyperlink> createHyperlink,
         Func<MarkdownImage, Inline>? createImage,
+        IReadOnlyDictionary<string, string> references,
         bool darkMode, int depth = 0)
     {
         if (depth >= 16 || text.Length > 8192)
@@ -533,7 +701,8 @@ public static class MarkdownRenderer
         // '[' で始まるリンク/画像は必ず後方に "](" を必要とする。行内に
         // それが無い位置では前方走査ごと省く。省かないと '[' が並ぶ行で
         // リンク探索が毎回行末まで走り、解析が O(n^2) になる。
-        var lastLinkStart = FindLastLinkCandidate(text);
+        // 参照定義があるときは [表示名][1] / [表示名] も候補なので、最後の ']' まで探す。
+        var lastLinkStart = references.Count > 0 ? text.LastIndexOf(']') : FindLastLinkCandidate(text);
         // 直近のリンク探索がラベル終端として見た ']' の次の位置。そこまでの
         // '[' は同じ ']' を見て同じ結果になるので、もう走査しない。
         var linkRetryFrom = 0;
@@ -574,7 +743,7 @@ public static class MarkdownRenderer
                 TryGetDelimitedText(text, pos, "__", out boldText, out boldLength))
             {
                 var span = new Span { FontWeight = FontWeights.Bold };
-                AddInlineContent(span.Inlines, boldText, lineIndex, lineOffset + pos + 2, createHyperlink, createImage, darkMode, depth + 1);
+                AddInlineContent(span.Inlines, boldText, lineIndex, lineOffset + pos + 2, createHyperlink, createImage, references, darkMode, depth + 1);
                 yield return span;
                 pos += boldLength;
                 continue;
@@ -583,7 +752,7 @@ public static class MarkdownRenderer
             if (TryGetDelimitedText(text, pos, "~~", out var strikeText, out var strikeLength))
             {
                 var span = new Span { TextDecorations = TextDecorations.Strikethrough };
-                AddInlineContent(span.Inlines, strikeText, lineIndex, lineOffset + pos + 2, createHyperlink, createImage, darkMode, depth + 1);
+                AddInlineContent(span.Inlines, strikeText, lineIndex, lineOffset + pos + 2, createHyperlink, createImage, references, darkMode, depth + 1);
                 yield return span;
                 pos += strikeLength;
                 continue;
@@ -593,7 +762,7 @@ public static class MarkdownRenderer
                 TryGetDelimitedText(text, pos, "_", out italicText, out italicLength))
             {
                 var span = new Span { FontStyle = FontStyles.Italic };
-                AddInlineContent(span.Inlines, italicText, lineIndex, lineOffset + pos + 1, createHyperlink, createImage, darkMode, depth + 1);
+                AddInlineContent(span.Inlines, italicText, lineIndex, lineOffset + pos + 1, createHyperlink, createImage, references, darkMode, depth + 1);
                 yield return span;
                 pos += italicLength;
                 continue;
@@ -615,6 +784,13 @@ public static class MarkdownRenderer
                 {
                     yield return createHyperlink(label, target);
                     pos += length;
+                    continue;
+                }
+
+                if (TryGetReferenceLink(text, pos, references, out var referenceLabel, out var referenceTarget, out var referenceLength))
+                {
+                    yield return createHyperlink(referenceLabel, referenceTarget);
+                    pos += referenceLength;
                     continue;
                 }
 

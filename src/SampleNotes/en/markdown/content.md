@@ -19,6 +19,7 @@ The helper does not validate or repair every possible Markdown combination. Rend
 | Strikethrough | `~~Removed~~` | ~~Removed~~ |
 | Inline code | `` `Ctrl+C` `` | `Ctrl+C` |
 | Markdown link | `[OpenAI](https://openai.com/)` | [OpenAI](https://openai.com/) |
+| Reference link | `[OpenAI][openai]` plus a separate `[openai]: URL` line | [OpenAI][openai] |
 | Auto URL link | `https://www.google.com` | https://www.google.com |
 | Auto Windows path link | `C:\Users` | C:\Users |
 | Escape | `\*show as text\*` | \*show as text\* |
@@ -103,3 +104,5 @@ Only local images render inline: files in this note's `assets` folder or Windows
 | `Ctrl + mouse wheel` over the title bar | Changes the title font size |
 | Paste an Excel range | Markdown table |
 | Paste as Markdown link | `[label](URL)` |
+
+[openai]: https://openai.com/

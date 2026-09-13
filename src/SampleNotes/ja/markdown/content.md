@@ -19,6 +19,7 @@
 | 打ち消し線 | `~~削除~~` | ~~削除~~ |
 | インラインコード | `` `Ctrl+C` `` | `Ctrl+C` |
 | Markdownリンク | `[OpenAI](https://openai.com/)` | [OpenAI](https://openai.com/) |
+| 参照リンク | `[OpenAI][openai]` と別行の `[openai]: URL` | [OpenAI][openai] |
 | URL自動リンク | `https://www.google.com` | https://www.google.com |
 | Windowsパス自動リンク | `C:\Users` | C:\Users |
 | エスケープ | `\*そのまま表示\*` | \*そのまま表示\* |
@@ -103,3 +104,5 @@ Console.WriteLine(note);
 | タイトルバー上で `Ctrl + マウスホイール` | タイトルフォントサイズを変更 |
 | Excel範囲の貼り付け | Markdown表 |
 | Markdownリンクとして貼り付け | `[表示名](URL)` |
+
+[openai]: https://openai.com/

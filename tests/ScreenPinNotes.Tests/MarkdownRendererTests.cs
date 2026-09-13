@@ -126,6 +126,65 @@ public class MarkdownRendererTests
     }
 
     [Fact]
+    public void Render_IndentedLineAfterListItem_ContinuesThatItem()
+    {
+        var blocks = MarkdownRenderer.Render(
+            "* **Entra**\n  MFA、条件付きアクセス\n* Purview\n\tDLP",
+            13,
+            CreateHyperlink).ToList();
+
+        var list = Assert.IsType<System.Windows.Documents.List>(Assert.Single(blocks));
+        Assert.Equal(2, list.ListItems.Count);
+        var first = Assert.IsType<Paragraph>(Assert.Single(list.ListItems.FirstListItem.Blocks));
+        Assert.Contains(first.Inlines, inline => inline is LineBreak);
+        Assert.Equal("EntraMFA、条件付きアクセス", GetInlineText(first.Inlines));
+        var second = Assert.IsType<Paragraph>(Assert.Single(list.ListItems.LastListItem.Blocks));
+        Assert.Equal("PurviewDLP", GetInlineText(second.Inlines));
+    }
+
+    [Fact]
+    public void Render_UnindentedLineAfterListItem_EndsTheList()
+    {
+        var blocks = MarkdownRenderer.Render("- a\nplain", 13, CreateHyperlink).ToList();
+
+        Assert.Equal(2, blocks.Count);
+        Assert.IsType<System.Windows.Documents.List>(blocks[0]);
+        Assert.Equal("plain", GetInlineText(Assert.IsType<Paragraph>(blocks[1]).Inlines));
+    }
+
+    [Fact]
+    public void Render_IndentedQuoteOrFenceAfterListItem_IsNotSwallowedIntoTheItem()
+    {
+        var blocks = MarkdownRenderer.Render("- a\n  > quote\n- b\n  ```\n  code\n  ```", 13, CreateHyperlink).ToList();
+
+        Assert.Equal(4, blocks.Count);
+        Assert.IsType<System.Windows.Documents.List>(blocks[0]);
+        Assert.Equal("quote", GetInlineText(Assert.IsType<Paragraph>(blocks[1]).Inlines));
+        Assert.IsType<System.Windows.Documents.List>(blocks[2]);
+        Assert.Equal(new Thickness(6, 3, 6, 3), Assert.IsType<Paragraph>(blocks[3]).Padding);
+    }
+
+    [Fact]
+    public void Render_ImageOnListContinuationLine_ReportsItsOwnLineAndOffset()
+    {
+        MarkdownRenderer.MarkdownImage? captured = null;
+
+        MarkdownRenderer.Render(
+            "- caption\n  ![shot](assets/a.png)",
+            13,
+            CreateHyperlink,
+            createImage: image =>
+            {
+                captured = image;
+                return new Run("");
+            }).ToList();
+
+        Assert.NotNull(captured);
+        Assert.Equal(1, captured.LineIndex);
+        Assert.Equal(2, captured.Start);
+    }
+
+    [Fact]
     public void Render_Table_ProducesTableWithHeaderAndDataRow()
     {
         var markdown = "| A | B |\n| --- | --- |\n| 1 | 2 |";
@@ -324,6 +383,171 @@ public class MarkdownRendererTests
 
         Assert.Contains((0, true), calls);
         Assert.Contains((1, false), calls);
+    }
+
+    // チェックボックスは文書に入って初めてテンプレートが当たり幅が決まるので、
+    // 実際にウィンドウへ配置してから文字位置を比べる。
+    [WpfFact]
+    public void Render_TaskListItem_HangsContinuationLinesUnderTheItemText()
+    {
+        WpfApplicationFixture.Ensure();
+        var document = new FlowDocument();
+        foreach (var block in MarkdownRenderer.Render(
+                     "- [ ] task\n  more",
+                     13,
+                     CreateHyperlink,
+                     createTaskCheckbox: (_, isChecked) => new CheckBox { IsChecked = isChecked }))
+        {
+            document.Blocks.Add(block);
+        }
+
+        var window = new Window
+        {
+            Width = 400,
+            Height = 200,
+            Left = -10000,
+            Top = -10000,
+            WindowStyle = WindowStyle.None,
+            ShowInTaskbar = false,
+            ShowActivated = false,
+            Content = new RichTextBox { Document = document, IsReadOnly = true },
+        };
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            window.UpdateLayout();
+
+            var list = Assert.IsType<System.Windows.Documents.List>(Assert.Single(document.Blocks));
+            var para = Assert.IsType<Paragraph>(Assert.Single(list.ListItems.FirstListItem.Blocks));
+            var marker = Assert.IsType<InlineUIContainer>(para.Inlines.FirstInline);
+            var box = Assert.IsType<Border>(marker.Child);
+            var checkbox = Assert.IsType<CheckBox>(box.Child);
+            Assert.True(checkbox.ActualWidth > 0);
+            Assert.True(box.ActualWidth > checkbox.ActualWidth);
+            Assert.Equal(box.ActualWidth, para.Margin.Left);
+            Assert.Equal(-box.ActualWidth, para.TextIndent);
+            Assert.Equal("taskmore", GetInlineText(para.Inlines));
+
+            var runs = para.Inlines.OfType<Run>().ToList();
+            var taskLeft = runs.Single(run => run.Text == "task").ContentStart.GetCharacterRect(LogicalDirection.Forward).Left;
+            var moreLeft = runs.Single(run => run.Text == "more").ContentStart.GetCharacterRect(LogicalDirection.Forward).Left;
+            Assert.Equal(taskLeft, moreLeft, 1);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [Fact]
+    public void Render_ReferenceLink_ResolvesDefinitionAndHidesItsLines()
+    {
+        var calls = new List<(string Label, string Target)>();
+
+        var blocks = MarkdownRenderer.Render(
+            "監査など。([Microsoft Learn][1])\n\n[1]: https://learn.microsoft.com/ja-jp/credentials/ \"SC-900\"\n",
+            13,
+            (label, target) =>
+            {
+                calls.Add((label, target));
+                return new Hyperlink(new Run(label));
+            }).ToList();
+
+        Assert.Equal(("Microsoft Learn", "https://learn.microsoft.com/ja-jp/credentials/"), Assert.Single(calls));
+        var para = Assert.IsType<Paragraph>(Assert.Single(blocks));
+        Assert.Equal("監査など。(Microsoft Learn)", GetInlineText(para.Inlines));
+    }
+
+    [Fact]
+    public void Render_CollapsedAndShortcutReferenceLinks_MatchLabelsCaseInsensitively()
+    {
+        var targets = new List<string>();
+
+        MarkdownRenderer.Render(
+            "[Docs][] と [docs]\n[DOCS]: <https://example.com/docs>",
+            13,
+            (label, target) =>
+            {
+                targets.Add(target);
+                return new Hyperlink(new Run(label));
+            }).ToList();
+
+        Assert.Equal(["https://example.com/docs", "https://example.com/docs"], targets);
+    }
+
+    [Fact]
+    public void Render_UndefinedReferenceOrNonLinkDefinition_StaysAsText()
+    {
+        var calls = 0;
+
+        var blocks = MarkdownRenderer.Render(
+            "[重要]: 明日までに提出\n[x][missing]",
+            13,
+            (label, _) =>
+            {
+                calls++;
+                return new Hyperlink(new Run(label));
+            }).ToList();
+
+        Assert.Equal(0, calls);
+        Assert.Equal(2, blocks.Count);
+        Assert.Equal("[重要]: 明日までに提出", GetInlineText(Assert.IsType<Paragraph>(blocks[0]).Inlines));
+        Assert.Equal("[x][missing]", GetInlineText(Assert.IsType<Paragraph>(blocks[1]).Inlines));
+    }
+
+    [Fact]
+    public void Render_DefinitionInsideCodeFence_IsNeitherUsedNorHidden()
+    {
+        var calls = 0;
+
+        var blocks = MarkdownRenderer.Render(
+            "```\n[1]: https://example.com\n```\n[a][1]",
+            13,
+            (label, _) =>
+            {
+                calls++;
+                return new Hyperlink(new Run(label));
+            }).ToList();
+
+        Assert.Equal(0, calls);
+        Assert.Equal(2, blocks.Count);
+        Assert.Equal("[1]: https://example.com", GetInlineText(Assert.IsType<Paragraph>(blocks[0]).Inlines));
+    }
+
+    [Fact]
+    public void Render_ReferenceLinkInTableCell_Resolves()
+    {
+        var targets = new List<string>();
+
+        MarkdownRenderer.Render(
+            "| a | b |\n| --- | --- |\n| [x][1] | y |\n\n[1]: https://example.com",
+            13,
+            (label, target) =>
+            {
+                targets.Add(target);
+                return new Hyperlink(new Run(label));
+            }).ToList();
+
+        Assert.Equal(["https://example.com"], targets);
+    }
+
+    [Fact]
+    public void Render_ReferenceSource_SuppliesDefinitionsForAPartialText()
+    {
+        var targets = new List<string>();
+
+        MarkdownRenderer.Render(
+            "[x][1]",
+            13,
+            (label, target) =>
+            {
+                targets.Add(target);
+                return new Hyperlink(new Run(label));
+            },
+            referenceSource: "[x][1]\n\n[1]: https://example.com").ToList();
+
+        Assert.Equal(["https://example.com"], targets);
     }
 
     [Fact]
