@@ -288,4 +288,98 @@
         </Setter>
     </Style>
 
+    <!--
+      付箋の本文用スクロールバー。既定のスクロールバーは溝が白く、濃い色の付箋では
+      右端に白い帯が残ってしまう。溝は透かして付箋の地をそのまま見せ、つまみだけを
+      本文の色を薄めた色で描く（付箋ごとに色が違うので決め打ちの灰色は使えない）。
+      付箋の中だけで使う。ポップアップの一覧などはテーマ側の配色に従う。
+    -->
+    <Style x:Key="NoteScrollPageButton" TargetType="RepeatButton">
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="IsTabStop" Value="False"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RepeatButton">
+                    <Border Background="Transparent"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="NoteScrollThumb" TargetType="Thumb">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Thumb">
+                    <Border x:Name="Grip" Margin="3" CornerRadius="4"
+                            Background="{Binding DataContext.ScrollThumbBrush, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Grip" Property="Background"
+                                    Value="{Binding DataContext.ScrollThumbHoverBrush, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                        </Trigger>
+                        <Trigger Property="IsDragging" Value="True">
+                            <Setter TargetName="Grip" Property="Background"
+                                    Value="{Binding DataContext.ScrollThumbHoverBrush, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="NoteScrollBar" TargetType="ScrollBar">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Width" Value="14"/>
+        <Setter Property="MinHeight" Value="20"/>
+        <Setter Property="Stylus.IsPressAndHoldEnabled" Value="False"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Border Background="{TemplateBinding Background}">
+                        <Track x:Name="PART_Track" IsDirectionReversed="True" Orientation="Vertical">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Style="{StaticResource NoteScrollPageButton}" Command="ScrollBar.PageUpCommand"/>
+                            </Track.DecreaseRepeatButton>
+                            <Track.Thumb><Thumb Style="{StaticResource NoteScrollThumb}" MinHeight="20"/></Track.Thumb>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Style="{StaticResource NoteScrollPageButton}" Command="ScrollBar.PageDownCommand"/>
+                            </Track.IncreaseRepeatButton>
+                        </Track>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="Orientation" Value="Horizontal">
+                <Setter Property="Width" Value="Auto"/>
+                <Setter Property="Height" Value="14"/>
+                <Setter Property="MinHeight" Value="0"/>
+                <Setter Property="MinWidth" Value="20"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ScrollBar">
+                            <Border Background="{TemplateBinding Background}">
+                                <Track x:Name="PART_Track" IsDirectionReversed="False" Orientation="Horizontal">
+                                    <Track.DecreaseRepeatButton>
+                                        <RepeatButton Style="{StaticResource NoteScrollPageButton}" Command="ScrollBar.PageLeftCommand"/>
+                                    </Track.DecreaseRepeatButton>
+                                    <Track.Thumb><Thumb Style="{StaticResource NoteScrollThumb}" MinWidth="20"/></Track.Thumb>
+                                    <Track.IncreaseRepeatButton>
+                                        <RepeatButton Style="{StaticResource NoteScrollPageButton}" Command="ScrollBar.PageRightCommand"/>
+                                    </Track.IncreaseRepeatButton>
+                                </Track>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
 </ResourceDictionary>

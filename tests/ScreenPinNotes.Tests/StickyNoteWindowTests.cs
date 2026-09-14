@@ -1684,6 +1684,44 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
+    // 既定のスクロールバーは溝が白く、濃い色の付箋では右端に白い帯が残る。
+    // 付箋の本文では溝を透かして、地の色をそのまま見せる。
+    [WpfFact]
+    public void NoteBody_ScrollBarsLetTheNoteColorShowThrough()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote
+        {
+            ColorKey = "dark-charcoal", Width = 240, Height = 120,
+            Content = string.Join('\n', Enumerable.Range(1, 60).Select(i => $"line {i}")),
+        };
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+
+            var bars = FindVisualChildren<System.Windows.Controls.Primitives.ScrollBar>(
+                (RichTextBox)window.FindName("ContentBox")!).ToList();
+
+            Assert.NotEmpty(bars);
+            Assert.All(bars, bar => Assert.Equal(0, ((SolidColorBrush)bar.Background).Color.A));
+        }
+        finally { window.Close(); }
+    }
+
+    private static IEnumerable<T> FindVisualChildren<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T typed) yield return typed;
+            foreach (var descendant in FindVisualChildren<T>(child)) yield return descendant;
+        }
+    }
+
     [WpfFact]
     public void WithoutTailMode_TheLogLevelIsNotColored()
     {

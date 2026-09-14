@@ -247,6 +247,8 @@
                     <Style TargetType="Paragraph">
                         <Setter Property="Margin" Value="0"/>
                     </Style>
+                    <!-- 本文の中だけに効かせる。ポップアップの一覧はテーマ側の配色のままにする。 -->
+                    <Style TargetType="ScrollBar" BasedOn="{StaticResource NoteScrollBar}"/>
                 </RichTextBox.Resources>
             </RichTextBox>
 
@@ -280,7 +282,11 @@
                      TextChanged="BodyEditBox_TextChanged" PreviewMouseWheel="ContentBox_PreviewMouseWheel"
                      ContextMenuOpening="BodyEditBox_ContextMenuOpening"
                      LostKeyboardFocus="BodyEditBox_LostKeyboardFocus"
-                     PreviewKeyDown="ContentBox_PreviewKeyDown"/>
+                     PreviewKeyDown="ContentBox_PreviewKeyDown">
+                <TextBox.Resources>
+                    <Style TargetType="ScrollBar" BasedOn="{StaticResource NoteScrollBar}"/>
+                </TextBox.Resources>
+            </TextBox>
 
             <!-- フォントサイズ変更時だけ現れて消える表示。
                  ContentBox より後に置いて手前に重ねる -->

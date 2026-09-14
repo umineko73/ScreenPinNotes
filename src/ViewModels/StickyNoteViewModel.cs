@@ -541,6 +541,34 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         private set { _textForeground = value; OnPropertyChanged(); }
     }
 
+    // スクロールバーのつまみ。付箋の色は自由に変えられるので、決め打ちの灰色ではなく
+    // 本文の色を薄めて使う。地に馴染みつつ、どの配色でも輪郭が見える。
+    private WpfBrush _scrollThumbBrush = WpfBrushes.Transparent;
+    public WpfBrush ScrollThumbBrush
+    {
+        get => _scrollThumbBrush;
+        private set { _scrollThumbBrush = value; OnPropertyChanged(); }
+    }
+
+    private WpfBrush _scrollThumbHoverBrush = WpfBrushes.Transparent;
+    public WpfBrush ScrollThumbHoverBrush
+    {
+        get => _scrollThumbHoverBrush;
+        private set { _scrollThumbHoverBrush = value; OnPropertyChanged(); }
+    }
+
+    private static WpfBrush Fade(WpfBrush source, byte alpha)
+    {
+        if (source is not System.Windows.Media.SolidColorBrush solid)
+            return source;
+
+        var color = solid.Color;
+        color.A = alpha;
+        var faded = new System.Windows.Media.SolidColorBrush(color);
+        faded.Freeze();
+        return faded;
+    }
+
     public void RefreshSettings()
     {
         UpdateBrushes();
@@ -571,6 +599,8 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         TitleBarForeground = appearance.TitleBarForeground;
         TextForeground = appearance.TextForeground;
         NoteBorderBrush = appearance.NoteBorderBrush;
+        ScrollThumbBrush = Fade(appearance.TextForeground, 0x4D);
+        ScrollThumbHoverBrush = Fade(appearance.TextForeground, 0x99);
     }
 
     public bool UsesDarkNoteColors => NoteAppearance.UsesDarkColors(_model, _settings);

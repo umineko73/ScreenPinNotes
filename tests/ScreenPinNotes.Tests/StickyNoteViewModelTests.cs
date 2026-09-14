@@ -65,6 +65,35 @@ public class StickyNoteViewModelTests
         Assert.Contains(note.UpdatedAt.ToString("HH:mm:ss"), vm.TitleBarDisplayText);
     }
 
+    // 付箋ごとに地の色が違うので、つまみは決め打ちではなく本文の色を薄めて作る。
+    [Theory]
+    [InlineData("yellow")]
+    [InlineData("dark-charcoal")]
+    public void ScrollThumbBrushes_AreTheNoteTextColorMadeTranslucent(string colorKey)
+    {
+        var vm = new StickyNoteViewModel(new StickyNote { ColorKey = colorKey }, new AppSettings());
+
+        var text = ((System.Windows.Media.SolidColorBrush)vm.TextForeground).Color;
+        var thumb = ((System.Windows.Media.SolidColorBrush)vm.ScrollThumbBrush).Color;
+        var hover = ((System.Windows.Media.SolidColorBrush)vm.ScrollThumbHoverBrush).Color;
+
+        Assert.Equal((text.R, text.G, text.B), (thumb.R, thumb.G, thumb.B));
+        Assert.Equal((text.R, text.G, text.B), (hover.R, hover.G, hover.B));
+        Assert.InRange(thumb.A, 1, 254);            // 地が透けるていどに薄い
+        Assert.True(hover.A > thumb.A);             // ホバーでははっきりさせる
+    }
+
+    [Fact]
+    public void ScrollThumbBrush_FollowsTheNoteColorWhenItChanges()
+    {
+        var vm = new StickyNoteViewModel(new StickyNote { ColorKey = "yellow" }, new AppSettings());
+        var before = ((System.Windows.Media.SolidColorBrush)vm.ScrollThumbBrush).Color;
+
+        vm.ColorKey = "dark-charcoal";
+
+        Assert.NotEqual(before, ((System.Windows.Media.SolidColorBrush)vm.ScrollThumbBrush).Color);
+    }
+
     [Fact]
     public void TailModeVisibility_OnlyVisibleWhileExternalNoteIsTailing()
     {
