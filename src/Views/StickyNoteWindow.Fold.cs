@@ -92,6 +92,12 @@ public partial class StickyNoteWindow
     // Height へ直接代入する処理（編集サイズの適用等）を
     // 呼んでしまうと、進行中のアニメーションが中途半端な値で凍結されてしまう。
     private void ApplyFoldState(bool folded, Action? onUnfolded = null)
+        => SuppressWindowBoundsSave(() => ApplyFoldStateCore(folded, onUnfolded));
+
+    // Activation, bindings and resize constraints can synchronously dispatch layout
+    // while IsFolded already describes the destination but bounds still describe
+    // the source. Protect the entire transition, not only individual assignments.
+    private void ApplyFoldStateCore(bool folded, Action? onUnfolded)
     {
         _resizeContentRefresh?.Abort();
         if (!folded)

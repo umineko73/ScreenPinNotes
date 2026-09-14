@@ -32,6 +32,68 @@ namespace ScreenPinNotes.Tests;
 
 public class StickyNoteWindowTests
 {
+    [WpfTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void UnfoldAfterManualWidthChangePreservesExpandedBoundsDuringReentrantLayout(bool hidden)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { Width = 420, Height = 320, IsFolded = true,
+            IsTitleBarHidden = hidden, Content = "body" };
+        var vm = new StickyNoteViewModel(note, App.Current.Settings);
+        var window = new StickyNoteWindow(vm, new StorageService(temp.Path));
+        try
+        {
+            window.Show(); window.UpdateLayout();
+            note.ManualFoldedWidth = 230;
+            window.Width = 230;
+            window.UpdateLayout();
+            // Binding/activation can force layout before the transition has
+            // restored its destination bounds. Deliver a pending size change then.
+            vm.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(vm.IsFolded) && !vm.IsFolded)
+                {
+                    window.Width = 231;
+                    window.UpdateLayout();
+                }
+            };
+            InvokePrivate(window, "ToggleFold", (object?)null);
+            InvokePrivate(window, "CompleteFoldAnimation");
+            window.UpdateLayout();
+            Assert.Equal(420, note.Width);
+            Assert.Equal(320, note.Height);
+            Assert.Equal(420, window.Width);
+            Assert.Equal(320, window.Height);
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfFact]
+    public void MouseActivationSuppressesTitleToggleAndConsumesActivationMarker()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var window = new StickyNoteWindow(new StickyNoteViewModel(new StickyNote(), App.Current.Settings), new StorageService(temp.Path));
+        var settings = App.Current.Settings;
+        var previous = settings.DoubleClickToToggleView;
+        try
+        {
+            settings.DoubleClickToToggleView = false;
+            window.Show();
+            var args = new object?[] { IntPtr.Zero, 0x0021, IntPtr.Zero, new IntPtr(0x02010001), false };
+            typeof(StickyNoteWindow).GetMethod("WndProc", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(window, args);
+            InvokePrivate(window, "Window_PreviewMouseDown", window,
+                new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left));
+            Assert.False((bool)typeof(StickyNoteWindow).GetMethod("ShouldToggleViewOnMouseUp", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(window, new object[] { 1 })!);
+            // The activation marker is consumed by this gesture, even if the
+            // click lands on a button instead of the title drag surface.
+            Assert.False(GetPrivateField<bool>(window, "_mouseActivating"));
+        }
+        finally { settings.DoubleClickToToggleView = previous; window.Close(); }
+    }
+
     [WpfFact]
     public void FoldedOverlayDoesNotReserveHiddenContentScrollbarSpace()
     {

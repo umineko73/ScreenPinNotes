@@ -52,7 +52,8 @@ public partial class StickyNoteWindow
     // 非アクティブな付箋を最初にクリックしたときは、まず前面化だけを行う。
     // 同じマウス操作を折りたたみ／展開クリックとしても処理すると、裏に
     // あった付箋を確認しただけで表示状態まで変わってしまう。
-    private bool _suppressNextTitleAction;
+    private bool _mouseActivating;
+    private bool _suppressTitleAction;
 
     // ─── ドラッグ & スナップ ─────────────────────────────────────
     //
@@ -65,13 +66,6 @@ public partial class StickyNoteWindow
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (_suppressNextTitleAction)
-        {
-            _suppressNextTitleAction = false;
-            e.Handled = true;
-            return;
-        }
-
         // タイトル編集欄をクリックしたときは、キャレット配置をそのまま
         // TextBox に任せる。ドラッグ開始・畳み判定もスキップし、
         // ウィンドウが動いたり編集欄が閉じたりしないようにする。
@@ -151,10 +145,10 @@ public partial class StickyNoteWindow
     }
 
     private bool ShouldToggleViewOnMouseDown(int clickCount)
-        => Settings.DoubleClickToToggleView && clickCount >= 2;
+        => !_suppressTitleAction && Settings.DoubleClickToToggleView && clickCount >= 2;
 
     private bool ShouldToggleViewOnMouseUp(int clickCount)
-        => !Settings.DoubleClickToToggleView && clickCount == 1;
+        => !_suppressTitleAction && !Settings.DoubleClickToToggleView && clickCount == 1;
 
     private void TitleBar_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
@@ -292,14 +286,14 @@ public partial class StickyNoteWindow
     // Activated は飛ばないので、奥に沈んだままクリックだけが通ってしまう。
     private void Window_PreviewMouseDown(object sender, MouseButtonEventArgs e)
     {
-        var wasInactive = !IsActive;
+        // WM_MOUSEACTIVATE precedes WPF Activated and PreviewMouseDown. By the
+        // time this handler runs IsActive alone no longer identifies that click.
+        if (e.ChangedButton == MouseButton.Left)
+        {
+            _suppressTitleAction = _mouseActivating || !IsActive;
+            _mouseActivating = false;
+        }
         App.Current?.NoteTouched(this);
-        if (!wasInactive) return;
-
-        // WPF の通常のマウス処理でこのウィンドウは前面化される。タイトル
-        // バー上の最初のクリックだけは、その副作用としてのトグルを抑える。
-        if (e.OriginalSource is DependencyObject source && IsDescendantOf(source, TitleBar))
-            _suppressNextTitleAction = true;
     }
 
     private void RootBorder_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
@@ -457,6 +451,8 @@ public partial class StickyNoteWindow
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
+        if (msg == 0x0021) // WM_MOUSEACTIVATE: remember before WPF activates us.
+            _mouseActivating = ((lParam.ToInt64() >> 16) & 0xffff) == 0x0201;
         HandleTaskbarMessage(hwnd, msg, wParam, lParam, ref handled);
         if (handled) return IntPtr.Zero;
         // 上下のリサイズ枠をダブルクリックすると Windows が縦方向に最大化する。
