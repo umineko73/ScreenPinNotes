@@ -551,14 +551,22 @@ public partial class StickyNoteWindow : Window
         if (_isInitializing) return; // コンストラクタ〜Loaded の初期値設定はモデルに書き戻さない
         if (_suppressWindowBoundsSave) return;
         if (_isFoldAnimationRunning) return; // アニメーション途中の高さを開いた表示サイズとして保存しない
-        var (dpiX, dpiY) = GetDpi();
-        _geometry.StoreSize(Width, Height, _isEditMode, dpiX, dpiY);
+        // 最大化中の Width/Height は保存対象の通常サイズではなく、OS が
+        // 一時的に設定した作業領域サイズ。これを折りたたみ幅／展開幅へ
+        // 書き戻すと、最大化から戻したときに1行表示の幅が展開サイズに
+        // なってしまうことがある。
+        var isNormalWindow = WindowState == WindowState.Normal;
+        if (isNormalWindow)
+        {
+            var (dpiX, dpiY) = GetDpi();
+            _geometry.StoreSize(Width, Height, _isEditMode, dpiX, dpiY);
+        }
         if (_isEditMode && !ViewModel.IsFolded)
         {
             RequestSave();
             return;
         }
-        if ((e.WidthChanged || (e.HeightChanged && ViewModel.UsesTightImageLayout)) && !_isEditMode && !ViewModel.IsFolded &&
+        if (isNormalWindow && (e.WidthChanged || (e.HeightChanged && ViewModel.UsesTightImageLayout)) && !_isEditMode && !ViewModel.IsFolded &&
             _resizeContentRefresh?.Status != System.Windows.Threading.DispatcherOperationStatus.Pending)
             _resizeContentRefresh = Dispatcher.BeginInvoke(() =>
             {

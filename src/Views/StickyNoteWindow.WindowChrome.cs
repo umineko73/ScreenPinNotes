@@ -49,6 +49,11 @@ namespace ScreenPinNotes.Views;
 
 public partial class StickyNoteWindow
 {
+    // 非アクティブな付箋を最初にクリックしたときは、まず前面化だけを行う。
+    // 同じマウス操作を折りたたみ／展開クリックとしても処理すると、裏に
+    // あった付箋を確認しただけで表示状態まで変わってしまう。
+    private bool _suppressNextTitleAction;
+
     // ─── ドラッグ & スナップ ─────────────────────────────────────
     //
     // タイトルバーは「動かさなければクリック、動かせばドラッグ」で
@@ -60,6 +65,13 @@ public partial class StickyNoteWindow
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        if (_suppressNextTitleAction)
+        {
+            _suppressNextTitleAction = false;
+            e.Handled = true;
+            return;
+        }
+
         // タイトル編集欄をクリックしたときは、キャレット配置をそのまま
         // TextBox に任せる。ドラッグ開始・畳み判定もスキップし、
         // ウィンドウが動いたり編集欄が閉じたりしないようにする。
@@ -279,7 +291,16 @@ public partial class StickyNoteWindow
     // 活性化だけでは足りない。すでに入力先になっている付箋を押しても
     // Activated は飛ばないので、奥に沈んだままクリックだけが通ってしまう。
     private void Window_PreviewMouseDown(object sender, MouseButtonEventArgs e)
-        => App.Current?.NoteTouched(this);
+    {
+        var wasInactive = !IsActive;
+        App.Current?.NoteTouched(this);
+        if (!wasInactive) return;
+
+        // WPF の通常のマウス処理でこのウィンドウは前面化される。タイトル
+        // バー上の最初のクリックだけは、その副作用としてのトグルを抑える。
+        if (e.OriginalSource is DependencyObject source && IsDescendantOf(source, TitleBar))
+            _suppressNextTitleAction = true;
+    }
 
     private void RootBorder_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
     {
