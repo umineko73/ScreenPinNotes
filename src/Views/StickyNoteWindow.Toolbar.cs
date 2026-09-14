@@ -211,6 +211,17 @@ public partial class StickyNoteWindow
             ? new WpfSolidBrush(WpfColor.FromRgb(75, 85, 99))
             : new WpfSolidBrush(WpfColor.FromRgb(211, 211, 211));
 
+    /// <summary>
+    /// メニューやツールバーなど、ポップアップの地の上に載る文字の色。
+    /// 地の色がテーマ（<see cref="AppSettings.Theme"/>）で決まる以上、その上の文字も
+    /// 同じテーマで選ぶ。付箋本文の色を使うと、濃い色の付箋＋ライトテーマのときに
+    /// 白い文字が白い地に載って読めなくなる。
+    /// </summary>
+    private WpfSolidBrush PopupForegroundBrush()
+        => IsDarkTheme()
+            ? new WpfSolidBrush(WpfColor.FromRgb(245, 245, 245))
+            : new WpfSolidBrush(WpfColor.FromRgb(0, 0, 0));
+
     private bool IsDarkTheme()
         => string.Equals(Settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase);
 

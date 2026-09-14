@@ -1340,6 +1340,56 @@ public class StickyNoteWindowTests
         }
     }
 
+    // 濃い色の付箋＋ライトテーマ（およびその逆）で、メニューの文字が地の色と
+    // 同系色になって読めなくなっていた。地がテーマで決まる以上、その上の文字も
+    // テーマで決めるという取り決めを、実際のコントラストで固定しておく。
+    [WpfTheory]
+    [InlineData("Light", "dark-charcoal")]
+    [InlineData("Light", "yellow")]
+    [InlineData("Dark", "yellow")]
+    [InlineData("Dark", "dark-charcoal")]
+    public void ContextMenuColors_ContrastWithTheirOwnBackground(string theme, string colorKey)
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var previousTheme = app.Settings.Theme;
+        using var temp = new TempDataDirectory();
+        app.Settings.Theme = theme;
+        var vm = new StickyNoteViewModel(new StickyNote { ColorKey = colorKey, Content = "body" }, app.Settings);
+        var window = new StickyNoteWindow(vm, new StorageService(temp.Path));
+        try
+        {
+            var menus = new[]
+            {
+                ((RichTextBox)window.FindName("ContentBox")!).ContextMenu!,
+                ((TextBox)window.FindName("BodyEditBox")!).ContextMenu!,
+                ((TextBlock)window.FindName("TitleText")!).ContextMenu!,
+            };
+            foreach (var menu in menus)
+            {
+                AssertReadable((SolidColorBrush)menu.Background, (SolidColorBrush)menu.Foreground);
+
+                // メニュー先頭に差し込む文字サイズ・色のクイック操作行も同じ地の上にある。
+                var quickRow = Assert.IsType<Border>(menu.Tag);
+                AssertReadable(
+                    (SolidColorBrush)quickRow.Background,
+                    (SolidColorBrush)TextElement.GetForeground(quickRow));
+            }
+        }
+        finally
+        {
+            window.Close();
+            app.Settings.Theme = previousTheme;
+        }
+
+        static void AssertReadable(SolidColorBrush background, SolidColorBrush foreground)
+        {
+            static double Brightness(Color c) => (0.299 * c.R + 0.587 * c.G + 0.114 * c.B) / 255;
+            Assert.True(
+                Math.Abs(Brightness(background.Color) - Brightness(foreground.Color)) > 0.5,
+                $"text {foreground.Color} is not readable on {background.Color}");
+        }
+    }
+
     [WpfFact]
     public void ReloadExternalContent_WhenNoteIsInactive_FlashesTheUpdateBorder()
     {

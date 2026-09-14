@@ -280,21 +280,21 @@ public partial class StickyNoteWindow
         UpdateEditToolbarPlacement();
         StatusBar.Background = ToolbarBackground;
         StatusBar.BorderBrush = PopupBorderBrush();
-        StatusBar.SetValue(TextElement.ForegroundProperty, ViewModel.TextForeground);
+        StatusBar.SetValue(TextElement.ForegroundProperty, PopupForegroundBrush());
         EditToolbarPopup.IsOpen = true;
         foreach (var button in new[] { FontSmallerButton, FontLargerButton, TitleSmallerButton,
             TitleLargerButton, FontButton, IconButton, ColorButton, UndoButton, RedoButton })
-            button.Foreground = ViewModel.TextForeground;
+            button.Foreground = PopupForegroundBrush();
     }
 
     private void EditToolbarPopup_Opened(object? sender, EventArgs e)
     {
         StatusBar.Background = ToolbarBackground;
         StatusBar.BorderBrush = PopupBorderBrush();
-        StatusBar.SetValue(TextElement.ForegroundProperty, ViewModel.TextForeground);
+        StatusBar.SetValue(TextElement.ForegroundProperty, PopupForegroundBrush());
         foreach (var button in new[] { FontSmallerButton, FontLargerButton, TitleSmallerButton,
             TitleLargerButton, FontButton, IconButton, ColorButton, UndoButton, RedoButton })
-            button.Foreground = ViewModel.TextForeground;
+            button.Foreground = PopupForegroundBrush();
         SyncEditToolbarZOrder();
     }
 

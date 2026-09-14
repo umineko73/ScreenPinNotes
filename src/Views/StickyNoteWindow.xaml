@@ -481,7 +481,10 @@
                         Padding="3"
                         MouseEnter="EditToolbar_MouseEnter"
                         MouseLeave="EditToolbar_MouseLeave">
-                    <StackPanel Orientation="Horizontal" TextElement.Foreground="{Binding TextForeground}">
+                    <!-- 文字色は地の色と同じくテーマで決まるので、ShowEditToolbar が
+                         StatusBar に流し込む色をそのまま継承させる（付箋本文の色で
+                         上書きすると、濃い付箋＋ライトテーマで読めなくなる）。 -->
+                    <StackPanel Orientation="Horizontal">
                         <Button x:Name="UndoButton" Content="↶" FontFamily="Segoe UI Symbol" FontSize="20" Style="{StaticResource EditToolbarButton}"
                                 Command="ApplicationCommands.Undo" CommandTarget="{Binding ElementName=BodyEditBox}"/>
                         <Button x:Name="RedoButton" Content="↷" FontFamily="Segoe UI Symbol" FontSize="20" Style="{StaticResource EditToolbarButton}"

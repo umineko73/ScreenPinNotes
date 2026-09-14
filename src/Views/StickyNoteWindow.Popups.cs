@@ -228,7 +228,7 @@ public partial class StickyNoteWindow
                     ? new WpfImage { Source = RenderEmoji(content), Width = 20, Height = 20 }
                     : content,
                 Style = (Style)FindResource("EditToolbarButton"),
-                Foreground = ViewModel.TextForeground,
+                Foreground = PopupForegroundBrush(),
                 ToolTip = tooltip,
                 Focusable = false,
             };
@@ -275,7 +275,7 @@ public partial class StickyNoteWindow
         var sizes = new TextBlock
         {
             Margin = new Thickness(5, 2, 5, 2), FontSize = 12,
-            Foreground = IsDarkTheme() ? WpfBrushes.WhiteSmoke : WpfBrushes.Black,
+            Foreground = PopupForegroundBrush(),
         };
         var sizeBinding = new System.Windows.Data.MultiBinding { StringFormat = "A: {0} pt    T: {1} pt" };
         sizeBinding.Bindings.Add(new System.Windows.Data.Binding("FontSize") { Source = ViewModel });
@@ -293,7 +293,7 @@ public partial class StickyNoteWindow
             Child = toolbar,
         };
         border.Background = PopupBackgroundBrush();
-        border.SetValue(TextElement.ForegroundProperty, ViewModel.TextForeground);
+        border.SetValue(TextElement.ForegroundProperty, PopupForegroundBrush());
         return border;
     }
     // ─── フォントピッカー ────────────────────────────────────────
@@ -305,7 +305,7 @@ public partial class StickyNoteWindow
             Width = 300, Height = 360,
             BorderThickness = new Thickness(0),
             Background = PopupBackgroundBrush(),
-            Foreground = IsDarkTheme() ? WpfBrushes.WhiteSmoke : WpfBrushes.Black,
+            Foreground = PopupForegroundBrush(),
             DisplayMemberPath = "DisplayName",
             FontFamily = new WpfFontFamily("Yu Gothic UI"),
             FontSize = 13,
