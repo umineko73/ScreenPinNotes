@@ -525,7 +525,9 @@ public class StorageService
         var result = new byte[resultLength];
         stream.Seek(position, SeekOrigin.Begin);
         ReadExact(stream, result, resultLength);
-        return Encoding.UTF8.GetString(result);
+        // Strip the UTF-8 preamble only when the selected tail starts at byte 0.
+        var offset = position == 0 && result.AsSpan().StartsWith(Encoding.UTF8.Preamble) ? 3 : 0;
+        return Encoding.UTF8.GetString(result, offset, result.Length - offset);
     }
 
     private static int ReadExact(Stream stream, byte[] buffer, int count)
@@ -535,7 +537,7 @@ public class StorageService
         {
             var read = stream.Read(buffer, totalRead, count - totalRead);
             if (read == 0)
-                break;
+                throw new EndOfStreamException("External log was truncated while reading its tail.");
             totalRead += read;
         }
 

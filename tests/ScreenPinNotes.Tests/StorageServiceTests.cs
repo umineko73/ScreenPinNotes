@@ -31,6 +31,26 @@ public sealed class StorageServiceTests : IDisposable
     private readonly StorageService _storage;
 
     [Fact]
+    public void TailReadRemovesUtf8Preamble()
+    {
+        var path = Path.Combine(_tempRoot, "bom.log");
+        File.WriteAllText(path, "INFO 日本語\n", new System.Text.UTF8Encoding(true));
+        var note = new StickyNote { ExternalContentPath = path, ExternalTailMode = true };
+        Assert.Equal("INFO 日本語\n", StorageService.ReadExternalContent(note, 200));
+    }
+
+    [Fact]
+    public void TailReadRejectsUnexpectedEndInsteadOfReturningZeroPadding()
+    {
+        using var stream = new MemoryStream(new byte[] { 65 });
+        var method = typeof(StorageService).GetMethod("ReadExact",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+        var exception = Assert.Throws<System.Reflection.TargetInvocationException>(() =>
+            method.Invoke(null, new object[] { stream, new byte[10], 10 }));
+        Assert.IsType<EndOfStreamException>(exception.InnerException);
+    }
+
+    [Fact]
     public void SaveAndLoad_RoundTripsTheHiddenTitleBarSetting()
     {
         var note = new StickyNote { IsTitleBarHidden = true, Content = "body" };
