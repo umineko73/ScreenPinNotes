@@ -29,6 +29,27 @@ public class LogLevelHighlighterTests
     [InlineData("2026-09-15 09:12:01 [ERROR] boom", "ERROR", LogLevelHighlighter.Severity.Error)]
     [InlineData("2026-09-15 09:12:01 [FATAL] boom", "FATAL", LogLevelHighlighter.Severity.Error)]
     [InlineData("09:12:01 error connecting", "error", LogLevelHighlighter.Severity.Error)]
+    // Serilog の3文字略記（{Level:u3}）。
+    [InlineData("09:12:01 [VRB] entering", "VRB", LogLevelHighlighter.Severity.Info)]
+    [InlineData("09:12:01 [DBG] cached", "DBG", LogLevelHighlighter.Severity.Info)]
+    [InlineData("09:12:01 [INF] started", "INF", LogLevelHighlighter.Severity.Info)]
+    [InlineData("09:12:01 [WRN] slow", "WRN", LogLevelHighlighter.Severity.Warning)]
+    [InlineData("09:12:01 [ERR] boom", "ERR", LogLevelHighlighter.Severity.Error)]
+    [InlineData("09:12:01 [FTL] gone", "FTL", LogLevelHighlighter.Severity.Error)]
+    // Microsoft.Extensions.Logging のコンソール。
+    [InlineData("trce: Worker[0]", "trce", LogLevelHighlighter.Severity.Info)]
+    [InlineData("dbug: Worker[0]", "dbug", LogLevelHighlighter.Severity.Info)]
+    [InlineData("fail: Worker[0]", "fail", LogLevelHighlighter.Severity.Error)]
+    [InlineData("crit: Worker[0]", "crit", LogLevelHighlighter.Severity.Error)]
+    // Serilog の既定の {Level}、java.util.logging、Go、syslog。
+    [InlineData("09:12:01 [Information] started", "Information", LogLevelHighlighter.Severity.Info)]
+    [InlineData("09:12:01 [Verbose] entering", "Verbose", LogLevelHighlighter.Severity.Info)]
+    [InlineData("09:12:01 SEVERE  disk full", "SEVERE", LogLevelHighlighter.Severity.Error)]
+    [InlineData("09:12:01 panic: runtime error", "panic", LogLevelHighlighter.Severity.Error)]
+    [InlineData("09:12:01 NOTICE reloaded", "NOTICE", LogLevelHighlighter.Severity.Info)]
+    [InlineData("09:12:01 ALERT disk failing", "ALERT", LogLevelHighlighter.Severity.Error)]
+    [InlineData("09:12:01 EMERG halted", "EMERG", LogLevelHighlighter.Severity.Error)]
+    [InlineData("09:12:01 CRITICAL halted", "CRITICAL", LogLevelHighlighter.Severity.Error)]
     public void FindFirst_LocatesTheLevelWord(string line, string expected, LogLevelHighlighter.Severity severity)
     {
         var match = Assert.NotNull(LogLevelHighlighter.FindFirst(line));
@@ -36,10 +57,13 @@ public class LogLevelHighlighterTests
         Assert.Equal(severity, match.Severity);
     }
 
+    // 表記のゆれを広く拾うぶん、語の一部で一致してしまわないことを押さえておく。
     [Theory]
     [InlineData("no level here")]
-    [InlineData("more information about the run")] // INFO must not match inside a word
+    [InlineData("informational text only")]
     [InlineData("2026-09-15 09:12:01 warnings are suppressed")]
+    [InlineData("errors were resolved")]
+    [InlineData("failed to resolve host")]
     [InlineData("")]
     public void FindFirst_IgnoresLinesWithoutALevelWord(string line)
         => Assert.Null(LogLevelHighlighter.FindFirst(line));
@@ -108,6 +132,13 @@ public class LogLevelHighlighterTests
     {
         Assert.True(LogLevelHighlighter.ContainsError("[INFO] ok\n[ERROR] boom\n"));
         Assert.True(LogLevelHighlighter.ContainsError("[FATAL] boom"));
+        // 略記や別系統の語でも、赤く知らせる対象になる。
+        Assert.True(LogLevelHighlighter.ContainsError("09:12:01 [ERR] boom"));
+        Assert.True(LogLevelHighlighter.ContainsError("crit: Worker[0]"));
+        Assert.True(LogLevelHighlighter.ContainsError("fail: Worker[0]"));
+        Assert.True(LogLevelHighlighter.ContainsError("09:12:01 panic: runtime error"));
+        Assert.False(LogLevelHighlighter.ContainsError("09:12:01 [WRN] slow"));
+        Assert.False(LogLevelHighlighter.ContainsError("09:12:01 [INF] ok"));
         Assert.False(LogLevelHighlighter.ContainsError("[INFO] ok\n[WARN] slow\n"));
         // 行のレベルは INFO なので、あとに続く語では赤くしない。
         Assert.False(LogLevelHighlighter.ContainsError("[INFO] recovered from an error"));

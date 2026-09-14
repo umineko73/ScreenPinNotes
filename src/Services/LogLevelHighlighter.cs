@@ -33,25 +33,53 @@ public static class LogLevelHighlighter
     /// <summary>色を変える範囲。<see cref="Severity"/> は <see cref="SpanKind.Level"/> のときだけ意味を持つ。</summary>
     public readonly record struct HighlightSpan(int Start, int Length, SpanKind Kind, Severity Severity);
 
-    // 長さで先に振り分けられるよう、語はすべて4〜7文字。
+    /// <summary>
+    /// 出力側によってレベルの書き方が違うので、実際に見かける表記を並べておく。
+    /// 3文字の略記は Serilog の既定（{Level:u3}）、dbug/trce/fail/crit は
+    /// Microsoft.Extensions.Logging のコンソール、SEVERE は java.util.logging、
+    /// PANIC は Go、ALERT/EMERG/NOTICE は syslog で使われる。
+    /// 1文字表記（logcat の I/W/E など）は、本文の1文字と見分けが付かないので扱わない。
+    /// </summary>
     private static readonly (string Word, Severity Severity)[] Levels =
     [
-        ("INFO", Severity.Info),
-        ("WARN", Severity.Warning),
         ("TRACE", Severity.Info),
+        ("TRC", Severity.Info),
+        ("TRCE", Severity.Info),
+        ("VERBOSE", Severity.Info),
+        ("VRB", Severity.Info),
         ("DEBUG", Severity.Info),
-        ("ERROR", Severity.Error),
-        ("FATAL", Severity.Error),
+        ("DBG", Severity.Info),
+        ("DBUG", Severity.Info),
+        ("INFO", Severity.Info),
+        ("INF", Severity.Info),
+        ("INFORMATION", Severity.Info),
+        ("NOTICE", Severity.Info),
+
+        ("WARN", Severity.Warning),
+        ("WRN", Severity.Warning),
         ("WARNING", Severity.Warning),
+
+        ("ERROR", Severity.Error),
+        ("ERR", Severity.Error),
+        ("FAIL", Severity.Error),
+        ("FATAL", Severity.Error),
+        ("FTL", Severity.Error),
+        ("CRIT", Severity.Error),
+        ("CRITICAL", Severity.Error),
+        ("SEVERE", Severity.Error),
+        ("PANIC", Severity.Error),
+        ("ALERT", Severity.Error),
+        ("EMERG", Severity.Error),
     ];
 
-    private const int ShortestLevel = 4;
-    private const int LongestLevel = 7;
+    // 語の長さで先に振り分け、文字を比べる回数を抑える。
+    private static readonly int ShortestLevel = Levels.Min(level => level.Word.Length);
+    private static readonly int LongestLevel = Levels.Max(level => level.Word.Length);
 
     /// <summary>
     /// 行の中で最初に現れるレベル名を返す。ログはたいてい行頭側にレベルを置くので、
     /// 1行につき1つだけ色を付ければ足りる（本文中の "error" まで塗らずに済む）。
-    /// 語の区切りで見るため、"information" が INFO として拾われることはない。
+    /// 語まるごとで見るため、"informational" のように語の一部が一致しても拾わない。
     /// </summary>
     public static LevelMatch? FindFirst(string line)
     {
@@ -63,7 +91,7 @@ public static class LogLevelHighlighter
             while (i < line.Length && char.IsLetter(line[i])) i++;
             var length = i - start;
             i--;
-            if (length is < ShortestLevel or > LongestLevel) continue;
+            if (length < ShortestLevel || length > LongestLevel) continue;
             if (MatchLevel(line, start, length) is { } severity)
                 return new LevelMatch(start, length, severity);
         }
@@ -87,8 +115,7 @@ public static class LogLevelHighlighter
 
     /// <summary>
     /// 1行の中で色を変える範囲を、前から順に返す。レベル名（行で最初の1つ）と、
-    /// 連続する数字のまとまりを1回の走査で拾う。数字は日時や件数を目で追うための
-    /// 印なので、区切り記号は含めず [0-9] の並びだけを対象にする。
+    /// 数値のまとまりを1回の走査で拾う。
     /// </summary>
     public static List<HighlightSpan> FindHighlights(string line)
     {
@@ -122,7 +149,7 @@ public static class LogLevelHighlighter
             while (i < line.Length && char.IsLetter(line[i])) i++;
             var length = i - wordStart;
             i--;
-            if (length is < ShortestLevel or > LongestLevel) continue;
+            if (length < ShortestLevel || length > LongestLevel) continue;
             if (MatchLevel(line, wordStart, length) is not { } severity) continue;
 
             spans.Add(new HighlightSpan(wordStart, length, SpanKind.Level, severity));
@@ -132,7 +159,7 @@ public static class LogLevelHighlighter
         return spans;
     }
 
-    /// <summary>ERROR / FATAL の行を含むか。</summary>
+    /// <summary>エラー扱いのレベル（ERROR / FATAL / CRITICAL など）の行を含むか。</summary>
     public static bool ContainsError(string text)
     {
         foreach (var line in SplitLines(text))
