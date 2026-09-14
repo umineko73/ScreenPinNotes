@@ -35,6 +35,32 @@ public class AppSettingsTests
     }
 
     [Fact]
+    public void Normalize_ExternalFileSettings_ClampToValidRange()
+    {
+        var settings = new AppSettings();
+        settings.ExternalFile.MinRefreshIntervalMs = -1;
+        settings.ExternalFile.TailLineCount = 0;
+
+        settings.Normalize();
+
+        Assert.Equal(0, settings.ExternalFile.MinRefreshIntervalMs);
+        Assert.Equal(1, settings.ExternalFile.TailLineCount);
+    }
+
+    [Fact]
+    public void Normalize_ExternalFileSettingsTooLarge_ClampToUpperBound()
+    {
+        var settings = new AppSettings();
+        settings.ExternalFile.MinRefreshIntervalMs = 999_999;
+        settings.ExternalFile.TailLineCount = 999_999;
+
+        settings.Normalize();
+
+        Assert.Equal(60_000, settings.ExternalFile.MinRefreshIntervalMs);
+        Assert.Equal(100_000, settings.ExternalFile.TailLineCount);
+    }
+
+    [Fact]
     public void Defaults_TitleBarViewToggleUsesDoubleClick()
     {
         var settings = new AppSettings();

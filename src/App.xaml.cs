@@ -135,7 +135,7 @@ public partial class App : System.Windows.Application
         if (!TrySetNewNoteHotkey(_settings.NewNoteHotkey))
             _trayIcon?.ShowBalloonTip(5000, "ScreenPinNotes", NewNoteHotkeyError, ToolTipIcon.Warning);
 
-        var notes = _storage.Load();
+        var notes = _storage.Load(_settings.ExternalFile.TailLineCount);
         if (notes.Count == 0)
         {
             notes = SampleNoteFactory.CreateInitialNotes(_settings, _storage);
@@ -865,11 +865,14 @@ public partial class App : System.Windows.Application
     public void AddExternalFileNote(string filePath)
     {
         var fullPath = Path.GetFullPath(filePath);
+        // .log は育ち続けるログの前提が強いので、既定で tail 表示にする。
+        // tail は末尾しか読まないので、巨大ファイルでもサイズ上限に引っかからない。
+        var isLogFile = string.Equals(Path.GetExtension(fullPath), ".log", StringComparison.OrdinalIgnoreCase);
 
         // ファイル選択ダイアログは「すべてのファイル」も許容するため、
         // 巨大・バイナリファイルを選んでUIスレッドが固まるのを防ぐ。
         var info = new FileInfo(fullPath);
-        if (info.Exists && info.Length > MaxExternalNoteFileSizeBytes)
+        if (!isLogFile && info.Exists && info.Length > MaxExternalNoteFileSizeBytes)
         {
             System.Windows.MessageBox.Show(
                 LocalizationService.T("ExternalNoteFileTooLargeMessage"),
@@ -891,10 +894,11 @@ public partial class App : System.Windows.Application
             Icon = "🔗",
             IsReadOnly = true,
             ExternalContentPath = fullPath,
+            ExternalTailMode = isLogFile,
             CreatedAt = now,
             UpdatedAt = now,
         };
-        note.Content = StorageService.ReadExternalContent(note);
+        note.Content = StorageService.ReadExternalContent(note, _settings.ExternalFile.TailLineCount);
 
         note.LayerOrder = _windows.Select(w => w.ViewModel.Model.LayerOrder).DefaultIfEmpty(0).Min() - 1;
         OpenNoteWindow(note);
@@ -1028,7 +1032,7 @@ public partial class App : System.Windows.Application
 
     private List<StickyNote> LoadOrCreateInitialNotes(bool showEmptyStorageMessage = true)
     {
-        var notes = _storage.Load();
+        var notes = _storage.Load(_settings.ExternalFile.TailLineCount);
         if (notes.Count > 0)
             return notes;
 

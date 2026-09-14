@@ -154,6 +154,8 @@ public partial class StickyNoteWindow
             readOnlyItem.IsChecked = ViewModel.IsReadOnly;
             readOnlyItem.IsEnabled = !ViewModel.Model.IsExternalContent;
             externalItem.Visibility = ViewModel.Model.IsExternalContent ? Visibility.Visible : Visibility.Collapsed;
+            if (externalItem.Tag is MenuItem externalTailModeItem)
+                externalTailModeItem.IsChecked = ViewModel.Model.ExternalTailMode;
             deleteItem.Header = ViewModel.Model.IsExternalContent
                 ? LocalizationService.T("UnlinkExternalNote")
                 : LocalizationService.T("Delete");
@@ -238,6 +240,8 @@ public partial class StickyNoteWindow
             readOnlyItem.IsChecked = ViewModel.IsReadOnly;
             readOnlyItem.IsEnabled = !ViewModel.Model.IsExternalContent;
             externalItem.Visibility = ViewModel.Model.IsExternalContent ? Visibility.Visible : Visibility.Collapsed;
+            if (externalItem.Tag is MenuItem externalTailModeItem)
+                externalTailModeItem.IsChecked = ViewModel.Model.ExternalTailMode;
             deleteItem.Header = ViewModel.Model.IsExternalContent
                 ? LocalizationService.T("UnlinkExternalNote")
                 : LocalizationService.T("Delete");
@@ -351,6 +355,8 @@ public partial class StickyNoteWindow
             readOnlyItem.IsChecked = ViewModel.IsReadOnly;
             readOnlyItem.IsEnabled = !ViewModel.Model.IsExternalContent;
             externalItem.Visibility = ViewModel.Model.IsExternalContent ? Visibility.Visible : Visibility.Collapsed;
+            if (externalItem.Tag is MenuItem externalTailModeItem)
+                externalTailModeItem.IsChecked = ViewModel.Model.ExternalTailMode;
             deleteItem.Header = ViewModel.Model.IsExternalContent
                 ? LocalizationService.T("UnlinkExternalNote")
                 : LocalizationService.T("Delete");
@@ -486,6 +492,18 @@ public partial class StickyNoteWindow
             Header = LocalizationService.T("OpenExternalFolder"),
             Command = new RelayCommand(_ => OpenExternalFolder()),
         });
+        item.Items.Add(new Separator());
+        // IsChecked は各コンテキストメニューの Opened ハンドラで、開くたびに
+        // 現在のモデルの状態へ合わせ直す（Tag 経由で見つける）。
+        var tailModeItem = new MenuItem
+        {
+            Header = LocalizationService.T("ExternalTailMode"),
+            ToolTip = LocalizationService.T("ExternalTailModeTooltip"),
+            IsCheckable = true,
+        };
+        tailModeItem.Click += (_, _) => ToggleExternalTailMode();
+        item.Tag = tailModeItem;
+        item.Items.Add(tailModeItem);
         item.Items.Add(new Separator());
         item.Items.Add(new MenuItem
         {

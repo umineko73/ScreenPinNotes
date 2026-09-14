@@ -163,8 +163,8 @@ The app must be running in the tray. Missed reminders are delivered once on rest
 | Tray right-click | Create notes, note list, hidden notes, settings, exit |
 | Note list | Search titles, bodies, external paths, and more; manage visibility, reminders, and deletion |
 | Hidden notes | Restore individually hidden notes; Show all does not restore them |
-| Settings | New-note defaults, theme, language, note appearance, startup, taskbar/tray behavior, and storage |
-| Open external file as note | Display `.md` / `.txt` read-only and follow file changes |
+| Settings | New-note defaults, theme, language, note appearance, startup, taskbar/tray behavior, external file refresh/tail behavior, and storage |
+| Open external file as note | Display `.md` / `.txt` / `.log` read-only and follow file changes (minimum refresh interval configurable in Settings) |
 
 ![The settings window](settings-en.png)
 
@@ -176,7 +176,9 @@ Updating from 0.2.0 or earlier changes how notes look on first launch: rounded c
 
 Settings save immediately (shortcut changes require Apply). New-note defaults apply to tray- and shortcut-created notes; `＋` on a note copies its appearance.
 
-External notes show `🔗`. Their menu can open the file or folder, or convert the content into an editable note. Deleting the note or changing image display sizes does not modify the original file.
+External notes show `🔗`. Their menu can open the file or folder, toggle tail mode, or convert the content into an editable note. Deleting the note or changing image display sizes does not modify the original file.
+
+Tail mode shows only the last lines of the file (line count configurable in Settings) as plain text, and always scrolls to the newest line as the file grows — useful for watching logs. `.log` files use tail mode by default; toggle it from the external file menu on any external note.
 
 ## Storage and backups
 

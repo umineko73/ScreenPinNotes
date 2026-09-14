@@ -241,7 +241,7 @@ No: create initial notes in the selected folder. The current notes folder will r
     <value>Notes could not be imported. The current notes were left unchanged. See the log for details.</value>
   </data>
   <data name="ExternalNoteFileFilter" xml:space="preserve">
-    <value>Markdown/text files (*.md;*.txt)|*.md;*.txt|All files (*.*)|*.*</value>
+    <value>Markdown/text/log files (*.md;*.txt;*.log)|*.md;*.txt;*.log|All files (*.*)|*.*</value>
   </data>
   <data name="ExternalNoteFileTooLargeTitle" xml:space="preserve">
     <value>File too large</value>
@@ -465,6 +465,12 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="OpenExternalFolder" xml:space="preserve">
     <value>Open containing folder</value>
   </data>
+  <data name="ExternalTailMode" xml:space="preserve">
+    <value>Tail mode (auto-scroll to latest)</value>
+  </data>
+  <data name="ExternalTailModeTooltip" xml:space="preserve">
+    <value>Show only the last lines and follow new lines as the file grows. Best for logs.</value>
+  </data>
   <data name="ConvertExternalToNormal" xml:space="preserve">
     <value>Convert to editable note</value>
   </data>
@@ -675,6 +681,9 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="SettingsTheme" xml:space="preserve"><value>Theme</value></data>
   <data name="SettingsStartup" xml:space="preserve"><value>Startup</value></data>
   <data name="SettingsFolding" xml:space="preserve"><value>Fold / expand</value></data>
+  <data name="SettingsExternalFiles" xml:space="preserve"><value>External files</value></data>
+  <data name="SettingsExternalFileMinRefreshInterval" xml:space="preserve"><value>Minimum refresh interval (ms)</value></data>
+  <data name="SettingsExternalFileTailLineCount" xml:space="preserve"><value>Tail line count</value></data>
   <data name="SettingsBackup" xml:space="preserve"><value>Backup</value></data>
   <data name="ReminderRepeat" xml:space="preserve"><value>Repeat</value></data>
   <data name="ReminderRepeatNone" xml:space="preserve"><value>Once</value></data>

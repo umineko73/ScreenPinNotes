@@ -1288,6 +1288,100 @@ public class StickyNoteWindowTests
     }
 
     [WpfFact]
+    public void ReloadExternalContent_TailMode_RendersAsPlainTextInsteadOfMarkdown()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        Directory.CreateDirectory(temp.Path);
+        var storage = new StorageService(temp.Path);
+        var externalPath = Path.Combine(temp.Path, "app.log");
+        File.WriteAllText(externalPath, "line1\nline2\n# not-a-heading\nline4\n");
+        var vm = new StickyNoteViewModel(
+            new StickyNote
+            {
+                Content = "",
+                ExternalContentPath = externalPath,
+                ExternalTailMode = true,
+                IsReadOnly = true,
+            },
+            new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            Task.Run(window.ReloadExternalContent).GetAwaiter().GetResult();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+
+            var contentBox = (RichTextBox)window.FindName("ContentBox")!;
+            var text = new TextRange(contentBox.Document.ContentStart, contentBox.Document.ContentEnd).Text;
+
+            // Markdown rendering would strip the leading "#" from a heading line;
+            // tail mode must keep the raw log line untouched.
+            Assert.Contains("# not-a-heading", text);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
+    public void ReloadExternalContent_RapidChangesWithinMinRefreshInterval_ThrottleToLatestContent()
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var previousInterval = app.Settings.ExternalFile.MinRefreshIntervalMs;
+        using var temp = new TempDataDirectory();
+        Directory.CreateDirectory(temp.Path);
+        var storage = new StorageService(temp.Path);
+        var externalPath = Path.Combine(temp.Path, "external.md");
+        File.WriteAllText(externalPath, "version 1");
+        var vm = new StickyNoteViewModel(
+            new StickyNote
+            {
+                Content = "cached",
+                ExternalContentPath = externalPath,
+                IsReadOnly = true,
+            },
+            app.Settings);
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            app.Settings.ExternalFile.MinRefreshIntervalMs = 500;
+
+            Task.Run(window.ReloadExternalContent).GetAwaiter().GetResult();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            Assert.Equal("version 1", vm.Content);
+
+            // A burst of rapid file-change notifications inside the throttle window
+            // must not each trigger an immediate re-read.
+            File.WriteAllText(externalPath, "version 2");
+            Task.Run(window.ReloadExternalContent).GetAwaiter().GetResult();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            Assert.Equal("version 1", vm.Content);
+
+            File.WriteAllText(externalPath, "version 3");
+            Task.Run(window.ReloadExternalContent).GetAwaiter().GetResult();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            Assert.Equal("version 1", vm.Content);
+
+            // Once the throttle interval elapses, the latest content on disk
+            // (not an intermediate one) should surface exactly once.
+            var until = Environment.TickCount64 + 3000;
+            while (vm.Content != "version 3" && Environment.TickCount64 < until)
+            {
+                Thread.Sleep(50);
+                window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            }
+
+            Assert.Equal("version 3", vm.Content);
+        }
+        finally
+        {
+            window.Close();
+            app.Settings.ExternalFile.MinRefreshIntervalMs = previousInterval;
+        }
+    }
+
+    [WpfFact]
     public void SetBodyFontSize_ViewModeRecalculatesMarkdownHeadingSize()
     {
         EnsureApplication();

@@ -186,7 +186,7 @@ public class StorageService
 
     // ─── 読み込み ────────────────────────────────────────────────
 
-    public List<StickyNote> Load()
+    public List<StickyNote> Load(int externalTailLineCount = DefaultExternalTailLineCount)
     {
 
         if (!Directory.Exists(_notesRoot)) return [];
@@ -213,7 +213,7 @@ public class StorageService
                     : "";
                 // 外部ファイルが一時的に読めない場合は content.md のキャッシュを
                 // エラー文言で潰さず、直前の内容を保持する。
-                if (note.IsExternalContent && TryReadExternalContent(note, out var externalContent))
+                if (note.IsExternalContent && TryReadExternalContentForDisplay(note, externalTailLineCount, out var externalContent))
                     note.Content = externalContent;
                 // この機能追加より前に保存されたリマインダーは ShowAlert を持たない
                 // （null）。従来どおりアラートを出す side に固定して書き戻す。
@@ -368,7 +368,10 @@ public class StorageService
             JsonSerializer.Serialize(note, JsonOptions));
     }
 
-    public static string ReadExternalContent(StickyNote note)
+    /// <summary>tail 表示が設定を持たない呼び出しで使う既定の行数。</summary>
+    public const int DefaultExternalTailLineCount = 200;
+
+    public static string ReadExternalContent(StickyNote note, int tailLineCount = DefaultExternalTailLineCount)
     {
         var path = note.ExternalContentPath;
         if (string.IsNullOrWhiteSpace(path))
@@ -377,9 +380,12 @@ public class StorageService
         try
         {
             var fullPath = Path.GetFullPath(path);
-            return File.Exists(fullPath)
-                ? File.ReadAllText(fullPath, Encoding.UTF8)
-                : $"External file not found:\n{fullPath}";
+            if (!File.Exists(fullPath))
+                return $"External file not found:\n{fullPath}";
+
+            return note.ExternalTailMode
+                ? ReadTail(fullPath, Math.Max(1, tailLineCount))
+                : File.ReadAllText(fullPath, Encoding.UTF8);
         }
         catch (Exception ex)
         {
@@ -416,6 +422,109 @@ public class StorageService
             content = "";
             return false;
         }
+    }
+
+    // tail 表示のときは末尾の行数だけを読む Try 版。ノートの ExternalTailMode に
+    // 応じて全文/tail のどちらを読むかを切り替えたい呼び出し側はこちらを使う。
+    public static bool TryReadExternalContentForDisplay(StickyNote note, int tailLineCount, out string content)
+        => note.ExternalTailMode
+            ? TryReadExternalContentTail(note, tailLineCount, out content)
+            : TryReadExternalContent(note, out content);
+
+    private static bool TryReadExternalContentTail(StickyNote note, int tailLineCount, out string content)
+    {
+        var path = note.ExternalContentPath;
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            content = "";
+            return false;
+        }
+
+        try
+        {
+            var fullPath = Path.GetFullPath(path);
+            if (!File.Exists(fullPath))
+            {
+                content = "";
+                return false;
+            }
+
+            content = ReadTail(fullPath, Math.Max(1, tailLineCount));
+            return true;
+        }
+        catch
+        {
+            content = "";
+            return false;
+        }
+    }
+
+    private const int TailReadChunkBytes = 64 * 1024;
+
+    /// <summary>
+    /// ファイル末尾の <paramref name="lineCount"/> 行だけを読む。育ち続けるログは
+    /// 数百MBになり得るため、全文を読んでから split するのではなく末尾から
+    /// チャンク単位で遡って改行を数え、必要な範囲が分かった時点でそこだけ返す。
+    /// 改行 (0x0A) は UTF-8 の継続バイト（0x80-0xBF）にも先頭バイトにも現れないので、
+    /// デコード前のバイト列を直接走査してよい。
+    /// </summary>
+    private static string ReadTail(string path, int lineCount)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        var length = stream.Length;
+        if (length == 0)
+            return "";
+
+        var buffer = new byte[TailReadChunkBytes];
+        var newlinesNeeded = lineCount;
+        var position = length;
+        var foundBoundary = false;
+
+        while (position > 0)
+        {
+            var chunkSize = (int)Math.Min(TailReadChunkBytes, position);
+            position -= chunkSize;
+            stream.Seek(position, SeekOrigin.Begin);
+            var read = ReadExact(stream, buffer, chunkSize);
+            for (var i = read - 1; i >= 0; i--)
+            {
+                if (buffer[i] != (byte)'\n')
+                    continue;
+                // ファイル末尾ちょうどの改行は最終行の終端でしかないので、
+                // 区切りとしては数えない（数えると空行が1行増えて見える）。
+                if (position + i == length - 1)
+                    continue;
+
+                if (--newlinesNeeded <= 0)
+                {
+                    position += i + 1;
+                    foundBoundary = true;
+                    break;
+                }
+            }
+            if (foundBoundary)
+                break;
+        }
+
+        var resultLength = (int)(length - position);
+        var result = new byte[resultLength];
+        stream.Seek(position, SeekOrigin.Begin);
+        ReadExact(stream, result, resultLength);
+        return Encoding.UTF8.GetString(result);
+    }
+
+    private static int ReadExact(Stream stream, byte[] buffer, int count)
+    {
+        var totalRead = 0;
+        while (totalRead < count)
+        {
+            var read = stream.Read(buffer, totalRead, count - totalRead);
+            if (read == 0)
+                break;
+            totalRead += read;
+        }
+
+        return totalRead;
     }
 
     private static void AtomicWrite(string path, string content)

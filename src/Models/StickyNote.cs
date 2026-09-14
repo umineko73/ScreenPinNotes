@@ -79,6 +79,12 @@ public class StickyNote
     /// </summary>
     public bool IsTitleBarHidden { get; set; } = false;
     public string? ExternalContentPath { get; set; }
+    /// <summary>
+    /// 外部ファイルを tail 表示するか。true のときは全文ではなく末尾の
+    /// 設定行数だけを読み込み、Markdown ではなくプレーンテキストとして表示し、
+    /// 更新のたびに末尾へ自動スクロールする（ログ監視向け）。
+    /// </summary>
+    public bool ExternalTailMode { get; set; }
     public ReminderSettings? Reminder { get; set; }
     public Dictionary<string, double> ExternalImageWidthOverrides { get; set; } = [];
     public DateTime CreatedAt { get; set; } = DateTime.Now;

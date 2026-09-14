@@ -627,7 +627,53 @@ public sealed class SettingsWindow : Window
         folding.Children.Add(Toggle("TrayDoubleClickToToggleView",
             () => _settings.DoubleClickToToggleView, v => _settings.DoubleClickToToggleView = v));
         panel.Children.Add(LabeledRow("SettingsFolding", folding));
+
+        var externalFiles = new StackPanel();
+        externalFiles.Children.Add(LabeledRow("SettingsExternalFileMinRefreshInterval", NumberBox(
+            () => _settings.ExternalFile.MinRefreshIntervalMs,
+            v => _settings.ExternalFile.MinRefreshIntervalMs = v,
+            min: 0, max: 60_000)));
+        externalFiles.Children.Add(LabeledRow("SettingsExternalFileTailLineCount", NumberBox(
+            () => _settings.ExternalFile.TailLineCount,
+            v => _settings.ExternalFile.TailLineCount = v,
+            min: 1, max: 100_000)));
+        panel.Children.Add(LabeledRow("SettingsExternalFiles", externalFiles));
         return panel;
+    }
+
+    /// <summary>
+    /// 数値だけを受け付ける設定欄。チェックボックスと同じく、フォーカスが
+    /// 外れた時点（もしくは Enter）で即座に反映して保存する。
+    /// </summary>
+    private WpfTextBox NumberBox(Func<int> read, Action<int> write, int min, int max, double width = 100)
+    {
+        var box = new WpfTextBox
+        {
+            Text = read().ToString(System.Globalization.CultureInfo.InvariantCulture),
+            Width = width,
+            Height = 32,
+            VerticalContentAlignment = WpfVerticalAlignment.Center,
+            HorizontalAlignment = WpfHorizontalAlignment.Left,
+        };
+        void Apply()
+        {
+            if (_loading) return;
+            if (!int.TryParse(box.Text, out var value))
+                value = read();
+            value = Math.Clamp(value, min, max);
+            var text = value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (box.Text != text) box.Text = text;
+            if (value == read()) return;
+            write(value);
+            Save();
+        }
+        box.PreviewTextInput += (_, e) => e.Handled = !e.Text.All(char.IsDigit);
+        box.LostFocus += (_, _) => Apply();
+        box.KeyDown += (_, e) =>
+        {
+            if (e.Key == System.Windows.Input.Key.Enter) Apply();
+        };
+        return box;
     }
 
     private StackPanel BuildHotkeyEditor()

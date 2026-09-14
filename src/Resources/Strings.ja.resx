@@ -241,7 +241,7 @@
     <value>付箋をインポートできませんでした。現在の付箋は変更していません。詳細はログを確認してください。</value>
   </data>
   <data name="ExternalNoteFileFilter" xml:space="preserve">
-    <value>Markdown/テキストファイル (*.md;*.txt)|*.md;*.txt|すべてのファイル (*.*)|*.*</value>
+    <value>Markdown/テキスト/ログファイル (*.md;*.txt;*.log)|*.md;*.txt;*.log|すべてのファイル (*.*)|*.*</value>
   </data>
   <data name="ExternalNoteFileTooLargeTitle" xml:space="preserve">
     <value>ファイルサイズが大きすぎます</value>
@@ -465,6 +465,12 @@
   <data name="OpenExternalFolder" xml:space="preserve">
     <value>ファイルの保存先フォルダを開く</value>
   </data>
+  <data name="ExternalTailMode" xml:space="preserve">
+    <value>tail モード（末尾に自動スクロール）</value>
+  </data>
+  <data name="ExternalTailModeTooltip" xml:space="preserve">
+    <value>末尾の行だけを表示し、追記されるたびに自動で最新行までスクロールします。ログの監視に向いています。</value>
+  </data>
   <data name="ConvertExternalToNormal" xml:space="preserve">
     <value>編集できる付箋に変換</value>
   </data>
@@ -675,6 +681,9 @@
   <data name="SettingsTheme" xml:space="preserve"><value>テーマ</value></data>
   <data name="SettingsStartup" xml:space="preserve"><value>起動</value></data>
   <data name="SettingsFolding" xml:space="preserve"><value>折りたたみ・展開</value></data>
+  <data name="SettingsExternalFiles" xml:space="preserve"><value>外部ファイル</value></data>
+  <data name="SettingsExternalFileMinRefreshInterval" xml:space="preserve"><value>最短更新間隔（ミリ秒）</value></data>
+  <data name="SettingsExternalFileTailLineCount" xml:space="preserve"><value>末尾表示行数</value></data>
   <data name="SettingsBackup" xml:space="preserve"><value>バックアップ</value></data>
   <data name="ReminderRepeat" xml:space="preserve"><value>繰り返し</value></data>
   <data name="ReminderRepeatNone" xml:space="preserve"><value>1回のみ</value></data>

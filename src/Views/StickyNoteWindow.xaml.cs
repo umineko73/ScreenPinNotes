@@ -281,6 +281,8 @@ public partial class StickyNoteWindow : Window
         Loaded += (_, _) =>
         {
             LoadContent(vm.Content);
+            if (vm.Model.ExternalTailMode)
+                ContentBox.ScrollToEnd();
             ConfigureExternalContentWatcher();
             // 開いた表示でも必ず通す。ここを通さないと WindowChrome が
             // XAML の初期値（全辺 5px）のままになり、タイトルバー上端が

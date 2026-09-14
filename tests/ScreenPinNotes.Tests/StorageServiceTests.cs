@@ -291,6 +291,87 @@ public sealed class StorageServiceTests : IDisposable
     }
 
     [Fact]
+    public void ReadExternalContent_TailMode_ReturnsOnlyLastLines()
+    {
+        var path = Path.Combine(_tempRoot, "app.log");
+        File.WriteAllText(path, "line1\nline2\nline3\nline4\nline5\n");
+        var note = new StickyNote { ExternalContentPath = path, ExternalTailMode = true };
+
+        var content = StorageService.ReadExternalContent(note, tailLineCount: 2);
+
+        Assert.Equal("line4\nline5\n", content);
+    }
+
+    [Fact]
+    public void ReadExternalContent_TailMode_WithoutTrailingNewline_ReturnsLastLines()
+    {
+        var path = Path.Combine(_tempRoot, "app.log");
+        File.WriteAllText(path, "line1\nline2\nline3");
+        var note = new StickyNote { ExternalContentPath = path, ExternalTailMode = true };
+
+        var content = StorageService.ReadExternalContent(note, tailLineCount: 2);
+
+        Assert.Equal("line2\nline3", content);
+    }
+
+    [Fact]
+    public void ReadExternalContent_TailMode_WhenFileHasFewerLinesThanRequested_ReturnsWholeFile()
+    {
+        var path = Path.Combine(_tempRoot, "app.log");
+        File.WriteAllText(path, "line1\nline2\n");
+        var note = new StickyNote { ExternalContentPath = path, ExternalTailMode = true };
+
+        var content = StorageService.ReadExternalContent(note, tailLineCount: 50);
+
+        Assert.Equal("line1\nline2\n", content);
+    }
+
+    [Fact]
+    public void TryReadExternalContentForDisplay_TailMode_ReadsOnlyTail()
+    {
+        var path = Path.Combine(_tempRoot, "app.log");
+        File.WriteAllText(path, string.Join('\n', Enumerable.Range(1, 1000).Select(i => $"line{i}")) + "\n");
+        var note = new StickyNote { ExternalContentPath = path, ExternalTailMode = true };
+
+        var success = StorageService.TryReadExternalContentForDisplay(note, 3, out var content);
+
+        Assert.True(success);
+        Assert.Equal("line998\nline999\nline1000\n", content);
+    }
+
+    [Fact]
+    public void TryReadExternalContentForDisplay_NonTailMode_ReadsFullContent()
+    {
+        var path = Path.Combine(_tempRoot, "notes.md");
+        File.WriteAllText(path, "line1\nline2\nline3\n");
+        var note = new StickyNote { ExternalContentPath = path, ExternalTailMode = false };
+
+        var success = StorageService.TryReadExternalContentForDisplay(note, 1, out var content);
+
+        Assert.True(success);
+        Assert.Equal("line1\nline2\nline3\n", content);
+    }
+
+    [Fact]
+    public void Load_ExternalTailModeNote_LoadsOnlyConfiguredTailLineCount()
+    {
+        var externalPath = Path.Combine(_tempRoot, "app.log");
+        File.WriteAllText(externalPath, "line1\nline2\nline3\nline4\n");
+        var note = new StickyNote
+        {
+            Content = "",
+            ExternalContentPath = externalPath,
+            ExternalTailMode = true,
+            IsReadOnly = true,
+        };
+        _storage.SaveNote(note);
+
+        var loadedNote = Assert.Single(_storage.Load(externalTailLineCount: 2));
+
+        Assert.Equal("line3\nline4\n", loadedNote.Content);
+    }
+
+    [Fact]
     public void Load_SkipsNoteFolderWithCorruptMeta()
     {
         var good = new StickyNote();

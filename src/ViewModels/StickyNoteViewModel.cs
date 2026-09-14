@@ -159,6 +159,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     public void ClearExternalContentPath()
     {
         _model.ExternalContentPath = null;
+        _model.ExternalTailMode = false;
         _model.ExternalImageWidthOverrides.Clear();
         OnPropertyChanged(nameof(IsExternalContent));
         OnPropertyChanged(nameof(EditLockVisibility));

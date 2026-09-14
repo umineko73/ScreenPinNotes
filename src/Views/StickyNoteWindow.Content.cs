@@ -57,6 +57,8 @@ public partial class StickyNoteWindow
     private double _expandedScrollX;
     private double _expandedScrollY;
     private readonly Dictionary<string, DateTime> _renderedImageFiles = new(StringComparer.OrdinalIgnoreCase);
+    private DateTime _lastExternalContentReloadUtc = DateTime.MinValue;
+    private System.Windows.Threading.DispatcherTimer? _externalContentReloadThrottleTimer;
 
     private void EnsureExpandedContent()
     {
@@ -101,7 +103,21 @@ public partial class StickyNoteWindow
         _renderedImageFiles.Clear();
         ContentBox.IsUndoEnabled = false;
         ContentBox.BeginChange();
-        try { LoadMarkdownContent(text); UpdateImagePathPreview(); }
+        try
+        {
+            // tail 表示はログの生データをそのまま追うためのものなので、
+            // Markdown 記法（# や - など）として解釈せずプレーンテキストで見せる。
+            if (ViewModel.Model.ExternalTailMode)
+            {
+                _markdownImageContexts.Clear();
+                LoadPlainContent(text);
+            }
+            else
+            {
+                LoadMarkdownContent(text);
+                UpdateImagePathPreview();
+            }
+        }
         catch (Exception ex)
         {
             ErrorReporter.ReportNonFatal("Render Markdown; showing source text", ex);
@@ -126,7 +142,7 @@ public partial class StickyNoteWindow
 
             // FileSystemWatcher はワーカースレッドで発火する。ここでは WPF の
             // Window/コントロール/ViewModel には触れず、UI スレッドだけで処理する。
-            _uiDispatcher.BeginInvoke(ReloadExternalContentOnUiThread);
+            _uiDispatcher.BeginInvoke(ScheduleExternalContentReload);
         }
         // FileSystemWatcher のイベントがウィンドウ終了後に届く場合がある。
         // 終了済み Dispatcher へキューできなくても、アプリ全体を終了させない。
@@ -139,6 +155,40 @@ public partial class StickyNoteWindow
         }
     }
 
+    /// <summary>
+    /// FileSystemWatcher は保存の途中経過も含めて短時間に何度も発火し得る。
+    /// 設定した最短間隔より短い間隔では読み直さず、間隔内で最後に来た変化だけを
+    /// 間隔経過後にまとめて反映する（末尾＝trailing edge のデバウンス）。
+    /// 間隔0は「毎回即時反映」に等しい。
+    /// </summary>
+    private void ScheduleExternalContentReload()
+    {
+        if (_isClosed)
+            return;
+
+        var minInterval = TimeSpan.FromMilliseconds(Math.Max(0, Settings.ExternalFile.MinRefreshIntervalMs));
+        var remaining = minInterval - (DateTime.UtcNow - _lastExternalContentReloadUtc);
+        if (remaining <= TimeSpan.Zero)
+        {
+            ReloadExternalContentOnUiThread();
+            return;
+        }
+
+        // 既に待機中のタイマーがあれば、それが発火したときに最新の内容を
+        // 読み直すのでここでは何もしない。
+        if (_externalContentReloadThrottleTimer != null)
+            return;
+
+        _externalContentReloadThrottleTimer = new System.Windows.Threading.DispatcherTimer { Interval = remaining };
+        _externalContentReloadThrottleTimer.Tick += (_, _) =>
+        {
+            _externalContentReloadThrottleTimer?.Stop();
+            _externalContentReloadThrottleTimer = null;
+            ReloadExternalContentOnUiThread();
+        };
+        _externalContentReloadThrottleTimer.Start();
+    }
+
     private void ReloadExternalContentOnUiThread()
     {
         try
@@ -147,13 +197,22 @@ public partial class StickyNoteWindow
             if (_isClosed || !ViewModel.Model.IsExternalContent)
                 return;
 
+            _lastExternalContentReloadUtc = DateTime.UtcNow;
+
             // 一時的にファイルが読めない場合は表示中の内容を維持する
             // （エラー文言で上書きしてキャッシュを壊さない）。
-            if (StorageService.TryReadExternalContent(ViewModel.Model, out var content))
+            if (StorageService.TryReadExternalContentForDisplay(
+                    ViewModel.Model, Settings.ExternalFile.TailLineCount, out var content))
             {
                 ViewModel.Content = content;
                 if (!_isEditMode)
+                {
                     LoadContent(ViewModel.Content);
+                    // tail 表示は「常に最新行へスクロール」が目的なので、更新の
+                    // たびに追う。通常表示は読んでいた位置を保つほうが望ましいので触らない。
+                    if (ViewModel.Model.ExternalTailMode)
+                        ContentBox.ScrollToEnd();
+                }
             }
         }
         catch (Exception ex)
@@ -1348,11 +1407,39 @@ public partial class StickyNoteWindow
 
     private void DisposeExternalContentWatcher()
     {
+        _externalContentReloadThrottleTimer?.Stop();
+        _externalContentReloadThrottleTimer = null;
+
         if (_externalContentWatcher == null)
             return;
 
         _externalContentWatcher.Dispose();
         _externalContentWatcher = null;
+    }
+
+    /// <summary>
+    /// tail 表示（末尾N行のみ・プレーンテキスト・自動スクロール）の有効/無効を
+    /// 切り替える。コンテキストメニューの「tail モード」項目から呼ばれる。
+    /// </summary>
+    public void ToggleExternalTailMode()
+    {
+        if (!ViewModel.Model.IsExternalContent)
+            return;
+
+        ViewModel.Model.ExternalTailMode = !ViewModel.Model.ExternalTailMode;
+        ViewModel.Model.UpdatedAt = DateTime.Now;
+        RequestSave();
+
+        if (StorageService.TryReadExternalContentForDisplay(
+                ViewModel.Model, Settings.ExternalFile.TailLineCount, out var content))
+            ViewModel.Content = content;
+
+        if (_isEditMode)
+            return;
+
+        LoadContent(ViewModel.Content);
+        if (ViewModel.Model.ExternalTailMode)
+            ContentBox.ScrollToEnd();
     }
 
     public void OpenExternalFile()

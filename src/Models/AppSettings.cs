@@ -77,6 +77,7 @@ public sealed class AppSettings
     public TimingSettings Timings { get; set; } = new();
     public InteractionSettings Interaction { get; set; } = new();
     public LayoutSettings Layout { get; set; } = new();
+    public ExternalFileSettings ExternalFile { get; set; } = new();
 
     // タイトルバーに付けられるアイコンパレット。「アイコンなし」は常に先頭に
     // 別途表示するのでここには含めない。settings.json で好きな絵文字に
@@ -156,6 +157,7 @@ public sealed class AppSettings
         Timings ??= new TimingSettings();
         Interaction ??= new InteractionSettings();
         Layout ??= new LayoutSettings();
+        ExternalFile ??= new ExternalFileSettings();
         FontUsage ??= new();
         NewNoteHotkey = ScreenPinNotes.Services.GlobalNoteHotkey.TryParse(NewNoteHotkey, out _, out _, out var hotkey) ? hotkey : ScreenPinNotes.Services.GlobalNoteHotkey.DefaultGesture;
         SearchHistory = (SearchHistory ?? []).Where(s => !string.IsNullOrWhiteSpace(s))
@@ -179,6 +181,12 @@ public sealed class AppSettings
         Timings.SizeOverlayFadeMs = Math.Max(0, Timings.SizeOverlayFadeMs);
         Timings.ToolbarFadeMs = Math.Max(0, Timings.ToolbarFadeMs);
         Timings.SaveDebounceMs = Math.Max(0, Timings.SaveDebounceMs);
+
+        // 0 は「間隔を空けず毎回反映」を意味する。上限は、更新の取りこぼしが
+        // 目に見えて気になり始める程度（1分）に置く。
+        ExternalFile.MinRefreshIntervalMs = Math.Clamp(ExternalFile.MinRefreshIntervalMs, 0, 60_000);
+        // 上限はログ1画面分としては十分すぎる行数。0だと tail の意味がなくなるため下限は1。
+        ExternalFile.TailLineCount = Math.Clamp(ExternalFile.TailLineCount, 1, 100_000);
 
         HoverOpacityBoostPercent = Math.Clamp(HoverOpacityBoostPercent, 0, 90);
         MaxNoteContentBytes = Math.Max(1024, MaxNoteContentBytes);
@@ -256,6 +264,19 @@ public sealed class InteractionSettings
 {
     public double SnapDistance { get; set; } = 10;
     public double ClickDragThresholdPx { get; set; } = 4;
+}
+
+/// <summary>外部ファイル連動（自動更新・tail表示）に関する設定。</summary>
+public sealed class ExternalFileSettings
+{
+    /// <summary>
+    /// FileSystemWatcher の通知から実際に読み直すまでの最短間隔。
+    /// 短時間に何度も書き換わるファイル（保存ソフトの中間状態、育つログなど）を
+    /// 見ているときに、間隔より短い連続更新をまとめて1回の読み直しに抑える。
+    /// </summary>
+    public int MinRefreshIntervalMs { get; set; } = 1000;
+    /// <summary>tail 表示のときに末尾から読み込む行数。</summary>
+    public int TailLineCount { get; set; } = 200;
 }
 
 public sealed class LayoutSettings
