@@ -1341,6 +1341,43 @@ public class StickyNoteWindowTests
     }
 
     [WpfFact]
+    public void ToggleExternalTailMode_TogglesTheTitleBarTailIndicator()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        Directory.CreateDirectory(temp.Path);
+        var storage = new StorageService(temp.Path);
+        var externalPath = Path.Combine(temp.Path, "app.log");
+        File.WriteAllText(externalPath, "line1\nline2\n");
+        var vm = new StickyNoteViewModel(
+            new StickyNote { Content = "", ExternalContentPath = externalPath, IsReadOnly = true },
+            new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var indicator = (TextBlock)window.FindName("TailModeIndicator")!;
+            Assert.Equal(Visibility.Collapsed, indicator.Visibility);
+
+            window.ToggleExternalTailMode();
+            window.UpdateLayout();
+
+            Assert.Equal(Visibility.Visible, indicator.Visibility);
+            Assert.NotNull(indicator.ToolTip);
+
+            window.ToggleExternalTailMode();
+            window.UpdateLayout();
+
+            Assert.Equal(Visibility.Collapsed, indicator.Visibility);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
     public void ReloadExternalContent_TailMode_RendersAsPlainTextInsteadOfMarkdown()
     {
         EnsureApplication();

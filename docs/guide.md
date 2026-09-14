@@ -180,7 +180,7 @@ External notes show `🔗`, and their title bar shows the time the content was l
 
 Outside of tail mode, an auto-refresh keeps your scroll position and text cursor in place as much as possible instead of jumping back to the top.
 
-Tail mode shows only the last lines of the file (line count configurable in Settings) as plain text, and always scrolls to the newest line as the file grows — useful for watching logs. `.log` files use tail mode by default; toggle it from the external file menu on any external note.
+Tail mode shows only the last lines of the file (line count configurable in Settings) as plain text, and always scrolls to the newest line as the file grows — useful for watching logs. `.log` files use tail mode by default; toggle it from the external file menu on any external note. While tailing, the title bar shows `⏬` on the right; hover it to see how many lines are displayed.
 
 ## Storage and backups
 

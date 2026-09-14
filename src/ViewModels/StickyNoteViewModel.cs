@@ -169,12 +169,37 @@ public class StickyNoteViewModel : INotifyPropertyChanged
 
     public bool IsExternalContent => _model.IsExternalContent;
 
+    /// <summary>外部ファイルを末尾追従（tail）で表示しているか。</summary>
+    public bool IsExternalTailMode
+    {
+        get => _model.ExternalTailMode;
+        set
+        {
+            _model.ExternalTailMode = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TailModeVisibility));
+            OnPropertyChanged(nameof(TailModeTooltip));
+        }
+    }
+
+    /// <summary>tail 表示中であることを示すタイトルバーの状態表示。</summary>
+    public Visibility TailModeVisibility =>
+        _model.IsExternalContent && _model.ExternalTailMode ? Visibility.Visible : Visibility.Collapsed;
+
+    public string? TailModeTooltip =>
+        _model.IsExternalContent && _model.ExternalTailMode
+            ? $"{TailModeLabel()}\n{string.Format(TailModeLineCountFormat(), _settings.ExternalFile.TailLineCount)}"
+            : null;
+
     public void ClearExternalContentPath()
     {
         _model.ExternalContentPath = null;
         _model.ExternalTailMode = false;
         _model.ExternalImageWidthOverrides.Clear();
         OnPropertyChanged(nameof(IsExternalContent));
+        OnPropertyChanged(nameof(IsExternalTailMode));
+        OnPropertyChanged(nameof(TailModeVisibility));
+        OnPropertyChanged(nameof(TailModeTooltip));
         OnPropertyChanged(nameof(EditLockVisibility));
         OnPropertyChanged(nameof(TitleIconTooltip));
         OnPropertyChanged(nameof(TitleTooltip));
@@ -533,6 +558,8 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(TitleBarDisplayText));
         OnPropertyChanged(nameof(TitleIconTooltip));
         OnPropertyChanged(nameof(TitleTooltip));
+        // 言語と末尾行数の設定が変わると読み方が変わる。
+        OnPropertyChanged(nameof(TailModeTooltip));
     }
 
     private void UpdateBrushes()
@@ -553,6 +580,12 @@ public class StickyNoteViewModel : INotifyPropertyChanged
 
     private string ReminderLabel()
         => LocalizationService.T("ReminderDialogTitle", _settings.Language);
+
+    private string TailModeLabel()
+        => LocalizationService.T("ExternalTailMode", _settings.Language);
+
+    private string TailModeLineCountFormat()
+        => LocalizationService.T("ExternalTailModeLineCount", _settings.Language);
 
     private string FormatReminder(DateTime nextAt)
     {

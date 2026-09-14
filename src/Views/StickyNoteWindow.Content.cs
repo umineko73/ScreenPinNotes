@@ -1478,7 +1478,7 @@ public partial class StickyNoteWindow
         if (!ViewModel.Model.IsExternalContent)
             return;
 
-        ViewModel.Model.ExternalTailMode = !ViewModel.Model.ExternalTailMode;
+        ViewModel.IsExternalTailMode = !ViewModel.IsExternalTailMode;
         ViewModel.Model.UpdatedAt = DateTime.Now;
         RequestSave();
 

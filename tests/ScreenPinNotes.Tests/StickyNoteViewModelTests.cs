@@ -66,6 +66,59 @@ public class StickyNoteViewModelTests
     }
 
     [Fact]
+    public void TailModeVisibility_OnlyVisibleWhileExternalNoteIsTailing()
+    {
+        var note = new StickyNote { ExternalContentPath = @"C:\logs\app.log" };
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+
+        Assert.Equal(Visibility.Collapsed, vm.TailModeVisibility);
+        Assert.Null(vm.TailModeTooltip);
+
+        vm.IsExternalTailMode = true;
+
+        Assert.Equal(Visibility.Visible, vm.TailModeVisibility);
+        Assert.Contains("tail", vm.TailModeTooltip);
+        Assert.Contains("200", vm.TailModeTooltip);
+    }
+
+    [Fact]
+    public void TailModeVisibility_StaysHiddenForNotesWithoutAnExternalFile()
+    {
+        var note = new StickyNote { ExternalTailMode = true };
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+
+        Assert.Equal(Visibility.Collapsed, vm.TailModeVisibility);
+    }
+
+    [Fact]
+    public void IsExternalTailMode_RaisesIndicatorPropertyChanged()
+    {
+        var note = new StickyNote { ExternalContentPath = @"C:\logs\app.log" };
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+        var raised = new List<string?>();
+        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        vm.IsExternalTailMode = true;
+
+        Assert.Contains(nameof(StickyNoteViewModel.TailModeVisibility), raised);
+        Assert.Contains(nameof(StickyNoteViewModel.TailModeTooltip), raised);
+        Assert.True(note.ExternalTailMode);
+    }
+
+    [Fact]
+    public void ClearExternalContentPath_HidesTailModeIndicator()
+    {
+        var note = new StickyNote { ExternalContentPath = @"C:\logs\app.log", ExternalTailMode = true };
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+        Assert.Equal(Visibility.Visible, vm.TailModeVisibility);
+
+        vm.ClearExternalContentPath();
+
+        Assert.Equal(Visibility.Collapsed, vm.TailModeVisibility);
+        Assert.False(vm.IsExternalTailMode);
+    }
+
+    [Fact]
     public void ClearExternalContentPath_DropsTimestampFromTitleBarDisplayText()
     {
         var note = new StickyNote

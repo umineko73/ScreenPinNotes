@@ -102,4 +102,30 @@ public class LocalizationServiceTests
         Assert.Equal(english, LocalizationService.T(key, "en"));
         Assert.Equal(japanese, LocalizationService.T(key, "ja"));
     }
+
+    // 外部ファイルの自動更新・tail 表示で追加したキー。
+    [Theory]
+    [InlineData("ExternalTailMode",
+        "Tail mode (auto-scroll to latest)",
+        "tail モード（末尾に自動スクロール）")]
+    [InlineData("ExternalTailModeTooltip",
+        "Show only the last lines and follow new lines as the file grows. Best for logs.",
+        "末尾の行だけを表示し、追記されるたびに自動で最新行までスクロールします。ログの監視に向いています。")]
+    [InlineData("ExternalTailModeLineCount", "Showing the last {0} lines", "末尾 {0} 行を表示中")]
+    [InlineData("SettingsExternalFiles", "External files", "外部ファイル")]
+    [InlineData("SettingsExternalFileMinRefreshInterval",
+        "Minimum refresh interval (ms)", "最短更新間隔（ミリ秒）")]
+    [InlineData("SettingsExternalFileTailLineCount", "Tail line count", "末尾表示行数")]
+    public void ExternalFileWatchStringsAreInTheCatalog(string key, string english, string japanese)
+    {
+        Assert.Equal(english, LocalizationService.T(key, "en"));
+        Assert.Equal(japanese, LocalizationService.T(key, "ja"));
+    }
+
+    [Fact]
+    public void ExternalNoteFileFilterAcceptsLogFiles()
+    {
+        Assert.Contains("*.log", LocalizationService.T("ExternalNoteFileFilter", "en"));
+        Assert.Contains("*.log", LocalizationService.T("ExternalNoteFileFilter", "ja"));
+    }
 }

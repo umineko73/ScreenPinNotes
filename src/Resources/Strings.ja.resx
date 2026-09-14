@@ -471,6 +471,9 @@
   <data name="ExternalTailModeTooltip" xml:space="preserve">
     <value>末尾の行だけを表示し、追記されるたびに自動で最新行までスクロールします。ログの監視に向いています。</value>
   </data>
+  <data name="ExternalTailModeLineCount" xml:space="preserve">
+    <value>末尾 {0} 行を表示中</value>
+  </data>
   <data name="ConvertExternalToNormal" xml:space="preserve">
     <value>編集できる付箋に変換</value>
   </data>

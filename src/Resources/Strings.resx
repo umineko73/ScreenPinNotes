@@ -471,6 +471,9 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="ExternalTailModeTooltip" xml:space="preserve">
     <value>Show only the last lines and follow new lines as the file grows. Best for logs.</value>
   </data>
+  <data name="ExternalTailModeLineCount" xml:space="preserve">
+    <value>Showing the last {0} lines</value>
+  </data>
   <data name="ConvertExternalToNormal" xml:space="preserve">
     <value>Convert to editable note</value>
   </data>
