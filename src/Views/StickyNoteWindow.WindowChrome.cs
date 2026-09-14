@@ -387,6 +387,8 @@ public partial class StickyNoteWindow
 
     private const int WM_SIZING          = 0x0214;
     private const int WM_NCLBUTTONDBLCLK = 0x00A3;
+    private const int WM_ENTERSIZEMOVE   = 0x0231;
+    private const int WM_EXITSIZEMOVE    = 0x0232;
     private const int HTTOP              = 12;
     private const int HTBOTTOM           = 15;
     private const int WMSZ_LEFT          = 1;
@@ -400,6 +402,19 @@ public partial class StickyNoteWindow
 
     [StructLayout(LayoutKind.Sequential)]
     private struct RECT { public int Left, Top, Right, Bottom; }
+
+    /// <summary>辺ドラッグ（WM_ENTERSIZEMOVE〜WM_EXITSIZEMOVE）の最中かどうか。</summary>
+    private bool _isSizingGesture;
+    /// <summary>その辺ドラッグを1行表示で始めたかどうか。</summary>
+    private bool _sizingGestureStartedFolded;
+
+    /// <summary>
+    /// 今届いている大きさを、表示状態に対応する保存先へ書いてよいか。
+    /// 辺ドラッグの途中で折りたたみ／展開が挟まると、1行表示のときに決めた幅が
+    /// 開いた表示の幅として（またはその逆で）保存されてしまう。
+    /// </summary>
+    private bool IsSizeFromCurrentPresentation
+        => !_isSizingGesture || _sizingGestureStartedFolded == ViewModel.IsFolded;
 
     protected override void OnSourceInitialized(EventArgs e)
     {
@@ -465,6 +480,27 @@ public partial class StickyNoteWindow
                 handled = true;
                 return IntPtr.Zero;
             }
+        }
+
+        // 辺ドラッグの開始と終了。どちらの表示で始めた操作かを覚えておき、
+        // 途中で折りたたみ／展開が挟まったときに、その大きさを別の表示の
+        // ものとして保存してしまうのを防ぐ（Window_SizeChanged が参照する）。
+        if (msg == WM_ENTERSIZEMOVE)
+        {
+            _isSizingGesture = true;
+            _sizingGestureStartedFolded = ViewModel.IsFolded;
+            return IntPtr.Zero;
+        }
+        if (msg == WM_EXITSIZEMOVE)
+        {
+            var startedFolded = _sizingGestureStartedFolded;
+            _isSizingGesture = false;
+            // 1行表示で決めた幅のまま展開されていたら、開いた表示本来の幅へ戻す。
+            // ドラッグ最後のサイズ変更が展開処理の後に適用されると、開いた付箋が
+            // 1行表示の幅のまま残ってしまう。
+            if (startedFolded && !ViewModel.IsFolded && !_isEditMode)
+                SuppressWindowBoundsSave(() => Width = ViewModel.Model.Width);
+            return IntPtr.Zero;
         }
 
         // 閉じた表示でも幅の変更（左右辺）だけは許可している。上下辺は

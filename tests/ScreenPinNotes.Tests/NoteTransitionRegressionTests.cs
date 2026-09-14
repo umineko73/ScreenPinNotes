@@ -167,4 +167,60 @@ public class NoteTransitionRegressionTests
         }
         finally { window.Close(); settings.EnableFoldAnimation = old; if (System.IO.Directory.Exists(root)) System.IO.Directory.Delete(root, true); }
     }
+
+    /// <summary>
+    /// 1行表示で幅を調節している最中に展開されると、その幅は1行表示のものなのに
+    /// 開いた表示の幅として保存され、展開しても1行表示と同じ幅のままになっていた。
+    /// ドラッグ最後のサイズ変更が展開処理の後に届く場合も同じ。
+    /// </summary>
+    [WpfTheory]
+    [InlineData(false)] // the drag continues past the unfold
+    [InlineData(true)]  // only the drag's last message lands after the unfold
+    public void WidthDraggedWhileFolded_DoesNotBecomeTheExpandedWidth(bool trailingOnly)
+    {
+        WpfApplicationFixture.Ensure();
+        var root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ScreenPinNotes.Tests", Guid.NewGuid().ToString("N"));
+        var note = new StickyNote { Width = 520, Height = 340, Content = "line one\nline two\nline three" };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), new StorageService(root));
+        void Call(string name, params object?[] args) => typeof(StickyNoteWindow)
+            .GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(window, args);
+        // Windows brackets an edge drag with WM_ENTERSIZEMOVE / WM_EXITSIZEMOVE and
+        // resizes the window to each WM_SIZING rectangle in between.
+        var rect = System.Runtime.InteropServices.Marshal.AllocHGlobal(16);
+        void SizeTo(double width)
+        {
+            var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(window).DpiScaleX;
+            System.Runtime.InteropServices.Marshal.Copy(
+                new[] { 100, 100, 100 + (int)Math.Round(width * dpi), 140 }, 0, rect, 4);
+            Call("WndProc", IntPtr.Zero, 0x0214, (IntPtr)2, rect, false);
+            var applied = new int[4];
+            System.Runtime.InteropServices.Marshal.Copy(rect, applied, 0, 4);
+            window.Width = (applied[2] - applied[0]) / dpi;
+        }
+        try
+        {
+            window.Show(); window.UpdateLayout();
+            Call("ToggleFold", (object?)null);
+            window.UpdateLayout();
+
+            Call("WndProc", IntPtr.Zero, 0x0231, IntPtr.Zero, IntPtr.Zero, false); // WM_ENTERSIZEMOVE
+            SizeTo(700);
+            Assert.Equal(700, note.ManualFoldedWidth);
+            Call("ToggleFold", (object?)null); // expands while the edge is still held
+            SizeTo(trailingOnly ? 700 : 650);
+            Call("WndProc", IntPtr.Zero, 0x0232, IntPtr.Zero, IntPtr.Zero, false); // WM_EXITSIZEMOVE
+            window.UpdateLayout();
+
+            Assert.Equal(520, note.Width);
+            Assert.Equal(340, note.Height);
+            Assert.Equal(520, window.Width);
+            Assert.Equal(700, note.ManualFoldedWidth); // the folded width is still the user's
+        }
+        finally
+        {
+            System.Runtime.InteropServices.Marshal.FreeHGlobal(rect);
+            window.Close();
+            if (System.IO.Directory.Exists(root)) System.IO.Directory.Delete(root, true);
+        }
+    }
 }

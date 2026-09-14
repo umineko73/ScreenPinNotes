@@ -558,7 +558,7 @@ public partial class StickyNoteWindow : Window
         // 書き戻すと、最大化から戻したときに1行表示の幅が展開サイズに
         // なってしまうことがある。
         var isNormalWindow = WindowState == WindowState.Normal;
-        if (isNormalWindow)
+        if (isNormalWindow && IsSizeFromCurrentPresentation)
         {
             var (dpiX, dpiY) = GetDpi();
             _geometry.StoreSize(Width, Height, _isEditMode, dpiX, dpiY);
