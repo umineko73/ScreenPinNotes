@@ -323,28 +323,33 @@ public partial class StickyNoteWindow
     }
 
     /// <summary>
-    /// ログ1行を、レベル名だけ色を変えて流し込む。1行につき色を付けるのは
-    /// 最初に見つかったレベル名だけなので、増える Run は多くて2つ。
+    /// ログ1行を、レベル名と数字だけ色を変えて流し込む。色を変える範囲は
+    /// 前から順に並んでいるので、間を地の色のまま挟みながら繋いでいく。
     /// </summary>
     private void AddLogLine(Paragraph paragraph, string line)
     {
-        if (LogLevelHighlighter.FindFirst(line) is not { } level)
+        var spans = LogLevelHighlighter.FindHighlights(line);
+        if (spans.Count == 0)
         {
             paragraph.Inlines.Add(new Run(line));
             return;
         }
 
-        if (level.Start > 0)
-            paragraph.Inlines.Add(new Run(line[..level.Start]));
-
-        paragraph.Inlines.Add(new Run(line.Substring(level.Start, level.Length))
+        var position = 0;
+        foreach (var span in spans)
         {
-            Foreground = LogLevelBrush(level.Severity),
-        });
+            if (span.Start > position)
+                paragraph.Inlines.Add(new Run(line[position..span.Start]));
 
-        var afterLevel = level.Start + level.Length;
-        if (afterLevel < line.Length)
-            paragraph.Inlines.Add(new Run(line[afterLevel..]));
+            paragraph.Inlines.Add(new Run(line.Substring(span.Start, span.Length))
+            {
+                Foreground = HighlightBrush(span),
+            });
+            position = span.Start + span.Length;
+        }
+
+        if (position < line.Length)
+            paragraph.Inlines.Add(new Run(line[position..]));
     }
 
     // 付箋の地の明るさで読める側を選ぶ。付箋の色は自由に変えられるので、
@@ -355,6 +360,9 @@ public partial class StickyNoteWindow
     private static readonly WpfSolidBrush LogInfoDark = Frozen("#81C784");
     private static readonly WpfSolidBrush LogWarningDark = Frozen("#FFB74D");
     private static readonly WpfSolidBrush LogErrorDark = Frozen("#FF8A80");
+    // 数字は重さを表さないので、レベルの緑・橙・赤とは系統の違う青にする。
+    private static readonly WpfSolidBrush LogNumberLight = Frozen("#1565C0");
+    private static readonly WpfSolidBrush LogNumberDark = Frozen("#64B5F6");
 
     private static WpfSolidBrush Frozen(string hex)
     {
@@ -363,10 +371,13 @@ public partial class StickyNoteWindow
         return brush;
     }
 
-    private WpfSolidBrush LogLevelBrush(LogLevelHighlighter.Severity severity)
+    private WpfSolidBrush HighlightBrush(LogLevelHighlighter.HighlightSpan span)
     {
         var dark = ViewModel.UsesDarkNoteColors;
-        return severity switch
+        if (span.Kind == LogLevelHighlighter.SpanKind.Number)
+            return dark ? LogNumberDark : LogNumberLight;
+
+        return span.Severity switch
         {
             LogLevelHighlighter.Severity.Error => dark ? LogErrorDark : LogErrorLight,
             LogLevelHighlighter.Severity.Warning => dark ? LogWarningDark : LogWarningLight,

@@ -55,6 +55,55 @@ public class LogLevelHighlighterTests
     }
 
     [Fact]
+    public void FindHighlights_ReturnsTheLevelAndEveryNumberInOrder()
+    {
+        const string line = "2026-09-15 09:12:03.221 [DEBUG] cache warmed in 42 ms";
+
+        var spans = LogLevelHighlighter.FindHighlights(line);
+
+        Assert.Equal(
+            ["2026-09-15", "09:12:03.221", "DEBUG", "42"],
+            spans.Select(s => line.Substring(s.Start, s.Length)));
+        Assert.Equal(
+            [
+                LogLevelHighlighter.SpanKind.Number, LogLevelHighlighter.SpanKind.Number,
+                LogLevelHighlighter.SpanKind.Level, LogLevelHighlighter.SpanKind.Number,
+            ],
+            spans.Select(s => s.Kind));
+    }
+
+    // 日時は区切りで切らずひとつながりに扱う。細切れの色より読みやすく、
+    // 描く要素も減る。
+    [Theory]
+    [InlineData("at 2026-09-15", "2026-09-15")]
+    [InlineData("at 09:12:03.221", "09:12:03.221")]
+    [InlineData("pool (16/16)", "16/16")]
+    [InlineData("count 1,234 rows", "1,234")]
+    [InlineData("took 42 ms", "42")]
+    public void FindHighlights_KeepsAConnectedNumberTogether(string line, string expected)
+    {
+        var span = Assert.Single(LogLevelHighlighter.FindHighlights(line));
+
+        Assert.Equal(LogLevelHighlighter.SpanKind.Number, span.Kind);
+        Assert.Equal(expected, line.Substring(span.Start, span.Length));
+    }
+
+    [Fact]
+    public void FindHighlights_DoesNotSwallowSeparatorsThatEndAValue()
+    {
+        // 末尾の記号や、数字が続かない区切りは値に含めない。
+        const string line = "finished in 42. next";
+
+        var span = Assert.Single(LogLevelHighlighter.FindHighlights(line));
+
+        Assert.Equal("42", line.Substring(span.Start, span.Length));
+    }
+
+    [Fact]
+    public void FindHighlights_OnALineWithoutNumbersOrLevels_ReturnsNothing()
+        => Assert.Empty(LogLevelHighlighter.FindHighlights("just a plain sentence"));
+
+    [Fact]
     public void ContainsError_OnlyCountsLinesWhoseLevelIsAnError()
     {
         Assert.True(LogLevelHighlighter.ContainsError("[INFO] ok\n[ERROR] boom\n"));

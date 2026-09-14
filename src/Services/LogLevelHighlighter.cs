@@ -24,8 +24,14 @@ public static class LogLevelHighlighter
 {
     public enum Severity { Info, Warning, Error }
 
+    /// <summary>色を変える対象の種類。</summary>
+    public enum SpanKind { Level, Number }
+
     /// <summary>行の中でのレベル名の位置と重さ。</summary>
     public readonly record struct LevelMatch(int Start, int Length, Severity Severity);
+
+    /// <summary>色を変える範囲。<see cref="Severity"/> は <see cref="SpanKind.Level"/> のときだけ意味を持つ。</summary>
+    public readonly record struct HighlightSpan(int Start, int Length, SpanKind Kind, Severity Severity);
 
     // 長さで先に振り分けられるよう、語はすべて4〜7文字。
     private static readonly (string Word, Severity Severity)[] Levels =
@@ -56,17 +62,74 @@ public static class LogLevelHighlighter
             var start = i;
             while (i < line.Length && char.IsLetter(line[i])) i++;
             var length = i - start;
+            i--;
             if (length is < ShortestLevel or > LongestLevel) continue;
-
-            foreach (var (word, severity) in Levels)
-            {
-                if (word.Length != length) continue;
-                if (string.Compare(line, start, word, 0, length, StringComparison.OrdinalIgnoreCase) != 0) continue;
+            if (MatchLevel(line, start, length) is { } severity)
                 return new LevelMatch(start, length, severity);
-            }
         }
 
         return null;
+    }
+
+    private static bool IsNumberSeparator(char c) => c is ':' or '.' or '-' or '/' or ',';
+
+    private static Severity? MatchLevel(string line, int start, int length)
+    {
+        foreach (var (word, severity) in Levels)
+        {
+            if (word.Length != length) continue;
+            if (string.Compare(line, start, word, 0, length, StringComparison.OrdinalIgnoreCase) != 0) continue;
+            return severity;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 1行の中で色を変える範囲を、前から順に返す。レベル名（行で最初の1つ）と、
+    /// 連続する数字のまとまりを1回の走査で拾う。数字は日時や件数を目で追うための
+    /// 印なので、区切り記号は含めず [0-9] の並びだけを対象にする。
+    /// </summary>
+    public static List<HighlightSpan> FindHighlights(string line)
+    {
+        var spans = new List<HighlightSpan>();
+        var levelFound = false;
+        for (var i = 0; i < line.Length; i++)
+        {
+            if (char.IsAsciiDigit(line[i]))
+            {
+                var start = i;
+                var end = i;
+                while (true)
+                {
+                    while (end < line.Length && char.IsAsciiDigit(line[end])) end++;
+                    // 2026-09-15 や 09:12:01.004、16/16 のように数字どうしを繋ぐ
+                    // 区切りは、ひとつながりの値として扱う。1文字ずつ切り分けると
+                    // 日時が細切れに見えるうえ、描画する要素も倍以上に増える。
+                    if (end + 1 < line.Length && IsNumberSeparator(line[end]) && char.IsAsciiDigit(line[end + 1]))
+                        end++;
+                    else
+                        break;
+                }
+                spans.Add(new HighlightSpan(start, end - start, SpanKind.Number, default));
+                i = end - 1;
+                continue;
+            }
+
+            if (levelFound || !char.IsLetter(line[i])) continue;
+
+            var wordStart = i;
+            while (i < line.Length && char.IsLetter(line[i])) i++;
+            var length = i - wordStart;
+            i--;
+            if (length is < ShortestLevel or > LongestLevel) continue;
+            if (MatchLevel(line, wordStart, length) is not { } severity) continue;
+
+            spans.Add(new HighlightSpan(wordStart, length, SpanKind.Level, severity));
+            levelFound = true;
+        }
+
+        return spans;
     }
 
     /// <summary>ERROR / FATAL の行を含むか。</summary>

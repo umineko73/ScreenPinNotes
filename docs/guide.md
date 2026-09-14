@@ -180,7 +180,7 @@ External notes show `🔗`, and their title bar shows the time the content was l
 
 Outside of tail mode, an auto-refresh keeps your scroll position and text cursor in place as much as possible instead of jumping back to the top.
 
-In tail mode, `INFO`, `DEBUG` and `TRACE` are shown in green, `WARN` in orange, and `ERROR` and `FATAL` in red (case-insensitive). Only the first level word on each line is colored.
+In tail mode, `INFO`, `DEBUG` and `TRACE` are shown in green, `WARN` in orange, and `ERROR` and `FATAL` in red (case-insensitive). Only the first level word on each line is colored. Numbers are shown in blue so timestamps and counts are easy to pick out; values joined by separators, such as `2026-09-15`, `09:12:03.221` and `16/16`, stay in one piece.
 
 When the file content actually changes, the note's border pulses light blue once — red if the lines that just arrived contain `ERROR` or `FATAL`. It stays quiet while you are working in that note, since you can already see the update, and a save that leaves the content identical triggers neither a reload nor a pulse.
 

@@ -1635,12 +1635,51 @@ public class StickyNoteWindowTests
                 .Single(run => run.Text == level);
             Assert.Equal(expected, ((SolidColorBrush)levelRun.Foreground).Color.ToString());
 
-            // 行の残りは本文の色のまま。
+            // レベル名と数値以外は本文の色のまま。
             Assert.All(
                 content.Document.Blocks.OfType<Paragraph>()
                     .SelectMany(p => p.Inlines.OfType<Run>())
-                    .Where(run => run.Text != level),
+                    .Where(run => run.Text != level && !run.Text.Any(char.IsAsciiDigit)),
                 run => Assert.Null(run.ReadLocalValue(TextElement.ForegroundProperty) as Brush));
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfTheory]
+    [InlineData("yellow", "#FF1565C0")]
+    [InlineData("dark-charcoal", "#FF64B5F6")]
+    public void TailMode_ColorsDatesAndNumbersApartFromTheLevel(string colorKey, string expected)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        Directory.CreateDirectory(temp.Path);
+        var externalPath = Path.Combine(temp.Path, "app.log");
+        File.WriteAllText(externalPath, "2026-09-15 09:12:03.221 [WARN] slow after 42 ms\n");
+        var note = new StickyNote
+        {
+            ColorKey = colorKey, ExternalContentPath = externalPath,
+            ExternalTailMode = true, IsReadOnly = true,
+        };
+        note.Content = StorageService.ReadExternalContent(note);
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var runs = ((RichTextBox)window.FindName("ContentBox")!).Document.Blocks
+                .OfType<Paragraph>().SelectMany(p => p.Inlines.OfType<Run>()).ToList();
+
+            // 日付・時刻・数値がそれぞれひとまとまりで色付けされている。
+            foreach (var number in new[] { "2026-09-15", "09:12:03.221", "42" })
+            {
+                var run = Assert.Single(runs, r => r.Text == number);
+                Assert.Equal(expected, ((SolidColorBrush)run.Foreground).Color.ToString());
+            }
+
+            // レベル名は数値とは別の色のまま。
+            var level = Assert.Single(runs, r => r.Text == "WARN");
+            Assert.NotEqual(expected, ((SolidColorBrush)level.Foreground).Color.ToString());
         }
         finally { window.Close(); }
     }
