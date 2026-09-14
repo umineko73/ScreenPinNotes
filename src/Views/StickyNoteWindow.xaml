@@ -420,6 +420,13 @@
                     CornerRadius="{Binding NoteFlashCornerRadius}"
                     Opacity="0" IsHitTestVisible="False"/>
 
+            <!-- 外部ファイルが更新されたときに1回だけ光る枠。リマインダーの
+                 点滅（オレンジ・太め・10秒）と取り違えないよう、色も太さも変えてある。 -->
+            <Border x:Name="UpdateFlashBorder" Grid.RowSpan="2" Panel.ZIndex="99"
+                    BorderBrush="#40C4FF" BorderThickness="2"
+                    CornerRadius="{Binding NoteFlashCornerRadius}"
+                    Opacity="0" IsHitTestVisible="False"/>
+
             <Border x:Name="SizeOverlay"
                     Grid.Row="1"
                     HorizontalAlignment="Center"

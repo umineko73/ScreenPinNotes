@@ -1341,6 +1341,115 @@ public class StickyNoteWindowTests
     }
 
     [WpfFact]
+    public void ReloadExternalContent_WhenNoteIsInactive_FlashesTheUpdateBorder()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        Directory.CreateDirectory(temp.Path);
+        var storage = new StorageService(temp.Path);
+        var externalPath = Path.Combine(temp.Path, "app.log");
+        File.WriteAllText(externalPath, "first line\n");
+        var vm = new StickyNoteViewModel(
+            new StickyNote { Content = "first line\n", ExternalContentPath = externalPath, IsReadOnly = true },
+            new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        var foreground = new Window { Width = 120, Height = 120, ShowInTaskbar = false };
+        try
+        {
+            window.Show();
+            foreground.Show();
+            foreground.Activate();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            var border = (Border)window.FindName("UpdateFlashBorder")!;
+            Assert.False(window.IsActive);
+            Assert.False(border.HasAnimatedProperties);
+
+            File.AppendAllText(externalPath, "second line\n");
+            Task.Run(window.ReloadExternalContent).GetAwaiter().GetResult();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+
+            Assert.Contains("second line", vm.Content);
+            Assert.True(border.HasAnimatedProperties);
+        }
+        finally
+        {
+            foreground.Close();
+            window.Close();
+        }
+    }
+
+    [WpfFact]
+    public void ReloadExternalContent_WhileNoteIsActive_DoesNotFlash()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        Directory.CreateDirectory(temp.Path);
+        var storage = new StorageService(temp.Path);
+        var externalPath = Path.Combine(temp.Path, "app.log");
+        File.WriteAllText(externalPath, "first line\n");
+        var vm = new StickyNoteViewModel(
+            new StickyNote { Content = "first line\n", ExternalContentPath = externalPath, IsReadOnly = true },
+            new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            window.Show();
+            window.Activate();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            Assert.True(window.IsActive);
+
+            File.AppendAllText(externalPath, "second line\n");
+            Task.Run(window.ReloadExternalContent).GetAwaiter().GetResult();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+
+            // 見ている本人には更新が届いているので、光らせる必要はない。
+            Assert.Contains("second line", vm.Content);
+            Assert.False(((Border)window.FindName("UpdateFlashBorder")!).HasAnimatedProperties);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
+    public void ReloadExternalContent_WhenFileContentIsUnchanged_DoesNothing()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        Directory.CreateDirectory(temp.Path);
+        var storage = new StorageService(temp.Path);
+        var externalPath = Path.Combine(temp.Path, "app.log");
+        File.WriteAllText(externalPath, "unchanged\n");
+        var note = new StickyNote
+        {
+            Content = "unchanged\n",
+            ExternalContentPath = externalPath,
+            IsReadOnly = true,
+            UpdatedAt = new DateTime(2024, 1, 1, 0, 0, 0),
+        };
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            window.Show();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+
+            // 中身が変わらない監視イベント（更新日時だけ触る保存など）を模す。
+            File.SetLastWriteTimeUtc(externalPath, DateTime.UtcNow);
+            Task.Run(window.ReloadExternalContent).GetAwaiter().GetResult();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+
+            Assert.Equal(new DateTime(2024, 1, 1, 0, 0, 0), note.UpdatedAt);
+            Assert.False(((Border)window.FindName("UpdateFlashBorder")!).HasAnimatedProperties);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
     public void ToggleExternalTailMode_TogglesTheTitleBarTailIndicator()
     {
         EnsureApplication();

@@ -204,6 +204,11 @@ public partial class StickyNoteWindow
             if (StorageService.TryReadExternalContentForDisplay(
                     ViewModel.Model, Settings.ExternalFile.TailLineCount, out var content))
             {
+                // 監視イベントは中身が変わらなくても届く（更新日時だけ触る保存など）。
+                // 変化が無いのに読み直すと、表示位置を揺らし、更新の知らせも空振りになる。
+                if (string.Equals(content, ViewModel.Content, StringComparison.Ordinal))
+                    return;
+
                 ViewModel.Content = content;
                 if (!_isEditMode)
                 {
@@ -226,6 +231,8 @@ public partial class StickyNoteWindow
                         ContentBox.ScrollToVerticalOffset(verticalOffset);
                         RestoreCaretSymbolOffset(caretOffset);
                     }
+
+                    FlashForExternalUpdate();
                 }
             }
         }

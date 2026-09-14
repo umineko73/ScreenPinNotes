@@ -33,5 +33,25 @@ public partial class StickyNoteWindow
         ReminderFlashBorder.BeginAnimation(UIElement.OpacityProperty, pulse);
     }
 
-    private void StopReminderFlash() => ReminderFlashBorder.BeginAnimation(UIElement.OpacityProperty, null);
+    /// <summary>
+    /// 外部ファイルが更新されたことを枠1回の明滅で知らせる。見ている最中に
+    /// 光らせても意味がないので、その付箋が非アクティブなときだけ光らせる。
+    /// 隠してある付箋は、リマインダーと違って呼び出してまで知らせる用ではないので出さない。
+    /// </summary>
+    public void FlashForExternalUpdate()
+    {
+        if (_isClosed || !IsVisible || IsActive) return;
+        var pulse = new DoubleAnimation(0, 1, TimeSpan.FromSeconds(0.4))
+        {
+            AutoReverse = true,
+            FillBehavior = FillBehavior.Stop,
+        };
+        UpdateFlashBorder.BeginAnimation(UIElement.OpacityProperty, pulse);
+    }
+
+    private void StopFlashes()
+    {
+        ReminderFlashBorder.BeginAnimation(UIElement.OpacityProperty, null);
+        UpdateFlashBorder.BeginAnimation(UIElement.OpacityProperty, null);
+    }
 }
