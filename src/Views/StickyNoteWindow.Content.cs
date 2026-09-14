@@ -207,17 +207,69 @@ public partial class StickyNoteWindow
                 ViewModel.Content = content;
                 if (!_isEditMode)
                 {
-                    LoadContent(ViewModel.Content);
-                    // tail 表示は「常に最新行へスクロール」が目的なので、更新の
-                    // たびに追う。通常表示は読んでいた位置を保つほうが望ましいので触らない。
                     if (ViewModel.Model.ExternalTailMode)
+                    {
+                        // tail 表示は「常に最新行へスクロール」が目的なので、更新のたびに追う。
+                        LoadContent(ViewModel.Content);
                         ContentBox.ScrollToEnd();
+                    }
+                    else
+                    {
+                        // 通常表示は読んでいた位置（スクロール・キャレット）をできるだけ保つ。
+                        // 文書を丸ごと作り直すと既定では先頭に戻ってしまうため、
+                        // 作り直す前に位置を控え、作り直した後に同じ位置へ戻す。
+                        var horizontalOffset = ContentBox.HorizontalOffset;
+                        var verticalOffset = ContentBox.VerticalOffset;
+                        var caretOffset = GetCaretSymbolOffset();
+                        LoadContent(ViewModel.Content);
+                        ContentBox.ScrollToHorizontalOffset(horizontalOffset);
+                        ContentBox.ScrollToVerticalOffset(verticalOffset);
+                        RestoreCaretSymbolOffset(caretOffset);
+                    }
                 }
             }
         }
         catch (Exception ex)
         {
             ErrorReporter.ReportNonFatal("Reload external content", ex);
+        }
+    }
+
+    /// <summary>
+    /// 文書内でのキャレット位置を「先頭からのシンボル数」として控える。
+    /// <see cref="RestoreCaretSymbolOffset"/> と対にして、外部ファイルの
+    /// 再読み込みで文書を作り直した後もおおよそ同じ位置へ戻すために使う。
+    /// </summary>
+    private int GetCaretSymbolOffset()
+    {
+        try
+        {
+            return ContentBox.Document.ContentStart.GetOffsetToPosition(ContentBox.CaretPosition);
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// 作り直した文書へキャレット位置を戻す。外部ファイルの変化のしかたに
+    /// よっては同じオフセットに対応する内容が無くなっていることもあるため、
+    /// あくまでベストエフォートで、失敗しても無視する。
+    /// </summary>
+    private void RestoreCaretSymbolOffset(int offset)
+    {
+        if (offset <= 0)
+            return;
+
+        try
+        {
+            var position = ContentBox.Document.ContentStart.GetPositionAtOffset(offset);
+            if (position != null)
+                ContentBox.CaretPosition = position;
+        }
+        catch
+        {
         }
     }
 

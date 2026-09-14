@@ -1288,6 +1288,59 @@ public class StickyNoteWindowTests
     }
 
     [WpfFact]
+    public void ReloadExternalContent_NonTailMode_PreservesScrollAndCaretPosition()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        Directory.CreateDirectory(temp.Path);
+        var storage = new StorageService(temp.Path);
+        var externalPath = Path.Combine(temp.Path, "notes.md");
+        var lines = Enumerable.Range(1, 200).Select(i => $"line {i}").ToArray();
+        File.WriteAllText(externalPath, string.Join('\n', lines));
+        var note = new StickyNote
+        {
+            Content = string.Join('\n', lines),
+            ExternalContentPath = externalPath,
+            IsReadOnly = true,
+            Width = 260,
+            Height = 220,
+        };
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var content = (RichTextBox)window.FindName("ContentBox")!;
+
+            content.ScrollToVerticalOffset(300);
+            window.UpdateLayout();
+            var scrolledOffset = content.VerticalOffset;
+            // Sanity check: the note must actually overflow for this test to mean anything.
+            Assert.True(scrolledOffset > 0);
+
+            var totalLength = new TextRange(content.Document.ContentStart, content.Document.ContentEnd).Text.Length;
+            content.CaretPosition = content.Document.ContentStart.GetPositionAtOffset(totalLength / 2) ?? content.CaretPosition;
+            var caretOffsetBefore = content.Document.ContentStart.GetOffsetToPosition(content.CaretPosition);
+
+            // A watcher-driven reload (appending a line at the very end) should not
+            // reset where the reader was looking.
+            File.AppendAllText(externalPath, "\nline 201");
+            Task.Run(window.ReloadExternalContent).GetAwaiter().GetResult();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            window.UpdateLayout();
+
+            Assert.Contains("line 201", vm.Content);
+            Assert.Equal(scrolledOffset, content.VerticalOffset, 1);
+            Assert.Equal(caretOffsetBefore, content.Document.ContentStart.GetOffsetToPosition(content.CaretPosition));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
     public void ReloadExternalContent_TailMode_RendersAsPlainTextInsteadOfMarkdown()
     {
         EnsureApplication();

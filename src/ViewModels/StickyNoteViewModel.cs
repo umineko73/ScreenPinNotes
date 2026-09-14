@@ -51,6 +51,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
             OnPropertyChanged();
             OnPropertyChanged(nameof(FirstLine));
             OnPropertyChanged(nameof(DisplayTitle));
+            OnPropertyChanged(nameof(TitleBarDisplayText));
             // 画像1枚だけかどうかで本文の余白と、設定によっては帯の有無も変わる。
             OnPropertyChanged(nameof(IsImageOnlyContent));
             OnPropertyChanged(nameof(NoteContentPadding));
@@ -77,12 +78,24 @@ public class StickyNoteViewModel : INotifyPropertyChanged
             _model.Title = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(DisplayTitle));
+            OnPropertyChanged(nameof(TitleBarDisplayText));
         }
     }
 
     /// <summary>タイトルバーに実際に表示する文字列（Title が空なら FirstLine）。</summary>
     public string DisplayTitle =>
         string.IsNullOrWhiteSpace(_model.Title) ? MarkdownRenderer.GetImageOnlyTarget(Content) ?? FirstLine : _model.Title!;
+
+    /// <summary>
+    /// タイトルバーの表示用テキスト。外部ファイル連動中は末尾に直近の取得日時を
+    /// 添え、自動更新がいつ効いたか一目で分かるようにする（tail 監視向け）。
+    /// タスクバー・トレイ・リマインダーなど他の用途では従来どおり
+    /// <see cref="DisplayTitle"/> を使うので、ここでは変えない。
+    /// </summary>
+    public string TitleBarDisplayText =>
+        _model.IsExternalContent
+            ? $"{DisplayTitle} ({_model.UpdatedAt:HH:mm:ss})"
+            : DisplayTitle;
 
     public string ColorKey
     {
@@ -165,6 +178,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(EditLockVisibility));
         OnPropertyChanged(nameof(TitleIconTooltip));
         OnPropertyChanged(nameof(TitleTooltip));
+        OnPropertyChanged(nameof(TitleBarDisplayText));
     }
 
     public void SetReminder(DateTime? nextAt)
@@ -516,6 +530,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(NoteFlashCornerRadius));
         OnPropertyChanged(nameof(FirstLine));
         OnPropertyChanged(nameof(DisplayTitle));
+        OnPropertyChanged(nameof(TitleBarDisplayText));
         OnPropertyChanged(nameof(TitleIconTooltip));
         OnPropertyChanged(nameof(TitleTooltip));
     }

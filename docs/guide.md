@@ -176,7 +176,9 @@ Updating from 0.2.0 or earlier changes how notes look on first launch: rounded c
 
 Settings save immediately (shortcut changes require Apply). New-note defaults apply to tray- and shortcut-created notes; `＋` on a note copies its appearance.
 
-External notes show `🔗`. Their menu can open the file or folder, toggle tail mode, or convert the content into an editable note. Deleting the note or changing image display sizes does not modify the original file.
+External notes show `🔗`, and their title bar shows the time the content was last refreshed so you can tell at a glance whether it's current. Their menu can open the file or folder, toggle tail mode, or convert the content into an editable note. Deleting the note or changing image display sizes does not modify the original file.
+
+Outside of tail mode, an auto-refresh keeps your scroll position and text cursor in place as much as possible instead of jumping back to the top.
 
 Tail mode shows only the last lines of the file (line count configurable in Settings) as plain text, and always scrolls to the newest line as the file grows — useful for watching logs. `.log` files use tail mode by default; toggle it from the external file menu on any external note.
 

@@ -106,7 +106,7 @@
                      閉じた表示/開いた表示にかかわらず常に表示する -->
                 <TextBlock x:Name="TitleText"
                            Grid.Column="1"
-                           Text="{Binding DisplayTitle}"
+                           Text="{Binding TitleBarDisplayText}"
                            Foreground="{Binding TitleBarForeground}"
                            FontWeight="Normal"
                            FontSize="{Binding TitleFontSize}"

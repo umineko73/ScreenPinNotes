@@ -22,6 +22,65 @@ namespace ScreenPinNotes.Tests;
 
 public class StickyNoteViewModelTests
 {
+    [Fact]
+    public void TitleBarDisplayText_ExternalContent_AppendsUpdatedAtTimestamp()
+    {
+        var note = new StickyNote
+        {
+            Title = "app.log",
+            ExternalContentPath = @"C:\logs\app.log",
+            UpdatedAt = new DateTime(2024, 1, 2, 3, 4, 5),
+        };
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+
+        Assert.Equal("app.log (03:04:05)", vm.TitleBarDisplayText);
+    }
+
+    [Fact]
+    public void TitleBarDisplayText_NonExternalContent_MatchesDisplayTitleWithoutTimestamp()
+    {
+        var note = new StickyNote { Title = "Regular note" };
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+
+        Assert.Equal(vm.DisplayTitle, vm.TitleBarDisplayText);
+        Assert.Equal("Regular note", vm.TitleBarDisplayText);
+    }
+
+    [Fact]
+    public void TitleBarDisplayText_UpdatesWhenContentReloadsBumpsUpdatedAt()
+    {
+        var note = new StickyNote
+        {
+            Title = "app.log",
+            ExternalContentPath = @"C:\logs\app.log",
+            UpdatedAt = new DateTime(2024, 1, 1, 0, 0, 0),
+        };
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+        var raised = new List<string?>();
+        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        vm.Content = "new content";
+
+        Assert.Contains(nameof(StickyNoteViewModel.TitleBarDisplayText), raised);
+        Assert.Contains(note.UpdatedAt.ToString("HH:mm:ss"), vm.TitleBarDisplayText);
+    }
+
+    [Fact]
+    public void ClearExternalContentPath_DropsTimestampFromTitleBarDisplayText()
+    {
+        var note = new StickyNote
+        {
+            Title = "app.log",
+            ExternalContentPath = @"C:\logs\app.log",
+            UpdatedAt = new DateTime(2024, 1, 2, 3, 4, 5),
+        };
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+
+        vm.ClearExternalContentPath();
+
+        Assert.Equal("app.log", vm.TitleBarDisplayText);
+    }
+
     [Theory]
     [InlineData("Light")]
     [InlineData("Dark")]
