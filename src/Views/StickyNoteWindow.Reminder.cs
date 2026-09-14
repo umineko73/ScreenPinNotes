@@ -33,19 +33,38 @@ public partial class StickyNoteWindow
         ReminderFlashBorder.BeginAnimation(UIElement.OpacityProperty, pulse);
     }
 
+    /// <summary>ふつうの更新を知らせる枠の色。</summary>
+    private static readonly System.Windows.Media.SolidColorBrush UpdateFlashNormalBrush = FrozenBrush("#40C4FF");
+    /// <summary>ERROR / FATAL が届いたときの枠の色。</summary>
+    private static readonly System.Windows.Media.SolidColorBrush UpdateFlashErrorBrush = FrozenBrush("#FF5252");
+
+    private static System.Windows.Media.SolidColorBrush FrozenBrush(string hex)
+    {
+        var brush = new System.Windows.Media.SolidColorBrush(
+            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(hex));
+        brush.Freeze();
+        return brush;
+    }
+
     /// <summary>
     /// 外部ファイルが更新されたことを枠1回の明滅で知らせる。見ている最中に
     /// 光らせても意味がないので、その付箋が非アクティブなときだけ光らせる。
     /// 隠してある付箋は、リマインダーと違って呼び出してまで知らせる用ではないので出さない。
     /// </summary>
-    public void FlashForExternalUpdate()
+    public void FlashForExternalUpdate(bool hasError = false)
     {
         if (_isClosed || !IsVisible || IsActive) return;
         // 追記の速いログでは更新が立て続けに届く。そのたびに明滅を始めからやり直すと、
         // 光りきる前に振り出しへ戻って、かえって光って見えなくなる。走っている
         // 明滅は最後まで見せ、終わってから次の更新で光らせる。
-        if (_isUpdateFlashRunning) return;
+        if (_isUpdateFlashRunning)
+        {
+            // ただしエラーが届いたときは、進行中の明滅を消さずに色だけ引き上げる。
+            if (hasError) UpdateFlashBorder.BorderBrush = UpdateFlashErrorBrush;
+            return;
+        }
 
+        UpdateFlashBorder.BorderBrush = hasError ? UpdateFlashErrorBrush : UpdateFlashNormalBrush;
         _isUpdateFlashRunning = true;
         var pulse = new DoubleAnimation(0, 1, TimeSpan.FromSeconds(0.4))
         {

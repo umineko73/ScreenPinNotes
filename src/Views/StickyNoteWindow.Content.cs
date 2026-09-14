@@ -107,10 +107,11 @@ public partial class StickyNoteWindow
         {
             // tail 表示はログの生データをそのまま追うためのものなので、
             // Markdown 記法（# や - など）として解釈せずプレーンテキストで見せる。
+            // レベル名だけは色を変えて、流れる行の中でも拾えるようにする。
             if (ViewModel.Model.ExternalTailMode)
             {
                 _markdownImageContexts.Clear();
-                LoadPlainContent(text);
+                LoadPlainContent(text, highlightLogLevels: true);
             }
             else
             {
@@ -209,6 +210,13 @@ public partial class StickyNoteWindow
                 if (string.Equals(content, ViewModel.Content, StringComparison.Ordinal))
                     return;
 
+                // 今回届いた分にエラーが含まれていたら、知らせる枠も赤にする。
+                // 画面に残っているエラーではなく「今来たか」で見るので、前回の
+                // 表示との差分だけを調べる。
+                var hasError = ViewModel.Model.ExternalTailMode &&
+                    LogLevelHighlighter.ContainsError(
+                        LogLevelHighlighter.GetAppendedText(ViewModel.Content, content));
+
                 ViewModel.Content = content;
                 if (!_isEditMode)
                 {
@@ -232,7 +240,7 @@ public partial class StickyNoteWindow
                         RestoreCaretSymbolOffset(caretOffset);
                     }
 
-                    FlashForExternalUpdate();
+                    FlashForExternalUpdate(hasError);
                 }
             }
         }
@@ -280,7 +288,7 @@ public partial class StickyNoteWindow
         }
     }
 
-    private void LoadPlainContent(string text, bool resetUndoHistory = false)
+    private void LoadPlainContent(string text, bool resetUndoHistory = false, bool highlightLogLevels = false)
     {
         text = NormalizeLineEndings(text);
         _suppressTextChange = true;
@@ -299,7 +307,10 @@ public partial class StickyNoteWindow
                 if (i > 0)
                     para.Inlines.Add(new LineBreak());
 
-                para.Inlines.Add(new Run(lines[i]));
+                if (highlightLogLevels)
+                    AddLogLine(para, lines[i]);
+                else
+                    para.Inlines.Add(new Run(lines[i]));
             }
             ContentBox.Document.Blocks.Add(para);
         }
@@ -309,6 +320,58 @@ public partial class StickyNoteWindow
                 ContentBox.IsUndoEnabled = true;
             _suppressTextChange = false;
         }
+    }
+
+    /// <summary>
+    /// ログ1行を、レベル名だけ色を変えて流し込む。1行につき色を付けるのは
+    /// 最初に見つかったレベル名だけなので、増える Run は多くて2つ。
+    /// </summary>
+    private void AddLogLine(Paragraph paragraph, string line)
+    {
+        if (LogLevelHighlighter.FindFirst(line) is not { } level)
+        {
+            paragraph.Inlines.Add(new Run(line));
+            return;
+        }
+
+        if (level.Start > 0)
+            paragraph.Inlines.Add(new Run(line[..level.Start]));
+
+        paragraph.Inlines.Add(new Run(line.Substring(level.Start, level.Length))
+        {
+            Foreground = LogLevelBrush(level.Severity),
+        });
+
+        var afterLevel = level.Start + level.Length;
+        if (afterLevel < line.Length)
+            paragraph.Inlines.Add(new Run(line[afterLevel..]));
+    }
+
+    // 付箋の地の明るさで読める側を選ぶ。付箋の色は自由に変えられるので、
+    // どちらの地でも沈まない濃さにしてある。
+    private static readonly WpfSolidBrush LogInfoLight = Frozen("#2E7D32");
+    private static readonly WpfSolidBrush LogWarningLight = Frozen("#E65100");
+    private static readonly WpfSolidBrush LogErrorLight = Frozen("#C62828");
+    private static readonly WpfSolidBrush LogInfoDark = Frozen("#81C784");
+    private static readonly WpfSolidBrush LogWarningDark = Frozen("#FFB74D");
+    private static readonly WpfSolidBrush LogErrorDark = Frozen("#FF8A80");
+
+    private static WpfSolidBrush Frozen(string hex)
+    {
+        var brush = new WpfSolidBrush((WpfColor)WpfColorConverter.ConvertFromString(hex));
+        brush.Freeze();
+        return brush;
+    }
+
+    private WpfSolidBrush LogLevelBrush(LogLevelHighlighter.Severity severity)
+    {
+        var dark = ViewModel.UsesDarkNoteColors;
+        return severity switch
+        {
+            LogLevelHighlighter.Severity.Error => dark ? LogErrorDark : LogErrorLight,
+            LogLevelHighlighter.Severity.Warning => dark ? LogWarningDark : LogWarningLight,
+            _ => dark ? LogInfoDark : LogInfoLight,
+        };
     }
 
     private void LoadMarkdownContent(string text)

@@ -1602,6 +1602,119 @@ public class StickyNoteWindowTests
         }
     }
 
+    [WpfTheory]
+    [InlineData("yellow", "INFO", "#FF2E7D32")]
+    [InlineData("yellow", "WARN", "#FFE65100")]
+    [InlineData("yellow", "ERROR", "#FFC62828")]
+    [InlineData("dark-charcoal", "INFO", "#FF81C784")]
+    [InlineData("dark-charcoal", "WARN", "#FFFFB74D")]
+    [InlineData("dark-charcoal", "ERROR", "#FFFF8A80")]
+    public void TailMode_ColorsTheLogLevelWordForTheNoteBackground(string colorKey, string level, string expected)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        Directory.CreateDirectory(temp.Path);
+        var externalPath = Path.Combine(temp.Path, "app.log");
+        File.WriteAllText(externalPath, $"09:12:01 [{level}] something happened\n");
+        var note = new StickyNote
+        {
+            ColorKey = colorKey, ExternalContentPath = externalPath,
+            ExternalTailMode = true, IsReadOnly = true,
+        };
+        note.Content = StorageService.ReadExternalContent(note);
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var content = (RichTextBox)window.FindName("ContentBox")!;
+
+            var levelRun = content.Document.Blocks.OfType<Paragraph>()
+                .SelectMany(p => p.Inlines.OfType<Run>())
+                .Single(run => run.Text == level);
+            Assert.Equal(expected, ((SolidColorBrush)levelRun.Foreground).Color.ToString());
+
+            // 行の残りは本文の色のまま。
+            Assert.All(
+                content.Document.Blocks.OfType<Paragraph>()
+                    .SelectMany(p => p.Inlines.OfType<Run>())
+                    .Where(run => run.Text != level),
+                run => Assert.Null(run.ReadLocalValue(TextElement.ForegroundProperty) as Brush));
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfFact]
+    public void WithoutTailMode_TheLogLevelIsNotColored()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        Directory.CreateDirectory(temp.Path);
+        var externalPath = Path.Combine(temp.Path, "notes.md");
+        File.WriteAllText(externalPath, "09:12:01 [ERROR] something happened\n");
+        var note = new StickyNote { ExternalContentPath = externalPath, IsReadOnly = true };
+        note.Content = StorageService.ReadExternalContent(note);
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var content = (RichTextBox)window.FindName("ContentBox")!;
+
+            Assert.All(
+                content.Document.Blocks.OfType<Paragraph>().SelectMany(p => p.Inlines.OfType<Run>()),
+                run => Assert.Null(run.ReadLocalValue(TextElement.ForegroundProperty) as Brush));
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfTheory]
+    [InlineData("[INFO]  still fine", "#FF40C4FF")]
+    [InlineData("[ERROR] upload rejected", "#FFFF5252")]
+    [InlineData("[FATAL] worker pool exhausted", "#FFFF5252")]
+    public void ReloadExternalContent_FlashIsRedWhenAnErrorArrives(string appended, string expected)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        Directory.CreateDirectory(temp.Path);
+        var externalPath = Path.Combine(temp.Path, "app.log");
+        File.WriteAllText(externalPath, "09:12:01 [INFO]  service started\n");
+        var vm = new StickyNoteViewModel(
+            new StickyNote
+            {
+                Content = "09:12:01 [INFO]  service started\n",
+                ExternalContentPath = externalPath,
+                ExternalTailMode = true,
+                IsReadOnly = true,
+            },
+            new AppSettings());
+        var window = new StickyNoteWindow(vm, new StorageService(temp.Path));
+        var foreground = new Window { Width = 120, Height = 120, ShowInTaskbar = false };
+        try
+        {
+            window.Show();
+            foreground.Show();
+            foreground.Activate();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            Assert.False(window.IsActive);
+
+            File.AppendAllText(externalPath, $"09:12:20 {appended}\n");
+            Task.Run(window.ReloadExternalContent).GetAwaiter().GetResult();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+
+            var border = (Border)window.FindName("UpdateFlashBorder")!;
+            Assert.True(border.HasAnimatedProperties);
+            Assert.Equal(expected, ((SolidColorBrush)border.BorderBrush).Color.ToString());
+        }
+        finally
+        {
+            foreground.Close();
+            window.Close();
+        }
+    }
+
     [WpfFact]
     public void ReloadExternalContent_TailMode_RendersAsPlainTextInsteadOfMarkdown()
     {
