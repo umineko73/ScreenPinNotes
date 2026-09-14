@@ -41,17 +41,27 @@ public partial class StickyNoteWindow
     public void FlashForExternalUpdate()
     {
         if (_isClosed || !IsVisible || IsActive) return;
+        // 追記の速いログでは更新が立て続けに届く。そのたびに明滅を始めからやり直すと、
+        // 光りきる前に振り出しへ戻って、かえって光って見えなくなる。走っている
+        // 明滅は最後まで見せ、終わってから次の更新で光らせる。
+        if (_isUpdateFlashRunning) return;
+
+        _isUpdateFlashRunning = true;
         var pulse = new DoubleAnimation(0, 1, TimeSpan.FromSeconds(0.4))
         {
             AutoReverse = true,
             FillBehavior = FillBehavior.Stop,
         };
+        pulse.Completed += (_, _) => _isUpdateFlashRunning = false;
         UpdateFlashBorder.BeginAnimation(UIElement.OpacityProperty, pulse);
     }
+
+    private bool _isUpdateFlashRunning;
 
     private void StopFlashes()
     {
         ReminderFlashBorder.BeginAnimation(UIElement.OpacityProperty, null);
         UpdateFlashBorder.BeginAnimation(UIElement.OpacityProperty, null);
+        _isUpdateFlashRunning = false;
     }
 }

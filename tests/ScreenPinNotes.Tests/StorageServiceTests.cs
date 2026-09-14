@@ -339,6 +339,30 @@ public sealed class StorageServiceTests : IDisposable
         Assert.Equal("line998\nline999\nline1000\n", content);
     }
 
+    // ログは書き手がファイルを開いたまま追記する。FileShare.Read で開く
+    // File.ReadAllText では「別のプロセスが使用中」となり、更新が一切
+    // 反映されなくなっていた。
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ReadExternalContent_WhileTheWriterKeepsTheLogOpen_StillReads(bool tailMode)
+    {
+        var logPath = Path.Combine(_tempRoot, "app.log");
+        File.WriteAllText(logPath, "first line\n");
+        var note = new StickyNote { ExternalContentPath = logPath, ExternalTailMode = tailMode };
+
+        using var writer = new FileStream(logPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+        var appended = System.Text.Encoding.UTF8.GetBytes("second line\n");
+        writer.Write(appended, 0, appended.Length);
+        writer.Flush();
+
+        Assert.True(StorageService.TryReadExternalContentForDisplay(note, 200, out var shown));
+        Assert.Contains("second line", shown);
+        Assert.True(StorageService.TryReadExternalContent(note, out var full));
+        Assert.Contains("second line", full);
+        Assert.Contains("second line", StorageService.ReadExternalContent(note));
+    }
+
     [Fact]
     public void TryReadExternalContentForDisplay_NonTailMode_ReadsFullContent()
     {

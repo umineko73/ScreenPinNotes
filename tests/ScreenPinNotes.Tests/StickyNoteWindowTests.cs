@@ -1428,6 +1428,72 @@ public class StickyNoteWindowTests
         }
     }
 
+    // 追記の速いログでは更新が立て続けに届く。そのたびに明滅を始めから
+    // やり直すと、光りきる前に振り出しへ戻って光って見えなくなる。
+    [WpfFact]
+    public void ReloadExternalContent_RapidUpdates_DoNotRestartTheFlashMidPulse()
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var previousInterval = app.Settings.ExternalFile.MinRefreshIntervalMs;
+        using var temp = new TempDataDirectory();
+        Directory.CreateDirectory(temp.Path);
+        var storage = new StorageService(temp.Path);
+        var externalPath = Path.Combine(temp.Path, "app.log");
+        File.WriteAllText(externalPath, "line 1\n");
+        var vm = new StickyNoteViewModel(
+            new StickyNote
+            {
+                Content = "line 1\n", ExternalContentPath = externalPath,
+                ExternalTailMode = true, IsReadOnly = true,
+            },
+            app.Settings);
+        var window = new StickyNoteWindow(vm, storage);
+        var foreground = new Window { Width = 120, Height = 120, ShowInTaskbar = false };
+        var flashRunning = typeof(StickyNoteWindow)
+            .GetField("_isUpdateFlashRunning", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        try
+        {
+            // 間引きなしで届く設定。まさにこの条件で明滅が潰れていた。
+            app.Settings.ExternalFile.MinRefreshIntervalMs = 0;
+            window.Show();
+            foreground.Show();
+            foreground.Activate();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            Assert.False(window.IsActive);
+
+            var border = (Border)window.FindName("UpdateFlashBorder")!;
+            File.AppendAllText(externalPath, "line 2\n");
+            window.Dispatcher.Invoke(window.ReloadExternalContent);
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            Assert.True((bool)flashRunning.GetValue(window)!);
+
+            // 明滅の途中まで進める（0.4秒で最大まで明るくなる）。
+            var until = Environment.TickCount64 + 200;
+            while (Environment.TickCount64 < until)
+            {
+                Thread.Sleep(10);
+                window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            }
+            var midPulse = border.Opacity;
+            Assert.True(midPulse > 0.2, $"the pulse should be visible by now, was {midPulse}");
+
+            // ここで次の更新が届いても、明滅は振り出しに戻らない。
+            File.AppendAllText(externalPath, "line 3\n");
+            window.Dispatcher.Invoke(window.ReloadExternalContent);
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+
+            Assert.Contains("line 3", vm.Content);
+            Assert.True(border.Opacity >= midPulse * 0.8,
+                $"the pulse restarted: {midPulse} -> {border.Opacity}");
+        }
+        finally
+        {
+            foreground.Close();
+            window.Close();
+            app.Settings.ExternalFile.MinRefreshIntervalMs = previousInterval;
+        }
+    }
+
     [WpfFact]
     public void ReloadExternalContent_WhileNoteIsActive_DoesNotFlash()
     {

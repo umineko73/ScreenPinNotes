@@ -385,7 +385,7 @@ public class StorageService
 
             return note.ExternalTailMode
                 ? ReadTail(fullPath, Math.Max(1, tailLineCount))
-                : File.ReadAllText(fullPath, Encoding.UTF8);
+                : ReadAllSharedText(fullPath);
         }
         catch (Exception ex)
         {
@@ -414,7 +414,7 @@ public class StorageService
                 return false;
             }
 
-            content = File.ReadAllText(fullPath, Encoding.UTF8);
+            content = ReadAllSharedText(fullPath);
             return true;
         }
         catch
@@ -422,6 +422,19 @@ public class StorageService
             content = "";
             return false;
         }
+    }
+
+    /// <summary>
+    /// 外部ファイルの全文を、書き手と共有したまま読む。ログのように別のプロセスが
+    /// 開いたまま追記しているファイルは、<see cref="File.ReadAllText(string)"/>
+    /// （FileShare.Read で開く）では「別のプロセスが使用中」となり読めない。
+    /// </summary>
+    private static string ReadAllSharedText(string path)
+    {
+        using var stream = new FileStream(
+            path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+        return reader.ReadToEnd();
     }
 
     // tail 表示のときは末尾の行数だけを読む Try 版。ノートの ExternalTailMode に
@@ -470,7 +483,9 @@ public class StorageService
     /// </summary>
     private static string ReadTail(string path, int lineCount)
     {
-        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        // ログはローテーションで消されることもあるので、削除も妨げないで開く。
+        using var stream = new FileStream(
+            path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         var length = stream.Length;
         if (length == 0)
             return "";
