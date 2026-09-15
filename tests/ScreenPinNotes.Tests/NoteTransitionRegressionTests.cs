@@ -187,21 +187,26 @@ public class NoteTransitionRegressionTests
         // Windows brackets an edge drag with WM_ENTERSIZEMOVE / WM_EXITSIZEMOVE and
         // resizes the window to each WM_SIZING rectangle in between.
         var rect = System.Runtime.InteropServices.Marshal.AllocHGlobal(16);
+        var foldedHeight = 0d;
+        // Windows sizes from the rectangle grabbed at the start of the drag, so the
+        // height it applies stays the one-line height even after the note expands.
         void SizeTo(double width)
         {
             var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(window).DpiScaleX;
             System.Runtime.InteropServices.Marshal.Copy(
-                new[] { 100, 100, 100 + (int)Math.Round(width * dpi), 140 }, 0, rect, 4);
+                new[] { 100, 100, 100 + (int)Math.Round(width * dpi), 100 + (int)Math.Round(foldedHeight * dpi) }, 0, rect, 4);
             Call("WndProc", IntPtr.Zero, 0x0214, (IntPtr)2, rect, false);
             var applied = new int[4];
             System.Runtime.InteropServices.Marshal.Copy(rect, applied, 0, 4);
             window.Width = (applied[2] - applied[0]) / dpi;
+            window.Height = (applied[3] - applied[1]) / dpi;
         }
         try
         {
             window.Show(); window.UpdateLayout();
             Call("ToggleFold", (object?)null);
             window.UpdateLayout();
+            foldedHeight = window.Height;
 
             Call("WndProc", IntPtr.Zero, 0x0231, IntPtr.Zero, IntPtr.Zero, false); // WM_ENTERSIZEMOVE
             SizeTo(700);
@@ -214,6 +219,7 @@ public class NoteTransitionRegressionTests
             Assert.Equal(520, note.Width);
             Assert.Equal(340, note.Height);
             Assert.Equal(520, window.Width);
+            Assert.Equal(340, window.Height); // not left one line tall at the expanded width
             Assert.Equal(700, note.ManualFoldedWidth); // the folded width is still the user's
         }
         finally

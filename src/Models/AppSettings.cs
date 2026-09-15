@@ -14,6 +14,17 @@ namespace ScreenPinNotes.Models;
 public sealed class AppSettings
 {
     public bool StartWithWindows { get; set; }
+    /// <summary>
+    /// 起動時に付箋を表示せず、タスクトレイだけで待機するか。付箋ごとの
+    /// 非表示（<see cref="StickyNote.IsHidden"/>）は書き換えないので、
+    /// 「すべて表示」で普段どおりに戻る。
+    /// </summary>
+    public bool StartHidden { get; set; }
+    /// <summary>
+    /// 不具合調査用の記録（logs\trace.log）を書くか。画面には出さず、
+    /// settings.json を直接書き換えて使う。
+    /// </summary>
+    public bool EnableDiagnosticTrace { get; set; }
     public bool ShowTitlePreviewTooltip { get; set; }
     public bool EnableFoldAnimation { get; set; }
     public bool ShowFoldButton { get; set; }
@@ -72,6 +83,8 @@ public sealed class AppSettings
     public string Language { get; set; } = "ja";
     public string Theme { get; set; } = "Light";
     public string NewNoteHotkey { get; set; } = ScreenPinNotes.Services.GlobalNoteHotkey.DefaultGesture;
+    /// <summary>クリップボードの内容から付箋を作るショートカット。空なら無効。</summary>
+    public string ClipboardNoteHotkey { get; set; } = ScreenPinNotes.Services.GlobalNoteHotkey.DefaultClipboardGesture;
     public List<string> SearchHistory { get; set; } = new();
     public Dictionary<string, int> FontUsage { get; set; } = new();
     public TimingSettings Timings { get; set; } = new();
@@ -160,6 +173,7 @@ public sealed class AppSettings
         ExternalFile ??= new ExternalFileSettings();
         FontUsage ??= new();
         NewNoteHotkey = ScreenPinNotes.Services.GlobalNoteHotkey.TryParse(NewNoteHotkey, out _, out _, out var hotkey) ? hotkey : ScreenPinNotes.Services.GlobalNoteHotkey.DefaultGesture;
+        ClipboardNoteHotkey = ScreenPinNotes.Services.GlobalNoteHotkey.TryParse(ClipboardNoteHotkey, out _, out _, out var clipboardHotkey) ? clipboardHotkey : ScreenPinNotes.Services.GlobalNoteHotkey.DefaultClipboardGesture;
         SearchHistory = (SearchHistory ?? []).Where(s => !string.IsNullOrWhiteSpace(s))
             .Select(s => s.Trim()).Distinct(StringComparer.Ordinal).Take(30).ToList();
         if (IconPalette == null || IconPalette.Count == 0 || IconPalette.SequenceEqual(LegacyIconPalette()))
@@ -187,6 +201,10 @@ public sealed class AppSettings
         ExternalFile.MinRefreshIntervalMs = Math.Clamp(ExternalFile.MinRefreshIntervalMs, 0, 60_000);
         // 上限はログ1画面分としては十分すぎる行数。0だと tail の意味がなくなるため下限は1。
         ExternalFile.TailLineCount = Math.Clamp(ExternalFile.TailLineCount, 1, 100_000);
+        // 下限はファイルを開いて長さを見るだけの確認を、詰めすぎない程度に置く。
+        ExternalFile.PollIntervalMs = Math.Clamp(ExternalFile.PollIntervalMs, 200, 60_000);
+        ExternalFile.PollBurstMs = Math.Clamp(ExternalFile.PollBurstMs, 0, 600_000);
+        ExternalFile.IdlePollIntervalMs = Math.Clamp(ExternalFile.IdlePollIntervalMs, ExternalFile.PollIntervalMs, 600_000);
 
         HoverOpacityBoostPercent = Math.Clamp(HoverOpacityBoostPercent, 0, 90);
         MaxNoteContentBytes = Math.Max(1024, MaxNoteContentBytes);
@@ -277,6 +295,16 @@ public sealed class ExternalFileSettings
     public int MinRefreshIntervalMs { get; set; } = 1000;
     /// <summary>tail 表示のときに末尾から読み込む行数。</summary>
     public int TailLineCount { get; set; } = 200;
+    /// <summary>
+    /// 変化を見つけてから <see cref="PollBurstMs"/> のあいだ、ファイルの長さと
+    /// 更新日時を確かめる間隔。書き手が開いたまま追記するファイルは、閉じるまで
+    /// FileSystemWatcher に通知が来ないことがあるため、監視と併用する。
+    /// </summary>
+    public int PollIntervalMs { get; set; } = 1000;
+    /// <summary>変化を見つけてから短い間隔で確かめ続ける時間。</summary>
+    public int PollBurstMs { get; set; } = 30_000;
+    /// <summary>しばらく変化が無いときの確認間隔。</summary>
+    public int IdlePollIntervalMs { get; set; } = 5000;
 }
 
 public sealed class LayoutSettings

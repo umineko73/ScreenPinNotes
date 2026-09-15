@@ -114,6 +114,7 @@ public partial class StickyNoteWindow
 
     private void QueueTaskbarUnfold()
     {
+        Trace("QueueTaskbarUnfold");
         if (_taskbarUnfoldQueued || !ViewModel.IsFolded || _isFoldAnimationRunning) return;
         _taskbarUnfoldQueued = true;
         Dispatcher.BeginInvoke(() =>

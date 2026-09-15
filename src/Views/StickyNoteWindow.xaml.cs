@@ -116,7 +116,7 @@ public partial class StickyNoteWindow : Window
     private bool       _isPaneScrollDragging;
     private bool       _suppressNextContentContextMenu;
     private bool       _isClosed;
-    private FileSystemWatcher? _externalContentWatcher;
+    private ExternalFileMonitor? _externalContentMonitor;
     private System.Windows.Point _paneScrollStartPoint;
     private double     _paneScrollStartHorizontalOffset;
     private double     _paneScrollStartVerticalOffset;
@@ -461,6 +461,7 @@ public partial class StickyNoteWindow : Window
         _overlayTimer.Interval = TimeSpan.FromMilliseconds(Settings.Timings.SizeOverlayDurationMs);
         _toolbarHideTimer.Interval = TimeSpan.FromMilliseconds(Settings.Timings.ToolbarHideDelayMs);
         _titlePreviewTimer.Interval = TimeSpan.FromMilliseconds(Settings.Timings.TitlePreviewDelayMs);
+        TitleBarEndGap.Width = new GridLength(TitleBarEndGapWidth);
         ShowInTaskbar = Settings.ShowNotesInTaskbar;
         UpdateIconImage();      // アイコンの色（カラー/モノクロ）の設定を反映する
         RefreshCornerClips();   // 角の丸みの設定を反映する
@@ -550,6 +551,9 @@ public partial class StickyNoteWindow : Window
 
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
     {
+        if (DiagnosticTrace.Enabled)
+            Trace($"SizeChanged {e.PreviousSize.Width:0.#}x{e.PreviousSize.Height:0.#} -> {e.NewSize.Width:0.#}x{e.NewSize.Height:0.#} " +
+                  $"init={_isInitializing} suppress={_suppressWindowBoundsSave} fromCurrent={IsSizeFromCurrentPresentation} state={WindowState}");
         if (_isInitializing) return; // コンストラクタ〜Loaded の初期値設定はモデルに書き戻さない
         if (_suppressWindowBoundsSave) return;
         if (_isFoldAnimationRunning) return; // アニメーション途中の高さを開いた表示サイズとして保存しない

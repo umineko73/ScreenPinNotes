@@ -446,9 +446,64 @@ public partial class StickyNoteWindow
     [DllImport("gdi32.dll")]
     private static extern bool DeleteObject(IntPtr hObject);
 
-    private string SavePastedImage(System.Windows.Media.Imaging.BitmapSource image)
+    /// <summary>
+    /// クリップボードから新しく作る付箋の本文。まだウィンドウの無い付箋のために、
+    /// エディタを通さず Markdown を組み立て、画像はその付箋の assets へ保存する。
+    /// 貼り付けと違って文字を画像より先に見る。Excel や Word は文字と一緒に
+    /// 選択範囲の絵も載せるので、画像を先に見るとそちらが付箋になってしまう。
+    /// </summary>
+    public static bool TryBuildClipboardNoteContent(
+        System.Windows.IDataObject dataObject, StorageService storage, string noteId, out string content)
     {
-        var assetsDir = _storage.GetNoteAssetsDirectoryPath(ViewModel.Model.Id);
+        content = "";
+        try
+        {
+            var assetsDir = storage.GetNoteAssetsDirectoryPath(noteId);
+            if (TryGetImageFiles(dataObject, out var imageFiles))
+            {
+                var images = new List<string>();
+                foreach (var file in imageFiles)
+                {
+                    try
+                    {
+                        var name = ImageAssetImport.CopyIntoAssets(file, assetsDir);
+                        images.Add($"![{Path.GetFileNameWithoutExtension(name)}](assets/{name})");
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        ErrorReporter.ReportNonFatal("Copy an image file into note assets", ex);
+                    }
+                }
+                content = string.Join("\n", images);
+                return images.Count > 0;
+            }
+
+            if (TryGetClipboardText(dataObject, out var text) && !string.IsNullOrWhiteSpace(text))
+            {
+                content = text;
+                return true;
+            }
+
+            if (TryGetPastedImage(dataObject, out var image))
+            {
+                content = $"![image]({SavePastedImage(image, assetsDir)})";
+                return true;
+            }
+            return false;
+        }
+        catch (Exception ex) when (ex is ExternalException or InvalidOperationException or IOException)
+        {
+            ErrorReporter.ReportNonFatal("Build a note from the clipboard", ex);
+            content = "";
+            return false;
+        }
+    }
+
+    private string SavePastedImage(System.Windows.Media.Imaging.BitmapSource image)
+        => SavePastedImage(image, _storage.GetNoteAssetsDirectoryPath(ViewModel.Model.Id));
+
+    private static string SavePastedImage(System.Windows.Media.Imaging.BitmapSource image, string assetsDir)
+    {
         Directory.CreateDirectory(assetsDir);
 
         var fileName = $"image-{DateTime.Now:yyyyMMdd-HHmmss-fff}-{Guid.NewGuid():N}.png";

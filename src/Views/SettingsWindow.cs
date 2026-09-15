@@ -49,8 +49,8 @@ public sealed class SettingsWindow : Window
     private readonly AppSettings _settings;
     private readonly App _app;
     private readonly WpfTextBox _notesRootBox = new();
-    private readonly WpfTextBox _hotkeyBox = new() { IsReadOnly = true, MinHeight = 32, VerticalContentAlignment = VerticalAlignment.Center };
-    public bool IsCapturingHotkey => _hotkeyBox.IsKeyboardFocusWithin;
+    private readonly List<WpfTextBox> _hotkeyBoxes = [];
+    public bool IsCapturingHotkey => _hotkeyBoxes.Any(box => box.IsKeyboardFocusWithin);
     private bool _loading = true;
 
     public SettingsWindow(AppSettings settings, App app)
@@ -598,8 +598,12 @@ public sealed class SettingsWindow : Window
         var panel = new StackPanel();
         panel.Children.Add(SectionHeader("SettingsBehavior"));
         // スタートアップだけはレジストリ登録を伴うので、App 側の処理を通す。
-        panel.Children.Add(LabeledRow("SettingsStartup", Toggle("TrayStartup",
-            () => _settings.StartWithWindows, _app.SetStartWithWindows)));
+        var startup = new StackPanel();
+        startup.Children.Add(Toggle("TrayStartup",
+            () => _settings.StartWithWindows, _app.SetStartWithWindows));
+        startup.Children.Add(Toggle("SettingsStartHidden",
+            () => _settings.StartHidden, v => _settings.StartHidden = v));
+        panel.Children.Add(LabeledRow("SettingsStartup", startup));
         panel.Children.Add(LabeledRow("SettingsTaskbar", Toggle("TrayShowInTaskbar",
             () => _settings.ShowNotesInTaskbar, v => _settings.ShowNotesInTaskbar = v)));
 
@@ -615,7 +619,12 @@ public sealed class SettingsWindow : Window
             Save();
         };
         panel.Children.Add(LabeledRow("SettingsTrayClick", trayClick));
-        panel.Children.Add(LabeledRow("SettingsNewNoteHotkey", BuildHotkeyEditor()));
+        panel.Children.Add(LabeledRow("SettingsNewNoteHotkey", BuildHotkeyEditor(
+            s => s.NewNoteHotkey, v => _settings.NewNoteHotkey = v, _app.TrySetNewNoteHotkey,
+            () => _app.NewNoteHotkeyError, GlobalNoteHotkey.DefaultGesture, "HotkeyHint")));
+        panel.Children.Add(LabeledRow("SettingsClipboardNoteHotkey", BuildHotkeyEditor(
+            s => s.ClipboardNoteHotkey, v => _settings.ClipboardNoteHotkey = v, _app.TrySetClipboardNoteHotkey,
+            () => _app.ClipboardNoteHotkeyError, GlobalNoteHotkey.DefaultClipboardGesture, "ClipboardHotkeyHint")));
 
         var folding = new StackPanel();
         folding.Children.Add(Toggle("TrayTitlePreviewTooltip",
@@ -676,43 +685,51 @@ public sealed class SettingsWindow : Window
         return box;
     }
 
-    private StackPanel BuildHotkeyEditor()
+    /// <summary>
+    /// ショートカットの指定欄。新規作成とクリップボードからの作成で同じ部品を使う。
+    /// </summary>
+    /// <param name="gesture">設定から今のキーを読む。</param>
+    /// <param name="storeGesture">登録できたキーをこの画面の設定へ書く。</param>
+    private StackPanel BuildHotkeyEditor(Func<AppSettings, string> gesture, Action<string> storeGesture,
+        Func<string, bool> trySet, Func<string> error, string defaultGesture, string hintKey)
     {
         var panel = new StackPanel();
-        _hotkeyBox.Text = _settings.NewNoteHotkey;
-        _hotkeyBox.ToolTip = LocalizationService.T("HotkeyHint");
-        var status = new WpfTextBlock { Text = _app.NewNoteHotkeyError, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0) };
+        var hotkeyBox = new WpfTextBox { IsReadOnly = true, MinHeight = 32, VerticalContentAlignment = VerticalAlignment.Center };
+        _hotkeyBoxes.Add(hotkeyBox);
+        hotkeyBox.Text = gesture(_settings);
+        hotkeyBox.ToolTip = LocalizationService.T(hintKey);
+        var status = new WpfTextBlock { Text = error(), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0) };
         status.SetResourceReference(ForegroundProperty, "SettingsText");
-        _hotkeyBox.PreviewKeyDown += (sender, e) =>
+        hotkeyBox.PreviewKeyDown += (sender, e) =>
         {
             var key = e.Key == System.Windows.Input.Key.System ? e.SystemKey : e.Key;
             if (key == System.Windows.Input.Key.Tab) return;
             e.Handled = true;
-            if (key == System.Windows.Input.Key.Escape) { _hotkeyBox.Text = _settings.NewNoteHotkey; return; }
+            if (key == System.Windows.Input.Key.Escape) { hotkeyBox.Text = gesture(_settings); return; }
             if (key is System.Windows.Input.Key.LeftCtrl or System.Windows.Input.Key.RightCtrl or System.Windows.Input.Key.LeftAlt or System.Windows.Input.Key.RightAlt or System.Windows.Input.Key.LeftShift or System.Windows.Input.Key.RightShift) return;
             var modifiers = System.Windows.Input.Keyboard.Modifiers;
             var keyName = key is >= System.Windows.Input.Key.D0 and <= System.Windows.Input.Key.D9 ? ((char)('0' + key - System.Windows.Input.Key.D0)).ToString() : key.ToString();
-            var gesture = (modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control) ? "Ctrl+" : "") + (modifiers.HasFlag(System.Windows.Input.ModifierKeys.Alt) ? "Alt+" : "") + (modifiers.HasFlag(System.Windows.Input.ModifierKeys.Shift) ? "Shift+" : "") + keyName;
-            if (modifiers.HasFlag(System.Windows.Input.ModifierKeys.Windows) || !GlobalNoteHotkey.TryParse(gesture, out _, out _, out var normalized))
+            var pressed = (modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control) ? "Ctrl+" : "") + (modifiers.HasFlag(System.Windows.Input.ModifierKeys.Alt) ? "Alt+" : "") + (modifiers.HasFlag(System.Windows.Input.ModifierKeys.Shift) ? "Shift+" : "") + keyName;
+            if (modifiers.HasFlag(System.Windows.Input.ModifierKeys.Windows) || !GlobalNoteHotkey.TryParse(pressed, out _, out _, out var normalized))
                 status.Text = LocalizationService.T("HotkeyInvalid");
-            else { _hotkeyBox.Text = normalized; status.Text = ""; }
+            else { hotkeyBox.Text = normalized; status.Text = ""; }
         };
-        panel.Children.Add(_hotkeyBox);
+        panel.Children.Add(hotkeyBox);
         var buttons = new WrapPanel { Margin = new Thickness(0, 6, 0, 0) };
-        void Apply(string gesture)
+        void Apply(string value)
         {
-            if (_app.TrySetNewNoteHotkey(gesture))
+            if (trySet(value))
             {
-                _settings.NewNoteHotkey = _app.Settings.NewNoteHotkey;
-                _hotkeyBox.Text = _settings.NewNoteHotkey;
-                status.Text = LocalizationService.T(_settings.NewNoteHotkey.Length == 0 ? "HotkeyDisabled" : "HotkeyApplied");
+                storeGesture(gesture(_app.Settings));
+                hotkeyBox.Text = gesture(_settings);
+                status.Text = LocalizationService.T(hotkeyBox.Text.Length == 0 ? "HotkeyDisabled" : "HotkeyApplied");
             }
-            else status.Text = _app.NewNoteHotkeyError;
+            else status.Text = error();
         }
         foreach (var (label, action) in new (string, Action)[]
         {
-            ("HotkeyApply", () => Apply(_hotkeyBox.Text)),
-            ("HotkeyDefault", () => Apply(GlobalNoteHotkey.DefaultGesture)),
+            ("HotkeyApply", () => Apply(hotkeyBox.Text)),
+            ("HotkeyDefault", () => Apply(defaultGesture)),
             ("HotkeyDisable", () => Apply("")),
         })
         {
@@ -721,7 +738,7 @@ public sealed class SettingsWindow : Window
             buttons.Children.Add(button);
         }
         panel.Children.Add(buttons);
-        panel.Children.Add(new WpfTextBlock { Text = LocalizationService.T("HotkeyHint"), TextWrapping = TextWrapping.Wrap });
+        panel.Children.Add(new WpfTextBlock { Text = LocalizationService.T(hintKey), TextWrapping = TextWrapping.Wrap });
         panel.Children.Add(status);
         return panel;
     }

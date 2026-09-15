@@ -734,6 +734,11 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="HotkeyDisable" xml:space="preserve"><value>Disable</value></data>
   <data name="HotkeyDisabled" xml:space="preserve"><value>Shortcut disabled.</value></data>
   <data name="HotkeyApplied" xml:space="preserve"><value>Shortcut saved and active.</value></data>
+  <data name="SettingsStartHidden" xml:space="preserve"><value>Start with notes hidden (wait in the tray)</value></data>
+  <data name="TrayNewNoteFromClipboard" xml:space="preserve"><value>New note from clipboard</value></data>
+  <data name="SettingsClipboardNoteHotkey" xml:space="preserve"><value>New note from clipboard shortcut</value></data>
+  <data name="ClipboardHotkeyHint" xml:space="preserve"><value>Creates a note from the text, image, or image files on the clipboard. Keys are set the same way as above. Default: Ctrl+Alt+Shift+N.</value></data>
+  <data name="ClipboardNoteEmpty" xml:space="preserve"><value>The clipboard has no text or image to make a note from.</value></data>
   <data name="ReminderFlashNote" xml:space="preserve"><value>Flash note border for 10 seconds (shows hidden notes)</value></data>
   <data name="UndoTooltip" xml:space="preserve"><value>Undo (Ctrl+Z)</value></data>
   <data name="RedoTooltip" xml:space="preserve"><value>Redo (Ctrl+Y)</value></data>

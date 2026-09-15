@@ -63,6 +63,20 @@ public partial class StickyNoteWindow
         }));
     }
 
+    /// <summary>
+    /// 中身を入れて作った付箋（クリップボードから作成）を、編集には入らず前に出す。
+    /// 作成を指示したメニューやショートカットの処理が終わってから活性化する。
+    /// </summary>
+    public void RevealNewNote()
+    {
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input, new Action(() =>
+        {
+            if (_isClosed || !IsVisible) return;
+            Activate();
+            App.Current?.NoteTouched(this);
+        }));
+    }
+
     private void EnterEditModeCore()
     {
         if (_isEditMode && BodyEditBox.Visibility == Visibility.Visible) return;
@@ -859,7 +873,7 @@ public partial class StickyNoteWindow
         }
     }
 
-    private static string FormatByteSize(int bytes)
+    internal static string FormatByteSize(int bytes)
     {
         if (bytes >= 1024 * 1024)
             return FormattableString.Invariant($"{bytes / 1024.0 / 1024.0:0.#} MB");

@@ -23,6 +23,9 @@ namespace ScreenPinNotes.Views;
 
 public partial class StickyNoteWindow
 {
+    /// <summary>タイトルバー右端のボタンを、リサイズ枠より1px内側へ離す幅。</summary>
+    private double TitleBarEndGapWidth => Settings.Layout.ResizeBorder + 1;
+
     private double MeasureFoldedWidth()
     {
         if (ViewModel.Model.ManualFoldedWidth is > 0 and var manual && double.IsFinite(manual))
@@ -42,7 +45,7 @@ public partial class StickyNoteWindow
         var padding = ViewModel.NoteContentPadding;
         var chrome = hidden
             ? padding.Left + padding.Right + 10 + (icon == 0 ? 24 : icon + 18)
-            : 10 + (icon == 0 ? 0 : icon + 6) + 26 * (Settings.ShowFoldButton ? 3 : 2);
+            : 10 + (icon == 0 ? 0 : icon + 6) + 26 * (Settings.ShowFoldButton ? 3 : 2) + TitleBarEndGapWidth;
         if (!hidden)
             foreach (var child in TitleBar.Children.OfType<TextBlock>().Where(c => Grid.GetColumn(c) is >= 2 and <= 4))
             {
@@ -52,6 +55,25 @@ public partial class StickyNoteWindow
         return Math.Clamp(Math.Ceiling(measured.WidthIncludingTrailingWhitespace + chrome),
             MinWidth, Math.Max(MinWidth, Math.Min(480, ViewModel.Model.Width)));
     }
+
+    /// <summary>
+    /// ウィンドウを今の表示（開いた／閉じた）本来の大きさへ合わせ直す。保存値は変えない。
+    /// </summary>
+    private void RestorePresentationBounds()
+        => SuppressWindowBoundsSave(() =>
+        {
+            Trace("RestorePresentationBounds");
+            if (ViewModel.IsFolded)
+            {
+                SetResizeEnabled(false); // 1行分の高さとその上下限を当て直す
+                Width = MeasureFoldedWidth();
+            }
+            else
+            {
+                Width = ViewModel.Model.Width;
+                Height = _geometry.ExpandedHeight;
+            }
+        });
 
     private void FitFoldedWidth()
     {
@@ -99,6 +121,9 @@ public partial class StickyNoteWindow
     // the source. Protect the entire transition, not only individual assignments.
     private void ApplyFoldStateCore(bool folded, Action? onUnfolded)
     {
+        if (DiagnosticTrace.Enabled)
+            Trace($"ApplyFoldState folded={folded} model={ViewModel.Model.Width:0.#}x{ViewModel.Model.Height:0.#} " +
+                  $"foldedWidth={ViewModel.Model.FoldedWidth:0.#} manualFoldedWidth={ViewModel.Model.ManualFoldedWidth:0.#}");
         _resizeContentRefresh?.Abort();
         if (!folded)
         {
@@ -196,6 +221,7 @@ public partial class StickyNoteWindow
             Height = to;
             BeginAnimation(HeightProperty, null);
             _isFoldAnimationRunning = false;
+            if (DiagnosticTrace.Enabled) Trace($"FoldAnimation finished to={to:0.#}");
             completed?.Invoke();
         };
         _completeFoldAnimation = finish;

@@ -49,9 +49,9 @@ namespace ScreenPinNotes.Views;
 
 public partial class StickyNoteWindow
 {
-    // 非アクティブな付箋を最初にクリックしたときは、まず前面化だけを行う。
-    // 同じマウス操作を折りたたみ／展開クリックとしても処理すると、裏に
-    // あった付箋を確認しただけで表示状態まで変わってしまう。
+    // 非アクティブな開いた付箋を最初にクリックしたときは、まず前面化だけを行う。
+    // 同じマウス操作を折りたたみクリックとしても処理すると、裏にあった付箋を
+    // 確認しただけで畳まれてしまう。畳んだ付箋は1回のクリックで開く。
     private bool _mouseActivating;
     private bool _suppressTitleAction;
 
@@ -66,6 +66,7 @@ public partial class StickyNoteWindow
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        if (DiagnosticTrace.Enabled) Trace($"TitleBar down via={(sender as FrameworkElement)?.Name} clicks={e.ClickCount} suppress={_suppressTitleAction} source={e.OriginalSource?.GetType().Name}");
         // タイトル編集欄をクリックしたときは、キャレット配置をそのまま
         // TextBox に任せる。ドラッグ開始・畳み判定もスキップし、
         // ウィンドウが動いたり編集欄が閉じたりしないようにする。
@@ -124,6 +125,7 @@ public partial class StickyNoteWindow
 
     private void TitleBar_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
+        if (DiagnosticTrace.Enabled) Trace($"TitleBar up via={(sender as FrameworkElement)?.Name} clicks={e.ClickCount} dragging={_isDragging} moved={_dragMoved} suppress={_suppressTitleAction}");
         // ドラッグ扱いでなかった場合も含め、キャプチャは必ず手放す。
         ((UIElement)sender).ReleaseMouseCapture();
         if (!_isDragging) return;
@@ -288,9 +290,12 @@ public partial class StickyNoteWindow
     {
         // WM_MOUSEACTIVATE precedes WPF Activated and PreviewMouseDown. By the
         // time this handler runs IsActive alone no longer identifies that click.
+        if (DiagnosticTrace.Enabled) Trace($"PreviewMouseDown {e.ChangedButton} clicks={e.ClickCount} mouseActivating={_mouseActivating} source={e.OriginalSource?.GetType().Name}");
         if (e.ChangedButton == MouseButton.Left)
         {
-            _suppressTitleAction = _mouseActivating || !IsActive;
+            // 畳んだ付箋は開くために触るものなので、前面化と同じクリックで開く。
+            // 抑えるのは開いた付箋だけ（裏から前に出すつもりのクリックで畳まない）。
+            _suppressTitleAction = (_mouseActivating || !IsActive) && !ViewModel.IsFolded;
             _mouseActivating = false;
         }
         App.Current?.NoteTouched(this);
@@ -466,6 +471,7 @@ public partial class StickyNoteWindow
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
+        if (DiagnosticTrace.Enabled) TraceMessage(msg, wParam, lParam);
         if (msg == 0x0021) // WM_MOUSEACTIVATE: remember before WPF activates us.
             _mouseActivating = ((lParam.ToInt64() >> 16) & 0xffff) == 0x0201;
         HandleTaskbarMessage(hwnd, msg, wParam, lParam, ref handled);
@@ -495,11 +501,15 @@ public partial class StickyNoteWindow
         {
             var startedFolded = _sizingGestureStartedFolded;
             _isSizingGesture = false;
-            // 1行表示で決めた幅のまま展開されていたら、開いた表示本来の幅へ戻す。
-            // ドラッグ最後のサイズ変更が展開処理の後に適用されると、開いた付箋が
-            // 1行表示の幅のまま残ってしまう。
-            if (startedFolded && !ViewModel.IsFolded && !_isEditMode)
-                SuppressWindowBoundsSave(() => Width = ViewModel.Model.Width);
+            // 途中で表示が切り替わっていたら、今の表示本来の大きさへ戻す。Windows は
+            // 掴んだ時点の矩形を基準に大きさを当て続けるので、1行表示で始めた辺ドラッグの
+            // 途中で開くと、高さは1行分へ潰される。幅だけ戻すと、開いた付箋が
+            // 開いたときの幅のまま1行の高さで残ってしまう。
+            if (startedFolded != ViewModel.IsFolded && !_isEditMode)
+            {
+                CompleteFoldAnimation();
+                RestorePresentationBounds();
+            }
             return IntPtr.Zero;
         }
 
@@ -629,6 +639,17 @@ public partial class StickyNoteWindow
 
     private static bool IsControlPressed()
         => (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
+
+    // 物理ボタンを見るので、左右を入れ替えている人のために両方を調べる。
+    private static bool IsMouseButtonPressed()
+        => ((GetAsyncKeyState(0x01) | GetAsyncKeyState(0x02)) & 0x8000) != 0;
+
+    /// <summary>
+    /// マウスで辺をドラッグしている最中か。この間に表示を切り替えても、Windows が
+    /// 掴んだ時点の矩形を当て続けるので、開いた付箋が一瞬見えてすぐ潰れる。
+    /// ボタンも見るのは、終わりの通知を取りこぼしても切り替えが効かなくならないように。
+    /// </summary>
+    private bool IsMouseSizingGesture => _isSizingGesture && IsMouseButtonPressed();
 
     private static bool TryNearest(double value, List<double> targets, out double snapped)
     {

@@ -112,6 +112,7 @@ public class SettingsWindowTests
                      {
                          "SettingsTitleBar", "SettingsTheme", "SettingsStartup", "SettingsTaskbar",
                          "SettingsTrayClick", "SettingsFolding", "SettingsBackup",
+                         "SettingsStartHidden", "SettingsClipboardNoteHotkey",
                      })
                 Assert.NotEqual(key, LocalizationService.T(key, language));
 

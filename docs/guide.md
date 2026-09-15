@@ -39,7 +39,7 @@ Title bar visibility and collapse/expand are independent settings.
 
 ## Modifier keys and shortcuts
 
-While the app is running, **Ctrl+Alt+N** creates a new note from other apps. In Settings, focus the New note shortcut field, press a key combination, and click Apply. You can also restore the default or disable the shortcut. If another app has registered the combination, the previous shortcut remains active.
+While the app is running, **Ctrl+Alt+N** creates a new note from other apps, and **Ctrl+Alt+Shift+N** creates one from the clipboard's text, image, or copied image files (changed under New note from clipboard shortcut). In Settings, focus the New note shortcut field, press a key combination, and click Apply. You can also restore the default or disable the shortcut. If another app has registered the combination, the previous shortcut remains active.
 
 | Action | Result |
 | --- | --- |
@@ -163,8 +163,9 @@ The app must be running in the tray. Missed reminders are delivered once on rest
 | Tray right-click | Create notes, note list, hidden notes, settings, exit |
 | Note list | Search titles, bodies, external paths, and more; manage visibility, reminders, and deletion |
 | Hidden notes | Restore individually hidden notes; Show all does not restore them |
-| Settings | New-note defaults, theme, language, note appearance, startup, taskbar/tray behavior, external file refresh/tail behavior, and storage |
+| Settings | New-note defaults, theme, language, note appearance, startup (including starting with notes hidden in the tray), taskbar/tray behavior, external file refresh/tail behavior, and storage |
 | Open external file as note | Display `.md` / `.txt` / `.log` read-only and follow file changes (minimum refresh interval configurable in Settings) |
+| New note from clipboard | Create a note from the clipboard's text, image, or copied image files (images are copied into the note) |
 
 ![The settings window](settings-en.png)
 
@@ -179,6 +180,8 @@ Settings save immediately (shortcut changes require Apply). New-note defaults ap
 External notes show `🔗`, and their title bar shows the time the content was last refreshed so you can tell at a glance whether it's current. Their menu can open the file or folder, toggle tail mode, or convert the content into an editable note. Deleting the note or changing image display sizes does not modify the original file.
 
 Outside of tail mode, an auto-refresh keeps your scroll position and text cursor in place as much as possible instead of jumping back to the top.
+
+Windows may not report changes while the writing program keeps the file open, as loggers usually do. The note therefore also checks the file's size and modification time: every second for 30 seconds after a change, and every 5 seconds otherwise.
 
 In tail mode, log levels are colored (case-insensitive): green for `TRACE`, `DEBUG`, `INFO`, `VERBOSE` and `NOTICE`; orange for `WARN` and `WARNING`; red for `ERROR`, `FATAL`, `CRITICAL`, `SEVERE`, `PANIC`, `ALERT` and `EMERG`. Three-letter forms such as `TRC`, `DBG`, `INF`, `WRN`, `ERR` and `FTL` are recognized too, as are outputs like `trce`, `dbug`, `fail` and `crit` (single-letter markers are not, since they cannot be told apart from ordinary text). Only the first level word on each line is colored. Numbers are shown in blue so timestamps and counts are easy to pick out; values joined by separators, such as `2026-09-15`, `09:12:03.221` and `16/16`, stay in one piece.
 
@@ -205,6 +208,8 @@ ScreenPinNotes/
 Use **Settings** to change storage or export/import zip backups. Imports add notes without overwriting existing ones. The default body limit is 1 MB.
 
 Set `SCREENPINNOTES_DATA` to run with a separate data directory. Close the app before manually editing `settings.json`.
+
+To investigate a problem that only happens on one PC, set `"EnableDiagnosticTrace": true` in `settings.json` (or the environment variable `SCREENPINNOTES_TRACE=1`) and restart the app. Resizing, folding, and the related Windows messages are written to `logs\trace.log` in the data directory, together with display and mouse settings. Note titles and contents are not recorded. Turn it off again when done.
 
 ## Development and license
 

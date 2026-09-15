@@ -23,6 +23,8 @@ namespace ScreenPinNotes.Services;
 public sealed class GlobalNoteHotkey : IDisposable
 {
     public const string DefaultGesture = "Ctrl+Alt+N";
+    // Ctrl+Alt+V is Office's Paste Special; a global registration would take it away.
+    public const string DefaultClipboardGesture = "Ctrl+Alt+Shift+N";
     private readonly HwndSource _source;
     private int _registeredId;
     public string Gesture { get; private set; } = "";

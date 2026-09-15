@@ -27,6 +27,10 @@ public partial class StickyNoteWindow
     private void TransitionTo(DisplayMode target, Action? onUnfolded = null)
     {
         if (_isClosed) return;
+        if (DiagnosticTrace.Enabled)
+            Trace($"TransitionTo {target} blocked={IsMouseSizingGesture} caller={DiagnosticTrace.Caller()}");
+        // 辺をドラッグしている最中は切り替えない（IsMouseSizingGesture 参照）。
+        if (IsMouseSizingGesture) return;
         if ((target is DisplayMode.BodyEdit or DisplayMode.TitleEdit) && IsContentReadOnly())
         {
             ShowSizeOverlay(LocalizationService.T("EditLockNotice"));
