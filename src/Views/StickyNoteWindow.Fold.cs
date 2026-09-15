@@ -53,6 +53,24 @@ public partial class StickyNoteWindow
             MinWidth, Math.Max(MinWidth, Math.Min(480, ViewModel.Model.Width)));
     }
 
+    /// <summary>
+    /// ウィンドウを今の表示（開いた／閉じた）本来の大きさへ合わせ直す。保存値は変えない。
+    /// </summary>
+    private void RestorePresentationBounds()
+        => SuppressWindowBoundsSave(() =>
+        {
+            if (ViewModel.IsFolded)
+            {
+                SetResizeEnabled(false); // 1行分の高さとその上下限を当て直す
+                Width = MeasureFoldedWidth();
+            }
+            else
+            {
+                Width = ViewModel.Model.Width;
+                Height = _geometry.ExpandedHeight;
+            }
+        });
+
     private void FitFoldedWidth()
     {
         if (!ViewModel.IsFolded || _isEditMode || _isFoldAnimationRunning) return;

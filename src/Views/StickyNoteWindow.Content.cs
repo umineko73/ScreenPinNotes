@@ -1516,21 +1516,12 @@ public partial class StickyNoteWindow
 
         try
         {
-            var fullPath = Path.GetFullPath(ViewModel.Model.ExternalContentPath);
-            var directory = Path.GetDirectoryName(fullPath);
-            var fileName = Path.GetFileName(fullPath);
-            if (string.IsNullOrWhiteSpace(directory) || string.IsNullOrWhiteSpace(fileName))
-                return;
-
-            _externalContentWatcher = new FileSystemWatcher(directory, fileName)
-            {
-                NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size,
-                EnableRaisingEvents = true,
-            };
-            _externalContentWatcher.Changed += (_, _) => ReloadExternalContent();
-            _externalContentWatcher.Created += (_, _) => ReloadExternalContent();
-            _externalContentWatcher.Renamed += (_, _) => ReloadExternalContent();
-            _externalContentWatcher.Deleted += (_, _) => ReloadExternalContent();
+            // 書き手が開いたまま追記するファイルは監視の通知が届かないことがあるので、
+            // 長さと更新日時の確認も併用する。確認はワーカースレッドで走り、
+            // ReloadExternalContent が UI スレッドへ渡す。
+            var settings = Settings;
+            _externalContentMonitor = new ExternalFileMonitor(
+                ViewModel.Model.ExternalContentPath, () => settings.ExternalFile, ReloadExternalContent);
         }
         catch (Exception ex)
         {
@@ -1543,11 +1534,8 @@ public partial class StickyNoteWindow
         _externalContentReloadThrottleTimer?.Stop();
         _externalContentReloadThrottleTimer = null;
 
-        if (_externalContentWatcher == null)
-            return;
-
-        _externalContentWatcher.Dispose();
-        _externalContentWatcher = null;
+        _externalContentMonitor?.Dispose();
+        _externalContentMonitor = null;
     }
 
     /// <summary>

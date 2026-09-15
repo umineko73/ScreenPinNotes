@@ -35,7 +35,7 @@ A darker palette for your desktop, including notes without title bars and notes 
 | Multiple monitors | Notes that a resolution change or an unplugged monitor would leave off-screen move to a monitor that can show them, and return to their own place once that layout is back |
 | Reminders | Schedule once, daily, weekly, or monthly; use flashing borders and snooze alerts |
 | Note list | Search notes, show or hide them, and manage stacking order and reminders |
-| External files | Open `.md` / `.txt` / `.log` files as read-only notes that follow file changes, with a configurable minimum refresh interval; `.log` files default to tail mode, showing only the last N lines as plain text and auto-scrolling to the newest line |
+| External files | Open `.md` / `.txt` / `.log` files as read-only notes that follow file changes (including logs a program keeps open while appending), with a configurable minimum refresh interval; `.log` files default to tail mode, showing only the last N lines as plain text and auto-scrolling to the newest line |
 | Local storage | Markdown bodies and JSON settings, with zip backup export and import |
 
 ## Get started
@@ -44,7 +44,7 @@ Windows 10 or later, x64. No installation needed.
 
 1. Download a zip from [Releases](https://github.com/umineko73/ScreenPinNotes/releases) and extract it.
 2. Launch `ScreenPinNotes.exe`.
-3. Press `Ctrl+Alt+N` or right-click the tray icon to create a note and start typing.
+3. Press `Ctrl+Alt+N` or right-click the tray icon to create a note and start typing. `Ctrl+Alt+Shift+N` turns the clipboard's text or image into a note.
 
 | Package | Requirements |
 | --- | --- |

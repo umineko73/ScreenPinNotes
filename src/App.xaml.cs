@@ -40,25 +40,45 @@ public partial class App : System.Windows.Application
     private readonly ReminderDelivery _reminderDelivery = new();
     private bool _shuttingDown;
     private GlobalNoteHotkey? _newNoteHotkey;
+    private GlobalNoteHotkey? _clipboardNoteHotkey;
     public string NewNoteHotkeyError { get; private set; } = "";
+    public string ClipboardNoteHotkeyError { get; private set; } = "";
+
+    // リマインダーの編集中・キーの指定中・一括処理中は割り込まない。
+    private bool CanRunGlobalHotkey()
+        => !_shuttingDown && _openReminderDialogs == 0 && _settingsWindow?.IsCapturingHotkey != true && !_windows.Any(w => !w.IsEnabled);
 
     public bool TrySetNewNoteHotkey(string gesture)
     {
         _newNoteHotkey ??= new GlobalNoteHotkey(() =>
         {
-            if (!_shuttingDown && _openReminderDialogs == 0 && _settingsWindow?.IsCapturingHotkey != true && !_windows.Any(w => !w.IsEnabled))
+            if (CanRunGlobalHotkey())
                 AddNewNote();
         });
-        if (!_newNoteHotkey.TrySet(gesture))
-        {
-            NewNoteHotkeyError = LocalizationService.T("HotkeyUnavailable");
-            return false;
-        }
-        NewNoteHotkeyError = "";
+        NewNoteHotkeyError = TrySetHotkey(_newNoteHotkey, gesture);
+        if (NewNoteHotkeyError.Length > 0) return false;
         _settings.NewNoteHotkey = _newNoteHotkey.Gesture;
         _storage.SaveSettings(_settings);
         return true;
     }
+
+    public bool TrySetClipboardNoteHotkey(string gesture)
+    {
+        _clipboardNoteHotkey ??= new GlobalNoteHotkey(() =>
+        {
+            if (CanRunGlobalHotkey())
+                AddNewNoteFromClipboard();
+        });
+        ClipboardNoteHotkeyError = TrySetHotkey(_clipboardNoteHotkey, gesture);
+        if (ClipboardNoteHotkeyError.Length > 0) return false;
+        _settings.ClipboardNoteHotkey = _clipboardNoteHotkey.Gesture;
+        _storage.SaveSettings(_settings);
+        return true;
+    }
+
+    /// <summary>登録できなければ、その理由を返す。</summary>
+    private static string TrySetHotkey(GlobalNoteHotkey hotkey, string gesture)
+        => hotkey.TrySet(gesture) ? "" : LocalizationService.T("HotkeyUnavailable");
 
     public IReadOnlyList<StickyNoteWindow> NoteWindows => _windows;
     public AppSettings Settings => _settings;
@@ -132,8 +152,11 @@ public partial class App : System.Windows.Application
         InitIpcWindow();
         InitTrayIcon();
         InitScreenLayoutWatch();
-        if (!TrySetNewNoteHotkey(_settings.NewNoteHotkey))
-            _trayIcon?.ShowBalloonTip(5000, "ScreenPinNotes", NewNoteHotkeyError, ToolTipIcon.Warning);
+        // 通知は1回にまとめる。続けて出すと、後の通知が前の通知を置き換えてしまう。
+        var newNoteHotkeyApplied = TrySetNewNoteHotkey(_settings.NewNoteHotkey);
+        var clipboardNoteHotkeyApplied = TrySetClipboardNoteHotkey(_settings.ClipboardNoteHotkey);
+        if (!newNoteHotkeyApplied || !clipboardNoteHotkeyApplied)
+            _trayIcon?.ShowBalloonTip(5000, "ScreenPinNotes", LocalizationService.T("HotkeyUnavailable"), ToolTipIcon.Warning);
 
         var notes = _storage.Load(_settings.ExternalFile.TailLineCount);
         if (notes.Count == 0)
@@ -142,8 +165,10 @@ public partial class App : System.Windows.Application
             _storage.Save(notes);
         }
 
+        // 「起動時に表示しない」ときも付箋ごとの非表示は書き換えない。トレイの
+        // 「すべて表示」や二重起動時の全表示で、普段どおりに出てくる。
         foreach (var note in notes)
-            OpenNoteWindow(note);
+            OpenNoteWindow(note, show: !_settings.StartHidden);
         ForgetLastActiveNote();
 
         RefreshTrayMenu();
@@ -277,6 +302,7 @@ public partial class App : System.Windows.Application
         menu.Items.Add(BuildHiddenNotesMenu());
         menu.Items.Add("-");
         menu.Items.Add(LocalizationService.T("TrayNewNote"), null, (_, _) => AddNewNote());
+        menu.Items.Add(LocalizationService.T("TrayNewNoteFromClipboard"), null, (_, _) => AddNewNoteFromClipboard());
         menu.Items.Add(LocalizationService.T("TrayOpenExternalNote"), null, (_, _) => AddExternalFileNoteFromDialog());
         menu.Items.Add(LocalizationService.T("TrayNoteManager"), null, (_, _) => ShowNoteManager());
         menu.Items.Add("-");
@@ -827,6 +853,65 @@ public partial class App : System.Windows.Application
     public void AddNewNote(StickyNote? template = null, double? x = null, double? y = null,
         double? scale = null)
     {
+        var window = OpenNoteWindow(CreateNewNote(template, x, y, scale));
+        window.StartEditingNewNote();
+        SaveAll();
+    }
+
+    /// <summary>
+    /// クリップボードの内容（画像ファイル・文字・画像）を本文にした付箋を作る。
+    /// 中身があるので編集には入らず、そのまま表示する。
+    /// </summary>
+    public void AddNewNoteFromClipboard()
+    {
+        var note = CreateNewNote(null, null, null, null);
+        if (TryGetClipboardDataObject() is not { } data ||
+            !StickyNoteWindow.TryBuildClipboardNoteContent(data, _storage, note.Id, out var content))
+        {
+            ShowTrayNotice(LocalizationService.T("ClipboardNoteEmpty"));
+            return;
+        }
+        if (System.Text.Encoding.UTF8.GetByteCount(content) > _settings.MaxNoteContentBytes)
+        {
+            ShowTrayNotice(string.Format(LocalizationService.T("NoteContentTooLarge"),
+                StickyNoteWindow.FormatByteSize(_settings.MaxNoteContentBytes)));
+            return;
+        }
+
+        note.Content = content;
+        var window = OpenNoteWindow(note);
+        window.RevealNewNote();
+        SaveAll();
+        RefreshTrayMenu();
+        _noteManagerWindow?.RefreshNotes();
+    }
+
+    // 他のアプリがクリップボードを開いている瞬間は読めないので、少し待って数回試す。
+    private static System.Windows.IDataObject? TryGetClipboardDataObject()
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return System.Windows.Clipboard.GetDataObject();
+            }
+            catch (System.Runtime.InteropServices.ExternalException) when (attempt < 5)
+            {
+                Thread.Sleep(40);
+            }
+            catch (Exception ex) when (ex is System.Runtime.InteropServices.ExternalException or InvalidOperationException)
+            {
+                ErrorReporter.ReportNonFatal("Read clipboard for a new note", ex);
+                return null;
+            }
+        }
+    }
+
+    private void ShowTrayNotice(string message)
+        => _trayIcon?.ShowBalloonTip(3000, "ScreenPinNotes", message, ToolTipIcon.Info);
+
+    private StickyNote CreateNewNote(StickyNote? template, double? x, double? y, double? scale)
+    {
         var layout = _settings.Layout;
         var monitors = MonitorLayout.Current();
         var note = NewNoteFactory.Create(
@@ -841,9 +926,7 @@ public partial class App : System.Windows.Application
         note.PositionLayout = MonitorLayout.Signature(monitors);
 
         note.LayerOrder = _windows.Select(w => w.ViewModel.Model.LayerOrder).DefaultIfEmpty(0).Min() - 1;
-        var window = OpenNoteWindow(note);
-        window.StartEditingNewNote();
-        SaveAll();
+        return note;
     }
 
     private void AddExternalFileNoteFromDialog()
@@ -907,7 +990,8 @@ public partial class App : System.Windows.Application
         _noteManagerWindow?.RefreshNotes();
     }
 
-    private StickyNoteWindow OpenNoteWindow(StickyNote note)
+    /// <param name="show">false なら作るだけで表示しない（起動時に表示しない設定）。</param>
+    private StickyNoteWindow OpenNoteWindow(StickyNote note, bool show = true)
     {
         var vm  = new StickyNoteViewModel(note, _settings);
         var win = new StickyNoteWindow(vm, _storage);
@@ -917,7 +1001,7 @@ public partial class App : System.Windows.Application
             if (e.PropertyName == nameof(StickyNoteViewModel.IsTopmost)) QueueLayerOrder();
         };
         QueueLayerOrder();
-        if (!note.IsHidden)
+        if (show && !note.IsHidden)
             win.Show();
         return win;
     }

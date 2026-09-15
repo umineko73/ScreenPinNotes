@@ -116,7 +116,7 @@ public partial class StickyNoteWindow : Window
     private bool       _isPaneScrollDragging;
     private bool       _suppressNextContentContextMenu;
     private bool       _isClosed;
-    private FileSystemWatcher? _externalContentWatcher;
+    private ExternalFileMonitor? _externalContentMonitor;
     private System.Windows.Point _paneScrollStartPoint;
     private double     _paneScrollStartHorizontalOffset;
     private double     _paneScrollStartVerticalOffset;

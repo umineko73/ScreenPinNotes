@@ -94,6 +94,32 @@ public class StickyNoteWindowTests
         finally { settings.DoubleClickToToggleView = previous; window.Close(); }
     }
 
+    /// <summary>
+    /// 畳んだ付箋は開くために触る。前面化のためのクリックを別に求めると、
+    /// 裏にある付箋を開くのに2回クリックが要っていた。
+    /// </summary>
+    [WpfFact]
+    public void MouseActivationStillOpensAFoldedNote()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var window = new StickyNoteWindow(new StickyNoteViewModel(new StickyNote { IsFolded = true }, App.Current.Settings), new StorageService(temp.Path));
+        var settings = App.Current.Settings;
+        var previous = settings.DoubleClickToToggleView;
+        try
+        {
+            settings.DoubleClickToToggleView = false;
+            window.Show();
+            var args = new object?[] { IntPtr.Zero, 0x0021, IntPtr.Zero, new IntPtr(0x02010001), false };
+            typeof(StickyNoteWindow).GetMethod("WndProc", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(window, args);
+            InvokePrivate(window, "Window_PreviewMouseDown", window,
+                new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left));
+            Assert.True((bool)typeof(StickyNoteWindow).GetMethod("ShouldToggleViewOnMouseUp", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(window, new object[] { 1 })!);
+            Assert.False(GetPrivateField<bool>(window, "_mouseActivating"));
+        }
+        finally { settings.DoubleClickToToggleView = previous; window.Close(); }
+    }
+
     [WpfFact]
     public void FoldedOverlayDoesNotReserveHiddenContentScrollbarSpace()
     {
