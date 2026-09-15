@@ -66,6 +66,7 @@ public partial class StickyNoteWindow
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        if (DiagnosticTrace.Enabled) Trace($"TitleBar down via={(sender as FrameworkElement)?.Name} clicks={e.ClickCount} suppress={_suppressTitleAction} source={e.OriginalSource?.GetType().Name}");
         // タイトル編集欄をクリックしたときは、キャレット配置をそのまま
         // TextBox に任せる。ドラッグ開始・畳み判定もスキップし、
         // ウィンドウが動いたり編集欄が閉じたりしないようにする。
@@ -124,6 +125,7 @@ public partial class StickyNoteWindow
 
     private void TitleBar_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
+        if (DiagnosticTrace.Enabled) Trace($"TitleBar up via={(sender as FrameworkElement)?.Name} clicks={e.ClickCount} dragging={_isDragging} moved={_dragMoved} suppress={_suppressTitleAction}");
         // ドラッグ扱いでなかった場合も含め、キャプチャは必ず手放す。
         ((UIElement)sender).ReleaseMouseCapture();
         if (!_isDragging) return;
@@ -288,6 +290,7 @@ public partial class StickyNoteWindow
     {
         // WM_MOUSEACTIVATE precedes WPF Activated and PreviewMouseDown. By the
         // time this handler runs IsActive alone no longer identifies that click.
+        if (DiagnosticTrace.Enabled) Trace($"PreviewMouseDown {e.ChangedButton} clicks={e.ClickCount} mouseActivating={_mouseActivating} source={e.OriginalSource?.GetType().Name}");
         if (e.ChangedButton == MouseButton.Left)
         {
             // 畳んだ付箋は開くために触るものなので、前面化と同じクリックで開く。
@@ -468,6 +471,7 @@ public partial class StickyNoteWindow
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
+        if (DiagnosticTrace.Enabled) TraceMessage(msg, wParam, lParam);
         if (msg == 0x0021) // WM_MOUSEACTIVATE: remember before WPF activates us.
             _mouseActivating = ((lParam.ToInt64() >> 16) & 0xffff) == 0x0201;
         HandleTaskbarMessage(hwnd, msg, wParam, lParam, ref handled);

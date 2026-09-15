@@ -209,6 +209,8 @@ Use **Settings** to change storage or export/import zip backups. Imports add not
 
 Set `SCREENPINNOTES_DATA` to run with a separate data directory. Close the app before manually editing `settings.json`.
 
+To investigate a problem that only happens on one PC, set `"EnableDiagnosticTrace": true` in `settings.json` (or the environment variable `SCREENPINNOTES_TRACE=1`) and restart the app. Resizing, folding, and the related Windows messages are written to `logs\trace.log` in the data directory, together with display and mouse settings. Note titles and contents are not recorded. Turn it off again when done.
+
 ## Development and license
 
 Use Windows and the .NET 8 SDK.

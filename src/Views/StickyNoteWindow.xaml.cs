@@ -550,6 +550,9 @@ public partial class StickyNoteWindow : Window
 
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
     {
+        if (DiagnosticTrace.Enabled)
+            Trace($"SizeChanged {e.PreviousSize.Width:0.#}x{e.PreviousSize.Height:0.#} -> {e.NewSize.Width:0.#}x{e.NewSize.Height:0.#} " +
+                  $"init={_isInitializing} suppress={_suppressWindowBoundsSave} fromCurrent={IsSizeFromCurrentPresentation} state={WindowState}");
         if (_isInitializing) return; // コンストラクタ〜Loaded の初期値設定はモデルに書き戻さない
         if (_suppressWindowBoundsSave) return;
         if (_isFoldAnimationRunning) return; // アニメーション途中の高さを開いた表示サイズとして保存しない

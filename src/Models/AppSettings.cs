@@ -20,6 +20,11 @@ public sealed class AppSettings
     /// 「すべて表示」で普段どおりに戻る。
     /// </summary>
     public bool StartHidden { get; set; }
+    /// <summary>
+    /// 不具合調査用の記録（logs\trace.log）を書くか。画面には出さず、
+    /// settings.json を直接書き換えて使う。
+    /// </summary>
+    public bool EnableDiagnosticTrace { get; set; }
     public bool ShowTitlePreviewTooltip { get; set; }
     public bool EnableFoldAnimation { get; set; }
     public bool ShowFoldButton { get; set; }

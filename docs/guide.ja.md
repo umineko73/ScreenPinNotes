@@ -209,6 +209,8 @@ ScreenPinNotes/
 
 別のデータ環境で起動する場合は `SCREENPINNOTES_DATA` を指定できます。`settings.json` を直接編集するときはアプリを終了してください。
 
+特定の PC でだけ起きる不具合を調べるときは、`settings.json` の `"EnableDiagnosticTrace"` を `true` にして（または環境変数 `SCREENPINNOTES_TRACE=1` を指定して）アプリを起動し直してください。サイズ変更・折りたたみと、それに関わる Windows のメッセージが、画面やマウスの設定と一緒にデータフォルダの `logs\trace.log` に記録されます。付箋のタイトルや本文は記録しません。調べ終わったら元に戻してください。
+
 ## 開発・ライセンス
 
 Windowsと.NET 8 SDKを使用します。

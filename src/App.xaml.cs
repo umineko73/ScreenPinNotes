@@ -143,6 +143,9 @@ public partial class App : System.Windows.Application
         };
 
         _settings = _storage.LoadSettings();
+        DiagnosticTrace.Enabled = _settings.EnableDiagnosticTrace ||
+            Environment.GetEnvironmentVariable(DiagnosticTrace.EnvVar) == "1";
+        TraceEnvironment();
         // スタートアップ登録は既存のレジストリが実体なので、起動時にJSONへ反映する。
         _settings.StartWithWindows = StartupService.IsRegistered;
         EnsureStorageRootSelected();
@@ -173,6 +176,28 @@ public partial class App : System.Windows.Application
 
         RefreshTrayMenu();
         StartReminderTimer();
+    }
+
+    /// <summary>
+    /// 再現する PC としない PC の違いを見比べるための環境情報。辺ドラッグの挙動は
+    /// 「ドラッグ中にウィンドウの内容を表示」やリモート接続、クリック判定の設定で変わる。
+    /// </summary>
+    private void TraceEnvironment()
+    {
+        if (!DiagnosticTrace.Enabled) return;
+        var version = typeof(App).Assembly.GetName().Version;
+        var screens = string.Join("; ", Screen.AllScreens.Select(s =>
+            $"{s.DeviceName} {s.Bounds.Width}x{s.Bounds.Height}@{s.Bounds.X},{s.Bounds.Y}{(s.Primary ? " primary" : "")}"));
+        DiagnosticTrace.Write(
+            $"START version={version} os={Environment.OSVersion.VersionString} " +
+            $"dragFullWindows={SystemInformation.DragFullWindows} remoteSession={SystemInformation.TerminalServerSession} " +
+            $"doubleClickTime={SystemInformation.DoubleClickTime} doubleClickSize={SystemInformation.DoubleClickSize} " +
+            $"dragSize={SystemInformation.DragSize} buttonsSwapped={SystemInformation.MouseButtonsSwapped} " +
+            $"monitors={MonitorLayout.Signature(MonitorLayout.Current())} screens=[{screens}]");
+        DiagnosticTrace.Write(
+            $"SETTINGS doubleClickToToggle={_settings.DoubleClickToToggleView} foldAnimation={_settings.EnableFoldAnimation} " +
+            $"showInTaskbar={_settings.ShowNotesInTaskbar} showFoldButton={_settings.ShowFoldButton} " +
+            $"resizeBorder={_settings.Layout.ResizeBorder} border={_settings.NoteBorderColor} corner={_settings.Layout.NoteCornerRadius}");
     }
 
     private void EnsureStorageRootSelected()

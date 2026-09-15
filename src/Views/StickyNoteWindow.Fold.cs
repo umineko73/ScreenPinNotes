@@ -59,6 +59,7 @@ public partial class StickyNoteWindow
     private void RestorePresentationBounds()
         => SuppressWindowBoundsSave(() =>
         {
+            Trace("RestorePresentationBounds");
             if (ViewModel.IsFolded)
             {
                 SetResizeEnabled(false); // 1行分の高さとその上下限を当て直す
@@ -117,6 +118,9 @@ public partial class StickyNoteWindow
     // the source. Protect the entire transition, not only individual assignments.
     private void ApplyFoldStateCore(bool folded, Action? onUnfolded)
     {
+        if (DiagnosticTrace.Enabled)
+            Trace($"ApplyFoldState folded={folded} model={ViewModel.Model.Width:0.#}x{ViewModel.Model.Height:0.#} " +
+                  $"foldedWidth={ViewModel.Model.FoldedWidth:0.#} manualFoldedWidth={ViewModel.Model.ManualFoldedWidth:0.#}");
         _resizeContentRefresh?.Abort();
         if (!folded)
         {
@@ -214,6 +218,7 @@ public partial class StickyNoteWindow
             Height = to;
             BeginAnimation(HeightProperty, null);
             _isFoldAnimationRunning = false;
+            if (DiagnosticTrace.Enabled) Trace($"FoldAnimation finished to={to:0.#}");
             completed?.Invoke();
         };
         _completeFoldAnimation = finish;
