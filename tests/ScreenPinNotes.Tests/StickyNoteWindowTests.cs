@@ -120,6 +120,46 @@ public class StickyNoteWindowTests
         finally { settings.DoubleClickToToggleView = previous; window.Close(); }
     }
 
+    /// <summary>
+    /// タイトルバーのボタンはウィンドウ枠の中でもクリックを受ける。右端に寄せすぎると
+    /// リサイズ枠に重なり、右端をつかめる所がほとんど残らなかった。
+    /// </summary>
+    [WpfFact]
+    public void TitleBarButtonsStayClearOfTheResizeBorder()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var settings = App.Current.Settings;
+        var previousBorder = settings.Layout.ResizeBorder;
+        var previousFoldButton = settings.ShowFoldButton;
+        var window = new StickyNoteWindow(new StickyNoteViewModel(new StickyNote { Width = 300, Height = 200 }, settings), new StorageService(temp.Path));
+        double GapRightOfFoldButton()
+        {
+            var titleBar = (Grid)window.FindName("TitleBar");
+            var fold = (Button)window.FindName("FoldButton");
+            fold.Visibility = Visibility.Visible; // the buttons otherwise appear on hover
+            window.UpdateLayout();
+            return titleBar.ActualWidth - fold.TranslatePoint(new Point(fold.ActualWidth, 0), titleBar).X;
+        }
+        try
+        {
+            settings.ShowFoldButton = true;
+            window.Show();
+            window.RefreshSettings();
+            Assert.True(GapRightOfFoldButton() > settings.Layout.ResizeBorder);
+
+            settings.Layout.ResizeBorder = 9;
+            window.RefreshSettings();
+            Assert.True(GapRightOfFoldButton() > 9);
+        }
+        finally
+        {
+            settings.Layout.ResizeBorder = previousBorder;
+            settings.ShowFoldButton = previousFoldButton;
+            window.Close();
+        }
+    }
+
     [WpfFact]
     public void FoldedOverlayDoesNotReserveHiddenContentScrollbarSpace()
     {

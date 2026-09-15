@@ -82,6 +82,10 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
+                    <!-- 右端の余白。ボタンはウィンドウ枠の中でもクリックを受けるので、
+                         リサイズ枠に重なると右端をつかめる所がほとんど残らない。
+                         幅はリサイズ枠より少し広く、ApplySettings で合わせる。 -->
+                    <ColumnDefinition x:Name="TitleBarEndGap" Width="6"/>
                 </Grid.ColumnDefinitions>
 
                 <!-- WPFのTextBlockはカラーフォントを描画しないため、
@@ -209,7 +213,6 @@
 
                 <Button x:Name="FoldButton"
                         Grid.Column="8" Content="{Binding FoldIcon}"
-                        Margin="0,0,2,0"
                         Style="{StaticResource TitleBarButtonOnLight}"
                         ToolTip="折りたたむ / 展開する"
                         Click="Fold_Click"/>

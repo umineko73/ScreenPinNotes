@@ -461,6 +461,7 @@ public partial class StickyNoteWindow : Window
         _overlayTimer.Interval = TimeSpan.FromMilliseconds(Settings.Timings.SizeOverlayDurationMs);
         _toolbarHideTimer.Interval = TimeSpan.FromMilliseconds(Settings.Timings.ToolbarHideDelayMs);
         _titlePreviewTimer.Interval = TimeSpan.FromMilliseconds(Settings.Timings.TitlePreviewDelayMs);
+        TitleBarEndGap.Width = new GridLength(TitleBarEndGapWidth);
         ShowInTaskbar = Settings.ShowNotesInTaskbar;
         UpdateIconImage();      // アイコンの色（カラー/モノクロ）の設定を反映する
         RefreshCornerClips();   // 角の丸みの設定を反映する

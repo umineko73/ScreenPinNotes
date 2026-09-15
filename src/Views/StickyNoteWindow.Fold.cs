@@ -23,6 +23,9 @@ namespace ScreenPinNotes.Views;
 
 public partial class StickyNoteWindow
 {
+    /// <summary>タイトルバー右端のボタンを、リサイズ枠より1px内側へ離す幅。</summary>
+    private double TitleBarEndGapWidth => Settings.Layout.ResizeBorder + 1;
+
     private double MeasureFoldedWidth()
     {
         if (ViewModel.Model.ManualFoldedWidth is > 0 and var manual && double.IsFinite(manual))
@@ -42,7 +45,7 @@ public partial class StickyNoteWindow
         var padding = ViewModel.NoteContentPadding;
         var chrome = hidden
             ? padding.Left + padding.Right + 10 + (icon == 0 ? 24 : icon + 18)
-            : 10 + (icon == 0 ? 0 : icon + 6) + 26 * (Settings.ShowFoldButton ? 3 : 2);
+            : 10 + (icon == 0 ? 0 : icon + 6) + 26 * (Settings.ShowFoldButton ? 3 : 2) + TitleBarEndGapWidth;
         if (!hidden)
             foreach (var child in TitleBar.Children.OfType<TextBlock>().Where(c => Grid.GetColumn(c) is >= 2 and <= 4))
             {
