@@ -1517,7 +1517,7 @@ public partial class StickyNoteWindow
         try
         {
             // 書き手が開いたまま追記するファイルは監視の通知が届かないことがあるので、
-            // 長さと更新日時の確認も併用する。確認はワーカースレッドで走り、
+            // 長さと更新日時の確認も併用する。確認は全付箋で共有するタイマーで走り、
             // ReloadExternalContent が UI スレッドへ渡す。
             var settings = Settings;
             _externalContentMonitor = new ExternalFileMonitor(
@@ -1528,6 +1528,12 @@ public partial class StickyNoteWindow
             ErrorReporter.ReportNonFatal("Watch external content", ex);
         }
     }
+
+    /// <summary>
+    /// 止めていた外部ファイルの確認を再開する。開いたまま追記されるファイルは
+    /// 監視の通知が来ないことがあるので、見に来たのをきっかけに確かめ直す。
+    /// </summary>
+    private void WakeExternalContentMonitor() => _externalContentMonitor?.Wake();
 
     private void DisposeExternalContentWatcher()
     {

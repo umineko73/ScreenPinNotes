@@ -675,6 +675,9 @@ public class StickyNoteWindowTests
             var overlay = (Border)window.FindName("ReminderFlashBorder");
             Assert.True(overlay.HasAnimatedProperties);
             Assert.False(overlay.IsHitTestVisible);
+            // 枠だけでなく付箋全体を塗って点滅させる。本文が透けるよう半透明にする。
+            var fill = Assert.IsType<SolidColorBrush>(overlay.Background);
+            Assert.InRange(fill.Color.A, 1, 254);
             Assert.Equal(65, note.OpacityPercent);
             Assert.Equal("body", note.Content);
             window.Hide();
@@ -1494,6 +1497,57 @@ public class StickyNoteWindowTests
         }
     }
 
+    // ERROR / FATAL は背景色を赤へ寄せて点滅させる。ふつうの更新は枠だけ。
+    [WpfFact]
+    public void FlashForExternalUpdate_TintsTheBackgroundOnlyForErrors()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var vm = new StickyNoteViewModel(new StickyNote { Content = "log" }, new AppSettings());
+        var window = new StickyNoteWindow(vm, new StorageService(temp.Path));
+        var foreground = new Window { Width = 120, Height = 120, ShowInTaskbar = false };
+        try
+        {
+            window.Show();
+            foreground.Show();
+            foreground.Activate();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            var border = (Border)window.FindName("UpdateFlashBorder")!;
+            var root = (Border)window.FindName("RootBorder")!;
+            var titleBar = (Grid)window.FindName("TitleBar")!;
+
+            window.FlashForExternalUpdate(hasError: false);
+            Assert.True(border.HasAnimatedProperties);
+            Assert.False(root.HasAnimatedProperties);
+            Assert.False(titleBar.HasAnimatedProperties);
+
+            // 明滅の途中でエラーが届いたら、背景とタイトルバーの色も赤へ寄せる。
+            // 上に色を重ねないので、枠の塗りは無いまま。
+            window.FlashForExternalUpdate(hasError: true);
+            Assert.True(root.HasAnimatedProperties);
+            Assert.True(titleBar.HasAnimatedProperties);
+            Assert.Null(border.Background);
+
+            // 止めればバインディングの色に戻る。
+            window.Hide();
+            Assert.False(root.HasAnimatedProperties);
+            Assert.Same(vm.BackgroundBrush, root.Background);
+            Assert.Same(vm.TitleBarBrush, titleBar.Background);
+        }
+        finally
+        {
+            foreground.Close();
+            window.Close();
+        }
+    }
+
+    [Theory]
+    [InlineData(0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x80, 0x80)] // 白 → 赤へ半分
+    [InlineData(0xFF, 0x20, 0x20, 0x20, 0x90, 0x10, 0x10)] // 暗い背景
+    [InlineData(0xB3, 0xFF, 0xF9, 0xC4, 0xFF, 0x7C, 0x62)] // 半透明の付箋は透明度を保つ
+    public void ErrorTintColor_MovesTheBackgroundHalfwayToRed(byte a, byte r, byte g, byte b, byte er, byte eg, byte eb)
+        => Assert.Equal(Color.FromArgb(a, er, eg, eb), StickyNoteWindow.ErrorTintColor(Color.FromArgb(a, r, g, b)));
+
     // 追記の速いログでは更新が立て続けに届く。そのたびに明滅を始めから
     // やり直すと、光りきる前に振り出しへ戻って光って見えなくなる。
     [WpfFact]
@@ -1560,6 +1614,9 @@ public class StickyNoteWindowTests
         }
     }
 
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
     [WpfFact]
     public void ReloadExternalContent_WhileNoteIsActive_DoesNotFlash()
     {
@@ -1579,6 +1636,9 @@ public class StickyNoteWindowTests
             window.Activate();
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
             Assert.True(window.IsActive);
+            // "Being looked at" means the foreground window. Windows may refuse
+            // the test host the foreground; the note is then not being looked at.
+            if (GetForegroundWindow() != new System.Windows.Interop.WindowInteropHelper(window).Handle) return;
 
             File.AppendAllText(externalPath, "second line\n");
             Task.Run(window.ReloadExternalContent).GetAwaiter().GetResult();

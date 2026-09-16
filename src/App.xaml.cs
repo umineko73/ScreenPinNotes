@@ -1313,6 +1313,7 @@ public partial class App : System.Windows.Application
         _trayIcon?.Dispose();
         _ipcWindow?.Dispose();
         _newNoteHotkey?.Dispose();
+        ShellSwitchTracker.Uninstall();
         if (_instanceMutex != null)
         {
             try { _instanceMutex.ReleaseMutex(); } catch (ApplicationException) { /* 未所有 */ }

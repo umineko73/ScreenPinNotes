@@ -28,7 +28,7 @@ namespace ScreenPinNotes.Tests;
 public class ExternalFileMonitorTests
 {
     private static readonly ExternalFileSettings FastPolling =
-        new() { PollIntervalMs = 200, PollBurstMs = 60_000, IdlePollIntervalMs = 200 };
+        new() { PollIntervalMs = 200, PollStopAfterMs = 60_000 };
 
     [Fact]
     public void Polling_NoticesAppendsToAFileTheWriterKeepsOpen()
@@ -104,25 +104,186 @@ public class ExternalFileMonitorTests
     }
 
     [Fact]
-    public void NextPollInterval_IsShortDuringTheBurstAndLongAfterwards()
+    public void Poller_StopsPollingAQuietFileAndThenStopsTheTimer()
     {
-        var settings = new ExternalFileSettings { PollIntervalMs = 1000, PollBurstMs = 30_000, IdlePollIntervalMs = 5000 };
+        var dir = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(dir, "app.log");
+            File.WriteAllText(path, "first\n");
+            var settings = new ExternalFileSettings { PollIntervalMs = 200, PollStopAfterMs = 600 };
+            var poller = new ExternalFilePoller();
+            using var monitor = new ExternalFileMonitor(path, () => settings, () => { }, useWatcher: false, poller);
 
-        Assert.Equal(TimeSpan.FromSeconds(1), ExternalFileMonitor.NextPollInterval(now: 100, burstUntil: 200, settings));
-        Assert.Equal(TimeSpan.FromSeconds(5), ExternalFileMonitor.NextPollInterval(now: 200, burstUntil: 200, settings));
+            Assert.True(poller.Contains(monitor));
+            Assert.True(poller.IsRunning);
+
+            Assert.True(WaitUntil(() => !poller.IsRunning, TimeSpan.FromSeconds(5)));
+            Assert.False(poller.Contains(monitor));
+            Assert.Equal(0, poller.Count);
+        }
+        finally { DeleteTempDirectory(dir); }
     }
 
     [Fact]
-    public void Normalize_KeepsPollingIntervalsInRange()
+    public void Poller_KeepsPollingWhileTheFileKeepsChanging()
     {
-        var settings = new AppSettings { ExternalFile = { PollIntervalMs = 0, PollBurstMs = -5, IdlePollIntervalMs = 10 } };
+        var dir = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(dir, "app.log");
+            File.WriteAllText(path, "first\n");
+            var settings = new ExternalFileSettings { PollIntervalMs = 200, PollStopAfterMs = 800 };
+            var poller = new ExternalFilePoller();
+            using var monitor = new ExternalFileMonitor(path, () => settings, () => { }, useWatcher: false, poller);
+
+            // 止めるまでの時間を超えて追記を続けても、確認は止まらない。
+            var until = Environment.TickCount64 + 2000;
+            while (Environment.TickCount64 < until)
+            {
+                File.AppendAllText(path, "more\n");
+                Thread.Sleep(250);
+                Assert.True(poller.Contains(monitor));
+            }
+        }
+        finally { DeleteTempDirectory(dir); }
+    }
+
+    [Fact]
+    public void Wake_RestartsPollingAfterItStopped()
+    {
+        var dir = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(dir, "app.log");
+            using var writer = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
+            writer.Write("first\n"u8);
+            writer.Flush();
+            var settings = new ExternalFileSettings { PollIntervalMs = 200, PollStopAfterMs = 400 };
+            var poller = new ExternalFilePoller();
+            using var changed = new SemaphoreSlim(0);
+            using var monitor = new ExternalFileMonitor(path, () => settings, () => changed.Release(), useWatcher: false, poller);
+            Assert.True(WaitUntil(() => !poller.IsRunning, TimeSpan.FromSeconds(5)));
+
+            // 止まっている間の追記には気付かない（監視も切ってある）。
+            writer.Write("second\n"u8);
+            writer.Flush();
+            Assert.False(changed.Wait(TimeSpan.FromMilliseconds(600)));
+
+            // 付箋に触れるなどで再開すると、次の確認で気付く。
+            monitor.Wake();
+            Assert.True(poller.IsRunning);
+            Assert.True(changed.Wait(TimeSpan.FromSeconds(5)));
+        }
+        finally { DeleteTempDirectory(dir); }
+    }
+
+    [Fact]
+    public void Watcher_RestartsPollingAfterItStopped()
+    {
+        var dir = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(dir, "app.log");
+            File.WriteAllText(path, "first\n");
+            var settings = new ExternalFileSettings { PollIntervalMs = 200, PollStopAfterMs = 400 };
+            var poller = new ExternalFilePoller();
+            using var changed = new SemaphoreSlim(0);
+            using var monitor = new ExternalFileMonitor(path, () => settings, () => changed.Release(), useWatcher: true, poller);
+            Assert.True(WaitUntil(() => !poller.IsRunning, TimeSpan.FromSeconds(5)));
+
+            File.AppendAllText(path, "second\n");
+
+            Assert.True(changed.Wait(TimeSpan.FromSeconds(5)));
+            Assert.True(poller.Contains(monitor));
+            Assert.True(poller.IsRunning);
+        }
+        finally { DeleteTempDirectory(dir); }
+    }
+
+    [Fact]
+    public void Poller_SharesOneTimerAndRunsUntilEveryFileIsQuiet()
+    {
+        var dir = CreateTempDirectory();
+        try
+        {
+            var quietPath = Path.Combine(dir, "quiet.log");
+            var busyPath = Path.Combine(dir, "busy.log");
+            File.WriteAllText(quietPath, "quiet\n");
+            File.WriteAllText(busyPath, "busy\n");
+            var settings = new ExternalFileSettings { PollIntervalMs = 200, PollStopAfterMs = 600 };
+            var poller = new ExternalFilePoller();
+            using var quiet = new ExternalFileMonitor(quietPath, () => settings, () => { }, useWatcher: false, poller);
+            using var busy = new ExternalFileMonitor(busyPath, () => settings, () => { }, useWatcher: false, poller);
+            Assert.Equal(2, poller.Count);
+
+            // 静かなファイルだけが外れ、動いているファイルがある間はタイマーも動き続ける。
+            var until = Environment.TickCount64 + 1500;
+            while (Environment.TickCount64 < until)
+            {
+                File.AppendAllText(busyPath, "more\n");
+                Thread.Sleep(200);
+            }
+            Assert.False(poller.Contains(quiet));
+            Assert.True(poller.Contains(busy));
+            Assert.True(poller.IsRunning);
+
+            Assert.True(WaitUntil(() => !poller.IsRunning, TimeSpan.FromSeconds(5)));
+            Assert.Equal(0, poller.Count);
+        }
+        finally { DeleteTempDirectory(dir); }
+    }
+
+    [Fact]
+    public void Dispose_RemovesTheFileFromThePoller()
+    {
+        var dir = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(dir, "app.log");
+            File.WriteAllText(path, "first\n");
+            var poller = new ExternalFilePoller();
+            var monitor = new ExternalFileMonitor(path, () => FastPolling, () => { }, useWatcher: false, poller);
+            Assert.True(poller.Contains(monitor));
+
+            monitor.Dispose();
+            monitor.Wake();
+
+            Assert.False(poller.Contains(monitor));
+            Assert.True(WaitUntil(() => !poller.IsRunning, TimeSpan.FromSeconds(5)));
+        }
+        finally { DeleteTempDirectory(dir); }
+    }
+
+    [Fact]
+    public void Normalize_KeepsPollingSettingsInRange()
+    {
+        var settings = new AppSettings { ExternalFile = { PollIntervalMs = 0, PollStopAfterMs = 10 } };
 
         settings.Normalize();
 
         Assert.Equal(200, settings.ExternalFile.PollIntervalMs);
-        Assert.Equal(0, settings.ExternalFile.PollBurstMs);
-        // The idle interval is never shorter than the burst interval.
-        Assert.Equal(200, settings.ExternalFile.IdlePollIntervalMs);
+        Assert.Equal(1000, settings.ExternalFile.PollStopAfterMs);
+    }
+
+    [Fact]
+    public void Defaults_PollEverySecondAndStopAfterAMinute()
+    {
+        var settings = new ExternalFileSettings();
+
+        Assert.Equal(1000, settings.PollIntervalMs);
+        Assert.Equal(60_000, settings.PollStopAfterMs);
+    }
+
+    private static bool WaitUntil(Func<bool> condition, TimeSpan timeout)
+    {
+        var until = Environment.TickCount64 + (long)timeout.TotalMilliseconds;
+        while (Environment.TickCount64 < until)
+        {
+            if (condition()) return true;
+            Thread.Sleep(20);
+        }
+        return condition();
     }
 
     private static string CreateTempDirectory()

@@ -203,8 +203,8 @@ public sealed class AppSettings
         ExternalFile.TailLineCount = Math.Clamp(ExternalFile.TailLineCount, 1, 100_000);
         // 下限はファイルを開いて長さを見るだけの確認を、詰めすぎない程度に置く。
         ExternalFile.PollIntervalMs = Math.Clamp(ExternalFile.PollIntervalMs, 200, 60_000);
-        ExternalFile.PollBurstMs = Math.Clamp(ExternalFile.PollBurstMs, 0, 600_000);
-        ExternalFile.IdlePollIntervalMs = Math.Clamp(ExternalFile.IdlePollIntervalMs, ExternalFile.PollIntervalMs, 600_000);
+        // 確認を止めるまでの時間。短すぎると追記の合間ごとに止まってしまう。
+        ExternalFile.PollStopAfterMs = Math.Clamp(ExternalFile.PollStopAfterMs, 1000, 3_600_000);
 
         HoverOpacityBoostPercent = Math.Clamp(HoverOpacityBoostPercent, 0, 90);
         MaxNoteContentBytes = Math.Max(1024, MaxNoteContentBytes);
@@ -296,15 +296,15 @@ public sealed class ExternalFileSettings
     /// <summary>tail 表示のときに末尾から読み込む行数。</summary>
     public int TailLineCount { get; set; } = 200;
     /// <summary>
-    /// 変化を見つけてから <see cref="PollBurstMs"/> のあいだ、ファイルの長さと
-    /// 更新日時を確かめる間隔。書き手が開いたまま追記するファイルは、閉じるまで
-    /// FileSystemWatcher に通知が来ないことがあるため、監視と併用する。
+    /// ファイルの長さと更新日時を確かめる間隔。書き手が開いたまま追記するファイルは、
+    /// 閉じるまで FileSystemWatcher に通知が来ないことがあるため、監視と併用する。
     /// </summary>
     public int PollIntervalMs { get; set; } = 1000;
-    /// <summary>変化を見つけてから短い間隔で確かめ続ける時間。</summary>
-    public int PollBurstMs { get; set; } = 30_000;
-    /// <summary>しばらく変化が無いときの確認間隔。</summary>
-    public int IdlePollIntervalMs { get; set; } = 5000;
+    /// <summary>
+    /// この時間ずっと変化が無ければ、その付箋の確認を止める。監視の通知、
+    /// 付箋へのマウスオーバー、付箋のアクティブ化で確認を再開する。
+    /// </summary>
+    public int PollStopAfterMs { get; set; } = 60_000;
 }
 
 public sealed class LayoutSettings

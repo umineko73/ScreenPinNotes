@@ -149,7 +149,7 @@ Configure a reminder from a note's context menu or the **Note list**. Choose a d
 
 Click a Windows notification to open the note list. Simultaneous reminders share a notification. Optionally enable the alert window for 5-, 15-, or 60-minute snooze. Snoozing preserves the recurring time.
 
-**Flash note border for 10 seconds** is enabled by default. It shows hidden notes and slowly pulses the border. Clicking, typing, or hiding the note stops the effect. Windows notifications, snooze alerts, and flashing can be combined; flashing alone is also supported.
+**Flash the note for 10 seconds** is enabled by default. It shows hidden notes and slowly pulses the whole note in orange (the text stays readable through it). Clicking, typing, or hiding the note stops the effect. Windows notifications, snooze alerts, and flashing can be combined; flashing alone is also supported.
 
 The app must be running in the tray. Missed reminders are delivered once on restart or resume. Windows notification settings control banners and sound.
 
@@ -185,7 +185,7 @@ Windows may not report changes while the writing program keeps the file open, as
 
 In tail mode, log levels are colored (case-insensitive): green for `TRACE`, `DEBUG`, `INFO`, `VERBOSE` and `NOTICE`; orange for `WARN` and `WARNING`; red for `ERROR`, `FATAL`, `CRITICAL`, `SEVERE`, `PANIC`, `ALERT` and `EMERG`. Three-letter forms such as `TRC`, `DBG`, `INF`, `WRN`, `ERR` and `FTL` are recognized too, as are outputs like `trce`, `dbug`, `fail` and `crit` (single-letter markers are not, since they cannot be told apart from ordinary text). Only the first level word on each line is colored. Numbers are shown in blue so timestamps and counts are easy to pick out; values joined by separators, such as `2026-09-15`, `09:12:03.221` and `16/16`, stay in one piece.
 
-When the file content actually changes, the note's border pulses light blue once — red if the lines that just arrived contain `ERROR` or `FATAL`. It stays quiet while you are working in that note, since you can already see the update, and a save that leaves the content identical triggers neither a reload nor a pulse.
+When the file content actually changes, the note's border pulses light blue once. If the lines that just arrived contain `ERROR` or `FATAL`, the border turns red and the note's background pulses three times, shifting halfway from its own color toward red (the text itself is not covered). It stays quiet while you are working in that note, since you can already see the update, and a save that leaves the content identical triggers neither a reload nor a pulse.
 
 Tail mode shows only the last lines of the file (line count configurable in Settings) as plain text, and always scrolls to the newest line as the file grows — useful for watching logs. `.log` files use tail mode by default; toggle it from the external file menu on any external note. While tailing, the title bar shows `⏬` on the right; hover it to see how many lines are displayed.
 

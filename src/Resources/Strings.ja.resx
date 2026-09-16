@@ -739,7 +739,7 @@
   <data name="SettingsClipboardNoteHotkey" xml:space="preserve"><value>クリップボードから作成するショートカット</value></data>
   <data name="ClipboardHotkeyHint" xml:space="preserve"><value>クリップボードの文字・画像・画像ファイルから付箋を作ります。キーの指定方法は上と同じです。初期値：Ctrl+Alt+Shift+N。</value></data>
   <data name="ClipboardNoteEmpty" xml:space="preserve"><value>クリップボードに付箋にできる内容（文字・画像）がありません。</value></data>
-  <data name="ReminderFlashNote" xml:space="preserve"><value>付箋の枠を10秒間点滅（非表示の付箋も表示）</value></data>
+  <data name="ReminderFlashNote" xml:space="preserve"><value>付箋を10秒間点滅（非表示の付箋も表示）</value></data>
   <data name="UndoTooltip" xml:space="preserve"><value>元に戻す (Ctrl+Z)</value></data>
   <data name="RedoTooltip" xml:space="preserve"><value>やり直す (Ctrl+Y)</value></data>
   <data name="MarkdownProperties" xml:space="preserve"><value>プロパティ</value></data>

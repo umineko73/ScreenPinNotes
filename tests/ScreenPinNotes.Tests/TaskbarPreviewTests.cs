@@ -16,8 +16,10 @@
 
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Windows;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -68,21 +70,43 @@ public class TaskbarPreviewTests
         finally { window.Close(); }
     }
 
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr FindWindow(string className, string? windowName);
+
     [WpfTheory]
-    [InlineData(0x0006, 1, true)] // Shell/keyboard activation
-    [InlineData(0x0006, 2, false)] // Clicking the note
-    [InlineData(0x0006, 0, false)] // Deactivation
-    [InlineData(0x0112, 0xf120, true)] // Restore from taskbar
-    public void TaskbarSelectionOpensFoldedNoteButDirectClickDoesNot(int message, int parameter, bool opens)
+    [InlineData(0x0006, 1, true, true)] // Shell/keyboard activation
+    [InlineData(0x0006, 1, false, false)] // Focus handed over after another window closed
+    [InlineData(0x0006, 2, true, false)] // Clicking the note
+    [InlineData(0x0006, 0, true, false)] // Deactivation
+    [InlineData(0x0112, 0xf120, false, true)] // Restore from taskbar
+    public void TaskbarSelectionOpensFoldedNoteButDirectClickDoesNot(int message, int parameter, bool fromTaskbar, bool opens)
     {
         WpfApplicationFixture.Ensure();
+        var taskbar = FindWindow("Shell_TrayWnd", null);
+        if (taskbar == IntPtr.Zero) return; // no shell (e.g. Server Core)
         var storage = new StorageService(Path.Combine(Path.GetTempPath(), "ScreenPinNotes.Tests", Guid.NewGuid().ToString()));
         var note = new StickyNote { IsFolded = true, Width = 400, Height = 500, Content = "Body" };
         var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), storage);
+        var closed = new Window { Width = 120, Height = 120, ShowInTaskbar = false };
         try
         {
             window.Show(); window.Activate(); window.UpdateLayout();
             window.ShowInTaskbar = true;
+            closed.Show();
+            var closedHandle = new WindowInteropHelper(closed).Handle;
+            // Closing hands the focus back to the note with a real WA_ACTIVE.
+            // Do not let an earlier case's taskbar record open the note there.
+            ShellSwitchTracker.RecordForeground(closedHandle);
+            closed.Close();
+            // Windows may hand the focus to another app instead; the handlers
+            // below only open a note that is still the active window.
+            window.Activate();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            Assert.True(window.IsActive);
+            Assert.True(note.IsFolded);
+            // The previous foreground window decides; set it after pending
+            // foreground notifications from the setup have been processed.
+            ShellSwitchTracker.RecordForeground(fromTaskbar ? taskbar : closedHandle);
             Call(window, "HandleTaskbarMessage", IntPtr.Zero, message, (IntPtr)parameter, IntPtr.Zero, false);
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
             Call(window, "CompleteFoldAnimation");

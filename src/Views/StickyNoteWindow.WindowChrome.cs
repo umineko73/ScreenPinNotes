@@ -304,6 +304,7 @@ public partial class StickyNoteWindow
     private void RootBorder_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
     {
         ViewModel.SetHovered(true);
+        WakeExternalContentMonitor();
         ShowEditToolbar();
         UpdateTitleBarOverlayVisibility();
         ScheduleTitlePreview();

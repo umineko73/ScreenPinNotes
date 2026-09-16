@@ -739,7 +739,7 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="SettingsClipboardNoteHotkey" xml:space="preserve"><value>New note from clipboard shortcut</value></data>
   <data name="ClipboardHotkeyHint" xml:space="preserve"><value>Creates a note from the text, image, or image files on the clipboard. Keys are set the same way as above. Default: Ctrl+Alt+Shift+N.</value></data>
   <data name="ClipboardNoteEmpty" xml:space="preserve"><value>The clipboard has no text or image to make a note from.</value></data>
-  <data name="ReminderFlashNote" xml:space="preserve"><value>Flash note border for 10 seconds (shows hidden notes)</value></data>
+  <data name="ReminderFlashNote" xml:space="preserve"><value>Flash the note for 10 seconds (shows hidden notes)</value></data>
   <data name="UndoTooltip" xml:space="preserve"><value>Undo (Ctrl+Z)</value></data>
   <data name="RedoTooltip" xml:space="preserve"><value>Redo (Ctrl+Y)</value></data>
   <data name="MarkdownProperties" xml:space="preserve"><value>Properties</value></data>

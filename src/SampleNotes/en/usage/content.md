@@ -127,7 +127,7 @@ Configure a reminder from a note's context menu or the **Note list**. Choose a d
 
 Click a Windows notification to open the note list. Simultaneous reminders share a notification. Optionally enable the alert window for 5-, 15-, or 60-minute snooze. Snoozing preserves the recurring time.
 
-**Flash note border for 10 seconds** is enabled by default. It shows hidden notes and slowly pulses the border. Clicking, typing, or hiding the note stops the effect. Windows notifications, snooze alerts, and flashing can be combined; flashing alone is also supported.
+**Flash the note for 10 seconds** is enabled by default. It shows hidden notes and slowly pulses the whole note in orange (the text stays readable through it). Clicking, typing, or hiding the note stops the effect. Windows notifications, snooze alerts, and flashing can be combined; flashing alone is also supported.
 
 The app must be running in the tray. Missed reminders are delivered once on restart or resume. Windows notification settings control banners and sound.
 
