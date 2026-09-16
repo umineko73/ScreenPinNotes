@@ -47,10 +47,12 @@ public partial class StickyNoteWindow
     /// <summary>エラーのときに背景色を赤へ寄せる割合。</summary>
     public const double ErrorTintRatio = 0.5;
     private static readonly Color ErrorTint = Colors.Red;
-    /// <summary>点滅の片道（元の色から最も赤い色まで）の時間。</summary>
+    /// <summary>ふつうの更新で枠が光る片道（消えた状態から最も明るいまで）の時間。</summary>
     private static readonly TimeSpan UpdateFlashHalfPeriod = TimeSpan.FromSeconds(0.4);
-    /// <summary>片道を何段階で塗り替えるか。20段なら毎秒50回で、なめらかに見える。</summary>
-    private const int ErrorTintSteps = 20;
+    /// <summary>エラーの点滅の片道（元の色から最も赤い色まで）の時間。気付きやすいよう速く点滅させる。</summary>
+    public static readonly TimeSpan ErrorFlashHalfPeriod = TimeSpan.FromSeconds(0.2);
+    /// <summary>片道を何段階で塗り替えるか。10段なら毎秒50回で、なめらかに見える。</summary>
+    private const int ErrorTintSteps = 10;
 
     private static SolidColorBrush FrozenBrush(string hex)
     {
@@ -97,7 +99,7 @@ public partial class StickyNoteWindow
 
         UpdateFlashBorder.BorderBrush = hasError ? UpdateFlashErrorBrush : UpdateFlashNormalBrush;
         _isUpdateFlashRunning = true;
-        var pulse = new DoubleAnimation(0, 1, UpdateFlashHalfPeriod)
+        var pulse = new DoubleAnimation(0, 1, hasError ? ErrorFlashHalfPeriod : UpdateFlashHalfPeriod)
         {
             AutoReverse = true,
             RepeatBehavior = new RepeatBehavior(hasError ? ErrorFlashCount : 1),
@@ -146,7 +148,7 @@ public partial class StickyNoteWindow
         var to = ErrorTintColor(from);
         var animation = new ObjectAnimationUsingKeyFrames
         {
-            Duration = UpdateFlashHalfPeriod,
+            Duration = ErrorFlashHalfPeriod,
             AutoReverse = true,
             RepeatBehavior = new RepeatBehavior(ErrorFlashCount),
             FillBehavior = FillBehavior.Stop,
@@ -156,7 +158,7 @@ public partial class StickyNoteWindow
             var tinted = new SolidColorBrush(Blend(from, to, (double)step / ErrorTintSteps));
             tinted.Freeze();
             animation.KeyFrames.Add(new DiscreteObjectKeyFrame(tinted,
-                KeyTime.FromTimeSpan(UpdateFlashHalfPeriod * step / ErrorTintSteps)));
+                KeyTime.FromTimeSpan(ErrorFlashHalfPeriod * step / ErrorTintSteps)));
         }
         return animation;
     }
