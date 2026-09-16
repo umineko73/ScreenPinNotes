@@ -1576,6 +1576,55 @@ public class StickyNoteWindowTests
         }
     }
 
+    // 変更を確かめている間はタイトル右端の丸が動き、止まったら透明になる。
+    [WpfFact]
+    public void ExternalNote_ShowsTheCheckingIndicatorOnlyWhileChecking()
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var external = app.Settings.ExternalFile;
+        var (previousInterval, previousStop) = (external.PollIntervalMs, external.PollStopAfterMs);
+        using var temp = new TempDataDirectory();
+        Directory.CreateDirectory(temp.Path);
+        var path = Path.Combine(temp.Path, "app.log");
+        File.WriteAllText(path, "line\n");
+        external.PollIntervalMs = 200;
+        external.PollStopAfterMs = 1000;
+        var vm = new StickyNoteViewModel(
+            new StickyNote { Content = "line\n", ExternalContentPath = path, IsReadOnly = true }, app.Settings);
+        var window = new StickyNoteWindow(vm, new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            var dot = (System.Windows.Shapes.Ellipse)window.FindName("ExternalPollingIndicator");
+            Assert.Equal(Visibility.Visible, dot.Visibility);
+
+            Assert.True(PumpUntil(window, () => vm.IsExternalPolling && dot.HasAnimatedProperties, 3000));
+            Assert.Contains("●", vm.TitleIconTooltip);
+
+            Assert.True(PumpUntil(window, () => !vm.IsExternalPolling, 5000));
+            Assert.False(dot.HasAnimatedProperties);
+            Assert.Equal(0, dot.Opacity);
+            Assert.Equal(Visibility.Visible, dot.Visibility);
+        }
+        finally
+        {
+            window.Close();
+            (external.PollIntervalMs, external.PollStopAfterMs) = (previousInterval, previousStop);
+        }
+
+        static bool PumpUntil(Window window, Func<bool> condition, int timeoutMs)
+        {
+            var until = Environment.TickCount64 + timeoutMs;
+            while (Environment.TickCount64 < until)
+            {
+                window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+                if (condition()) return true;
+                Thread.Sleep(20);
+            }
+            return condition();
+        }
+    }
+
     [WpfFact]
     public void ReloadExternalContent_WhenNoteIsInactive_FlashesTheUpdateBorder()
     {

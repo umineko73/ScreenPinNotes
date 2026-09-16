@@ -477,6 +477,9 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="ExternalFileAutoRefresh" xml:space="preserve">
     <value>changes appear automatically</value>
   </data>
+  <data name="ExternalFilePolling" xml:space="preserve">
+    <value>Checking for changes</value>
+  </data>
   <data name="ExternalFileLastRefreshed" xml:space="preserve">
     <value>Last updated</value>
   </data>

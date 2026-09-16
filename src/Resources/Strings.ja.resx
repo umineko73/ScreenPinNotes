@@ -477,6 +477,9 @@
   <data name="ExternalFileAutoRefresh" xml:space="preserve">
     <value>変更は自動で反映されます</value>
   </data>
+  <data name="ExternalFilePolling" xml:space="preserve">
+    <value>変更を確認中</value>
+  </data>
   <data name="ExternalFileLastRefreshed" xml:space="preserve">
     <value>最終更新</value>
   </data>

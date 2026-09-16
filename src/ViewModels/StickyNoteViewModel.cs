@@ -125,10 +125,44 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         _model.IsExternalContent && !string.IsNullOrWhiteSpace(_model.ExternalContentPath)
             ? $"{T("ExternalFile")} ({T("ExternalFileAutoRefresh")}):\n" +
               $"{_model.ExternalContentPath}\n" +
-              $"{T("ExternalFileLastRefreshed")}: {_model.UpdatedAt:HH:mm:ss}"
+              $"{T("ExternalFileLastRefreshed")}: {_model.UpdatedAt:HH:mm:ss}" +
+              (_isExternalPolling ? $"\n● {T("ExternalFilePolling")}" : "")
             : null;
 
     public string? TitleTooltip => TitleIconTooltip;
+
+    private bool _isExternalPolling;
+
+    /// <summary>
+    /// 外部ファイルの長さと更新日時を、共有タイマーで確かめている最中か。
+    /// タイトル右端の小さな丸とツールチップで知らせる。
+    /// </summary>
+    public bool IsExternalPolling
+    {
+        get => _isExternalPolling;
+        set
+        {
+            if (_isExternalPolling == value) return;
+            _isExternalPolling = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TitleIconTooltip));
+            OnPropertyChanged(nameof(TitleTooltip));
+        }
+    }
+
+    /// <summary>
+    /// 確認中を知らせる丸の場所。外部ファイルの付箋では確認していない間も場所を空けておき、
+    /// 丸が出たり消えたりしてもタイトルの文字がずれないようにする。
+    /// </summary>
+    public Visibility ExternalPollingIndicatorVisibility =>
+        _model.IsExternalContent ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>タイトルの余白。外部ファイルの付箋では右側に丸のぶんを空ける。</summary>
+    public Thickness TitleTextMargin =>
+        new(4, 0, _model.IsExternalContent ? 4 + ExternalPollingIndicatorSpace : 4, 0);
+
+    /// <summary>丸（直径6）とタイトルとの間の空きを合わせた幅。</summary>
+    public const double ExternalPollingIndicatorSpace = 12;
 
     public Visibility ReminderVisibility =>
         _model.HasReminder ? Visibility.Visible : Visibility.Collapsed;
@@ -201,6 +235,10 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         _model.ExternalContentPath = null;
         _model.ExternalTailMode = false;
         _model.ExternalImageWidthOverrides.Clear();
+        _isExternalPolling = false;
+        OnPropertyChanged(nameof(IsExternalPolling));
+        OnPropertyChanged(nameof(ExternalPollingIndicatorVisibility));
+        OnPropertyChanged(nameof(TitleTextMargin));
         OnPropertyChanged(nameof(IsExternalContent));
         OnPropertyChanged(nameof(IsExternalTailMode));
         OnPropertyChanged(nameof(TailModeVisibility));
