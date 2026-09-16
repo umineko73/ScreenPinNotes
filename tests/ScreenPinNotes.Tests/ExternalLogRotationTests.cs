@@ -41,7 +41,7 @@ public class ExternalLogRotationTests : IDisposable
         _previousInterval = _app.Settings.ExternalFile.MinRefreshIntervalMs;
     }
 
-    private (StickyNoteWindow Window, StickyNoteViewModel Vm, string Path) OpenTailNote()
+    private (StickyNoteWindow Window, StickyNoteViewModel Vm, string Path) OpenTailNote(bool show = true)
     {
         // 間引きを待たずに済ませる。ここで見たいのは追従できるかどうか。
         _app.Settings.ExternalFile.MinRefreshIntervalMs = 0;
@@ -55,10 +55,56 @@ public class ExternalLogRotationTests : IDisposable
             },
             _app.Settings);
         var window = new StickyNoteWindow(vm, new StorageService(_temp));
-        window.Show();
-        window.UpdateLayout();
-        window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+        if (show)
+        {
+            window.Show();
+            window.UpdateLayout();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+        }
         return (window, vm, logPath);
+    }
+
+    [WpfTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void FirstShow_ReadsChangesMadeWhileInitiallyHidden(bool tail)
+    {
+        var (window, vm, path) = OpenTailNote(show: false);
+        try
+        {
+            vm.Model.ExternalTailMode = tail;
+            File.WriteAllText(path, "changed before first show\n");
+            window.Show();
+            WaitFor(window, () => vm.Content.Contains("changed before first show"));
+            Assert.Equal("changed before first show\n", vm.Content);
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void FailedRead_RetriesWithoutAnotherFileNotification(bool tail)
+    {
+        var (window, vm, path) = OpenTailNote();
+        try
+        {
+            vm.Model.ExternalTailMode = tail;
+            // Isolate retries from watcher events and signature changes on unlock.
+            typeof(StickyNoteWindow).GetMethod("DisposeExternalContentWatcher",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(window, null);
+            File.WriteAllText(path, "updated\n");
+            using (var locked = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            {
+                window.ReloadExternalContent();
+                window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+                Assert.Equal("line 1\n", vm.Content);
+            }
+            WaitFor(window, () => vm.Content == "updated\n");
+            Assert.Equal("updated\n", vm.Content);
+        }
+        finally { window.Close(); }
     }
 
     private static void WaitFor(StickyNoteWindow window, Func<bool> condition)
