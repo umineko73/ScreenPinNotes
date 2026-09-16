@@ -911,6 +911,41 @@ public partial class App : System.Windows.Application
         _noteManagerWindow?.RefreshNotes();
     }
 
+    /// <summary>
+    /// 付箋を複製する。貼り付けた画像も付箋ごとの assets にあるので一緒に写す。
+    /// 中身があるので編集には入らず、元の付箋から少しずらして前に出す。
+    /// </summary>
+    public StickyNoteWindow DuplicateNote(StickyNoteWindow source)
+    {
+        var original = source.ViewModel.Model;
+        var copy = NoteDuplicator.Create(original, _settings.Layout.NewNoteCascadeStep,
+            FrontLayerOrder(), DateTime.Now);
+        if (!original.IsExternalContent)
+        {
+            try
+            {
+                var assets = _storage.GetNoteAssetsDirectoryPath(original.Id);
+                if (Directory.Exists(assets))
+                    StorageService.CopyDirectory(assets, _storage.GetNoteAssetsDirectoryPath(copy.Id));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // 画像が写せなくても本文は複製できる。画像は元の付箋に残っている。
+                ErrorReporter.ReportNonFatal("Copy note assets", ex);
+            }
+        }
+
+        var window = OpenNoteWindow(copy);
+        window.RevealNewNote();
+        SaveAll();
+        RefreshTrayMenu();
+        _noteManagerWindow?.RefreshNotes();
+        return window;
+    }
+
+    private int FrontLayerOrder()
+        => _windows.Select(w => w.ViewModel.Model.LayerOrder).DefaultIfEmpty(0).Min() - 1;
+
     // 他のアプリがクリップボードを開いている瞬間は読めないので、少し待って数回試す。
     private static System.Windows.IDataObject? TryGetClipboardDataObject()
     {
@@ -950,7 +985,7 @@ public partial class App : System.Windows.Application
         note.PositionScale = scale is > 0 ? scale.Value : MonitorLayout.PrimaryScale(monitors);
         note.PositionLayout = MonitorLayout.Signature(monitors);
 
-        note.LayerOrder = _windows.Select(w => w.ViewModel.Model.LayerOrder).DefaultIfEmpty(0).Min() - 1;
+        note.LayerOrder = FrontLayerOrder();
         return note;
     }
 

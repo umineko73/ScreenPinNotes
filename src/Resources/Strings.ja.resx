@@ -51,6 +51,15 @@
   <data name="FormatBold" xml:space="preserve">
     <value>太字</value>
   </data>
+  <data name="FormatHighlight" xml:space="preserve">
+    <value>ハイライト</value>
+  </data>
+  <data name="FormatNumbered" xml:space="preserve">
+    <value>番号付きリスト</value>
+  </data>
+  <data name="FormatQuote" xml:space="preserve">
+    <value>引用</value>
+  </data>
   <data name="FormatStrike" xml:space="preserve">
     <value>取り消し線</value>
   </data>
@@ -345,6 +354,9 @@
   <data name="Copy" xml:space="preserve">
     <value>コピー</value>
   </data>
+  <data name="CopyTitle" xml:space="preserve">
+    <value>タイトルをコピー</value>
+  </data>
   <data name="Paste" xml:space="preserve">
     <value>貼り付け</value>
   </data>
@@ -386,6 +398,9 @@
   </data>
   <data name="HideNote" xml:space="preserve">
     <value>付箋を非表示</value>
+  </data>
+  <data name="DuplicateNote" xml:space="preserve">
+    <value>付箋を複製</value>
   </data>
   <data name="EditTitle" xml:space="preserve">
     <value>タイトルを編集</value>
@@ -458,6 +473,12 @@
   </data>
   <data name="ExternalFile" xml:space="preserve">
     <value>外部ファイル</value>
+  </data>
+  <data name="ExternalFileAutoRefresh" xml:space="preserve">
+    <value>変更は自動で反映されます</value>
+  </data>
+  <data name="ExternalFileLastRefreshed" xml:space="preserve">
+    <value>最終更新</value>
   </data>
   <data name="OpenExternalFile" xml:space="preserve">
     <value>外部ファイルを開く</value>
@@ -669,6 +690,8 @@
   <data name="SettingsNoteBorderGray" xml:space="preserve"><value>グレー</value></data>
   <data name="SettingsNoteBorderNoteColor" xml:space="preserve"><value>付箋の色</value></data>
   <data name="SettingsIconColor" xml:space="preserve"><value>アイコンの色</value></data>
+  <data name="SettingsMarkdown" xml:space="preserve"><value>Markdown</value></data>
+  <data name="SettingsJoinMarkdownLines" xml:space="preserve"><value>続けて書いた行を1つの段落として折り返す</value></data>
   <data name="SettingsMonochromeIcons" xml:space="preserve"><value>モノクロで表示</value></data>
   <data name="SettingsTitleBarSpine" xml:space="preserve"><value>タイトルバー非表示の目印</value></data>
   <data name="SettingsShowTitleBarSpine" xml:space="preserve"><value>左側に帯を出す</value></data>

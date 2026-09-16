@@ -196,7 +196,8 @@ public partial class StickyNoteWindow
         foreach (var block in MarkdownRenderer.Render(note.Content, note.FontSize,
             (label, target) => new Hyperlink(new Run(label)) { Foreground = vm.UsesDarkNoteColors ? Brushes.LightSkyBlue : Brushes.RoyalBlue },
             ImageInline, (_, check) => new System.Windows.Controls.CheckBox { IsChecked = check }, vm.UsesDarkNoteColors,
-            language: Settings.Language, propertiesCollapsed: note.ArePropertiesCollapsed))
+            language: Settings.Language, propertiesCollapsed: note.ArePropertiesCollapsed,
+            joinLines: Settings.JoinMarkdownLines))
             document.Blocks.Add(block);
         var body = new System.Windows.Controls.RichTextBox { Document = document, IsReadOnly = true,
             BorderThickness = new Thickness(0), Background = Brushes.Transparent, Padding = padding,

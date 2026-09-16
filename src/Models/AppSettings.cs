@@ -63,6 +63,11 @@ public sealed class AppSettings
     public string NoteBorderColor { get; set; } = NoteBorderNone;
     /// <summary>付箋のアイコンを色を抜いて描くかどうか。</summary>
     public bool MonochromeIcons { get; set; }
+    /// <summary>
+    /// Markdown で続けて書いた行を1つの段落として折り返すか。既定は1行ずつ表示する
+    /// （行ごとに書いたメモが横につながって見えないように）。
+    /// </summary>
+    public bool JoinMarkdownLines { get; set; }
 
     public const string NoteBorderNone = "None";
     public const string NoteBorderGray = "Gray";

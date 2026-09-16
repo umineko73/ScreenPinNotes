@@ -792,8 +792,11 @@ public class StickyNoteWindowTests
                 var toggle = Assert.Single(items, i => Equals(i.Header, LocalizationService.T("HideTitleBar")));
                 Assert.True(toggle.IsCheckable);
                 Assert.Contains(items, i => Equals(i.Header, LocalizationService.T("SelectAll")));
+                // 付箋そのものを扱う項目（複製・非表示・削除）は区切り線の下にまとめる。
+                var duplicate = items.Single(i => Equals(i.Header, LocalizationService.T("DuplicateNote")));
                 var hide = items.Single(i => Equals(i.Header, LocalizationService.T("HideNote")));
-                Assert.IsType<Separator>(menu.Items[menu.Items.IndexOf(hide) - 1]);
+                Assert.IsType<Separator>(menu.Items[menu.Items.IndexOf(duplicate) - 1]);
+                Assert.Same(hide, menu.Items[menu.Items.IndexOf(duplicate) + 1]);
                 Assert.Equal(LocalizationService.T("Delete"), items.Last().Header);
             }
             var titleMenu = ((FrameworkElement)window.FindName("TitleText")).ContextMenu;
@@ -804,6 +807,120 @@ public class StickyNoteWindowTests
             Assert.False(window.ViewModel.IsTitleBarHidden);
         }
         finally { window.Close(); }
+    }
+
+    // リストの行で Tab を押すと行ごと字下げされ、Ctrl+Z 1回で戻る。
+    // ふつうの行では、これまでどおりタブ文字が入る。
+    [WpfFact]
+    public void BodyEditor_TabIndentsListLinesAndStillTypesTabsElsewhere()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { Content = "- parent\n- child\nplain" };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            typeof(StickyNoteWindow).GetMethod("EnterEditMode", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(window, null);
+            var body = (TextBox)window.FindName("BodyEditBox");
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            var normalized = body.Text.Replace("\r\n", "\n");
+            var childStart = body.Text.IndexOf("- child", StringComparison.Ordinal);
+
+            body.Select(childStart + 2, 0);
+            Assert.True(PressTab(body));
+            Assert.Equal("- parent\n\t- child\nplain", body.Text.Replace("\r\n", "\n"));
+            Assert.Equal(childStart + 3, body.SelectionStart);
+            Assert.Equal("- parent\n\t- child\nplain", note.Content);
+
+            body.Undo();
+            Assert.Equal(normalized, body.Text.Replace("\r\n", "\n"));
+
+            body.Select(body.Text.IndexOf("plain", StringComparison.Ordinal), 0);
+            Assert.False(PressTab(body));
+        }
+        finally { window.Close(); }
+
+        static bool PressTab(TextBox box) => Press(box, Key.Tab);
+    }
+
+    // リストの行で Enter を押すと次の項目の印が入り、空の項目ではリストを抜ける。
+    [WpfFact]
+    public void BodyEditor_EnterContinuesAndEndsLists()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { Content = "1. first" };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            typeof(StickyNoteWindow).GetMethod("EnterEditMode", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(window, null);
+            var body = (TextBox)window.FindName("BodyEditBox");
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+
+            body.Select(body.Text.Length, 0);
+            Assert.True(Press(body, Key.Enter));
+            Assert.Equal("1. first\n2. ", note.Content);
+            Assert.Equal(body.Text.Length, body.CaretIndex);
+
+            Assert.True(Press(body, Key.Enter));
+            Assert.Equal("1. first\n", note.Content);
+
+            // 空行ではふつうの改行に任せる。
+            Assert.False(Press(body, Key.Enter));
+        }
+        finally { window.Close(); }
+    }
+
+    private static bool Press(TextBox box, Key key)
+    {
+        var args = new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(box), 0, key)
+        {
+            RoutedEvent = Keyboard.PreviewKeyDownEvent,
+        };
+        box.RaiseEvent(args);
+        return args.Handled;
+    }
+
+    // 選ばずにタイトル全体を写す項目は、そうと分かる名前にする。
+    // タイトル編集中は選んだ部分を写すふつうのコピー。
+    [WpfTheory]
+    [InlineData("ja", "タイトルをコピー", "コピー")]
+    [InlineData("en", "Copy title", "Copy")]
+    public void TitleMenu_NamesTheWholeTitleCopy(string language, string viewing, string editing)
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        using var temp = new TempDataDirectory();
+        var previousLanguage = app.Settings.Language;
+        app.Settings.Language = language;
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(new StickyNote { Title = "Plan" }, new AppSettings { Language = language }),
+            new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            var menu = ((FrameworkElement)window.FindName("TitleText")).ContextMenu;
+            // タイトル編集・切り取りの次。
+            var copy = menu.Items.OfType<MenuItem>().ElementAt(2);
+
+            menu.RaiseEvent(new RoutedEventArgs(ContextMenu.OpenedEvent));
+            Assert.Equal(viewing, copy.Header);
+            Assert.True(copy.IsEnabled);
+            copy.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Assert.Equal("Plan", System.Windows.Clipboard.GetText());
+
+            typeof(StickyNoteWindow).GetMethod("EnterEditMode", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(window, null);
+            var titleEditBox = (TextBox)window.FindName("TitleEditBox");
+            menu.PlacementTarget = titleEditBox;
+            menu.RaiseEvent(new RoutedEventArgs(ContextMenu.OpenedEvent));
+            Assert.Equal(editing, copy.Header);
+        }
+        finally
+        {
+            window.Close();
+            app.Settings.Language = previousLanguage;
+        }
     }
 
     // タイトルバーを隠すと、タイトル右クリックにしか無い項目は到達不能になる。

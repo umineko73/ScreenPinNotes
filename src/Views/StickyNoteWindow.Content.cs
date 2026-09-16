@@ -405,6 +405,7 @@ public partial class StickyNoteWindow
                 CreateTaskCheckbox,
                 ViewModel.UsesDarkNoteColors,
                 ignoreFirstLineHeadingSize: ViewModel.IsFolded && ViewModel.IsTitleBarHidden,
+                joinLines: Settings.JoinMarkdownLines,
                 language: Settings.Language,
                 propertiesCollapsed: ViewModel.Model.ArePropertiesCollapsed,
                 propertiesCollapsedChanged: collapsed =>
@@ -416,6 +417,12 @@ public partial class StickyNoteWindow
                 ContentBox.Document.Blocks.Add(block);
                 if (block is Table table)
                     SizeMarkdownTableColumns(table);
+                else if (block is Section { Tag: null } quote)
+                {
+                    // 引用の中の表も、本文の表と同じく列幅を合わせる。
+                    foreach (var quotedTable in QuotedTables(quote))
+                        SizeMarkdownTableColumns(quotedTable);
+                }
                 else if (block is Section { Tag: Table propertyTable })
                     {
                         var available = Math.Max(40, GetMarkdownImageAvailableWidth());
@@ -443,6 +450,18 @@ public partial class StickyNoteWindow
         FoldedPreviewText.Text = _foldedPreviewSourceText;
         FitFoldedWidth();
         UpdateImagePathPreview();
+    }
+
+    private static IEnumerable<Table> QuotedTables(Section quote)
+    {
+        foreach (var block in quote.Blocks)
+        {
+            if (block is Table table)
+                yield return table;
+            else if (block is Section { Tag: null } nested)
+                foreach (var inner in QuotedTables(nested))
+                    yield return inner;
+        }
     }
 
     private void SizeMarkdownTableColumns(Table table)

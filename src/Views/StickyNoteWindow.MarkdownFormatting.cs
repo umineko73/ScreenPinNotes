@@ -27,9 +27,11 @@ public partial class StickyNoteWindow
         var menu = new MenuItem { Header = LocalizationService.T("MarkdownFormatting") };
         foreach (var (key, marker, line) in new[]
         {
-            ("FormatBold", "**", false), ("FormatStrike", "~~", false), ("FormatCode", "`", false),
+            ("FormatBold", "**", false), ("FormatStrike", "~~", false), ("FormatHighlight", "==", false),
+            ("FormatCode", "`", false),
             ("FormatHeading1", "# ", true), ("FormatHeading2", "## ", true), ("FormatHeading3", "### ", true),
-            ("FormatBullets", "- ", true), ("FormatTasks", "- [ ] ", true),
+            ("FormatBullets", "- ", true), ("FormatNumbered", "1. ", true), ("FormatTasks", "- [ ] ", true),
+            ("FormatQuote", "> ", true),
         })
         {
             var item = new MenuItem { Header = LocalizationService.T(key) };

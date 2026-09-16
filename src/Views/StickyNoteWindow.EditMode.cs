@@ -746,6 +746,39 @@ public partial class StickyNoteWindow
             return;
         }
 
+        if (sender == BodyEditBox && e.Key == Key.Enter &&
+            Keyboard.Modifiers == ModifierKeys.None &&
+            BodyEditBox.SelectionLength == 0 &&
+            !IsContentReadOnly() &&
+            MarkdownIndentation.ContinueList(BodyEditBox.Text, BodyEditBox.CaretIndex, Environment.NewLine) is { } listEdit)
+        {
+            BodyEditBox.Select(listEdit.Start, listEdit.Length);
+            BodyEditBox.SelectedText = listEdit.Replacement;
+            BodyEditBox.Select(listEdit.SelectionStart, listEdit.SelectionLength);
+            e.Handled = true;
+            return;
+        }
+
+        if (sender == BodyEditBox && e.Key == Key.Tab &&
+            (Keyboard.Modifiers & ~ModifierKeys.Shift) == ModifierKeys.None &&
+            !IsContentReadOnly())
+        {
+            var outdent = (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift;
+            var edit = outdent
+                ? MarkdownIndentation.Outdent(BodyEditBox.Text, BodyEditBox.SelectionStart, BodyEditBox.SelectionLength)
+                : MarkdownIndentation.Indent(BodyEditBox.Text, BodyEditBox.SelectionStart, BodyEditBox.SelectionLength);
+            if (edit is { } change)
+            {
+                // 選択を置き換える形にすると、元に戻す（Ctrl+Z）1回で戻せる。
+                BodyEditBox.Select(change.Start, change.Length);
+                BodyEditBox.SelectedText = change.Replacement;
+                BodyEditBox.Select(change.SelectionStart, change.SelectionLength);
+            }
+            // Shift+Tab は戻すものが無くても、フォーカスを前の欄へ移さない。
+            e.Handled = outdent || edit != null;
+            if (e.Handled) return;
+        }
+
         if (sender == TitleEditBox && e.Key == Key.Enter && _isEditMode)
         {
             TitleEditBox.GetBindingExpression(System.Windows.Controls.TextBox.TextProperty)?.UpdateSource();

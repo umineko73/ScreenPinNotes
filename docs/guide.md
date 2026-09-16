@@ -53,6 +53,8 @@ While the app is running, **Ctrl+Alt+N** creates a new note from other apps, and
 | `Enter` while editing the title | Confirm the title |
 | `Ctrl+Z` | Undo an edit |
 | `Ctrl+Y` | Redo an undone edit |
+| `Enter` on a list line while editing | Start the next item with the same marker (the next number, an unchecked box). On an empty item, outdent it or leave the list |
+| `Tab` / `Shift+Tab` while editing | Indent / outdent a list line or all selected lines. On other lines, `Tab` types a tab character |
 | `Ctrl+C` / `Ctrl+X` / `Ctrl+V` | Copy/cut/paste |
 | `Alt+F4` / taskbar close | Hide the note |
 
@@ -94,26 +96,28 @@ Icon and color palettes appear in front of notes. Click the same editing toolbar
 | Body in view mode | Copy, open links, copy Excel tables, fit the window to images |
 | Body in edit mode | Cut/paste/select all, Markdown formatting, edit links, paste Excel tables |
 | Image | The body menu gains image actions at the top (image size, fit the note to this image, detach or delete it). Everything else in the menu stays available |
-| Shared by title and body | Hide title bar, opacity, reminders, edit lock, hide, delete |
+| Shared by title and body | Hide title bar, opacity, reminders, edit lock, duplicate, hide, delete |
 
 Use the mini toolbar for colors, fonts, and icons. Unavailable actions are disabled or hidden.
 
-**Hide** keeps the note; **Delete** removes it. Edit lock restricts body/title editing and deletion, while appearance, position, and checklist completion remain adjustable.
+**Duplicate note** creates a copy with the same body, appearance, and pasted images, slightly offset from the original. Reminders are not copied. **Hide** keeps the note; **Delete** removes it. Edit lock restricts body/title editing and deletion, while appearance, position, and checklist completion remain adjustable.
 
 ## Markdown, images, and Excel
 
 | Type | Syntax or action |
 | --- | --- |
 | Headings | `# Heading` through `###### Heading` |
-| Formatting | `**bold**`, `*italic*`, `~~strike~~` |
+| Formatting | `**bold**`, `*italic*`, `~~strike~~`, `==highlight==` |
 | Code | Enclose inline code with one backtick; blocks with three |
-| Lists | `- item`, `1. item`, `- [ ] task` |
-| Quotes and rules | `> quote`, `---` |
+| Lists | `- item`, `1. item` (or `1) item`; numbering starts at the number you write), `- [ ] task`. Indent by two or more spaces or a tab to nest |
+| Quotes and rules | `> quote` (consecutive lines form one quote, `>>` nests, and quotes can hold lists and headings), `---` |
+| Indentation | Leading spaces, tabs, and full-width spaces indent the line, and wrapped lines stay aligned with the indent |
+| Line breaks and paragraphs | Each line is shown on its own by default. Turn on **Join consecutive lines into one paragraph** under **Settings → Appearance → Markdown** to wrap lines up to the next blank line as one paragraph (Japanese text joins directly, words join with a space; end a line with two spaces or `\` to break it) |
 | Tables | Pipe-separated Markdown tables, with column alignment |
 | Links | `[label](URL)`, `[label][1]` with a separate `[1]: URL` line, or a plain URL |
 | Images | `![alt](assets/image.png)`; append `{width=240}` to set width |
 
-- Use **Markdown formatting** while editing to insert syntax. **Edit link** changes a link's label and URL.
+- Use **Markdown formatting** while editing to insert syntax (bold, strikethrough, highlight, code, headings, bulleted and numbered lists, checklists, quotes). **Edit link** changes a link's label and URL.
 - Pasted images are saved as PNGs in the note's `assets` folder. Local images render inline; web image URLs do not.
 - Dropping image files onto a note, or pasting files copied in Explorer, copies them into the note's `assets` folder in their original format. The original files stay where they were.
 - Resize images between 20% and 200% using their context menu or `Ctrl` + wheel.
@@ -177,7 +181,7 @@ Updating from 0.2.0 or earlier changes how notes look on first launch: rounded c
 
 Settings save immediately (shortcut changes require Apply). New-note defaults apply to tray- and shortcut-created notes; `＋` on a note copies its appearance.
 
-External notes show `🔗`, and their title bar shows the time the content was last refreshed so you can tell at a glance whether it's current. Their menu can open the file or folder, toggle tail mode, or convert the content into an editable note. Deleting the note or changing image display sizes does not modify the original file.
+External notes show `🔗`, and their title bar shows the time the content was last refreshed so you can tell at a glance whether it's current. Hovering the icon or title shows that changes appear automatically, the file path, and the last update time. Their menu can open the file or folder, toggle tail mode, or convert the content into an editable note. Deleting the note or changing image display sizes does not modify the original file.
 
 Outside of tail mode, an auto-refresh keeps your scroll position and text cursor in place as much as possible instead of jumping back to the top.
 
