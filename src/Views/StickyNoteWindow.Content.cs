@@ -1562,6 +1562,8 @@ public partial class StickyNoteWindow
             var settings = Settings;
             _externalContentMonitor = new ExternalFileMonitor(
                 ViewModel.Model.ExternalContentPath, () => settings.ExternalFile, ReloadExternalContent);
+            _externalContentMonitor.Polled += OnExternalContentPolled;
+            _externalContentMonitor.PollingStopped += OnExternalContentPollingStopped;
             // 起動時の読み込みから初回表示までの変更も、監視開始後に拾う。
             ReloadExternalContentOnUiThread(initialRead: true);
         }
@@ -1577,13 +1579,46 @@ public partial class StickyNoteWindow
     /// </summary>
     private void WakeExternalContentMonitor() => _externalContentMonitor?.Wake();
 
+    // 確認の知らせはワーカースレッドから届く。
+    private void OnExternalContentPolled()
+        => Dispatcher.BeginInvoke(() => ShowExternalPolling(true));
+
+    private void OnExternalContentPollingStopped()
+        => Dispatcher.BeginInvoke(() => ShowExternalPolling(false));
+
+    /// <summary>
+    /// 確認中を知らせる丸を、確認のたびに濃くしてから次の確認までにゆっくり薄くする。
+    /// 点けたり消したりするより目に障らず、タイマーが動いていることは分かる。
+    /// </summary>
+    private void ShowExternalPolling(bool polling)
+    {
+        if (_isClosed) return;
+        ViewModel.IsExternalPolling = polling && ViewModel.Model.IsExternalContent;
+        if (!ViewModel.IsExternalPolling)
+        {
+            ExternalPollingIndicator.BeginAnimation(UIElement.OpacityProperty, null);
+            ExternalPollingIndicator.Opacity = 0;
+            return;
+        }
+
+        var fade = new System.Windows.Media.Animation.DoubleAnimation(0.85, 0.2,
+            TimeSpan.FromMilliseconds(Settings.ExternalFile.PollIntervalMs * 0.9));
+        ExternalPollingIndicator.BeginAnimation(UIElement.OpacityProperty, fade);
+    }
+
     private void DisposeExternalContentWatcher()
     {
         _externalContentReloadThrottleTimer?.Stop();
         _externalContentReloadThrottleTimer = null;
 
-        _externalContentMonitor?.Dispose();
-        _externalContentMonitor = null;
+        if (_externalContentMonitor != null)
+        {
+            _externalContentMonitor.Polled -= OnExternalContentPolled;
+            _externalContentMonitor.PollingStopped -= OnExternalContentPollingStopped;
+            _externalContentMonitor.Dispose();
+            _externalContentMonitor = null;
+            ShowExternalPolling(false);
+        }
     }
 
     /// <summary>

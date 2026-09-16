@@ -116,9 +116,23 @@
                            FontWeight="Normal"
                            FontSize="{Binding TitleFontSize}"
                            VerticalAlignment="Center"
-                           Margin="4,0,4,0"
+                           Margin="{Binding TitleTextMargin}"
                            ToolTip="{Binding TitleTooltip}"
                            TextTrimming="CharacterEllipsis"/>
+
+                <!-- 外部ファイルの変更を確かめている間、確認のたびにゆっくり薄くなる丸。
+                     場所は外部ファイルの付箋で常に空けておき、止まったら透明にするだけにする
+                     （出たり消えたりでタイトルの文字がずれないように）。 -->
+                <Ellipse x:Name="ExternalPollingIndicator"
+                         Grid.Column="1"
+                         Width="6" Height="6"
+                         HorizontalAlignment="Right"
+                         VerticalAlignment="Center"
+                         Margin="0,0,4,0"
+                         Fill="{Binding TitleBarForeground}"
+                         Visibility="{Binding ExternalPollingIndicatorVisibility}"
+                         Opacity="0"
+                         IsHitTestVisible="False"/>
 
                 <!-- タイトル直接入力欄。編集モード中だけ表示する
                      （EnterEditMode/EnterViewMode で切り替え）。

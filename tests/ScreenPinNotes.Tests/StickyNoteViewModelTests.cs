@@ -250,6 +250,43 @@ public class StickyNoteViewModelTests
         Assert.Equal(expected, vm.TitleIconTooltip);
     }
 
+    [Theory]
+    [InlineData("ja", "\n● 変更を確認中")]
+    [InlineData("en", "\n● Checking for changes")]
+    public void TitleIconTooltip_SaysWhenTheFileIsBeingChecked(string language, string line)
+    {
+        var vm = new StickyNoteViewModel(
+            new StickyNote { ExternalContentPath = @"D:\logs\app.log" },
+            new AppSettings { Language = language });
+        var changed = new List<string?>();
+        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        Assert.DoesNotContain(line, vm.TitleIconTooltip);
+        vm.IsExternalPolling = true;
+        Assert.EndsWith(line, vm.TitleIconTooltip);
+        Assert.Contains(nameof(StickyNoteViewModel.TitleIconTooltip), changed);
+        vm.IsExternalPolling = false;
+        Assert.DoesNotContain(line, vm.TitleIconTooltip);
+    }
+
+    [Fact]
+    public void ExternalPollingIndicator_ReservesSpaceOnlyOnExternalNotes()
+    {
+        var external = new StickyNoteViewModel(new StickyNote { ExternalContentPath = @"D:\logs\app.log" }, new AppSettings());
+        var plain = new StickyNoteViewModel(new StickyNote(), new AppSettings());
+
+        Assert.Equal(Visibility.Visible, external.ExternalPollingIndicatorVisibility);
+        Assert.Equal(new Thickness(4, 0, 16, 0), external.TitleTextMargin);
+        Assert.Equal(Visibility.Collapsed, plain.ExternalPollingIndicatorVisibility);
+        Assert.Equal(new Thickness(4, 0, 4, 0), plain.TitleTextMargin);
+
+        external.IsExternalPolling = true;
+        external.ClearExternalContentPath();
+        Assert.False(external.IsExternalPolling);
+        Assert.Equal(Visibility.Collapsed, external.ExternalPollingIndicatorVisibility);
+        Assert.Equal(new Thickness(4, 0, 4, 0), external.TitleTextMargin);
+    }
+
     [Fact]
     public void TitleIconTooltip_IsRefreshedWhenTheContentIsReloaded()
     {

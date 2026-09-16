@@ -134,6 +134,27 @@ public sealed class ExternalFileMonitor : IDisposable
         _changed();
     }
 
+    /// <summary>共有タイマーで確かめるたびに呼ばれる（ワーカースレッドから）。</summary>
+    public event Action? Polled;
+
+    /// <summary>変化が無いまま時間が経ち、確かめるのを止めたときに呼ばれる（ワーカースレッドから）。</summary>
+    public event Action? PollingStopped;
+
+    internal void RaisePolled()
+    {
+        if (!IsDisposed) Polled?.Invoke();
+    }
+
+    internal void RaisePollingStopped()
+    {
+        if (!IsDisposed) PollingStopped?.Invoke();
+    }
+
+    private bool IsDisposed
+    {
+        get { lock (_gate) return _disposed; }
+    }
+
     public void Dispose()
     {
         lock (_gate)
@@ -201,19 +222,36 @@ public sealed class ExternalFilePoller
             catch (Exception ex) { ErrorReporter.ReportNonFatal("Poll external content", ex); }
         }
 
+        var stopped = new List<ExternalFileMonitor>();
+        var kept = new List<ExternalFileMonitor>();
         lock (_gate)
         {
             // 止めるかどうかは鍵の中で時刻を読み直して決める。確かめている間に
             // Wake された付箋を、古い時刻のまま外してしまわないため。
             var now = Environment.TickCount64;
-            _monitors.RemoveWhere(monitor => !monitor.ShouldKeepPolling(now));
-            if (_monitors.Count == 0)
+            foreach (var monitor in monitors)
             {
-                _running = false;
-                return;
+                if (!_monitors.Contains(monitor))
+                    continue;
+                if (monitor.ShouldKeepPolling(now))
+                {
+                    kept.Add(monitor);
+                    continue;
+                }
+                _monitors.Remove(monitor);
+                stopped.Add(monitor);
             }
-            Schedule(_monitors.First().Settings);
+            if (_monitors.Count == 0)
+                _running = false;
+            else
+                Schedule(_monitors.First().Settings);
         }
+
+        // 知らせは鍵の外で出す（受け手が UI スレッドへ渡すのを待たせないため）。
+        foreach (var monitor in stopped)
+            monitor.RaisePollingStopped();
+        foreach (var monitor in kept)
+            monitor.RaisePolled();
     }
 }
 

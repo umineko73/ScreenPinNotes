@@ -235,6 +235,59 @@ public class ExternalFileMonitorTests
     }
 
     [Fact]
+    public void Poller_ReportsEachCheckAndWhenItStops()
+    {
+        var dir = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(dir, "app.log");
+            File.WriteAllText(path, "first\n");
+            var settings = new ExternalFileSettings { PollIntervalMs = 200, PollStopAfterMs = 700 };
+            var poller = new ExternalFilePoller();
+            var polled = 0;
+            var stopped = 0;
+            using var monitor = new ExternalFileMonitor(path, () => settings, () => { }, useWatcher: false, poller);
+            monitor.Polled += () => Interlocked.Increment(ref polled);
+            monitor.PollingStopped += () => Interlocked.Increment(ref stopped);
+
+            Assert.True(WaitUntil(() => !poller.IsRunning, TimeSpan.FromSeconds(5)));
+            Thread.Sleep(300);
+
+            // 止めるまでに何度か確かめ、止めたことは1回だけ知らせる。
+            Assert.InRange(polled, 1, 4);
+            Assert.Equal(1, stopped);
+
+            // 再開すると、また確認の知らせが届く。
+            var before = Volatile.Read(ref polled);
+            monitor.Wake();
+            Assert.True(WaitUntil(() => Volatile.Read(ref polled) > before, TimeSpan.FromSeconds(5)));
+        }
+        finally { DeleteTempDirectory(dir); }
+    }
+
+    [Fact]
+    public void Dispose_StopsTheCheckNotifications()
+    {
+        var dir = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(dir, "app.log");
+            File.WriteAllText(path, "first\n");
+            var poller = new ExternalFilePoller();
+            var events = 0;
+            var monitor = new ExternalFileMonitor(path, () => FastPolling, () => { }, useWatcher: false, poller);
+            monitor.Polled += () => Interlocked.Increment(ref events);
+            monitor.PollingStopped += () => Interlocked.Increment(ref events);
+
+            monitor.Dispose();
+            Thread.Sleep(600);
+
+            Assert.Equal(0, events);
+        }
+        finally { DeleteTempDirectory(dir); }
+    }
+
+    [Fact]
     public void Dispose_RemovesTheFileFromThePoller()
     {
         var dir = CreateTempDirectory();
