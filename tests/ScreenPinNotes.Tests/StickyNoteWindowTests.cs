@@ -1542,10 +1542,10 @@ public class StickyNoteWindowTests
     }
 
     [Theory]
-    [InlineData(0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x80, 0x80)] // 白 → 赤へ半分
-    [InlineData(0xFF, 0x20, 0x20, 0x20, 0x90, 0x10, 0x10)] // 暗い背景
-    [InlineData(0xB3, 0xFF, 0xF9, 0xC4, 0xFF, 0x7C, 0x62)] // 半透明の付箋は透明度を保つ
-    public void ErrorTintColor_MovesTheBackgroundHalfwayToRed(byte a, byte r, byte g, byte b, byte er, byte eg, byte eb)
+    [InlineData(0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xBF, 0xBF)] // 白 → 赤へ4分の1
+    [InlineData(0xFF, 0x20, 0x20, 0x20, 0x58, 0x18, 0x18)] // 暗い背景
+    [InlineData(0xB3, 0xFF, 0xF9, 0xC4, 0xFF, 0xBB, 0x93)] // 半透明の付箋は透明度を保つ
+    public void ErrorTintColor_MovesTheBackgroundAQuarterTowardRed(byte a, byte r, byte g, byte b, byte er, byte eg, byte eb)
         => Assert.Equal(Color.FromArgb(a, er, eg, eb), StickyNoteWindow.ErrorTintColor(Color.FromArgb(a, r, g, b)));
 
     // 追記の速いログでは更新が立て続けに届く。そのたびに明滅を始めから

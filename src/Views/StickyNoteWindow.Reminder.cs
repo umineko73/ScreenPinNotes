@@ -43,9 +43,9 @@ public partial class StickyNoteWindow
     private static readonly SolidColorBrush UpdateFlashErrorBrush = FrozenBrush("#FF5252");
 
     /// <summary>エラーのときに付箋を点滅させる回数。</summary>
-    private const int ErrorFlashCount = 3;
+    private const int ErrorFlashCount = 2;
     /// <summary>エラーのときに背景色を赤へ寄せる割合。</summary>
-    public const double ErrorTintRatio = 0.5;
+    public const double ErrorTintRatio = 0.25;
     private static readonly Color ErrorTint = Colors.Red;
     /// <summary>ふつうの更新で枠が光る片道（消えた状態から最も明るいまで）の時間。</summary>
     private static readonly TimeSpan UpdateFlashHalfPeriod = TimeSpan.FromSeconds(0.4);
