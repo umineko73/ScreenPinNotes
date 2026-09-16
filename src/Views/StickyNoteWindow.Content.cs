@@ -175,12 +175,17 @@ public partial class StickyNoteWindow
             return;
         }
 
+        QueueExternalContentReload(remaining);
+    }
+
+    private void QueueExternalContentReload(TimeSpan delay)
+    {
         // 既に待機中のタイマーがあれば、それが発火したときに最新の内容を
         // 読み直すのでここでは何もしない。
         if (_externalContentReloadThrottleTimer != null)
             return;
 
-        _externalContentReloadThrottleTimer = new System.Windows.Threading.DispatcherTimer { Interval = remaining };
+        _externalContentReloadThrottleTimer = new System.Windows.Threading.DispatcherTimer { Interval = delay };
         _externalContentReloadThrottleTimer.Tick += (_, _) =>
         {
             _externalContentReloadThrottleTimer?.Stop();
@@ -191,14 +196,22 @@ public partial class StickyNoteWindow
     }
 
     private void ReloadExternalContentOnUiThread()
+        => ReloadExternalContentOnUiThread(initialRead: false);
+
+    private void ReloadExternalContentOnUiThread(bool initialRead)
     {
+        // 通知による即時更新が成功した場合も、待機中の再試行を残さない。
+        _externalContentReloadThrottleTimer?.Stop();
+        _externalContentReloadThrottleTimer = null;
         try
         {
             // ウォッチャーのイベント発火後にウィンドウが閉じられている場合は何もしない。
             if (_isClosed || !ViewModel.Model.IsExternalContent)
                 return;
 
-            _lastExternalContentReloadUtc = DateTime.UtcNow;
+            // 初回の同期で、直後に届く最初の変更通知を間引かない。
+            if (!initialRead)
+                _lastExternalContentReloadUtc = DateTime.UtcNow;
 
             // 一時的にファイルが読めない場合は表示中の内容を維持する
             // （エラー文言で上書きしてキャッシュを壊さない）。
@@ -242,6 +255,14 @@ public partial class StickyNoteWindow
 
                     FlashForExternalUpdate(hasError);
                 }
+            }
+            else
+            {
+                // 監視側の比較基準は既に更新されているため、ロック解除だけでは
+                // 次の通知が来ないことがある。本文を取得できるまで再試行する。
+                // 最短更新間隔が0でも、読めないファイルを連続で開き続けない。
+                QueueExternalContentReload(TimeSpan.FromMilliseconds(Math.Max(200,
+                    Math.Max(Settings.ExternalFile.PollIntervalMs, Settings.ExternalFile.MinRefreshIntervalMs))));
             }
         }
         catch (Exception ex)
@@ -1541,6 +1562,8 @@ public partial class StickyNoteWindow
             var settings = Settings;
             _externalContentMonitor = new ExternalFileMonitor(
                 ViewModel.Model.ExternalContentPath, () => settings.ExternalFile, ReloadExternalContent);
+            // 起動時の読み込みから初回表示までの変更も、監視開始後に拾う。
+            ReloadExternalContentOnUiThread(initialRead: true);
         }
         catch (Exception ex)
         {
