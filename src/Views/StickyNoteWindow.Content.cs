@@ -405,6 +405,7 @@ public partial class StickyNoteWindow
                 CreateTaskCheckbox,
                 ViewModel.UsesDarkNoteColors,
                 ignoreFirstLineHeadingSize: ViewModel.IsFolded && ViewModel.IsTitleBarHidden,
+                joinLines: Settings.JoinMarkdownLines,
                 language: Settings.Language,
                 propertiesCollapsed: ViewModel.Model.ArePropertiesCollapsed,
                 propertiesCollapsedChanged: collapsed =>
@@ -416,6 +417,12 @@ public partial class StickyNoteWindow
                 ContentBox.Document.Blocks.Add(block);
                 if (block is Table table)
                     SizeMarkdownTableColumns(table);
+                else if (block is Section { Tag: null } quote)
+                {
+                    // 引用の中の表も、本文の表と同じく列幅を合わせる。
+                    foreach (var quotedTable in QuotedTables(quote))
+                        SizeMarkdownTableColumns(quotedTable);
+                }
                 else if (block is Section { Tag: Table propertyTable })
                     {
                         var available = Math.Max(40, GetMarkdownImageAvailableWidth());
@@ -443,6 +450,18 @@ public partial class StickyNoteWindow
         FoldedPreviewText.Text = _foldedPreviewSourceText;
         FitFoldedWidth();
         UpdateImagePathPreview();
+    }
+
+    private static IEnumerable<Table> QuotedTables(Section quote)
+    {
+        foreach (var block in quote.Blocks)
+        {
+            if (block is Table table)
+                yield return table;
+            else if (block is Section { Tag: null } nested)
+                foreach (var inner in QuotedTables(nested))
+                    yield return inner;
+        }
     }
 
     private void SizeMarkdownTableColumns(Table table)
@@ -1517,7 +1536,7 @@ public partial class StickyNoteWindow
         try
         {
             // 書き手が開いたまま追記するファイルは監視の通知が届かないことがあるので、
-            // 長さと更新日時の確認も併用する。確認はワーカースレッドで走り、
+            // 長さと更新日時の確認も併用する。確認は全付箋で共有するタイマーで走り、
             // ReloadExternalContent が UI スレッドへ渡す。
             var settings = Settings;
             _externalContentMonitor = new ExternalFileMonitor(
@@ -1528,6 +1547,12 @@ public partial class StickyNoteWindow
             ErrorReporter.ReportNonFatal("Watch external content", ex);
         }
     }
+
+    /// <summary>
+    /// 止めていた外部ファイルの確認を再開する。開いたまま追記されるファイルは
+    /// 監視の通知が来ないことがあるので、見に来たのをきっかけに確かめ直す。
+    /// </summary>
+    private void WakeExternalContentMonitor() => _externalContentMonitor?.Wake();
 
     private void DisposeExternalContentWatcher()
     {

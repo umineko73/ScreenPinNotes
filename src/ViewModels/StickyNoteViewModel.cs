@@ -52,6 +52,9 @@ public class StickyNoteViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(FirstLine));
             OnPropertyChanged(nameof(DisplayTitle));
             OnPropertyChanged(nameof(TitleBarDisplayText));
+            // 外部ファイルのツールチップにも最終更新の時刻を出している。
+            OnPropertyChanged(nameof(TitleIconTooltip));
+            OnPropertyChanged(nameof(TitleTooltip));
             // 画像1枚だけかどうかで本文の余白と、設定によっては帯の有無も変わる。
             OnPropertyChanged(nameof(IsImageOnlyContent));
             OnPropertyChanged(nameof(NoteContentPadding));
@@ -120,7 +123,9 @@ public class StickyNoteViewModel : INotifyPropertyChanged
 
     public string? TitleIconTooltip =>
         _model.IsExternalContent && !string.IsNullOrWhiteSpace(_model.ExternalContentPath)
-            ? $"{ExternalFileLabel()}:\n{_model.ExternalContentPath}"
+            ? $"{T("ExternalFile")} ({T("ExternalFileAutoRefresh")}):\n" +
+              $"{_model.ExternalContentPath}\n" +
+              $"{T("ExternalFileLastRefreshed")}: {_model.UpdatedAt:HH:mm:ss}"
             : null;
 
     public string? TitleTooltip => TitleIconTooltip;
@@ -605,8 +610,8 @@ public class StickyNoteViewModel : INotifyPropertyChanged
 
     public bool UsesDarkNoteColors => NoteAppearance.UsesDarkColors(_model, _settings);
 
-    private string ExternalFileLabel()
-        => LocalizationService.T("ExternalFile", _settings.Language);
+    private string T(string key)
+        => LocalizationService.T(key, _settings.Language);
 
     private string ReminderLabel()
         => LocalizationService.T("ReminderDialogTitle", _settings.Language);

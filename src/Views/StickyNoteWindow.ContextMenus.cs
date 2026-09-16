@@ -137,6 +137,7 @@ public partial class StickyNoteWindow
         cm.Items.Add(externalItem);
         cm.Items.Add(readOnlyItem);
         cm.Items.Add(new Separator());
+        cm.Items.Add(BuildDuplicateNoteMenuItem());
         var hideItem = new MenuItem { Header = LocalizationService.T("HideNote") };
         hideItem.Click += (_, _) => App.Current.HideNote(ViewModel.Model.Id);
         cm.Items.Add(hideItem);
@@ -215,6 +216,7 @@ public partial class StickyNoteWindow
         cm.Items.Add(externalItem);
         cm.Items.Add(readOnlyItem);
         cm.Items.Add(new Separator());
+        cm.Items.Add(BuildDuplicateNoteMenuItem());
         cm.Items.Add(hideItem);
         cm.Items.Add(deleteItem);
         cm.Opened += (_, _) =>
@@ -333,6 +335,7 @@ public partial class StickyNoteWindow
         cm.Items.Add(externalItem);
         cm.Items.Add(readOnlyItem);
         cm.Items.Add(new Separator());
+        cm.Items.Add(BuildDuplicateNoteMenuItem());
         cm.Items.Add(hideItem);
         cm.Items.Add(deleteItem);
         cm.Opened += (_, _) =>
@@ -346,6 +349,9 @@ public partial class StickyNoteWindow
             pasteItem.Visibility = editing && canEdit ? Visibility.Visible : Visibility.Collapsed;
             selectAllItem.Visibility = editing ? Visibility.Visible : Visibility.Collapsed;
             quickIconButton.IsEnabled = !ViewModel.Model.IsExternalContent;
+            // 編集中は選んだ部分を写すふつうのコピー。それ以外は何も選ばずに
+            // タイトル全体を写すので、そうと分かる名前にする。
+            copyItem.Header = LocalizationService.T(editing ? "Copy" : "CopyTitle");
             copyItem.IsEnabled = editing
                 ? TitleEditBox.SelectionLength > 0
                 : !string.IsNullOrEmpty(ViewModel.DisplayTitle);
@@ -375,6 +381,13 @@ public partial class StickyNoteWindow
 
     // タイトルバーを隠していると、これらはタイトル右クリックから届かなくなる。
     // 本文の右クリックからも同じ項目を出せるよう、組み立てをここへ切り出す。
+
+    private MenuItem BuildDuplicateNoteMenuItem()
+    {
+        var item = new MenuItem { Header = LocalizationService.T("DuplicateNote") };
+        item.Click += (_, _) => App.Current.DuplicateNote(this);
+        return item;
+    }
 
     private MenuItem BuildEditTitleMenuItem()
     {

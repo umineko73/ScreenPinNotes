@@ -44,6 +44,7 @@ public partial class StickyNoteWindow
 
     private void ConfigureTaskbarPreview()
     {
+        ShellSwitchTracker.EnsureInstalled();
         var hwnd = new WindowInteropHelper(this).Handle;
         if (hwnd == IntPtr.Zero || _isClosed) return;
         var enabled = ShowInTaskbar ? 1 : 0;
@@ -103,11 +104,12 @@ public partial class StickyNoteWindow
                 ErrorReporter.ReportNonFatal("Render taskbar note preview", ex);
             }
         }
-        // A click on the note itself is WA_CLICKACTIVE, not WA_ACTIVE. Ignore
-        // activation returning from our popups/dialogs and initialization as well.
-        // Shell/keyboard switching and restoration both open the chosen note.
+        // A click on the note itself is WA_CLICKACTIVE, not WA_ACTIVE. WA_ACTIVE
+        // also arrives when Windows hands the focus over because another window
+        // closed or minimized, so only shell/keyboard switching (taskbar, Alt+Tab,
+        // Task View) and restoration open the chosen note.
         if ((msg == 0x0006 && (wParam.ToInt64() & 0xffff) == 1 &&
-             (lParam == IntPtr.Zero || HwndSource.FromHwnd(lParam) is not { RootVisual: not StickyNoteWindow })) ||
+             ShellSwitchTracker.WasActivatedByUserSwitch(hwnd)) ||
             (msg == 0x0112 && (wParam.ToInt64() & 0xfff0) == 0xf120))
             QueueTaskbarUnfold();
     }
@@ -194,7 +196,8 @@ public partial class StickyNoteWindow
         foreach (var block in MarkdownRenderer.Render(note.Content, note.FontSize,
             (label, target) => new Hyperlink(new Run(label)) { Foreground = vm.UsesDarkNoteColors ? Brushes.LightSkyBlue : Brushes.RoyalBlue },
             ImageInline, (_, check) => new System.Windows.Controls.CheckBox { IsChecked = check }, vm.UsesDarkNoteColors,
-            language: Settings.Language, propertiesCollapsed: note.ArePropertiesCollapsed))
+            language: Settings.Language, propertiesCollapsed: note.ArePropertiesCollapsed,
+            joinLines: Settings.JoinMarkdownLines))
             document.Blocks.Add(block);
         var body = new System.Windows.Controls.RichTextBox { Document = document, IsReadOnly = true,
             BorderThickness = new Thickness(0), Background = Brushes.Transparent, Padding = padding,

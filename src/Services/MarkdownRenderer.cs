@@ -56,7 +56,8 @@ public static class MarkdownRenderer
         string language = "en",
         bool propertiesCollapsed = false,
         Action<bool>? propertiesCollapsedChanged = null,
-        string? referenceSource = null)
+        string? referenceSource = null,
+        bool joinLines = false)
     {
         // Bound UI element creation and parser work without discarding source text.
         if (text.Length > 131072 || text.Count(ch => ch == '\n') > 2000)
@@ -98,24 +99,60 @@ public static class MarkdownRenderer
                 renderEnd = j;
         }
 
-        for (int i = startLine; i < renderEnd;)
+        var source = new SourceLine[lines.Length];
+        for (var n = 0; n < lines.Length; n++)
+            source[n] = new SourceLine(lines[n], n, 0);
+        var context = new RenderContext(baseFontSize, createHyperlink, createImage, createTaskCheckbox,
+            darkMode, ignoreFirstLineHeadingSize, references, definitionLines, joinLines);
+        foreach (var block in RenderBlocks(source, startLine, renderEnd, context, quoteDepth: 0))
+            yield return block;
+    }
+
+    /// <summary>
+    /// 描く1行。引用の中身は先頭の ">" を外して描くので、元の本文の何行目・何文字目に
+    /// あたるかを持ち歩く（チェックボックスや画像は元の本文を書き換えるときにこれを使う）。
+    /// </summary>
+    private readonly record struct SourceLine(string Text, int Index, int Offset);
+
+    private sealed record RenderContext(
+        double BaseFontSize,
+        Func<string, string, Hyperlink> CreateHyperlink,
+        Func<MarkdownImage, Inline>? CreateImage,
+        Func<int, bool, WpfCheckBox>? CreateTaskCheckbox,
+        bool DarkMode,
+        bool IgnoreFirstLineHeadingSize,
+        IReadOnlyDictionary<string, string> References,
+        HashSet<int> DefinitionLines,
+        bool JoinLines);
+
+    /// <summary>
+    /// 引用・リストの入れ子の上限。これより深い印は入れ子にしない（">" を何千も並べた行で
+    /// 再帰が深くなりすぎ、スタックを使い果たさないように）。
+    /// </summary>
+    private const int MaxNestingDepth = 8;
+
+    private static IEnumerable<Block> RenderBlocks(SourceLine[] lines, int start, int end, RenderContext context, int quoteDepth)
+    {
+        var darkMode = context.DarkMode;
+        var texts = Array.ConvertAll(lines, l => l.Text);
+        for (int i = start; i < end;)
         {
             var line = lines[i];
-            var trimmed = line.Trim();
+            var trimmed = line.Text.Trim();
 
-            if (IsFence(line))
+            if (IsFence(line.Text))
             {
                 i++;
                 var codeLines = new List<string>();
-                while (i < lines.Length && !IsFence(lines[i]))
-                    codeLines.Add(lines[i++]);
+                while (i < lines.Length && !IsFence(lines[i].Text))
+                    codeLines.Add(lines[i++].Text);
                 if (i < lines.Length) i++;
 
                 yield return CreateCodeBlock(string.Join("\n", codeLines), darkMode);
                 continue;
             }
 
-            if (definitionLines.Contains(i))
+            if (context.DefinitionLines.Contains(line.Index))
             {
                 i++;
                 continue;
@@ -128,22 +165,23 @@ public static class MarkdownRenderer
                 continue;
             }
 
-            if (TryParseTable(lines, i, createHyperlink, createImage, references, darkMode, out var table, out var nextIndex))
+            if (TryParseTable(texts, i, context.CreateHyperlink, context.CreateImage,
+                    context.References, darkMode, out var table, out var nextIndex))
             {
                 yield return table;
                 i = nextIndex;
                 continue;
             }
 
-            if (TryGetHeading(line, out var level, out var headingText))
+            if (TryGetHeading(line.Text, out var level, out var headingText))
             {
                 var para = CreateParagraph();
                 para.FontWeight = FontWeights.Bold;
                 // タイトルバーを隠して畳んだ1行表示では、見出しの拡大を無視してタイトル文字サイズに揃える。
-                para.FontSize = ignoreFirstLineHeadingSize && i == 0
-                    ? baseFontSize
-                    : HeadingFontSize(baseFontSize, level);
-                AddInlineContent(para.Inlines, headingText, i, level + 1, createHyperlink, createImage, references, darkMode);
+                para.FontSize = context.IgnoreFirstLineHeadingSize && line.Index == 0
+                    ? context.BaseFontSize
+                    : HeadingFontSize(context.BaseFontSize, level);
+                AddInlineContent(para.Inlines, headingText, line.Index, line.Offset + level + 1, context);
                 yield return para;
                 i++;
                 continue;
@@ -156,85 +194,219 @@ public static class MarkdownRenderer
                 continue;
             }
 
-            if (TryGetListItem(line, out var ordered, out _, out var firstTaskState))
+            if (TryGetListItem(line.Text, out ListItemMarker _))
             {
-                var list = new System.Windows.Documents.List
-                {
-                    MarkerStyle = firstTaskState.HasValue
-                        ? TextMarkerStyle.None
-                        : ordered ? TextMarkerStyle.Decimal : TextMarkerStyle.Disc,
-                    Margin = new Thickness(18, 0, 0, 0),
-                    Padding = new Thickness(0),
-                };
-
-                while (i < lines.Length &&
-                       TryGetListItem(lines[i], out var itemOrdered, out var itemText, out var taskState) &&
-                       itemOrdered == ordered &&
-                       taskState.HasValue == firstTaskState.HasValue)
-                {
-                    var para = CreateParagraph();
-                    if (taskState.HasValue)
-                    {
-                        var checkbox = createTaskCheckbox?.Invoke(i, taskState.Value) ??
-                            new WpfCheckBox { IsChecked = taskState.Value };
-                        // チェックボックスの枠と同じ幅のぶら下げインデントを付け、折り返しや続きの行を
-                        // チェックボックスの左端ではなく項目の文字位置にそろえる。チェックボックスは
-                        // 文書に入るまでテンプレートが当たらず事前に測れないので、配置後の実際の幅を使う。
-                        // 本文との間には、以前の半角スペース1つぶんに近い空きを残す。
-                        var marker = new WpfBorder { Padding = new Thickness(0, 0, Math.Ceiling(baseFontSize * 0.3), 0), Child = checkbox };
-                        var itemParagraph = para;
-                        marker.SizeChanged += (_, e) =>
-                        {
-                            itemParagraph.Margin = new Thickness(e.NewSize.Width, 0, 0, 0);
-                            itemParagraph.TextIndent = -e.NewSize.Width;
-                        };
-                        para.Inlines.Add(new InlineUIContainer(marker)
-                        {
-                            BaselineAlignment = BaselineAlignment.Center,
-                        });
-                    }
-                    var itemTextOffset = lines[i].IndexOf(itemText, StringComparison.Ordinal);
-                    AddInlineContent(para.Inlines, itemText, i, itemTextOffset < 0 ? 0 : itemTextOffset, createHyperlink, createImage, references, darkMode);
-                    var itemIndent = GetIndentWidth(lines[i]);
-                    i++;
-
-                    // 項目より深く字下げされた続きの行は、改行を挟んで同じ項目の本文として並べる
-                    // (リストの外に出すと、2行目の先頭が項目の文字位置とそろわない)。
-                    while (i < lines.Length && !definitionLines.Contains(i) && IsListContinuation(lines[i], itemIndent))
-                    {
-                        var continuation = lines[i].TrimStart();
-                        para.Inlines.Add(new LineBreak());
-                        AddInlineContent(para.Inlines, continuation, i, lines[i].Length - continuation.Length, createHyperlink, createImage, references, darkMode);
-                        i++;
-                    }
-
-                    list.ListItems.Add(new ListItem(para) { Margin = new Thickness(0) });
-                }
-
+                var (list, next) = RenderList(lines, i, 0, context);
                 yield return list;
+                i = next;
                 continue;
             }
 
-            if (TryGetQuote(line, out var quoteText))
+            if (quoteDepth < MaxNestingDepth && TryStripQuote(line, out _))
             {
-                var para = CreateParagraph();
-                para.Margin = new Thickness(0, 2, 0, 2);
-                para.Padding = new Thickness(8, 0, 0, 0);
-                para.BorderBrush = GetBorderBrush(darkMode);
-                para.BorderThickness = new Thickness(3, 0, 0, 0);
-                para.Foreground = darkMode ? WpfBrushes.LightGray : WpfBrushes.DimGray;
-                var quoteTextOffset = line.IndexOf(quoteText, StringComparison.Ordinal);
-                AddInlineContent(para.Inlines, quoteText, i, quoteTextOffset < 0 ? 0 : quoteTextOffset, createHyperlink, createImage, references, darkMode);
-                yield return para;
-                i++;
+                // 続く引用行を1つのまとまりとして、">" を1段外した中身を描く。中身も Markdown として
+                // 描くので、">>" の入れ子や引用内のリスト・見出しもそのまま描ける。
+                var inner = new List<SourceLine>();
+                while (i < lines.Length && !context.DefinitionLines.Contains(lines[i].Index) &&
+                       TryStripQuote(lines[i], out var stripped))
+                {
+                    inner.Add(stripped);
+                    i++;
+                }
+                yield return CreateQuote(RenderBlocks([.. inner], 0, inner.Count, context, quoteDepth + 1), darkMode);
                 continue;
             }
 
             var paragraph = CreateParagraph();
-            AddInlineContent(paragraph.Inlines, line, i, 0, createHyperlink, createImage, references, darkMode);
+            // 行頭の字下げは余白にする。文字として残すと、折り返した2行目が行頭へ戻ってしまう。
+            var indent = GetIndentWidth(line.Text);
+            if (indent > 0)
+                paragraph.Margin = new Thickness(IndentWidth(indent, context.BaseFontSize), 0, 0, 0);
+
+            // 設定で有効なときは、続けて書いた行を同じ段落として折り返す。
+            var last = i + 1;
+            if (context.JoinLines)
+            {
+                while (last < end && GetIndentWidth(lines[last].Text) == indent &&
+                       !StartsBlock(lines, texts, last, context, quoteDepth))
+                    last++;
+            }
+
+            for (var k = i; k < last; k++)
+            {
+                var body = lines[k].Text.TrimStart(IndentChars);
+                var bodyStart = lines[k].Offset + lines[k].Text.Length - body.Length;
+                string? next = k + 1 < last ? lines[k + 1].Text.TrimStart(IndentChars) : null;
+                // 行末のスペース2つか "\" は、そこで改行する印（一般的な Markdown と同じ）。
+                var hardBreak = next != null && (body.EndsWith("  ", StringComparison.Ordinal) || body.EndsWith('\\'));
+                if (next != null)
+                    body = body.EndsWith('\\') ? body[..^1] : body.TrimEnd();
+                AddInlineContent(paragraph.Inlines, body, lines[k].Index, bodyStart, context);
+                if (next == null)
+                    continue;
+                if (hardBreak)
+                    paragraph.Inlines.Add(new LineBreak());
+                else if (body.Length > 0 && next.Length > 0 && !IsCjk(body[^1]) && !IsCjk(next[0]))
+                    paragraph.Inlines.Add(new Run(" "));
+            }
             yield return paragraph;
-            i++;
+            i = last;
         }
+    }
+
+    /// <summary>その行から段落以外のまとまり（または空行）が始まるか。段落をつなげる範囲を決めるのに使う。</summary>
+    private static bool StartsBlock(SourceLine[] lines, string[] texts, int index, RenderContext context, int quoteDepth)
+    {
+        var text = lines[index].Text;
+        var trimmed = text.Trim();
+        return trimmed.Length == 0 ||
+               IsFence(text) ||
+               context.DefinitionLines.Contains(lines[index].Index) ||
+               IsTableStart(texts, index) ||
+               TryGetHeading(text, out _, out _) ||
+               IsHorizontalRule(trimmed) ||
+               TryGetListItem(text, out ListItemMarker _) ||
+               (quoteDepth < MaxNestingDepth && IsQuote(text));
+    }
+
+    private static bool IsTableStart(string[] lines, int start)
+        => start + 1 < lines.Length &&
+           TrySplitTableRow(lines[start], out var headers) &&
+           TrySplitTableRow(lines[start + 1], out var separator) &&
+           headers.Count > 0 && separator.Count == headers.Count &&
+           TryGetTableAlignments(separator, out _);
+
+    /// <summary>
+    /// 日本語・中国語の文字。これらの間で行をつなぐときは空白を入れない
+    /// （英語のように単語の間にスペースを置く書き方ではないため）。
+    /// </summary>
+    private static bool IsCjk(char ch)
+        => ch is (>= '⺀' and <= '鿿') or (>= '豈' and <= '﫿') or (>= '＀' and <= '￯');
+
+    private static readonly char[] IndentChars = [' ', '\t', '\u3000'];
+
+    /// <summary>字下げ1桁ぶんの幅。タブ（4桁）でおよそ全角2文字になる。</summary>
+    private static double IndentWidth(int columns, double baseFontSize)
+        => columns * baseFontSize * 0.5;
+
+    private static Section CreateQuote(IEnumerable<Block> blocks, bool darkMode)
+    {
+        var section = new Section
+        {
+            Margin = new Thickness(0, 2, 0, 2),
+            Padding = new Thickness(8, 0, 0, 0),
+            BorderBrush = GetBorderBrush(darkMode),
+            BorderThickness = new Thickness(3, 0, 0, 0),
+            Foreground = darkMode ? WpfBrushes.LightGray : WpfBrushes.DimGray,
+        };
+        foreach (var block in blocks)
+            section.Blocks.Add(block);
+        return section;
+    }
+
+    /// <summary>
+    /// <paramref name="start"/> の項目から始まるリストを描く。字下げの深い項目は、
+    /// 直前の項目の中に入れ子のリストとして描く。字下げが浅い項目・種類の違う項目の手前で終わる。
+    /// </summary>
+    private static (System.Windows.Documents.List List, int Next) RenderList(
+        SourceLine[] lines, int start, int depth, RenderContext context)
+    {
+        TryGetListItem(lines[start].Text, out ListItemMarker first);
+        var list = new System.Windows.Documents.List
+        {
+            MarkerStyle = first.TaskState.HasValue
+                ? TextMarkerStyle.None
+                : first.Ordered
+                    ? TextMarkerStyle.Decimal
+                    : (depth % 3) switch { 0 => TextMarkerStyle.Disc, 1 => TextMarkerStyle.Circle, _ => TextMarkerStyle.Square },
+            Margin = new Thickness(18, 0, 0, 0),
+            Padding = new Thickness(0),
+        };
+        if (first.Ordered)
+            list.StartIndex = Math.Max(1, first.Number);
+
+        var i = start;
+        while (i < lines.Length &&
+               !context.DefinitionLines.Contains(lines[i].Index) &&
+               TryGetListItem(lines[i].Text, out ListItemMarker item) &&
+               item.Indent >= first.Indent &&
+               (depth >= MaxNestingDepth || item.Indent < first.Indent + NestedListIndent) &&
+               item.Ordered == first.Ordered &&
+               // "1." の並びと "1)" の並びは別のリストにする。
+               item.Delimiter == first.Delimiter &&
+               item.TaskState.HasValue == first.TaskState.HasValue)
+        {
+            var para = CreateListItemParagraph(lines[i], item, context);
+            var listItem = new ListItem(para) { Margin = new Thickness(0) };
+            Paragraph? continued = para;
+            i++;
+
+            while (i < lines.Length && !context.DefinitionLines.Contains(lines[i].Index))
+            {
+                // 項目より深く字下げされた項目は、この項目の中の入れ子のリストにする。
+                if (depth < MaxNestingDepth &&
+                    TryGetListItem(lines[i].Text, out ListItemMarker child) &&
+                    child.Indent >= item.Indent + NestedListIndent)
+                {
+                    var (nested, next) = RenderList(lines, i, depth + 1, context);
+                    listItem.Blocks.Add(nested);
+                    i = next;
+                    continued = null;
+                    continue;
+                }
+
+                // 項目より深く字下げされた続きの行は、改行を挟んで同じ項目の本文として並べる
+                // (リストの外に出すと、2行目の先頭が項目の文字位置とそろわない)。
+                if (!IsListContinuation(lines[i].Text, item.Indent))
+                    break;
+                var continuation = lines[i].Text.TrimStart(IndentChars);
+                if (continued == null)
+                {
+                    continued = CreateParagraph();
+                    listItem.Blocks.Add(continued);
+                }
+                else
+                {
+                    continued.Inlines.Add(new LineBreak());
+                }
+                AddInlineContent(continued.Inlines, continuation, lines[i].Index,
+                    lines[i].Offset + lines[i].Text.Length - continuation.Length, context);
+                i++;
+            }
+
+            list.ListItems.Add(listItem);
+        }
+
+        return (list, i);
+    }
+
+    /// <summary>入れ子とみなす字下げの深さ（桁）。スペース2つ、またはタブ1つから。</summary>
+    private const int NestedListIndent = 2;
+
+    private static Paragraph CreateListItemParagraph(SourceLine line, ListItemMarker item, RenderContext context)
+    {
+        var para = CreateParagraph();
+        if (item.TaskState.HasValue)
+        {
+            var checkbox = context.CreateTaskCheckbox?.Invoke(line.Index, item.TaskState.Value) ??
+                new WpfCheckBox { IsChecked = item.TaskState.Value };
+            // チェックボックスの枠と同じ幅のぶら下げインデントを付け、折り返しや続きの行を
+            // チェックボックスの左端ではなく項目の文字位置にそろえる。チェックボックスは
+            // 文書に入るまでテンプレートが当たらず事前に測れないので、配置後の実際の幅を使う。
+            // 本文との間には、以前の半角スペース1つぶんに近い空きを残す。
+            var marker = new WpfBorder { Padding = new Thickness(0, 0, Math.Ceiling(context.BaseFontSize * 0.3), 0), Child = checkbox };
+            marker.SizeChanged += (_, e) =>
+            {
+                para.Margin = new Thickness(e.NewSize.Width, 0, 0, 0);
+                para.TextIndent = -e.NewSize.Width;
+            };
+            para.Inlines.Add(new InlineUIContainer(marker)
+            {
+                BaselineAlignment = BaselineAlignment.Center,
+            });
+        }
+        AddInlineContent(para.Inlines, item.Text, line.Index, line.Offset + item.TextStart, context);
+        return para;
     }
 
     /// <summary>
@@ -508,56 +680,80 @@ public static class MarkdownRenderer
         return true;
     }
 
-    private static bool TryGetQuote(string line, out string text)
+    /// <summary>引用の印 ">" を1段外した行。印の後ろの空白1つも外す。</summary>
+    private static bool TryStripQuote(SourceLine line, out SourceLine stripped)
     {
-        var trimmedStart = line.TrimStart();
-        if (!trimmedStart.StartsWith(">"))
+        var text = line.Text;
+        var at = 0;
+        while (at < text.Length && at < 4 && text[at] == ' ')
+            at++;
+        if (at >= text.Length || text[at] != '>')
         {
-            text = "";
+            stripped = default;
             return false;
         }
 
-        text = trimmedStart[1..].TrimStart();
+        at++;
+        if (at < text.Length && text[at] is ' ' or '\t')
+            at++;
+        stripped = new SourceLine(text[at..], line.Index, line.Offset + at);
         return true;
     }
 
-    private static bool TryGetListItem(
-        string line,
-        out bool ordered,
-        out string text,
-        out bool? taskState)
-    {
-        ordered = false;
-        text = "";
-        taskState = null;
+    private static bool IsQuote(string line)
+        => TryStripQuote(new SourceLine(line, 0, 0), out _);
 
-        var trimmed = line.TrimStart();
-        if (trimmed.Length >= 2 && (trimmed[0] == '-' || trimmed[0] == '*' || trimmed[0] == '+') && trimmed[1] == ' ')
+    /// <summary>リスト項目の印を読んだ結果。</summary>
+    /// <param name="Indent">印の前の字下げ（桁。タブは4桁ごとの位置まで）。</param>
+    /// <param name="TextStart">行の中で本文（チェックボックスの印の後ろ）が始まる位置。</param>
+    /// <param name="Delimiter">番号の後ろの区切り（"." か ")"）。箇条書きでは 0。</param>
+    private readonly record struct ListItemMarker(
+        bool Ordered, int Number, string Text, int TextStart, bool? TaskState, int Indent, char Delimiter);
+
+    private static bool TryGetListItem(string line, out ListItemMarker item)
+    {
+        item = default;
+        var at = 0;
+        while (at < line.Length && Array.IndexOf(IndentChars, line[at]) >= 0)
+            at++;
+        var indent = GetIndentWidth(line);
+
+        bool ordered;
+        var number = 0;
+        var delimiter = '\0';
+        if (at + 1 < line.Length && line[at] is '-' or '*' or '+' && line[at + 1] is ' ' or '\t')
         {
-            text = trimmed[2..];
-            ReadTaskState(ref text, out taskState);
-            return true;
+            ordered = false;
+            at += 2;
+        }
+        else
+        {
+            var digits = at;
+            while (digits < line.Length && digits - at < 9 && char.IsAsciiDigit(line[digits]))
+                digits++;
+            // "1." と "1)" のどちらも番号付きリストとして読む。
+            if (digits == at || digits + 1 >= line.Length ||
+                line[digits] is not ('.' or ')') || line[digits + 1] is not (' ' or '\t'))
+                return false;
+            ordered = true;
+            number = int.Parse(line.AsSpan(at, digits - at), System.Globalization.CultureInfo.InvariantCulture);
+            delimiter = line[digits];
+            at = digits + 2;
         }
 
-        int pos = 0;
-        while (pos < trimmed.Length && char.IsDigit(trimmed[pos]))
-            pos++;
-
-        if (pos == 0 || pos + 1 >= trimmed.Length || trimmed[pos] != '.' || trimmed[pos + 1] != ' ')
-            return false;
-
-        ordered = true;
-        text = trimmed[(pos + 2)..];
-        ReadTaskState(ref text, out taskState);
+        var text = line[at..];
+        var before = text.Length;
+        ReadTaskState(ref text, out var taskState);
+        item = new ListItemMarker(ordered, number, text, at + before - text.Length, taskState, indent, delimiter);
         return true;
     }
 
     private static bool IsListContinuation(string line, int itemIndent)
         => line.Trim().Length > 0 &&
            GetIndentWidth(line) > itemIndent &&
-           !TryGetListItem(line, out _, out _, out _) &&
+           !TryGetListItem(line, out ListItemMarker _) &&
            !IsFence(line) &&
-           !TryGetQuote(line, out _);
+           !IsQuote(line);
 
     private static int GetIndentWidth(string line)
     {
@@ -566,6 +762,7 @@ public static class MarkdownRenderer
         {
             if (ch == ' ') width++;
             else if (ch == '\t') width += 4 - width % 4;
+            else if (ch == '\u3000') width += 2;
             else break;
         }
         return width;
@@ -680,6 +877,10 @@ public static class MarkdownRenderer
         }
     }
 
+    private static void AddInlineContent(InlineCollection inlines, string text, int lineIndex, int lineOffset, RenderContext context)
+        => AddInlineContent(inlines, text, lineIndex, lineOffset, context.CreateHyperlink, context.CreateImage,
+            context.References, context.DarkMode);
+
     private static void AddInlineContent(
         InlineCollection inlines,
         string text,
@@ -757,6 +958,15 @@ public static class MarkdownRenderer
                 AddInlineContent(span.Inlines, boldText, lineIndex, lineOffset + pos + 2, createHyperlink, createImage, references, darkMode, depth + 1);
                 yield return span;
                 pos += boldLength;
+                continue;
+            }
+
+            if (TryGetHighlight(text, pos, out var highlightText, out var highlightLength))
+            {
+                var span = new Span { Background = GetHighlightBackground(darkMode) };
+                AddInlineContent(span.Inlines, highlightText, lineIndex, lineOffset + pos + 2, createHyperlink, createImage, references, darkMode, depth + 1);
+                yield return span;
+                pos += highlightLength;
                 continue;
             }
 
@@ -853,7 +1063,8 @@ public static class MarkdownRenderer
 
             if (text[i] == '`' && FindUnescaped(text, "`", i + 1) > i)
                 return i;
-            if (TryGetDelimitedText(text, i, "~~", out _, out _) ||
+            if (TryGetHighlight(text, i, out _, out _) ||
+                TryGetDelimitedText(text, i, "~~", out _, out _) ||
                 TryGetDelimitedText(text, i, "**", out _, out _) ||
                 TryGetDelimitedText(text, i, "__", out _, out _) ||
                 TryGetDelimitedText(text, i, "*", out _, out _) ||
@@ -889,6 +1100,19 @@ public static class MarkdownRenderer
         return true;
     }
 
+    /// <summary>
+    /// "==文字==" のハイライト（Obsidian と同じ書き方）。"a == b == c" のような式を
+    /// 塗らないよう、内側が空白で始まる・終わるものは対象にしない。
+    /// </summary>
+    private static bool TryGetHighlight(string text, int start, out string innerText, out int length)
+        => TryGetDelimitedText(text, start, "==", out innerText, out length) &&
+           !char.IsWhiteSpace(innerText[0]) && !char.IsWhiteSpace(innerText[^1]);
+
+    private static WpfSolidBrush GetHighlightBackground(bool darkMode)
+        => darkMode
+            ? new WpfSolidBrush(WpfColor.FromArgb(110, 255, 193, 7))
+            : new WpfSolidBrush(WpfColor.FromArgb(150, 255, 213, 79));
+
     private static int FindUnescaped(string text, string marker, int start)
     {
         for (var i = start; i <= text.Length - marker.Length; i++)
@@ -917,7 +1141,7 @@ public static class MarkdownRenderer
     }
 
     private static bool IsEscapableMarkdownChar(char ch)
-        => ch is '\\' or '`' or '*' or '_' or '{' or '}' or '[' or ']' or '(' or ')' or '#' or '+' or '-' or '.' or '!' or '|' or '<' or '>' or '~';
+        => ch is '\\' or '`' or '*' or '_' or '{' or '}' or '[' or ']' or '(' or ')' or '#' or '+' or '-' or '.' or '!' or '|' or '<' or '>' or '~' or '=';
 
     private static bool IsWordChar(char ch)
         => char.IsLetterOrDigit(ch) || ch == '_';

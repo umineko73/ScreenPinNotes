@@ -103,6 +103,67 @@ public class AppNoteWindowTests
         }
     }
 
+    [WpfFact]
+    public void DuplicateNote_OpensASavedCopyWithItsOwnImages()
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var tempRoot = Path.Combine(Path.GetTempPath(), "ScreenPinNotes.Tests", Guid.NewGuid().ToString("N"));
+        var windowsField = typeof(App).GetField("_windows", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var storageField = typeof(App).GetField("_storage", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var windows = (List<StickyNoteWindow>)windowsField.GetValue(app)!;
+        var previous = windows.ToList();
+        var previousStorage = storageField.GetValue(app);
+        var storage = new StorageService(tempRoot);
+        var note = new StickyNote
+        {
+            Content = "body\n![](assets/sub/pic.png)", Title = "title", X = 300, Y = 200,
+            Reminder = new ReminderSettings { NextAt = DateTime.Now.AddDays(1) },
+        };
+        var assets = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(Path.Combine(assets, "sub"));
+        File.WriteAllText(Path.Combine(assets, "sub", "pic.png"), "png");
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, app.Settings), storage);
+        StickyNoteWindow? duplicate = null;
+        try
+        {
+            windows.Clear();
+            windows.Add(window);
+            storageField.SetValue(app, storage);
+            window.Show();
+
+            duplicate = app.DuplicateNote(window);
+            window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
+            var copy = duplicate.ViewModel.Model;
+            Assert.Equal(2, windows.Count);
+            Assert.True(duplicate.IsVisible);
+            Assert.NotEqual(note.Id, copy.Id);
+            Assert.Equal(("body\n![](assets/sub/pic.png)", "title"), (copy.Content, copy.Title));
+            Assert.True(copy.X > note.X && copy.Y > note.Y);
+            Assert.True(copy.LayerOrder < note.LayerOrder);
+            Assert.Null(copy.Reminder);
+            var copiedImage = Path.Combine(storage.GetNoteAssetsDirectoryPath(copy.Id), "sub", "pic.png");
+            Assert.Equal("png", File.ReadAllText(copiedImage));
+            // 写した画像は複製のもの。元の画像はそのまま残る。
+            Assert.True(File.Exists(Path.Combine(assets, "sub", "pic.png")));
+            var saved = storage.Load();
+            Assert.Equal(2, saved.Count);
+            Assert.Contains(saved, n => n.Id == copy.Id && n.Content == copy.Content);
+            Assert.NotNull(saved.Single(n => n.Id == note.Id).Reminder);
+        }
+        finally
+        {
+            windows.Clear();
+            duplicate?.Close();
+            window.Close();
+            windows.AddRange(previous);
+            storageField.SetValue(app, previousStorage);
+            // 表示した画像のファイルは、閉じた直後もまだ掴まれていることがある。
+            try { if (Directory.Exists(tempRoot)) Directory.Delete(tempRoot, true); }
+            catch (IOException) { }
+        }
+    }
+
     [WpfTheory]
     [InlineData(false)]
     [InlineData(true)]

@@ -24,8 +24,10 @@ namespace ScreenPinNotes.Services;
 /// 外部ファイルの更新を知らせる。FileSystemWatcher だけでは足りない。
 /// 書き手がファイルを開いたまま追記していると、NTFS はディレクトリ側の
 /// 長さ・更新日時を閉じるまで更新せず、監視の通知も届かないことがある。
-/// そこで長さと更新日時を定期的に確かめる。変化を見つけてからしばらくは
-/// 短い間隔で、落ち着いたら長い間隔で確かめる。
+/// そこで監視の通知や付箋に触れたのをきっかけに、長さと更新日時を
+/// <see cref="ExternalFilePoller"/> の共有タイマーで確かめる。
+/// <see cref="ExternalFileSettings.PollStopAfterMs"/> のあいだ変化が無ければ確認を止め、
+/// 監視だけを残す。
 /// </summary>
 /// <remarks><paramref name="changed"/> はワーカースレッドから呼ばれる。</remarks>
 public sealed class ExternalFileMonitor : IDisposable
@@ -33,28 +35,30 @@ public sealed class ExternalFileMonitor : IDisposable
     private readonly string _path;
     private readonly Func<ExternalFileSettings> _settings;
     private readonly Action _changed;
+    private readonly ExternalFilePoller _poller;
     private readonly FileSystemWatcher? _watcher;
-    private readonly Timer _timer;
     private readonly object _gate = new();
     private FileSignature _last;
-    private long _burstUntil;
+    private long _lastActivity;
     private bool _disposed;
 
-    public ExternalFileMonitor(string path, Func<ExternalFileSettings> settings, Action changed, bool useWatcher = true)
+    public ExternalFileMonitor(string path, Func<ExternalFileSettings> settings, Action changed,
+        bool useWatcher = true, ExternalFilePoller? poller = null)
     {
         _path = Path.GetFullPath(path);
         _settings = settings;
         _changed = changed;
+        _poller = poller ?? ExternalFilePoller.Shared;
         _last = FileSignature.Read(_path);
-        // 開いた直後は書き手が動いている最中のことが多いので、短い間隔から始める。
-        _burstUntil = Environment.TickCount64 + settings().PollBurstMs;
-        _timer = new Timer(_ => Poll());
 
         if (useWatcher)
             _watcher = TryCreateWatcher();
 
-        lock (_gate) ScheduleNextPoll();
+        // 開いた直後は書き手が動いている最中のことが多いので、確認から始める。
+        Wake();
     }
+
+    internal ExternalFileSettings Settings => _settings();
 
     private FileSystemWatcher? TryCreateWatcher()
     {
@@ -90,9 +94,28 @@ public sealed class ExternalFileMonitor : IDisposable
         {
             if (_disposed) return;
             _last = FileSignature.Read(_path);
-            BeginBurst();
         }
+        Wake();
         _changed();
+    }
+
+    /// <summary>確認を（止まっていれば）再開し、止めるまでの時間を数え直す。</summary>
+    public void Wake()
+    {
+        // 先に時刻を進めてから登録する。確認側が止める直前に時刻を読み直すので、
+        // この順なら再開の要求を取りこぼさない。
+        Interlocked.Exchange(ref _lastActivity, Environment.TickCount64);
+        lock (_gate)
+            if (_disposed) return;
+        _poller.Add(this);
+    }
+
+    /// <summary>確認を続けるべきか。最後の変化から止めるまでの時間が経っていなければ続ける。</summary>
+    internal bool ShouldKeepPolling(long now)
+    {
+        lock (_gate)
+            if (_disposed) return false;
+        return now - Interlocked.Read(ref _lastActivity) < _settings().PollStopAfterMs;
     }
 
     /// <summary>長さと更新日時を確かめ、変わっていれば知らせる。</summary>
@@ -105,24 +128,11 @@ public sealed class ExternalFileMonitor : IDisposable
             var current = FileSignature.Read(_path);
             changed = current != _last;
             _last = current;
-            if (changed) BeginBurst();
-            else ScheduleNextPoll();
         }
-        if (changed) _changed();
+        if (!changed) return;
+        Interlocked.Exchange(ref _lastActivity, Environment.TickCount64);
+        _changed();
     }
-
-    // 呼び出し側で _gate を取っていること。
-    private void BeginBurst()
-    {
-        _burstUntil = Environment.TickCount64 + _settings().PollBurstMs;
-        ScheduleNextPoll();
-    }
-
-    private void ScheduleNextPoll()
-        => _timer.Change(NextPollInterval(Environment.TickCount64, _burstUntil, _settings()), Timeout.InfiniteTimeSpan);
-
-    public static TimeSpan NextPollInterval(long now, long burstUntil, ExternalFileSettings settings)
-        => TimeSpan.FromMilliseconds(now < burstUntil ? settings.PollIntervalMs : settings.IdlePollIntervalMs);
 
     public void Dispose()
     {
@@ -131,8 +141,79 @@ public sealed class ExternalFileMonitor : IDisposable
             if (_disposed) return;
             _disposed = true;
         }
+        _poller.Remove(this);
         _watcher?.Dispose();
-        _timer.Dispose();
+    }
+}
+
+/// <summary>
+/// 確認中の外部ファイルをまとめて確かめる、全付箋で1つのタイマー。
+/// 確認中のファイルが無くなったら止まり、次に登録されたときに動き出す。
+/// </summary>
+public sealed class ExternalFilePoller
+{
+    public static ExternalFilePoller Shared { get; } = new();
+
+    private readonly object _gate = new();
+    private readonly HashSet<ExternalFileMonitor> _monitors = new();
+    private readonly Timer _timer;
+    private bool _running;
+
+    public ExternalFilePoller() => _timer = new Timer(_ => Tick());
+
+    /// <summary>タイマーが動いているか。</summary>
+    public bool IsRunning { get { lock (_gate) return _running; } }
+
+    /// <summary>確認中のファイルの数。</summary>
+    public int Count { get { lock (_gate) return _monitors.Count; } }
+
+    /// <summary>確認中なら true。</summary>
+    public bool Contains(ExternalFileMonitor monitor) { lock (_gate) return _monitors.Contains(monitor); }
+
+    internal void Add(ExternalFileMonitor monitor)
+    {
+        lock (_gate)
+        {
+            _monitors.Add(monitor);
+            if (_running) return;
+            _running = true;
+            Schedule(monitor.Settings);
+        }
+    }
+
+    internal void Remove(ExternalFileMonitor monitor)
+    {
+        lock (_gate) _monitors.Remove(monitor);
+    }
+
+    private void Schedule(ExternalFileSettings settings)
+        => _timer.Change(TimeSpan.FromMilliseconds(settings.PollIntervalMs), Timeout.InfiniteTimeSpan);
+
+    private void Tick()
+    {
+        ExternalFileMonitor[] monitors;
+        lock (_gate) monitors = _monitors.ToArray();
+
+        // ファイルを開くので、登録・解除を待たせないよう鍵の外で確かめる。
+        foreach (var monitor in monitors)
+        {
+            try { monitor.Poll(); }
+            catch (Exception ex) { ErrorReporter.ReportNonFatal("Poll external content", ex); }
+        }
+
+        lock (_gate)
+        {
+            // 止めるかどうかは鍵の中で時刻を読み直して決める。確かめている間に
+            // Wake された付箋を、古い時刻のまま外してしまわないため。
+            var now = Environment.TickCount64;
+            _monitors.RemoveWhere(monitor => !monitor.ShouldKeepPolling(now));
+            if (_monitors.Count == 0)
+            {
+                _running = false;
+                return;
+            }
+            Schedule(_monitors.First().Settings);
+        }
     }
 }
 

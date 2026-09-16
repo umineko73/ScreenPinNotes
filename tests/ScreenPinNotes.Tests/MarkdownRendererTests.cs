@@ -175,7 +175,8 @@ public class MarkdownRendererTests
 
         Assert.Equal(4, blocks.Count);
         Assert.IsType<System.Windows.Documents.List>(blocks[0]);
-        Assert.Equal("quote", GetInlineText(Assert.IsType<Paragraph>(blocks[1]).Inlines));
+        var quote = Assert.IsType<Section>(blocks[1]);
+        Assert.Equal("quote", GetInlineText(Assert.IsType<Paragraph>(Assert.Single(quote.Blocks)).Inlines));
         Assert.IsType<System.Windows.Documents.List>(blocks[2]);
         Assert.Equal(new Thickness(6, 3, 6, 3), Assert.IsType<Paragraph>(blocks[3]).Padding);
     }
@@ -573,6 +574,170 @@ public class MarkdownRendererTests
 
         var para = Assert.IsType<Paragraph>(Assert.Single(blocks));
         Assert.Empty(para.Inlines);
+    }
+
+    [Theory]
+    [InlineData("- a\n  - b\n    - c\n- d")]      // スペースで字下げ
+    [InlineData("- a\n\t- b\n\t\t- c\n- d")]      // タブで字下げ
+    [InlineData("- a\n　- b\n　　- c\n- d")]      // 全角スペースで字下げ
+    public void Render_IndentedListItems_NestInsideTheItemAbove(string text)
+    {
+        var list = Assert.IsType<System.Windows.Documents.List>(
+            Assert.Single(MarkdownRenderer.Render(text, 13, CreateHyperlink)));
+
+        Assert.Equal(2, list.ListItems.Count);
+        Assert.Equal(TextMarkerStyle.Disc, list.MarkerStyle);
+        var a = list.ListItems.FirstListItem;
+        Assert.Equal("a", GetInlineText(Assert.IsType<Paragraph>(a.Blocks.FirstBlock).Inlines));
+        var level2 = Assert.IsType<System.Windows.Documents.List>(a.Blocks.LastBlock);
+        Assert.Equal(TextMarkerStyle.Circle, level2.MarkerStyle);
+        var b = Assert.Single(level2.ListItems);
+        Assert.Equal("b", GetInlineText(Assert.IsType<Paragraph>(b.Blocks.FirstBlock).Inlines));
+        var level3 = Assert.IsType<System.Windows.Documents.List>(b.Blocks.LastBlock);
+        Assert.Equal(TextMarkerStyle.Square, level3.MarkerStyle);
+        Assert.Equal("c", GetInlineText(Assert.IsType<Paragraph>(Assert.Single(level3.ListItems).Blocks.FirstBlock).Inlines));
+        Assert.Equal("d", GetInlineText(Assert.IsType<Paragraph>(list.ListItems.LastListItem.Blocks.FirstBlock).Inlines));
+    }
+
+    [Fact]
+    public void Render_OrderedList_StartsAtTheWrittenNumberAndAcceptsParenthesis()
+    {
+        var blocks = MarkdownRenderer.Render("3. c\n4. d\n\n1) one\n2) two", 13, CreateHyperlink).ToList();
+
+        var first = Assert.IsType<System.Windows.Documents.List>(blocks[0]);
+        Assert.Equal(TextMarkerStyle.Decimal, first.MarkerStyle);
+        Assert.Equal(3, first.StartIndex);
+        Assert.Equal(2, first.ListItems.Count);
+        var second = Assert.IsType<System.Windows.Documents.List>(blocks[2]);
+        Assert.Equal(1, second.StartIndex);
+        Assert.Equal("two", GetInlineText(Assert.IsType<Paragraph>(second.ListItems.LastListItem.Blocks.FirstBlock).Inlines));
+    }
+
+    [Fact]
+    public void Render_OrderedListWithAnotherDelimiter_StartsANewList()
+    {
+        var blocks = MarkdownRenderer.Render("3. c\n4. d\n1) one", 13, CreateHyperlink).ToList();
+
+        Assert.Equal(2, blocks.Count);
+        Assert.Equal(3, Assert.IsType<System.Windows.Documents.List>(blocks[0]).StartIndex);
+        Assert.Equal(1, Assert.IsType<System.Windows.Documents.List>(blocks[1]).StartIndex);
+    }
+
+    [Fact]
+    public void Render_OrderedListInsideBulletList_KeepsItsOwnNumbering()
+    {
+        var list = Assert.IsType<System.Windows.Documents.List>(
+            Assert.Single(MarkdownRenderer.Render("- steps\n    1. open\n    2. save\n- done", 13, CreateHyperlink)));
+
+        var nested = Assert.IsType<System.Windows.Documents.List>(list.ListItems.FirstListItem.Blocks.LastBlock);
+        Assert.Equal(TextMarkerStyle.Decimal, nested.MarkerStyle);
+        Assert.Equal(2, nested.ListItems.Count);
+        Assert.Equal(2, list.ListItems.Count);
+    }
+
+    [Fact]
+    public void Render_ContinuationAfterNestedList_StaysInTheOuterItem()
+    {
+        var list = Assert.IsType<System.Windows.Documents.List>(
+            Assert.Single(MarkdownRenderer.Render("- a\n  - b\n  more a", 13, CreateHyperlink)));
+
+        var a = Assert.Single(list.ListItems);
+        Assert.Equal(3, a.Blocks.Count);
+        Assert.Equal("more a", GetInlineText(Assert.IsType<Paragraph>(a.Blocks.LastBlock).Inlines));
+    }
+
+    [Fact]
+    public void Render_ConsecutiveQuoteLines_FormOneQuote()
+    {
+        var quote = Assert.IsType<Section>(Assert.Single(
+            MarkdownRenderer.Render("> first\n> second\n>\n> third", 13, CreateHyperlink)));
+
+        Assert.Equal(new Thickness(3, 0, 0, 0), quote.BorderThickness);
+        var paragraphs = quote.Blocks.Cast<Paragraph>().Select(p => GetInlineText(p.Inlines)).ToArray();
+        Assert.Equal(["first", "second", "", "third"], paragraphs);
+    }
+
+    [Fact]
+    public void Render_DoubleQuoteMarker_NestsAQuoteInsideTheQuote()
+    {
+        var blocks = MarkdownRenderer.Render("> outer\n>> inner\n> > inner too\n> back\nafter", 13, CreateHyperlink).ToList();
+
+        Assert.Equal(2, blocks.Count);
+        var outer = Assert.IsType<Section>(blocks[0]);
+        var items = outer.Blocks.ToArray();
+        Assert.Equal("outer", GetInlineText(Assert.IsType<Paragraph>(items[0]).Inlines));
+        var inner = Assert.IsType<Section>(items[1]);
+        Assert.Equal(new Thickness(3, 0, 0, 0), inner.BorderThickness);
+        Assert.Equal(["inner", "inner too"], inner.Blocks.Cast<Paragraph>().Select(p => GetInlineText(p.Inlines)));
+        Assert.Equal("back", GetInlineText(Assert.IsType<Paragraph>(items[2]).Inlines));
+        Assert.Equal("after", GetInlineText(Assert.IsType<Paragraph>(blocks[1]).Inlines));
+    }
+
+    [Fact]
+    public void Render_QuoteContent_IsRenderedAsMarkdown()
+    {
+        var quote = Assert.IsType<Section>(Assert.Single(
+            MarkdownRenderer.Render("> # Title\n> - item\n> 1. first", 13, CreateHyperlink)));
+
+        var blocks = quote.Blocks.ToArray();
+        Assert.Equal(FontWeights.Bold, Assert.IsType<Paragraph>(blocks[0]).FontWeight);
+        Assert.Equal(TextMarkerStyle.Disc, Assert.IsType<System.Windows.Documents.List>(blocks[1]).MarkerStyle);
+        Assert.Equal(TextMarkerStyle.Decimal, Assert.IsType<System.Windows.Documents.List>(blocks[2]).MarkerStyle);
+    }
+
+    // 画像のサイズ変更やチェックの切り替えは、元の本文の行と文字位置で書き換える。
+    // 引用やリストの入れ子の中でも、その位置が元の本文を指していること。
+    [WpfFact]
+    public void Render_NestedContent_ReportsPositionsInTheOriginalText()
+    {
+        var images = new List<MarkdownRenderer.MarkdownImage>();
+        var tasks = new List<(int Line, bool Checked)>();
+
+        MarkdownRenderer.Render(
+            "> ![a](assets/a.png)\n>> - [x] ![b](assets/b.png)\n- top\n\t- [ ] ![c](assets/c.png)",
+            13,
+            CreateHyperlink,
+            createImage: image =>
+            {
+                images.Add(image);
+                return new Run("");
+            },
+            createTaskCheckbox: (line, isChecked) =>
+            {
+                tasks.Add((line, isChecked));
+                return new CheckBox { IsChecked = isChecked };
+            }).ToList();
+
+        Assert.Equal([(0, 2), (1, 9), (3, 7)], images.Select(i => (i.LineIndex, i.Start)));
+        Assert.Equal([(1, true), (3, false)], tasks);
+    }
+
+    [Theory]
+    [InlineData("  indented", 2)]
+    [InlineData("\tindented", 4)]
+    [InlineData("　indented", 2)]
+    public void Render_IndentedParagraph_TurnsTheIndentIntoAMargin(string text, int columns)
+    {
+        var paragraph = Assert.IsType<Paragraph>(Assert.Single(MarkdownRenderer.Render(text, 14, CreateHyperlink)));
+
+        Assert.Equal(columns * 7, paragraph.Margin.Left);
+        Assert.Equal("indented", GetInlineText(paragraph.Inlines));
+    }
+
+    [Fact]
+    public void Render_DeepNesting_StaysWithinTheLimit()
+    {
+        var deepQuote = new string('>', 8000) + " text";
+        var deepList = string.Join("\n", Enumerable.Range(0, 300).Select(n => new string(' ', n * 2) + "- item"));
+
+        Assert.NotEmpty(MarkdownRenderer.Render(deepQuote, 13, CreateHyperlink).ToList());
+        var list = Assert.IsType<System.Windows.Documents.List>(
+            Assert.Single(MarkdownRenderer.Render(deepList, 13, CreateHyperlink)));
+
+        var depth = 0;
+        for (var current = list; current != null; depth++)
+            current = current.ListItems.FirstListItem.Blocks.LastBlock as System.Windows.Documents.List;
+        Assert.Equal(9, depth);
     }
 
     private static Paragraph GetOnlyCellParagraph(TableCell cell)

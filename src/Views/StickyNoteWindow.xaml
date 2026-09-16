@@ -424,13 +424,15 @@
                        RadiusY="{Binding TitleSpineCornerRadius}"
                        Fill="{Binding HeaderBrush}"/>
 
+            <!-- リマインダーは付箋全体を点滅させる。塗りは半透明にして、本文が透けて読めるようにする。 -->
             <Border x:Name="ReminderFlashBorder" Grid.RowSpan="2" Panel.ZIndex="100"
-                    BorderBrush="#FF9800" BorderThickness="4"
+                    BorderBrush="#FF9800" BorderThickness="4" Background="#73FF9800"
                     CornerRadius="{Binding NoteFlashCornerRadius}"
                     Opacity="0" IsHitTestVisible="False"/>
 
             <!-- 外部ファイルが更新されたときに1回だけ光る枠。リマインダーの
-                 点滅（オレンジ・太め・10秒）と取り違えないよう、色も太さも変えてある。 -->
+                 点滅（オレンジ・太め・10秒）と取り違えないよう、色も太さも変えてある。
+                 ERROR / FATAL が届いたときは、コードから塗りを足して付箋全体を点滅させる。 -->
             <Border x:Name="UpdateFlashBorder" Grid.RowSpan="2" Panel.ZIndex="99"
                     BorderBrush="#40C4FF" BorderThickness="2"
                     CornerRadius="{Binding NoteFlashCornerRadius}"

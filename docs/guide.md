@@ -53,6 +53,8 @@ While the app is running, **Ctrl+Alt+N** creates a new note from other apps, and
 | `Enter` while editing the title | Confirm the title |
 | `Ctrl+Z` | Undo an edit |
 | `Ctrl+Y` | Redo an undone edit |
+| `Enter` on a list line while editing | Start the next item with the same marker (the next number, an unchecked box). On an empty item, outdent it or leave the list |
+| `Tab` / `Shift+Tab` while editing | Indent / outdent a list line or all selected lines. On other lines, `Tab` types a tab character |
 | `Ctrl+C` / `Ctrl+X` / `Ctrl+V` | Copy/cut/paste |
 | `Alt+F4` / taskbar close | Hide the note |
 
@@ -94,26 +96,28 @@ Icon and color palettes appear in front of notes. Click the same editing toolbar
 | Body in view mode | Copy, open links, copy Excel tables, fit the window to images |
 | Body in edit mode | Cut/paste/select all, Markdown formatting, edit links, paste Excel tables |
 | Image | The body menu gains image actions at the top (image size, fit the note to this image, detach or delete it). Everything else in the menu stays available |
-| Shared by title and body | Hide title bar, opacity, reminders, edit lock, hide, delete |
+| Shared by title and body | Hide title bar, opacity, reminders, edit lock, duplicate, hide, delete |
 
 Use the mini toolbar for colors, fonts, and icons. Unavailable actions are disabled or hidden.
 
-**Hide** keeps the note; **Delete** removes it. Edit lock restricts body/title editing and deletion, while appearance, position, and checklist completion remain adjustable.
+**Duplicate note** creates a copy with the same body, appearance, and pasted images, slightly offset from the original. Reminders are not copied. **Hide** keeps the note; **Delete** removes it. Edit lock restricts body/title editing and deletion, while appearance, position, and checklist completion remain adjustable.
 
 ## Markdown, images, and Excel
 
 | Type | Syntax or action |
 | --- | --- |
 | Headings | `# Heading` through `###### Heading` |
-| Formatting | `**bold**`, `*italic*`, `~~strike~~` |
+| Formatting | `**bold**`, `*italic*`, `~~strike~~`, `==highlight==` |
 | Code | Enclose inline code with one backtick; blocks with three |
-| Lists | `- item`, `1. item`, `- [ ] task` |
-| Quotes and rules | `> quote`, `---` |
+| Lists | `- item`, `1. item` (or `1) item`; numbering starts at the number you write), `- [ ] task`. Indent by two or more spaces or a tab to nest |
+| Quotes and rules | `> quote` (consecutive lines form one quote, `>>` nests, and quotes can hold lists and headings), `---` |
+| Indentation | Leading spaces, tabs, and full-width spaces indent the line, and wrapped lines stay aligned with the indent |
+| Line breaks and paragraphs | Each line is shown on its own by default. Turn on **Join consecutive lines into one paragraph** under **Settings → Appearance → Markdown** to wrap lines up to the next blank line as one paragraph (Japanese text joins directly, words join with a space; end a line with two spaces or `\` to break it) |
 | Tables | Pipe-separated Markdown tables, with column alignment |
 | Links | `[label](URL)`, `[label][1]` with a separate `[1]: URL` line, or a plain URL |
 | Images | `![alt](assets/image.png)`; append `{width=240}` to set width |
 
-- Use **Markdown formatting** while editing to insert syntax. **Edit link** changes a link's label and URL.
+- Use **Markdown formatting** while editing to insert syntax (bold, strikethrough, highlight, code, headings, bulleted and numbered lists, checklists, quotes). **Edit link** changes a link's label and URL.
 - Pasted images are saved as PNGs in the note's `assets` folder. Local images render inline; web image URLs do not.
 - Dropping image files onto a note, or pasting files copied in Explorer, copies them into the note's `assets` folder in their original format. The original files stay where they were.
 - Resize images between 20% and 200% using their context menu or `Ctrl` + wheel.
@@ -149,7 +153,7 @@ Configure a reminder from a note's context menu or the **Note list**. Choose a d
 
 Click a Windows notification to open the note list. Simultaneous reminders share a notification. Optionally enable the alert window for 5-, 15-, or 60-minute snooze. Snoozing preserves the recurring time.
 
-**Flash note border for 10 seconds** is enabled by default. It shows hidden notes and slowly pulses the border. Clicking, typing, or hiding the note stops the effect. Windows notifications, snooze alerts, and flashing can be combined; flashing alone is also supported.
+**Flash the note for 10 seconds** is enabled by default. It shows hidden notes and slowly pulses the whole note in orange (the text stays readable through it). Clicking, typing, or hiding the note stops the effect. Windows notifications, snooze alerts, and flashing can be combined; flashing alone is also supported.
 
 The app must be running in the tray. Missed reminders are delivered once on restart or resume. Windows notification settings control banners and sound.
 
@@ -177,15 +181,15 @@ Updating from 0.2.0 or earlier changes how notes look on first launch: rounded c
 
 Settings save immediately (shortcut changes require Apply). New-note defaults apply to tray- and shortcut-created notes; `＋` on a note copies its appearance.
 
-External notes show `🔗`, and their title bar shows the time the content was last refreshed so you can tell at a glance whether it's current. Their menu can open the file or folder, toggle tail mode, or convert the content into an editable note. Deleting the note or changing image display sizes does not modify the original file.
+External notes show `🔗`, and their title bar shows the time the content was last refreshed so you can tell at a glance whether it's current. Hovering the icon or title shows that changes appear automatically, the file path, and the last update time. Their menu can open the file or folder, toggle tail mode, or convert the content into an editable note. Deleting the note or changing image display sizes does not modify the original file.
 
 Outside of tail mode, an auto-refresh keeps your scroll position and text cursor in place as much as possible instead of jumping back to the top.
 
-Windows may not report changes while the writing program keeps the file open, as loggers usually do. The note therefore also checks the file's size and modification time: every second for 30 seconds after a change, and every 5 seconds otherwise.
+Windows may not report changes while the writing program keeps the file open, as loggers usually do. The note therefore also checks the file's size and modification time every second. It stops checking after a minute without changes and starts again when Windows reports a change, or when you point at or click the note. The interval and the idle time can be changed with `ExternalFile.PollIntervalMs` and `ExternalFile.PollStopAfterMs` in `settings.json`.
 
 In tail mode, log levels are colored (case-insensitive): green for `TRACE`, `DEBUG`, `INFO`, `VERBOSE` and `NOTICE`; orange for `WARN` and `WARNING`; red for `ERROR`, `FATAL`, `CRITICAL`, `SEVERE`, `PANIC`, `ALERT` and `EMERG`. Three-letter forms such as `TRC`, `DBG`, `INF`, `WRN`, `ERR` and `FTL` are recognized too, as are outputs like `trce`, `dbug`, `fail` and `crit` (single-letter markers are not, since they cannot be told apart from ordinary text). Only the first level word on each line is colored. Numbers are shown in blue so timestamps and counts are easy to pick out; values joined by separators, such as `2026-09-15`, `09:12:03.221` and `16/16`, stay in one piece.
 
-When the file content actually changes, the note's border pulses light blue once — red if the lines that just arrived contain `ERROR` or `FATAL`. It stays quiet while you are working in that note, since you can already see the update, and a save that leaves the content identical triggers neither a reload nor a pulse.
+When the file content actually changes, the note's border pulses light blue once. If the lines that just arrived contain `ERROR` or `FATAL`, the border turns red and the note's background pulses twice, shifting a quarter of the way from its own color toward red (the text itself is not covered). It stays quiet while you are working in that note, since you can already see the update, and a save that leaves the content identical triggers neither a reload nor a pulse.
 
 Tail mode shows only the last lines of the file (line count configurable in Settings) as plain text, and always scrolls to the newest line as the file grows — useful for watching logs. `.log` files use tail mode by default; toggle it from the external file menu on any external note. While tailing, the title bar shows `⏬` on the right; hover it to see how many lines are displayed.
 

@@ -426,6 +426,8 @@ public sealed class SettingsWindow : Window
         panel.Children.Add(LabeledRow("SettingsIconColor", Toggle("SettingsMonochromeIcons",
             () => _settings.MonochromeIcons, v => _settings.MonochromeIcons = v)));
         AddTitleBarSpineRows(panel);
+        panel.Children.Add(LabeledRow("SettingsMarkdown", Toggle("SettingsJoinMarkdownLines",
+            () => _settings.JoinMarkdownLines, v => _settings.JoinMarkdownLines = v)));
         return panel;
     }
 

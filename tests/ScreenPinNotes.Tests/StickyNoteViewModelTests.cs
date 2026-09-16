@@ -235,6 +235,37 @@ public class StickyNoteViewModelTests
         Assert.Equal(Visibility.Visible, vm.PositionSeparatedVisibility);
     }
 
+    [Theory]
+    [InlineData("ja", "外部ファイル (変更は自動で反映されます):\nD:\\logs\\app.log\n最終更新: 09:15:30")]
+    [InlineData("en", "External file (changes appear automatically):\nD:\\logs\\app.log\nLast updated: 09:15:30")]
+    public void TitleIconTooltip_SaysExternalNotesRefreshAutomatically(string language, string expected)
+    {
+        var note = new StickyNote
+        {
+            ExternalContentPath = @"D:\logs\app.log",
+            UpdatedAt = new DateTime(2026, 9, 16, 9, 15, 30),
+        };
+        var vm = new StickyNoteViewModel(note, new AppSettings { Language = language });
+
+        Assert.Equal(expected, vm.TitleIconTooltip);
+    }
+
+    [Fact]
+    public void TitleIconTooltip_IsRefreshedWhenTheContentIsReloaded()
+    {
+        var vm = new StickyNoteViewModel(
+            new StickyNote { ExternalContentPath = @"D:\logs\app.log", UpdatedAt = new DateTime(2026, 9, 16, 9, 0, 0) },
+            new AppSettings());
+        var changed = new List<string?>();
+        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        vm.Content = "reloaded";
+
+        Assert.Contains(nameof(StickyNoteViewModel.TitleIconTooltip), changed);
+        Assert.Contains(nameof(StickyNoteViewModel.TitleTooltip), changed);
+        Assert.DoesNotContain("09:00:00", vm.TitleIconTooltip);
+    }
+
     [Fact]
     public void TitleIconTooltip_FollowsExternalContentPath()
     {

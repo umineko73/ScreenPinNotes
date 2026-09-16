@@ -23,7 +23,8 @@ public static class MarkdownFormatting
     public sealed record Edit(int Start, int Length, string Replacement, int SelectionStart, int SelectionLength);
 
     // 行頭のマーカー（見出し / 箇条書き / チェックリスト / 番号付き）。
-    private static readonly Regex LineMarker = new(@"^(#{1,6} |[-*+] (?:\[[ xX]\] )?|\d+\. )");
+    private static readonly Regex LineMarker = new(@"^(#{1,6} |[-*+] (?:\[[ xX]\] )?|\d{1,9}[.)] )");
+    private static readonly Regex NumberMarker = new(@"^\d{1,9}[.)] ");
     // チェックリストは未チェックとチェック済みを同じ書式として扱う。
     private static readonly Regex TaskMarker = new(@"^[-*+] \[[ xX]\] ");
 
@@ -35,7 +36,7 @@ public static class MarkdownFormatting
 
     public static Edit Inline(string text, int start, int length, string marker)
     {
-        if (!IsRangeValid(text, start, length) || marker is not ("**" or "~~" or "`"))
+        if (!IsRangeValid(text, start, length) || marker is not ("**" or "~~" or "==" or "`"))
             return Unchanged(text, start, length);
         var selected = text.Substring(start, length);
         var n = marker.Length;
@@ -57,7 +58,7 @@ public static class MarkdownFormatting
 
     public static Edit Lines(string text, int start, int length, string prefix)
     {
-        if (!IsRangeValid(text, start, length) || prefix is not ("# " or "## " or "### " or "- " or "- [ ] "))
+        if (!IsRangeValid(text, start, length) || prefix is not ("# " or "## " or "### " or "- " or "- [ ] " or "1. " or "> "))
             return Unchanged(text, start, length);
         var first = start == 0 ? 0 : text.LastIndexOf('\n', start - 1) + 1;
         var lastSelected = length == 0 ? start : start + length - 1;
@@ -77,19 +78,36 @@ public static class MarkdownFormatting
             targets.Add(0);
 
         var remove = targets.All(i => HasPrefix(parts[i], prefix));
+        var number = 0;
         foreach (var i in targets)
         {
+            // 引用は行の中身（リストの印など）をそのまま包む。
+            if (prefix == "> ")
+            {
+                parts[i] = remove ? RemoveQuoteMarker(parts[i]) : prefix + parts[i];
+                continue;
+            }
             var indentLength = parts[i].Length - parts[i].TrimStart().Length;
             var indent = parts[i][..indentLength];
             var body = parts[i][indentLength..];
             body = body[LineMarker.Match(body).Length..];
             // 見出しは行頭になければ描画されないので、付けるときだけ字下げを落とす。
+            // 番号付きは選んだ行に上から 1, 2, 3... と振る。
+            var marker = prefix == "1. " ? $"{++number}. " : prefix;
             parts[i] = remove
                 ? indent + body
-                : (prefix[0] == '#' ? "" : indent) + prefix + body;
+                : (prefix[0] == '#' ? "" : indent) + marker + body;
         }
         var replacement = string.Concat(parts);
         return new(first, end - first, replacement, first, replacement.Length);
+    }
+
+    private static string RemoveQuoteMarker(string line)
+    {
+        var at = line.Length - line.TrimStart().Length;
+        var end = at + 1;
+        if (end < line.Length && line[end] == ' ') end++;
+        return line[..at] + line[end..];
     }
 
     // その行が prefix と同じ書式かどうか。"- " は箇条書きだけに一致させ
@@ -99,6 +117,8 @@ public static class MarkdownFormatting
         var body = line.TrimStart();
         if (prefix == "- [ ] ") return TaskMarker.IsMatch(body);
         if (prefix == "- ") return body.StartsWith("- ") && !TaskMarker.IsMatch(body);
+        if (prefix == "1. ") return NumberMarker.IsMatch(body);
+        if (prefix == "> ") return body.StartsWith('>');
         return body.StartsWith(prefix);
     }
 }
