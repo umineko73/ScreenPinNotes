@@ -157,4 +157,4 @@ The lock is only a status indicator. It is not clickable, so it does not interfe
 - Data folder: `%APPDATA%\ScreenPinNotes`
 - Each note is stored under `notes` with `meta.json`, `content.md`, and `assets`
 - "Export notes..." creates a zip backup
-- "Import notes..." adds notes without overwriting existing notes
+- "Import notes..." lets you overwrite an existing folder, automatically rename the imported folder to keep both notes, or skip it

@@ -304,7 +304,7 @@ public partial class App : System.Windows.Application
     {
         _trayIcon = new NotifyIcon
         {
-            Icon = LoadTrayIcon(),
+            Icon = TryLoadTrayIconResource(_settings.Theme == "Dark") ?? LoadTrayIcon(),
             Text = "ScreenPinNotes",
             Visible = true,
         };
@@ -429,9 +429,17 @@ public partial class App : System.Windows.Application
 
         FlushAndSave();
         SetNoteWindowsEnabled(false);
+        // Prevent autosave/closing from restoring old content after replacement.
+        foreach (var win in _windows) win.DisableSaving();
         try
         {
-            var importResult = await Task.Run(() => _storage.ImportNotesFromZip(dialog.FileName));
+            var importResult = await Task.Run(() => _storage.ImportNotesFromZip(dialog.FileName,
+                note => Dispatcher.Invoke(() =>
+                {
+                    var conflict = new ImportConflictDialog(note);
+                    conflict.ShowDialog();
+                    return conflict.Action;
+                })));
             ReloadNoteWindowsFromStorage(showEmptyStorageMessage: false);
             RefreshTrayMenu();
 
@@ -452,7 +460,7 @@ public partial class App : System.Windows.Application
                 LocalizationService.T("ImportNotesFailedTitle"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
-            SetNoteWindowsEnabled(true);
+            ReloadNoteWindowsFromStorage(showEmptyStorageMessage: false);
         }
     }
 
@@ -617,6 +625,12 @@ public partial class App : System.Windows.Application
         _storage.SaveSettings(_settings);
         RefreshTrayMenu();
         RefreshSettingsWindowNotesRoot();
+        if (_trayIcon != null)
+        {
+            var oldIcon = _trayIcon.Icon;
+            _trayIcon.Icon = TryLoadTrayIconResource(_settings.Theme == "Dark") ?? LoadTrayIcon();
+            oldIcon?.Dispose();
+        }
         foreach (var win in _windows)
             win.RefreshSettings();
     }
@@ -645,13 +659,13 @@ public partial class App : System.Windows.Application
     private static Icon LoadTrayIcon()
         => TryLoadTrayIconResource()
            ?? TryLoadExecutableIcon()
-           ?? SystemIcons.Application;
+           ?? (Icon)SystemIcons.Application.Clone();
 
     /// <summary>
     /// exe の Win32 リソースではなく WPF リソースから読むのは、.ico に入っている
     /// 複数の絵からトレイの大きさに合ったものを選ぶため。
     /// </summary>
-    public static Icon? TryLoadTrayIconResource()
+    public static Icon? TryLoadTrayIconResource(bool dark = false)
     {
         try
         {
@@ -659,12 +673,14 @@ public partial class App : System.Windows.Application
             // エントリアセンブリ側を見に行くので、テストなど別の exe から
             // 動かしたときに見つからない。
             var assembly = typeof(App).Assembly.GetName().Name;
-            var uri = new Uri($"pack://application:,,,/{assembly};component/app.ico");
+            var file = dark ? "app-dark.ico" : "app.ico";
+            var uri = new Uri($"pack://application:,,,/{assembly};component/{file}");
             if (System.Windows.Application.GetResourceStream(uri) is not { } resource)
                 return null;
 
             using var stream = resource.Stream;
-            return new Icon(stream, SystemInformation.SmallIconSize);
+            using var icon = new Icon(stream, SystemInformation.SmallIconSize);
+            return (Icon)icon.Clone();
         }
         catch (Exception ex)
         {

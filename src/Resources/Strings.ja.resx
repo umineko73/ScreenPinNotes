@@ -235,7 +235,7 @@
     <value>付箋をインポートしますか？</value>
   </data>
   <data name="ImportNotesConfirmMessage" xml:space="preserve">
-    <value>選択した zip の付箋を追加します。既存の付箋は上書きせず、ID が重複する付箋は新しい ID で取り込みます。</value>
+    <value>選択した zip の付箋を取り込みます。同名のフォルダーがある場合は、上書き・別名で追加・取り込まないから選択できます。</value>
   </data>
   <data name="ImportNotesCompletedTitle" xml:space="preserve">
     <value>インポート完了</value>
@@ -771,4 +771,9 @@
   <data name="UndoTooltip" xml:space="preserve"><value>元に戻す (Ctrl+Z)</value></data>
   <data name="RedoTooltip" xml:space="preserve"><value>やり直す (Ctrl+Y)</value></data>
   <data name="MarkdownProperties" xml:space="preserve"><value>プロパティ</value></data>
+  <data name="ImportConflictTitle" xml:space="preserve"><value>同名のフォルダーがあります</value></data>
+  <data name="ImportConflictMessage" xml:space="preserve"><value>付箋「{0}」のフォルダー「{1}」は既に存在します。上書きすると既存の内容と添付ファイルを置き換えます。名前を変える場合は、新しいフォルダー名を自動で付けて両方を残します。</value></data>
+  <data name="ImportConflictOverwrite" xml:space="preserve"><value>上書きする</value></data>
+  <data name="ImportConflictRename" xml:space="preserve"><value>名前を変える（別名で追加）</value></data>
+  <data name="ImportConflictSkip" xml:space="preserve"><value>インポートしない</value></data>
 </root>

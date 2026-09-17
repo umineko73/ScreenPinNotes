@@ -36,7 +36,7 @@ function New-RoundedPath($x, $y, $w, $h, $r) {
 }
 
 function New-IconBitmap {
-    param([int]$Size)
+    param([int]$Size, [switch]$Dark)
 
     $bmp = [System.Drawing.Bitmap]::new($Size, $Size, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
     $g = [System.Drawing.Graphics]::FromImage($bmp)
@@ -48,38 +48,54 @@ function New-IconBitmap {
     # Draw in a 256x256 space; the transform scales stroke widths with it.
     $g.ScaleTransform([float]($Size / 256.0), [float]($Size / 256.0))
 
-    # Monoline note: thick rounded strokes only, no fill and no outline colour,
-    # so it reads as a drawn glyph rather than a sticker on both taskbar themes.
-    # The pushpin is the one solid accent, in amber, so the icon does not
-    # disappear among the mostly blue/grey neighbours in the tray.
-    $green = Get-Color "#0B8A5C"
-    $amber = Get-Color "#FFB020"
+    # Angular memo (concept C): flush cyan band, heading and square bullets.
+    $bodyColor = if ($Dark) { '#204B7A' } else { '#245FA8' }
+    $body = [System.Drawing.SolidBrush]::new((Get-Color $bodyColor))
+    $ink = [System.Drawing.SolidBrush]::new((Get-Color '#F0F6FF'))
+    $accent = [System.Drawing.SolidBrush]::new((Get-Color '#65C9EB'))
 
-    # The glyph fills ~92% of the canvas. A monoline mark needs the extra size
-    # and stroke weight to hold its own next to the solid tray icons around it.
-    $note = New-RoundedPath 26 52 204 182 34
-    $frame = [System.Drawing.Pen]::new($green, 32)
-    $frame.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Round
-    $g.DrawPath($frame, $note)
-
-    # Two text lines. Different lengths so the glyph reads as written-on paper.
-    $line = [System.Drawing.Pen]::new($green, 28)
-    $line.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $line.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $g.DrawLine($line, 82, 120, 170, 120)
-    $g.DrawLine($line, 82, 174, 138, 174)
-
-    # Pushpin head. The white ring keeps it separated from the frame stroke.
-    $ring = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::White)
-    $head = [System.Drawing.SolidBrush]::new($amber)
-    $g.FillEllipse($ring, 84, 8, 88, 88)
-    $g.FillEllipse($head, 96, 20, 64, 64)
-
-    $note.Dispose()
-    $frame.Dispose()
-    $line.Dispose()
-    $ring.Dispose()
-    $head.Dispose()
+    # At tray sizes use pixel-aligned strokes and size-specific row spacing.
+    # Larger artwork follows the approved thin-stroke proportions.
+    if ($Size -le 32) {
+        $g.ResetTransform()
+        $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
+        $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::Default
+        $stroke = [Math]::Max(1, [Math]::Floor($Size / 24.0))
+        $step = [Math]::Max(3, [Math]::Round($Size * 0.13))
+        $top = [Math]::Floor(($Size - 3 * $step - $stroke) / 2)
+        $left = [Math]::Max(1, [Math]::Round($Size / 32.0))
+        $paperTop = [Math]::Round($Size * 0.10)
+        $paperHeight = $Size - 2 * $paperTop
+        $g.FillRectangle($body, $left, $paperTop, $Size - 2 * $left, $paperHeight)
+        $g.FillRectangle($accent, $left, $paperTop, [Math]::Max(2, [Math]::Round($Size * 0.12)), $paperHeight)
+        $bullet = [Math]::Round($Size * 0.27)
+        $text = $bullet + 2 * $stroke
+        $right = $Size - [Math]::Max(2, [Math]::Round($Size * 0.12))
+        $g.FillRectangle($ink, $bullet, $top, $right - $bullet, $stroke)
+        $lengths = @(0.72, 1.0, 0.65)
+        for ($row = 0; $row -lt 3; $row++) {
+            $y = $top + ($row + 1) * $step
+            $g.FillRectangle($ink, $bullet, $y, $stroke, $stroke)
+            $g.FillRectangle($ink, $text, $y, [Math]::Max(2, [Math]::Round(($right - $text) * $lengths[$row])), $stroke)
+        }
+    } else {
+        $g.FillRectangle($body, 8, 26, 240, 204)
+        $g.FillRectangle($accent, 8, 26, 30, 204)
+        $line = [System.Drawing.Pen]::new((Get-Color '#F0F6FF'), 10)
+        $line.StartCap = [System.Drawing.Drawing2D.LineCap]::Flat
+        $line.EndCap = [System.Drawing.Drawing2D.LineCap]::Flat
+        $g.FillRectangle($ink, 65, 69, 153, 20)
+        $ends = @(178, 218, 174)
+        for ($row = 0; $row -lt 3; $row++) {
+            $y = 119 + $row * 34
+            $g.FillRectangle($ink, 65, $y - 7, 14, 14)
+            $g.DrawLine($line, 94, $y, $ends[$row], $y)
+        }
+        $line.Dispose()
+    }
+    $body.Dispose()
+    $ink.Dispose()
+    $accent.Dispose()
     $g.Dispose()
     return $bmp
 }
@@ -96,11 +112,11 @@ function Convert-BitmapToPngBytes {
 function Write-IconFile {
     param(
         [string]$Path,
-        [int[]]$Sizes
+        [int[]]$Sizes, [switch]$Dark
     )
 
     $images = foreach ($size in $Sizes) {
-        $bitmap = New-IconBitmap -Size $size
+        $bitmap = New-IconBitmap -Size $size -Dark:$Dark
         try {
             [pscustomobject]@{
                 Size = $size
@@ -159,3 +175,11 @@ finally {
 
 Write-Output "Wrote $resolvedOutput"
 Write-Output "Wrote $resolvedPreview"
+
+$darkOutput = Join-Path ([System.IO.Path]::GetDirectoryName($resolvedOutput)) 'app-dark.ico'
+Write-IconFile -Path $darkOutput -Sizes @(16, 20, 24, 32, 40, 48, 64, 128, 256) -Dark
+$darkPreview = New-IconBitmap -Size 256 -Dark
+try {
+    $darkPreview.Save((Join-Path ([System.IO.Path]::GetDirectoryName($resolvedPreview)) 'app-icon-dark-preview.png'), [System.Drawing.Imaging.ImageFormat]::Png)
+} finally { $darkPreview.Dispose() }
+Write-Output "Wrote $darkOutput"

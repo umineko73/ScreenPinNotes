@@ -194,6 +194,9 @@ public class StorageService
         var notes = new List<StickyNote>();
         foreach (var dir in Directory.GetDirectories(_notesRoot))
         {
+            // インポートの作業用フォルダ（.import-* / .backup-*）は付箋ではない。
+            // 後片付けに失敗して残っても、古い付箋が2枚目として出てこないようにする。
+            if (Path.GetFileName(dir).StartsWith('.')) continue;
             var metaPath = Path.Combine(dir, "meta.json");
             if (!File.Exists(metaPath)) continue;
             try
@@ -281,7 +284,10 @@ public class StorageService
         }
     }
 
-    public ImportResult ImportNotesFromZip(string zipPath)
+    public enum ImportConflictAction { Overwrite, Rename, Skip }
+
+    public ImportResult ImportNotesFromZip(string zipPath,
+        Func<StickyNote, ImportConflictAction>? resolveConflict = null)
     {
         var fullZipPath = Path.GetFullPath(zipPath);
         var stagingRoot = Path.Combine(Path.GetTempPath(), "ScreenPinNotesImport", Guid.NewGuid().ToString("N"));
@@ -314,28 +320,51 @@ public class StorageService
                     continue;
                 }
 
+                var overwrite = false;
                 if (Directory.Exists(targetDir))
                 {
-                    note.Id = Guid.NewGuid().ToString();
-                    targetDir = GetNoteDirectoryPath(note.Id);
+                    var action = resolveConflict?.Invoke(note) ?? ImportConflictAction.Rename;
+                    if (action == ImportConflictAction.Skip)
+                    {
+                        skipped++;
+                        continue;
+                    }
+                    overwrite = action == ImportConflictAction.Overwrite;
+                    if (!overwrite)
+                    {
+                        do { note.Id = Guid.NewGuid().ToString(); }
+                        while (Directory.Exists(GetNoteDirectoryPath(note.Id)));
+                        targetDir = GetNoteDirectoryPath(note.Id);
+                    }
                 }
 
+                // Prepare on the destination volume, then swap directories. Never
+                // remove the existing note when copying or metadata writing fails.
+                var prepared = Path.Combine(_notesRoot, ".import-" + Guid.NewGuid().ToString("N"));
+                var backup = Path.Combine(_notesRoot, ".backup-" + Guid.NewGuid().ToString("N"));
                 try
                 {
                     // content.md はここで既に正しくコピーされているので、
                     // 外部ファイルノートの内容をインポート先マシンで再解決して
                     // 上書きしないよう meta.json だけを書き直す。
-                    CopyDirectory(sourceDir, targetDir);
-                    WriteNoteMetaOnly(targetDir, note);
+                    CopyDirectory(sourceDir, prepared);
+                    WriteNoteMetaOnly(prepared, note);
+                    if (overwrite) Directory.Move(targetDir, backup);
+                    try { Directory.Move(prepared, targetDir); }
+                    catch
+                    {
+                        if (overwrite) Directory.Move(backup, targetDir);
+                        throw;
+                    }
                     imported++;
+                    TryDeleteDirectory(backup);
                 }
                 catch (Exception ex)
                 {
                     skipped++;
                     ErrorReporter.ReportNonFatal($"Import note {note.Id}", ex);
-                    if (Directory.Exists(targetDir))
-                        TryDeleteDirectory(targetDir);
                 }
+                finally { TryDeleteDirectory(prepared); }
             }
         }
         finally
