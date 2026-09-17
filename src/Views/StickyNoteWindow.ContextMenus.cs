@@ -616,6 +616,18 @@ public partial class StickyNoteWindow
 
     public void ChangeZOrder(bool bringToFront) => MoveInZOrder(bringToFront ? HwndTop : HwndBottom);
 
+    /// <summary>
+    /// <paramref name="above"/> のすぐ後ろへ置く。一番上へ置き直すのと違い、
+    /// アプリが前面にあっても他のアプリの窓より前へは出ない。
+    /// 常に最前面かどうかが違う付箋の後ろへ置くと最前面の扱いが移るので、同じ帯の付箋だけに使う。
+    /// </summary>
+    public void PlaceBelow(StickyNoteWindow above)
+    {
+        var handle = new WindowInteropHelper(above).Handle;
+        if (handle != IntPtr.Zero && above.Topmost == Topmost)
+            MoveInZOrder(handle);
+    }
+
     private void MoveInZOrder(IntPtr insertAfter)
     {
         var hwnd = new WindowInteropHelper(this).Handle;

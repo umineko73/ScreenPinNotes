@@ -106,6 +106,70 @@ public class NoteLayerRaiseTests
         }
     }
 
+    // 付箋を足したときなどの並べ直しで、他のアプリの後ろにある付箋まで前へ出さない。
+    // トレイのメニューから操作するとアプリが前面になるので、一番上へ置き直す並べ方だと
+    // 全付箋が他のアプリを越えてしまっていた。「すべて表示」では前へ出す。
+    [WpfFact]
+    public void AutomaticReorderKeepsNotesBehindOtherWindowsButShowAllRaisesThem()
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var field = typeof(App).GetField("_windows",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        var windows = (List<StickyNoteWindow>)field.GetValue(app)!;
+        var previous = windows.ToList();
+        var root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ScreenPinNotes.Tests", Guid.NewGuid().ToString("N"));
+        var storage = new StorageService(root);
+        var front = new StickyNoteWindow(new StickyNoteViewModel(new StickyNote { LayerOrder = 0 }, app.Settings), storage);
+        var back = new StickyNoteWindow(new StickyNoteViewModel(new StickyNote { LayerOrder = 1 }, app.Settings), storage);
+        // 他のアプリの窓の代わり。付箋ではないので並べ直しの対象にならない。
+        var other = new System.Windows.Window { Width = 200, Height = 200, ShowInTaskbar = false, ShowActivated = false };
+        try
+        {
+            windows.Clear();
+            windows.AddRange([front, back]);
+            back.Show();
+            front.Show();
+            other.Show();
+            app.ForgetLastActiveNote();
+            var frontHandle = new System.Windows.Interop.WindowInteropHelper(front).Handle;
+            var backHandle = new System.Windows.Interop.WindowInteropHelper(back).Handle;
+            var otherHandle = new System.Windows.Interop.WindowInteropHelper(other).Handle;
+            bool IsAbove(IntPtr upper, IntPtr lower)
+            {
+                for (var h = GetWindow(lower, GwHwndPrev); h != IntPtr.Zero; h = GetWindow(h, GwHwndPrev))
+                    if (h == upper) return true;
+                return false;
+            }
+
+            // 付箋を他の窓の後ろへ送り、さらに付箋の順番を崩しておく
+            // （後から最背面へ送ったほうが下になるので、front が一番下）。
+            back.ChangeZOrder(false);
+            front.ChangeZOrder(false);
+            Assert.True(IsAbove(otherHandle, frontHandle) && IsAbove(otherHandle, backHandle), "setup");
+            Assert.True(IsAbove(backHandle, frontHandle), "setup: notes out of order");
+
+            app.ApplyLayerOrder();
+            Assert.True(IsAbove(frontHandle, backHandle), "notes are reordered among themselves");
+            Assert.True(IsAbove(otherHandle, frontHandle), "the other window stays in front");
+            Assert.True(IsAbove(otherHandle, backHandle), "the other window stays in front of the back note");
+
+            app.ShowAllNotes();
+            Assert.True(IsAbove(frontHandle, otherHandle), "show all brings notes forward");
+            Assert.True(IsAbove(backHandle, otherHandle), "show all brings every note forward");
+            Assert.True(IsAbove(frontHandle, backHandle), "show all keeps the layer order");
+        }
+        finally
+        {
+            windows.Clear();
+            other.Close();
+            front.Close();
+            back.Close();
+            windows.AddRange(previous);
+            app.ForgetLastActiveNote();
+            if (System.IO.Directory.Exists(root)) System.IO.Directory.Delete(root, true);
+        }
+    }
+
     [WpfFact]
     public void ClickedNoteStaysInFrontUntilAnotherNoteIsClicked()
     {
