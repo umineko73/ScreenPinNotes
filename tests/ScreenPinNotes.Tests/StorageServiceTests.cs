@@ -642,6 +642,50 @@ public sealed class StorageServiceTests : IDisposable
         Assert.Equal("safe", Assert.Single(_storage.Load()).Content);
     }
 
+    [Theory]
+    [InlineData(StorageService.ImportConflictAction.Overwrite)]
+    [InlineData(StorageService.ImportConflictAction.Rename)]
+    [InlineData(StorageService.ImportConflictAction.Skip)]
+    public void ImportConflictChoicePreservesOrReplacesWholeFolder(StorageService.ImportConflictAction action)
+    {
+        var existing = new StickyNote { Content = "original", Title = "Original" };
+        _storage.SaveNote(existing);
+        var assets = _storage.GetNoteAssetsDirectoryPath(existing.Id);
+        Directory.CreateDirectory(assets);
+        File.WriteAllText(Path.Combine(assets, "old.txt"), "old");
+        var source = new StorageService(Path.Combine(_tempRoot, "conflict-source"));
+        source.SaveNote(new StickyNote { Id = existing.Id, Content = "replacement", Title = "Incoming" });
+        var incomingAssets = source.GetNoteAssetsDirectoryPath(existing.Id);
+        Directory.CreateDirectory(incomingAssets);
+        File.WriteAllText(Path.Combine(incomingAssets, "new.txt"), "new");
+        var archive = Path.Combine(_tempRoot, "conflict.zip");
+        source.ExportNotesToZip(archive);
+        var calls = 0;
+        var result = _storage.ImportNotesFromZip(archive, note =>
+        {
+            calls++;
+            Assert.Equal(existing.Id, note.Id);
+            Assert.Equal("Incoming", note.Title);
+            return action;
+        });
+        Assert.Equal(1, calls);
+        Assert.Equal(action == StorageService.ImportConflictAction.Skip ? 0 : 1, result.ImportedCount);
+        Assert.Equal(action == StorageService.ImportConflictAction.Skip ? 1 : 0, result.SkippedCount);
+        var notes = _storage.Load();
+        var retained = Assert.Single(notes, n => n.Id == existing.Id);
+        var overwrite = action == StorageService.ImportConflictAction.Overwrite;
+        Assert.Equal(overwrite ? "replacement" : "original", retained.Content);
+        Assert.Equal(!overwrite, File.Exists(Path.Combine(assets, "old.txt")));
+        Assert.Equal(overwrite, File.Exists(Path.Combine(assets, "new.txt")));
+        Assert.Equal(action == StorageService.ImportConflictAction.Rename ? 2 : 1, notes.Count);
+        if (action == StorageService.ImportConflictAction.Rename)
+        {
+            var added = Assert.Single(notes, n => n.Id != existing.Id);
+            Assert.Equal("replacement", added.Content);
+            Assert.True(File.Exists(Path.Combine(_storage.GetNoteAssetsDirectoryPath(added.Id), "new.txt")));
+        }
+    }
+
     [Fact]
     public void GetNoteAssetsDirectoryPath_UsesInstanceDataRoot()
     {

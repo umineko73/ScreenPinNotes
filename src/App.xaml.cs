@@ -429,9 +429,17 @@ public partial class App : System.Windows.Application
 
         FlushAndSave();
         SetNoteWindowsEnabled(false);
+        // Prevent autosave/closing from restoring old content after replacement.
+        foreach (var win in _windows) win.DisableSaving();
         try
         {
-            var importResult = await Task.Run(() => _storage.ImportNotesFromZip(dialog.FileName));
+            var importResult = await Task.Run(() => _storage.ImportNotesFromZip(dialog.FileName,
+                note => Dispatcher.Invoke(() =>
+                {
+                    var conflict = new ImportConflictDialog(note);
+                    conflict.ShowDialog();
+                    return conflict.Action;
+                })));
             ReloadNoteWindowsFromStorage(showEmptyStorageMessage: false);
             RefreshTrayMenu();
 
@@ -452,7 +460,7 @@ public partial class App : System.Windows.Application
                 LocalizationService.T("ImportNotesFailedTitle"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
-            SetNoteWindowsEnabled(true);
+            ReloadNoteWindowsFromStorage(showEmptyStorageMessage: false);
         }
     }
 

@@ -82,7 +82,7 @@ ScreenPinNotes/
    └─ assets/       # Images
 ```
 
-Use Settings to change the storage location or export and import zip backups. Imports add notes without overwriting existing ones. You can also set the `SCREENPINNOTES_DATA` environment variable to use a separate data folder.
+Use Settings to change the storage location or export and import zip backups. If a note folder already exists, choose to overwrite it (including attachments), rename the imported folder automatically to keep both notes, or skip it. You can also set the `SCREENPINNOTES_DATA` environment variable to use a separate data folder.
 
 ## Development
 

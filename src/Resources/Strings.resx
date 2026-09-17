@@ -235,7 +235,7 @@ No: create initial notes in the selected folder. The current notes folder will r
     <value>Import notes?</value>
   </data>
   <data name="ImportNotesConfirmMessage" xml:space="preserve">
-    <value>Notes from the selected zip will be added. Existing notes will not be overwritten; duplicate notes will be imported with new IDs.</value>
+    <value>Import notes from the selected zip. For existing folders, choose to overwrite, rename, or skip.</value>
   </data>
   <data name="ImportNotesCompletedTitle" xml:space="preserve">
     <value>Import complete</value>
@@ -771,4 +771,9 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="UndoTooltip" xml:space="preserve"><value>Undo (Ctrl+Z)</value></data>
   <data name="RedoTooltip" xml:space="preserve"><value>Redo (Ctrl+Y)</value></data>
   <data name="MarkdownProperties" xml:space="preserve"><value>Properties</value></data>
+  <data name="ImportConflictTitle" xml:space="preserve"><value>Folder already exists</value></data>
+  <data name="ImportConflictMessage" xml:space="preserve"><value>The folder &quot;{1}&quot; for note &quot;{0}&quot; already exists. Overwrite replaces its content and attachments. Rename assigns a new folder name automatically and keeps both notes.</value></data>
+  <data name="ImportConflictOverwrite" xml:space="preserve"><value>Overwrite</value></data>
+  <data name="ImportConflictRename" xml:space="preserve"><value>Rename (keep both)</value></data>
+  <data name="ImportConflictSkip" xml:space="preserve"><value>Do not import</value></data>
 </root>

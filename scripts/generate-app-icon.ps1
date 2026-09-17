@@ -48,14 +48,11 @@ function New-IconBitmap {
     # Draw in a 256x256 space; the transform scales stroke widths with it.
     $g.ScaleTransform([float]($Size / 256.0), [float]($Size / 256.0))
 
-    # A compact landscape memo: cyan spine, heading and three bulleted rows.
+    # Angular memo (concept C): flush cyan band, heading and square bullets.
     $bodyColor = if ($Dark) { '#204B7A' } else { '#245FA8' }
     $body = [System.Drawing.SolidBrush]::new((Get-Color $bodyColor))
     $ink = [System.Drawing.SolidBrush]::new((Get-Color '#F0F6FF'))
     $accent = [System.Drawing.SolidBrush]::new((Get-Color '#65C9EB'))
-    $note = New-RoundedPath 8 26 240 204 9
-    $g.FillPath($body, $note)
-    $note.Dispose()
 
     # At tray sizes use pixel-aligned strokes and size-specific row spacing.
     # Larger artwork follows the approved thin-stroke proportions.
@@ -66,11 +63,14 @@ function New-IconBitmap {
         $stroke = [Math]::Max(1, [Math]::Floor($Size / 24.0))
         $step = [Math]::Max(3, [Math]::Round($Size * 0.13))
         $top = [Math]::Floor(($Size - 3 * $step - $stroke) / 2)
-        $left = [Math]::Round($Size * 0.14)
-        $bullet = [Math]::Round($Size * 0.29)
+        $left = [Math]::Max(1, [Math]::Round($Size / 32.0))
+        $paperTop = [Math]::Round($Size * 0.10)
+        $paperHeight = $Size - 2 * $paperTop
+        $g.FillRectangle($body, $left, $paperTop, $Size - 2 * $left, $paperHeight)
+        $g.FillRectangle($accent, $left, $paperTop, [Math]::Max(2, [Math]::Round($Size * 0.12)), $paperHeight)
+        $bullet = [Math]::Round($Size * 0.27)
         $text = $bullet + 2 * $stroke
         $right = $Size - [Math]::Max(2, [Math]::Round($Size * 0.12))
-        $g.FillRectangle($accent, $left, $top, $stroke, 3 * $step + $stroke)
         $g.FillRectangle($ink, $bullet, $top, $right - $bullet, $stroke)
         $lengths = @(0.72, 1.0, 0.65)
         for ($row = 0; $row -lt 3; $row++) {
@@ -79,17 +79,16 @@ function New-IconBitmap {
             $g.FillRectangle($ink, $text, $y, [Math]::Max(2, [Math]::Round(($right - $text) * $lengths[$row])), $stroke)
         }
     } else {
-        $spine = New-RoundedPath 34 63 12 130 6
-        $g.FillPath($accent, $spine)
-        $spine.Dispose()
+        $g.FillRectangle($body, 8, 26, 240, 204)
+        $g.FillRectangle($accent, 8, 26, 30, 204)
         $line = [System.Drawing.Pen]::new((Get-Color '#F0F6FF'), 10)
-        $line.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-        $line.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-        $g.DrawLine($line, 70, 82, 208, 82)
+        $line.StartCap = [System.Drawing.Drawing2D.LineCap]::Flat
+        $line.EndCap = [System.Drawing.Drawing2D.LineCap]::Flat
+        $g.FillRectangle($ink, 65, 69, 153, 20)
         $ends = @(178, 218, 174)
         for ($row = 0; $row -lt 3; $row++) {
-            $y = 112 + $row * 30
-            $g.FillEllipse($ink, 65, $y - 7, 14, 14)
+            $y = 119 + $row * 34
+            $g.FillRectangle($ink, 65, $y - 7, 14, 14)
             $g.DrawLine($line, 94, $y, $ends[$row], $y)
         }
         $line.Dispose()
