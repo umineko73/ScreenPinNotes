@@ -194,6 +194,9 @@ public class StorageService
         var notes = new List<StickyNote>();
         foreach (var dir in Directory.GetDirectories(_notesRoot))
         {
+            // インポートの作業用フォルダ（.import-* / .backup-*）は付箋ではない。
+            // 後片付けに失敗して残っても、古い付箋が2枚目として出てこないようにする。
+            if (Path.GetFileName(dir).StartsWith('.')) continue;
             var metaPath = Path.Combine(dir, "meta.json");
             if (!File.Exists(metaPath)) continue;
             try

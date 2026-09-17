@@ -686,6 +686,25 @@ public sealed class StorageServiceTests : IDisposable
         }
     }
 
+    // インポートの作業用フォルダが後片付けに失敗して残っても、付箋として読まない。
+    [Theory]
+    [InlineData(".backup-0123456789abcdef")]
+    [InlineData(".import-0123456789abcdef")]
+    public void Load_IgnoresLeftoverImportWorkFolders(string leftover)
+    {
+        var note = new StickyNote { Content = "kept" };
+        _storage.SaveNote(note);
+        var notesRoot = Path.GetDirectoryName(_storage.GetNoteDirectoryPath(note.Id))!;
+        var copy = Path.Combine(notesRoot, leftover);
+        Directory.CreateDirectory(copy);
+        File.Copy(Path.Combine(_storage.GetNoteDirectoryPath(note.Id), "meta.json"), Path.Combine(copy, "meta.json"));
+        File.WriteAllText(Path.Combine(copy, "content.md"), "old");
+
+        var loaded = Assert.Single(_storage.Load());
+        Assert.Equal(note.Id, loaded.Id);
+        Assert.Equal("kept", loaded.Content);
+    }
+
     [Fact]
     public void GetNoteAssetsDirectoryPath_UsesInstanceDataRoot()
     {
