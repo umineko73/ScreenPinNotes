@@ -30,12 +30,14 @@ public class TrayIconTests
 
     // アセンブリに app.ico が入っていること。入っていなければ、以前と同じく
     // 起動時に「リソース 'app.ico' を検索できません」になる。
-    [WpfFact]
-    public void AppIconIsBuiltIntoTheAssembly()
+    [WpfTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AppIconIsBuiltIntoTheAssembly(bool dark)
     {
         WpfApplicationFixture.Ensure();
 
-        using var icon = App.TryLoadTrayIconResource();
+        using var icon = App.TryLoadTrayIconResource(dark);
 
         Assert.NotNull(icon);
         Assert.True(icon!.Width > 0);

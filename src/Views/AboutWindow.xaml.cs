@@ -49,7 +49,8 @@ public partial class AboutWindow : Window
     // タスクトレイのアイコンと同じ app.ico を、画像として表示できる形に変換する
     private static BitmapSource LoadAppIconImage()
     {
-        var uri = new Uri("pack://application:,,,/app.ico");
+        var file = App.Current.Settings.Theme == "Dark" ? "app-dark.ico" : "app.ico";
+        var uri = new Uri($"pack://application:,,,/{file}");
         using var stream = System.Windows.Application.GetResourceStream(uri)!.Stream;
         using var icon = new System.Drawing.Icon(stream, 48, 48);
         var bitmap = Imaging.CreateBitmapSourceFromHIcon(
