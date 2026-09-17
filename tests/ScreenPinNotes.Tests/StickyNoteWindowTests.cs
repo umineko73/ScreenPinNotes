@@ -2469,6 +2469,45 @@ public class StickyNoteWindowTests
     }
 
     [WpfFact]
+    public void LoadContent_WideImageWithTextFitsBesideTheVerticalScrollBar()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote
+        {
+            Width = 380,
+            Height = 300,
+            IsReadOnly = true,
+            Content = "text\n\n![image](assets/wide.png)\n\n" + string.Join("\n\n", Enumerable.Range(1, 20).Select(i => $"line {i}")),
+        };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        var pixels = new byte[1200 * 200 * 4];
+        SavePng(System.IO.Path.Combine(assetsDir, "wide.png"),
+            System.Windows.Media.Imaging.BitmapSource.Create(1200, 200, 96, 96, PixelFormats.Bgra32, null, pixels, 1200 * 4));
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), storage);
+        try
+        {
+            window.Show();
+            InvokePrivate(window, "LoadContent", note.Content);
+            window.UpdateLayout();
+            var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            var viewer = Assert.Single(FindVisualChildren<ScrollViewer>(contentBox));
+            Assert.Equal(Visibility.Visible, viewer.ComputedVerticalScrollBarVisibility);
+            var image = Assert.Single(EnumerateImages(contentBox.Document));
+            var padding = contentBox.Document.PagePadding;
+            Assert.True(image.Width <= viewer.ViewportWidth - padding.Left - padding.Right,
+                $"image {image.Width} should fit viewport {viewer.ViewportWidth} minus page padding {padding.Left + padding.Right}");
+            Assert.Equal(Visibility.Collapsed, viewer.ComputedHorizontalScrollBarVisibility);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [WpfFact]
     public void LoadContent_MarkdownImageTooltipShowsResolvedFilePath()
     {
         EnsureApplication();

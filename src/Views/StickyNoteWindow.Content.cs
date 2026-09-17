@@ -798,8 +798,11 @@ public partial class StickyNoteWindow
         var boxWidth = ContentBox.ActualWidth > 0 ? ContentBox.ActualWidth : Width;
         var padding = ContentBox.Padding.Left + ContentBox.Padding.Right;
         var border = ContentBox.BorderThickness.Left + ContentBox.BorderThickness.Right;
+        // 文書自体の左右余白（文字のある付箋では各 5px）も画像の置き場にはならない。
+        var pagePadding = ContentBox.Document.PagePadding;
+        var documentPadding = double.IsNaN(pagePadding.Left) ? 0 : pagePadding.Left + pagePadding.Right;
         var allowance = reserveScrollBar ? ScrollbarAllowance : 0;
-        return Math.Max(MarkdownImageMinDisplayWidth, boxWidth - padding - border - allowance);
+        return Math.Max(MarkdownImageMinDisplayWidth, boxWidth - padding - border - documentPadding - allowance);
     }
 
     private double GetMarkdownImageAvailableHeight()
