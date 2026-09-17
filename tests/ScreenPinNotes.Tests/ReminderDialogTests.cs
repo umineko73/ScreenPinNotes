@@ -158,6 +158,77 @@ public class ReminderDialogTests
         finally { dialog.Close(); }
     }
 
+    [WpfFact]
+    public void WeekChoices_EveryWeekExcludesSpecificWeeksAndResultKeepsSelection()
+    {
+        WpfApplicationFixture.Ensure();
+        var dialog = new ReminderDialog(DateTime.Now.AddDays(1));
+        RunModal(dialog, () =>
+        {
+            var everyWeek = Field<CheckBox>(dialog, "_everyWeek");
+            var weeks = Field<WrapPanel>(dialog, "_weeks").Children.OfType<CheckBox>().Where(b => b.Tag is int).ToList();
+            Assert.Equal(5, weeks.Count);
+            Assert.True(everyWeek.IsChecked);
+
+            weeks[0].IsChecked = true;
+            weeks[2].IsChecked = true;
+            Assert.False(everyWeek.IsChecked);
+            weeks[0].IsChecked = false;
+            weeks[2].IsChecked = false;
+            Assert.True(everyWeek.IsChecked);
+            everyWeek.IsChecked = false;
+            Assert.True(everyWeek.IsChecked);
+
+            weeks[1].IsChecked = true;
+            weeks[3].IsChecked = true;
+            everyWeek.IsChecked = true;
+            Assert.All(weeks, b => Assert.False(b.IsChecked));
+
+            weeks[1].IsChecked = true;
+            weeks[3].IsChecked = true;
+            Field<ComboBox>(dialog, "_repeat").SelectedIndex = 2;
+            Invoke(dialog, "Accept");
+        });
+        Assert.True(dialog.Result.Accepted);
+        Assert.Equal([2, 4], dialog.Result.Settings!.MonthWeeks);
+    }
+
+    [WpfFact]
+    public void MonthDay_LastDayChoiceIsSavedAndRestored()
+    {
+        WpfApplicationFixture.Ensure();
+        var dialog = new ReminderDialog(DateTime.Now.AddDays(1));
+        RunModal(dialog, () =>
+        {
+            var monthDay = Field<ComboBox>(dialog, "_monthDay");
+            Assert.Equal(32, monthDay.Items.Count);
+            monthDay.SelectedIndex = 31;
+            Field<ComboBox>(dialog, "_repeat").SelectedIndex = 3;
+            Invoke(dialog, "Accept");
+        });
+        var settings = dialog.Result.Settings!;
+        Assert.True(settings.MonthLastDay);
+        Assert.Equal(31, settings.MonthDay);
+
+        var ctor = typeof(ReminderDialog).GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic, [typeof(DateTime?), typeof(ScreenPinNotes.Models.ReminderSettings)])!;
+        var reopened = (ReminderDialog)ctor.Invoke([settings.NextAt, settings]);
+        try { Assert.Equal(31, Field<ComboBox>(reopened, "_monthDay").SelectedIndex); }
+        finally { reopened.Close(); }
+    }
+
+    // Accept は DialogResult を設定するので、モーダル表示中に操作する。
+    private static void RunModal(ReminderDialog dialog, Action action)
+    {
+        Exception? failure = null;
+        dialog.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ContextIdle, new Action(() =>
+        {
+            failure = Record.Exception(action);
+            if (dialog.IsVisible) dialog.Close();
+        }));
+        dialog.ShowDialog();
+        Assert.Null(failure);
+    }
+
     [WpfTheory]
     [InlineData("Light", 2)]
     [InlineData("Dark", 3)]
@@ -181,6 +252,7 @@ public class ReminderDialogTests
             datePicker.SelectedDate = DateTime.Now.AddDays(2).Date;
             datePicker.IsDropDownOpen = false;
             Assert.Equal(mode == 2 ? Visibility.Visible : Visibility.Collapsed, Field<WrapPanel>("_days").Visibility);
+            Assert.Equal(mode == 2 ? Visibility.Visible : Visibility.Collapsed, Field<WrapPanel>("_weeks").Visibility);
             Assert.Equal(mode == 3 ? Visibility.Visible : Visibility.Collapsed, Field<ComboBox>("_monthDay").Visibility);
             Field<CheckBox>("_windows").IsChecked = false;
             Field<CheckBox>("_alert").IsChecked = false;

@@ -722,6 +722,13 @@
   <data name="ReminderRepeatWeekly" xml:space="preserve"><value>毎週</value></data>
   <data name="ReminderRepeatMonthly" xml:space="preserve"><value>毎月</value></data>
   <data name="ReminderMonthlyHint" xml:space="preserve"><value>毎月の通知日。指定日がない月は月末に通知します。</value></data>
+  <data name="ReminderWeek1" xml:space="preserve"><value>1週目</value></data>
+  <data name="ReminderWeek2" xml:space="preserve"><value>2週目</value></data>
+  <data name="ReminderWeek3" xml:space="preserve"><value>3週目</value></data>
+  <data name="ReminderWeek4" xml:space="preserve"><value>4週目</value></data>
+  <data name="ReminderWeek5" xml:space="preserve"><value>5週目</value></data>
+  <data name="ReminderLastDay" xml:space="preserve"><value>最終日</value></data>
+  <data name="ReminderWeeksHint" xml:space="preserve"><value>週目は、その曜日が月の何回目かで数えます（1〜7日が1週目）。</value></data>
   <data name="ReminderWindowsNotification" xml:space="preserve"><value>Windowsの通知を表示</value></data>
   <data name="ReminderShowAlert" xml:space="preserve"><value>スヌーズできる通知ウィンドウも開く</value></data>
   <data name="ReminderRunningHint" xml:space="preserve"><value>ScreenPinNotesをトレイで起動しておいてください。休止中の通知は復帰後に1回にまとめます。バナー表示はWindowsの通知設定に従います。</value></data>

@@ -110,7 +110,11 @@ public class StickyNote
 public sealed class ReminderSettings
 {
     public List<DayOfWeek> WeekDays { get; set; } = [];
+    // 毎週リマインダーで通知する「第n週」（1〜5、その曜日が月の何回目か）。空 = 毎週。
+    public List<int> MonthWeeks { get; set; } = [];
     public int MonthDay { get; set; } = 1;
+    // 毎月の最終日。MonthDay も 31 にしておくと、この項目を知らない旧版でも月末に通知される。
+    public bool MonthLastDay { get; set; }
     public TimeSpan? TimeOfDay { get; set; }
     public bool WindowsNotification { get; set; } = true;
     // null = 未設定（この機能追加より前に保存されたリマインダー）。

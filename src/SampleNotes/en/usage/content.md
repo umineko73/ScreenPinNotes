@@ -122,8 +122,8 @@ Configure a reminder from a note's context menu or the **Note list**. Choose a d
 | --- | --- |
 | Once | Date and time |
 | Daily | Start date and daily time |
-| Weekly | Start date, time, and one or more weekdays |
-| Monthly | Start date, time, and day 1–31; shorter months use their last day |
+| Weekly | Start date, time, one or more weekdays, and optionally the 1st–5th weeks (e.g. 1st and 3rd for every other week); a week is the weekday's occurrence in the month |
+| Monthly | Start date, time, and day 1–31 or **Last day**; shorter months use their last day |
 
 Click a Windows notification to open the note list. Simultaneous reminders share a notification. Optionally enable the alert window for 5-, 15-, or 60-minute snooze. Snoozing preserves the recurring time.
 
