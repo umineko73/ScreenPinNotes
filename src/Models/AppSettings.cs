@@ -68,6 +68,11 @@ public sealed class AppSettings
     /// （行ごとに書いたメモが横につながって見えないように）。
     /// </summary>
     public bool JoinMarkdownLines { get; set; }
+    /// <summary>
+    /// リマインダーで付箋を点滅させるとき、その付箋を他のアプリの窓より前に出すか。
+    /// 外部ファイルの更新を知らせる点滅では前に出さない。
+    /// </summary>
+    public bool BringReminderNoteToFront { get; set; } = true;
 
     public const string NoteBorderNone = "None";
     public const string NoteBorderGray = "Gray";

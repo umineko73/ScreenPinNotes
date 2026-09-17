@@ -606,6 +606,8 @@ public sealed class SettingsWindow : Window
         startup.Children.Add(Toggle("SettingsStartHidden",
             () => _settings.StartHidden, v => _settings.StartHidden = v));
         panel.Children.Add(LabeledRow("SettingsStartup", startup));
+        panel.Children.Add(LabeledRow("SettingsReminder", Toggle("SettingsBringReminderNoteToFront",
+            () => _settings.BringReminderNoteToFront, v => _settings.BringReminderNoteToFront = v)));
         panel.Children.Add(LabeledRow("SettingsTaskbar", Toggle("TrayShowInTaskbar",
             () => _settings.ShowNotesInTaskbar, v => _settings.ShowNotesInTaskbar = v)));
 

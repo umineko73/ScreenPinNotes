@@ -120,7 +120,7 @@ public class MarkdownExtrasTests
         MarkdownRenderer.Render("text\n  ![a](assets/a.png)", 13, CreateHyperlink,
             createImage: image => { images.Add(image); return new Run(""); }, joinLines: true).ToList();
 
-        Assert.Empty(images.Where(i => i.LineIndex == 0));
+        Assert.DoesNotContain(images, i => i.LineIndex == 0);
         Assert.Contains(images, i => i.LineIndex == 1 && i.Start == 2);
     }
 

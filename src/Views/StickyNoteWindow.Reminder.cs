@@ -25,6 +25,23 @@ namespace ScreenPinNotes.Views;
 
 public partial class StickyNoteWindow
 {
+    /// <summary>
+    /// 他のアプリの窓より前に出す。入力先は奪わない。アプリが前面にないときは
+    /// 一番上へ置き直しても他のアプリを越えられないことがあるので、いったん常に最前面に
+    /// してから戻す（戻しても、通常の窓の中では一番上に残る）。
+    /// </summary>
+    public void BringAboveOtherWindows()
+    {
+        if (_isClosed || !IsVisible) return;
+        if (Topmost)
+        {
+            ChangeZOrder(true);
+            return;
+        }
+        Topmost = true;
+        Topmost = false;
+    }
+
     public void FlashForReminder()
     {
         if (_isClosed || !IsVisible) return;

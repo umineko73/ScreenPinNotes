@@ -16,6 +16,7 @@
 
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using ScreenPinNotes.Models;
 using ScreenPinNotes.Services;
 using ScreenPinNotes.ViewModels;
@@ -162,6 +163,88 @@ public class AppNoteWindowTests
             try { if (Directory.Exists(tempRoot)) Directory.Delete(tempRoot, true); }
             catch (IOException) { }
         }
+    }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetWindow(IntPtr window, uint command);
+
+    private static bool IsAbove(System.Windows.Window upper, System.Windows.Window lower)
+    {
+        var target = new System.Windows.Interop.WindowInteropHelper(upper).Handle;
+        for (var h = GetWindow(new System.Windows.Interop.WindowInteropHelper(lower).Handle, 3); h != IntPtr.Zero; h = GetWindow(h, 3))
+            if (h == target) return true;
+        return false;
+    }
+
+    // リマインダーで点滅する付箋は、設定に従ってその付箋だけを他の窓より前に出す。
+    // 他の付箋は前へ出さない。
+    [WpfTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void FlashingReminderNoteComesToFrontOnlyWhenEnabled(bool bringToFront)
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var tempRoot = Path.Combine(Path.GetTempPath(), "ScreenPinNotes.Tests", Guid.NewGuid().ToString("N"));
+        var windowsField = typeof(App).GetField("_windows", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var storageField = typeof(App).GetField("_storage", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var windows = (List<StickyNoteWindow>)windowsField.GetValue(app)!;
+        var previous = windows.ToList();
+        var previousStorage = storageField.GetValue(app);
+        var previousSetting = app.Settings.BringReminderNoteToFront;
+        var storage = new StorageService(tempRoot);
+        var due = DateTime.Now.AddMinutes(-1);
+        var reminded = new StickyNoteWindow(new StickyNoteViewModel(new StickyNote
+        {
+            LayerOrder = 1,
+            Reminder = new ReminderSettings { NextAt = due, FlashNote = true, ShowAlert = false, WindowsNotification = false },
+        }, app.Settings), storage);
+        var other = new StickyNoteWindow(new StickyNoteViewModel(new StickyNote { LayerOrder = 0 }, app.Settings), storage);
+        // 他のアプリの窓の代わり。
+        var foreign = new System.Windows.Window { Width = 200, Height = 200, ShowInTaskbar = false, ShowActivated = false };
+        try
+        {
+            windows.Clear();
+            windows.AddRange([reminded, other]);
+            storageField.SetValue(app, storage);
+            app.Settings.BringReminderNoteToFront = bringToFront;
+            reminded.Show();
+            other.Show();
+            foreign.Show();
+            app.ForgetLastActiveNote();
+            reminded.ChangeZOrder(false);
+            other.ChangeZOrder(false);
+            Assert.True(IsAbove(foreign, reminded) && IsAbove(foreign, other), "setup");
+
+            typeof(App).GetMethod("TriggerReminder", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(app, [reminded, due]);
+
+            Assert.True(((System.Windows.Controls.Border)reminded.FindName("ReminderFlashBorder")).HasAnimatedProperties);
+            Assert.Equal(bringToFront, IsAbove(reminded, foreign));
+            Assert.False(reminded.Topmost);
+            // 他の付箋までは前へ出さない。
+            Assert.True(IsAbove(foreign, other), "other notes stay behind");
+        }
+        finally
+        {
+            windows.Clear();
+            foreign.Close();
+            reminded.Close();
+            other.Close();
+            windows.AddRange(previous);
+            storageField.SetValue(app, previousStorage);
+            app.Settings.BringReminderNoteToFront = previousSetting;
+            app.ForgetLastActiveNote();
+            if (Directory.Exists(tempRoot)) Directory.Delete(tempRoot, true);
+        }
+    }
+
+    [Theory]
+    [InlineData("ja", "リマインダー", "リマインダーで点滅する付箋を前面に出す")]
+    [InlineData("en", "Reminders", "Bring a flashing reminder note to the front")]
+    public void BringReminderNoteToFront_IsOnByDefaultAndLocalized(string language, string section, string label)
+    {
+        Assert.True(new AppSettings().BringReminderNoteToFront);
+        Assert.Equal(section, LocalizationService.T("SettingsReminder", language));
+        Assert.Equal(label, LocalizationService.T("SettingsBringReminderNoteToFront", language));
     }
 
     [WpfTheory]

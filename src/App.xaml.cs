@@ -791,24 +791,58 @@ public partial class App : System.Windows.Application
     /// </summary>
     public void ForgetLastActiveNote() => _lastActiveWindow = null;
 
-    public void ApplyLayerOrder()
+    /// <summary>
+    /// 付箋を設定した重なり順に並べ直す。
+    /// </summary>
+    /// <param name="bringToFront">
+    /// true なら全付箋を他のアプリより前へ出す（「すべて表示」など、付箋を見せる操作）。
+    /// false なら付箋どうしの順番だけを整える。付箋を1枚足しただけで、他のアプリの後ろに
+    /// あった付箋まで前へ出てこないように。トレイのメニューから操作するとアプリが前面に
+    /// なるので、一番上へ置き直す並べ方では全付箋が他のアプリを越えてしまう。
+    /// </param>
+    public void ApplyLayerOrder(bool bringToFront = false)
     {
         // A modal reminder editor must stay above pinned notes. Apply deferred
         // layer changes when it closes instead of raising notes over its controls.
         if (_openReminderDialogs > 0) return;
         var byId = _windows.ToDictionary(w => w.ViewModel.Model.Id);
-        foreach (var note in NoteLayers.Ordered(_windows.Select(w => w.ViewModel.Model)).AsEnumerable().Reverse())
+        var ordered = NoteLayers.Ordered(_windows.Select(w => w.ViewModel.Model))
+            .Select(note => byId[note.Id])
+            .Where(w => w.IsVisible)
+            .ToList();
+        var lastActive = _lastActiveWindow is { } touched && touched.IsVisible && _windows.Contains(touched)
+            ? touched
+            : null;
+
+        if (bringToFront)
         {
-            var window = byId[note.Id];
-            if (window.IsVisible) window.ChangeZOrder(true);
+            for (var i = ordered.Count - 1; i >= 0; i--)
+                ordered[i].ChangeZOrder(true);
+            foreach (var window in ordered.Where(w => w.IsTemporarilyRaised))
+                window.ChangeZOrder(true);
+            // 常に手前・通常の2つの帯をまたぐことはない。Windows 側が常に手前の
+            // ウィンドウを必ず上に置くので、通常の付箋がここで上へ抜けることはない。
+            lastActive?.ChangeZOrder(true);
         }
-        foreach (var window in _windows.Where(w => w.IsVisible && w.IsTemporarilyRaised))
-            window.ChangeZOrder(true);
-        // 常に手前・通常の2つの帯をまたぐことはない。Windows 側が常に手前の
-        // ウィンドウを必ず上に置くので、通常の付箋がここで上へ抜けることはない。
-        if (_lastActiveWindow is { } raised && raised.IsVisible && _windows.Contains(raised))
-            raised.ChangeZOrder(true);
-        foreach (var window in _windows.Where(w => w.IsVisible))
+        else
+        {
+            // 常に手前の帯と通常の帯を別々に並べる。帯ごとに、一番手前に来る付箋
+            // （直前に触った付箋、無ければ設定の先頭）を基準にして、残りをその後ろへ順に置く。
+            foreach (var band in ordered.GroupBy(w => w.Topmost))
+            {
+                // 手前から「直前に触った付箋 → 一時的に手前へ出している付箋 → 設定の順」。
+                var chain = band.ToList();
+                var temporarilyRaised = chain.Where(w => w.IsTemporarilyRaised).ToList();
+                chain.RemoveAll(w => w.IsTemporarilyRaised);
+                chain.InsertRange(0, temporarilyRaised);
+                if (lastActive != null && chain.Remove(lastActive))
+                    chain.Insert(0, lastActive);
+                for (var i = 1; i < chain.Count; i++)
+                    chain[i].PlaceBelow(chain[i - 1]);
+            }
+        }
+
+        foreach (var window in ordered)
             window.RaisePickerPopups();
     }
 
@@ -817,7 +851,7 @@ public partial class App : System.Windows.Application
         NoteLayers.Move(_windows.Select(w => w.ViewModel.Model), ids, move);
         // An explicit ordering command takes precedence over the last clicked note.
         ForgetLastActiveNote();
-        ApplyLayerOrder();
+        ApplyLayerOrder(bringToFront: true);
         SaveAll();
         _noteManagerWindow?.RefreshNotes();
     }
@@ -830,7 +864,7 @@ public partial class App : System.Windows.Application
                 win.Show();
         }
         ForgetLastActiveNote();
-        ApplyLayerOrder();
+        ApplyLayerOrder(bringToFront: true);
     }
 
     public void HideAllNotes()
@@ -1110,7 +1144,7 @@ public partial class App : System.Windows.Application
         win.ViewModel.Model.IsHidden = false;
         win.Show();
         win.Activate();
-        ApplyLayerOrder();
+        ApplyLayerOrder(bringToFront: true);
         SaveAll();
         RefreshTrayMenu();
         _noteManagerWindow?.RefreshNotes();
@@ -1294,7 +1328,7 @@ public partial class App : System.Windows.Application
             SaveAll();
             if (reminder.FlashNote)
             {
-                ShowNote(note.Id);
+                RevealForReminder(win, _settings.BringReminderNoteToFront);
                 win.FlashForReminder();
             }
             // null（この機能追加より前に保存されたリマインダー）は従来どおり
@@ -1304,7 +1338,8 @@ public partial class App : System.Windows.Application
                 _noteManagerWindow?.RefreshNotes();
                 return;
             }
-            ShowNote(note.Id);
+            // 通知ウィンドウを出すときは、どの付箋の知らせか分かるよう常にその付箋を前に出す。
+            RevealForReminder(win, bringToFront: true);
             System.Media.SystemSounds.Exclamation.Play();
 
             var result = ReminderAlertWindow.ShowFor(win, win.ViewModel.DisplayTitle, dueAt);
@@ -1316,6 +1351,33 @@ public partial class App : System.Windows.Application
             SaveAll();
             _noteManagerWindow?.RefreshNotes();
         });
+    }
+
+    /// <summary>
+    /// リマインダーで知らせる付箋を見えるようにする。<paramref name="bringToFront"/> なら、その付箋だけを
+    /// 他のアプリの窓より前に出す（他の付箋まで前へ出さない）。
+    /// </summary>
+    private void RevealForReminder(StickyNoteWindow win, bool bringToFront)
+    {
+        if (win.ViewModel.Model.IsHidden || !win.IsVisible)
+        {
+            win.ViewModel.Model.IsHidden = false;
+            win.Show();
+            RefreshTrayMenu();
+            _noteManagerWindow?.RefreshNotes();
+        }
+        if (bringToFront)
+        {
+            // 直前に触った付箋として覚え、この後の並べ直しで奥へ戻さない。
+            _lastActiveWindow = win;
+            ApplyLayerOrder();
+            win.BringAboveOtherWindows();
+        }
+        else
+        {
+            ApplyLayerOrder();
+        }
+        SaveAll();
     }
 
     /// 保留中の保存をすべて確定させてからディスクに書き出す
