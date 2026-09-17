@@ -22,6 +22,7 @@ public static class ReminderSchedule
 {
     // Local wall-clock recurrence; missed occurrences are coalesced into one notification.
     // A monthly date missing from a shorter month uses its final day.
+    // Weekly reminders may be limited to the nth occurrence of the weekday in its month (days 1-7 are week 1).
     public static DateTime? Next(ReminderSettings reminder, DateTime after)
     {
         if (reminder.Recurrence == "None") return null;
@@ -34,12 +35,17 @@ public static class ReminderSchedule
             var matches = reminder.Recurrence switch
             {
                 "Daily" => true,
-                "Weekly" => reminder.WeekDays.Contains(date.DayOfWeek),
-                "Monthly" => date.Day == Math.Min(Math.Clamp(reminder.MonthDay, 1, 31), DateTime.DaysInMonth(date.Year, date.Month)),
+                "Weekly" => reminder.WeekDays.Contains(date.DayOfWeek) && IsInSelectedWeek(reminder, date),
+                "Monthly" => date.Day == Math.Min(reminder.MonthLastDay ? 31 : Math.Clamp(reminder.MonthDay, 1, 31), DateTime.DaysInMonth(date.Year, date.Month)),
                 _ => false,
             };
             if (matches) return candidate;
         }
         return null;
     }
+
+    public static int WeekOfMonth(DateTime date) => (date.Day - 1) / 7 + 1;
+
+    private static bool IsInSelectedWeek(ReminderSettings reminder, DateTime date)
+        => reminder.MonthWeeks is not { Count: > 0 } weeks || weeks.Contains(WeekOfMonth(date));
 }

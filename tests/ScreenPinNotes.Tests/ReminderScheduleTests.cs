@@ -49,12 +49,50 @@ public class ReminderScheduleTests
     }
 
     [Fact]
+    public void Weekly_SelectedWeeksUseTheWeekdaysOccurrenceInTheMonth()
+    {
+        // 2026年9月の火曜日は 1, 8, 15, 22, 29 日。1週目と3週目なら 1日と15日だけ。
+        var reminder = new ReminderSettings { Recurrence = "Weekly", TimeOfDay = TimeSpan.FromHours(9), WeekDays = [DayOfWeek.Tuesday], MonthWeeks = [1, 3] };
+        Assert.Equal(new DateTime(2026, 9, 15, 9, 0, 0), ReminderSchedule.Next(reminder, new DateTime(2026, 9, 1, 9, 0, 0)));
+        Assert.Equal(new DateTime(2026, 10, 6, 9, 0, 0), ReminderSchedule.Next(reminder, new DateTime(2026, 9, 15, 9, 0, 0)));
+    }
+
+    [Fact]
+    public void Weekly_FifthWeekSkipsMonthsWithoutIt()
+    {
+        // 5回目の月曜は 2026年8月31日の次は 11月30日（9月・10月には無い）。
+        var reminder = new ReminderSettings { Recurrence = "Weekly", TimeOfDay = TimeSpan.FromHours(9), WeekDays = [DayOfWeek.Monday], MonthWeeks = [5] };
+        Assert.Equal(new DateTime(2026, 11, 30, 9, 0, 0), ReminderSchedule.Next(reminder, new DateTime(2026, 8, 31, 9, 0, 0)));
+    }
+
+    [Fact]
+    public void Weekly_WithoutSelectedWeeksRepeatsEveryWeek()
+    {
+        var reminder = new ReminderSettings { Recurrence = "Weekly", TimeOfDay = TimeSpan.FromHours(9), WeekDays = [DayOfWeek.Tuesday] };
+        Assert.Equal(new DateTime(2026, 9, 8, 9, 0, 0), ReminderSchedule.Next(reminder, new DateTime(2026, 9, 1, 9, 0, 0)));
+    }
+
+    [Theory]
+    [InlineData(2027, 2, 28)]
+    [InlineData(2028, 2, 29)]
+    [InlineData(2026, 4, 30)]
+    [InlineData(2026, 12, 31)]
+    public void Monthly_LastDayFollowsEachMonthsLength(int year, int month, int day)
+    {
+        // MonthDay が古い値のままでも、最終日の指定が優先される。
+        var reminder = new ReminderSettings { Recurrence = "Monthly", MonthLastDay = true, MonthDay = 5, TimeOfDay = TimeSpan.FromHours(9) };
+        Assert.Equal(new DateTime(year, month, day, 9, 0, 0), ReminderSchedule.Next(reminder, new DateTime(year, month, 1)));
+    }
+
+    [Fact]
     public void OneTime_DoesNotRepeatAndOptionsSurviveSerialization()
     {
-        var reminder = new ReminderSettings { Recurrence = "None", WeekDays = [DayOfWeek.Monday], WindowsNotification = true, ShowAlert = true };
+        var reminder = new ReminderSettings { Recurrence = "None", WeekDays = [DayOfWeek.Monday], MonthWeeks = [2, 4], MonthLastDay = true, WindowsNotification = true, ShowAlert = true };
         Assert.Null(ReminderSchedule.Next(reminder, DateTime.Now));
         var copy = System.Text.Json.JsonSerializer.Deserialize<ReminderSettings>(System.Text.Json.JsonSerializer.Serialize(reminder))!;
         Assert.Equal(reminder.WeekDays, copy.WeekDays);
+        Assert.Equal(reminder.MonthWeeks, copy.MonthWeeks);
+        Assert.True(copy.MonthLastDay);
         Assert.True(copy.ShowAlert);
     }
 }

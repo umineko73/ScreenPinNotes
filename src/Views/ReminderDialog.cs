@@ -26,6 +26,8 @@ public sealed class ReminderDialog : Window
     private bool _clearRequested;
     private readonly System.Windows.Controls.ComboBox _repeat = new() { MinHeight = 32, Width = 220, HorizontalAlignment = System.Windows.HorizontalAlignment.Left };
     private readonly WrapPanel _days = new();
+    private readonly WrapPanel _weeks = new();
+    private readonly System.Windows.Controls.CheckBox _everyWeek = new() { Margin = new Thickness(0, 6, 14, 6) };
     private readonly System.Windows.Controls.ComboBox _monthDay = new() { Width = 100, MinHeight = 32, HorizontalAlignment = System.Windows.HorizontalAlignment.Left };
     private readonly System.Windows.Controls.CheckBox _windows = new() { IsChecked = true };
     private readonly System.Windows.Controls.CheckBox _alert = new();
@@ -86,8 +88,46 @@ public sealed class ReminderDialog : Window
                 IsChecked = current?.WeekDays.Contains(day) ?? day == initial.DayOfWeek,
             });
         }
+        _everyWeek.Content = LocalizationService.T("ReminderRepeatWeekly");
+        _weeks.Children.Add(_everyWeek);
+        for (int week = 1; week <= 5; week++)
+        {
+            _weeks.Children.Add(new System.Windows.Controls.CheckBox
+            {
+                Content = LocalizationService.T("ReminderWeek" + week),
+                Tag = week, Margin = new Thickness(0, 6, 14, 6),
+                IsChecked = current?.MonthWeeks.Contains(week) == true,
+            });
+        }
+        _everyWeek.IsChecked = !WeekCheckBoxes.Any(b => b.IsChecked == true);
+        var syncingWeeks = false;
+        void SyncWeeks(object sender)
+        {
+            if (syncingWeeks) return;
+            syncingWeeks = true;
+            if (sender == _everyWeek)
+            {
+                // 「毎週」は個別の週と排他。外すだけでは週が決まらないので、その場合は付け直す。
+                if (_everyWeek.IsChecked == true)
+                    foreach (var box in WeekCheckBoxes) box.IsChecked = false;
+                else if (!WeekCheckBoxes.Any(b => b.IsChecked == true))
+                    _everyWeek.IsChecked = true;
+            }
+            else
+            {
+                _everyWeek.IsChecked = !WeekCheckBoxes.Any(b => b.IsChecked == true);
+            }
+            syncingWeeks = false;
+        }
+        foreach (var box in _weeks.Children.OfType<System.Windows.Controls.CheckBox>())
+        {
+            box.Checked += (sender, _) => SyncWeeks(sender);
+            box.Unchecked += (sender, _) => SyncWeeks(sender);
+        }
         for (int i = 1; i <= 31; i++) _monthDay.Items.Add(i);
-        _monthDay.SelectedItem = current?.MonthDay ?? initial.Day;
+        var lastDay = LocalizationService.T("ReminderLastDay");
+        _monthDay.Items.Add(lastDay);
+        _monthDay.SelectedItem = current?.MonthLastDay == true ? lastDay : (object)(current?.MonthDay ?? initial.Day);
         _windows.Content = LocalizationService.T("ReminderWindowsNotification");
         _windows.IsChecked = current?.WindowsNotification ?? true;
         _alert.Content = LocalizationService.T("ReminderShowAlert");
@@ -97,6 +137,9 @@ public sealed class ReminderDialog : Window
 
         Content = BuildContent();
     }
+
+    private IEnumerable<System.Windows.Controls.CheckBox> WeekCheckBoxes =>
+        _weeks.Children.OfType<System.Windows.Controls.CheckBox>().Where(b => b.Tag is int);
 
     public ReminderDialogResult Result =>
         new(DialogResult == true, _clearRequested, _selectedAt, _resultSettings);
@@ -157,13 +200,16 @@ public sealed class ReminderDialog : Window
         root.Children.Add(new TextBlock { Text = LocalizationService.T("ReminderRepeat"), FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 8) });
         root.Children.Add(_repeat);
         root.Children.Add(_days);
+        root.Children.Add(_weeks);
+        var weeksHint = new TextBlock { Text = LocalizationService.T("ReminderWeeksHint"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 12) };
+        root.Children.Add(weeksHint);
         root.Children.Add(_monthDay);
         var hint = new TextBlock { Text = LocalizationService.T("ReminderMonthlyHint"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 12) };
         root.Children.Add(hint);
         void UpdateRepeat()
         {
             var mode = (_repeat.SelectedItem as ComboBoxItem)?.Tag as string;
-            _days.Visibility = mode == "Weekly" ? Visibility.Visible : Visibility.Collapsed;
+            _days.Visibility = _weeks.Visibility = weeksHint.Visibility = mode == "Weekly" ? Visibility.Visible : Visibility.Collapsed;
             _monthDay.Visibility = hint.Visibility = mode == "Monthly" ? Visibility.Visible : Visibility.Collapsed;
         }
         _repeat.SelectionChanged += (_, _) => UpdateRepeat();
@@ -304,7 +350,9 @@ public sealed class ReminderDialog : Window
             TimeOfDay = nextAt.TimeOfDay,
             Recurrence = (string)((ComboBoxItem)_repeat.SelectedItem).Tag,
             WeekDays = _days.Children.OfType<System.Windows.Controls.CheckBox>().Where(b => b.IsChecked == true).Select(b => (DayOfWeek)b.Tag).ToList(),
-            MonthDay = (int)(_monthDay.SelectedItem ?? 1),
+            MonthWeeks = WeekCheckBoxes.Where(b => b.IsChecked == true).Select(b => (int)b.Tag).ToList(),
+            MonthLastDay = _monthDay.SelectedItem is string,
+            MonthDay = _monthDay.SelectedItem as int? ?? (_monthDay.SelectedItem is string ? 31 : 1),
             WindowsNotification = _windows.IsChecked == true,
             ShowAlert = _alert.IsChecked == true,
             FlashNote = _flash.IsChecked == true,

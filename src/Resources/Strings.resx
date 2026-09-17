@@ -722,6 +722,13 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="ReminderRepeatWeekly" xml:space="preserve"><value>Every week</value></data>
   <data name="ReminderRepeatMonthly" xml:space="preserve"><value>Every month</value></data>
   <data name="ReminderMonthlyHint" xml:space="preserve"><value>Day of month. Shorter months use their final day.</value></data>
+  <data name="ReminderWeek1" xml:space="preserve"><value>1st week</value></data>
+  <data name="ReminderWeek2" xml:space="preserve"><value>2nd week</value></data>
+  <data name="ReminderWeek3" xml:space="preserve"><value>3rd week</value></data>
+  <data name="ReminderWeek4" xml:space="preserve"><value>4th week</value></data>
+  <data name="ReminderWeek5" xml:space="preserve"><value>5th week</value></data>
+  <data name="ReminderLastDay" xml:space="preserve"><value>Last day</value></data>
+  <data name="ReminderWeeksHint" xml:space="preserve"><value>A week is the weekday's occurrence in the month (days 1–7 are the 1st week).</value></data>
   <data name="ReminderWindowsNotification" xml:space="preserve"><value>Windows notification</value></data>
   <data name="ReminderShowAlert" xml:space="preserve"><value>Also open an alert with snooze options</value></data>
   <data name="ReminderRunningHint" xml:space="preserve"><value>Keep ScreenPinNotes running in the tray. Missed reminders appear once when it resumes. Windows notification settings control banner visibility.</value></data>

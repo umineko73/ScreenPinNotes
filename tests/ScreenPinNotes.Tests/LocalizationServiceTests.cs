@@ -60,6 +60,13 @@ public class LocalizationServiceTests
     [InlineData("ReminderRepeatWeekly", "Every week", "毎週")]
     [InlineData("ReminderRepeatMonthly", "Every month", "毎月")]
     [InlineData("ReminderMonthlyHint", "Day of month. Shorter months use their final day.", "毎月の通知日。指定日がない月は月末に通知します。")]
+    [InlineData("ReminderWeek1", "1st week", "1週目")]
+    [InlineData("ReminderWeek2", "2nd week", "2週目")]
+    [InlineData("ReminderWeek3", "3rd week", "3週目")]
+    [InlineData("ReminderWeek4", "4th week", "4週目")]
+    [InlineData("ReminderWeek5", "5th week", "5週目")]
+    [InlineData("ReminderWeeksHint", "A week is the weekday's occurrence in the month (days 1–7 are the 1st week).", "週目は、その曜日が月の何回目かで数えます（1〜7日が1週目）。")]
+    [InlineData("ReminderLastDay", "Last day", "最終日")]
     [InlineData("ReminderWindowsNotification", "Windows notification", "Windowsの通知を表示")]
     [InlineData("ReminderShowAlert", "Also open an alert with snooze options", "スヌーズできる通知ウィンドウも開く")]
     [InlineData("ReminderRunningHint",
