@@ -62,6 +62,8 @@ public partial class StickyNoteWindow
 
         var isFolder = Directory.Exists(resolved);
         var exists = isFolder || File.Exists(resolved);
+        // 付箋が持っているコピーか、元の場所を指しているだけか。
+        var inAssets = IsInsideNoteAssets(resolved);
         var name = string.IsNullOrWhiteSpace(markdownImage.Alt)
             ? Path.GetFileName(resolved.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
             : markdownImage.Alt;
@@ -96,7 +98,9 @@ public partial class StickyNoteWindow
         }
 
         var row = new StackPanel { Orientation = WpfOrientation.Horizontal };
-        var icon = FileIcons.Get(resolved, isFolder);
+        // 元の場所を指しているだけの札には、エクスプローラーのショートカットと
+        // 同じ矢印を重ねる。付箋の中のコピーと見分けがつくように。
+        var icon = FileIcons.Get(resolved, isFolder, linkOverlay: !inAssets);
         if (icon != null)
         {
             row.Children.Add(new WpfImage
@@ -112,7 +116,7 @@ public partial class StickyNoteWindow
         row.Children.Add(label);
         chip.Child = row;
 
-        chip.ToolTip = BuildFileChipToolTip(resolved, exists, IsInsideNoteAssets(resolved));
+        chip.ToolTip = BuildFileChipToolTip(resolved, exists, inAssets);
 
         // 札の高さのぶん行間が空くのを抑える（文字の中に収まって見えるように）。
         return new InlineUIContainer(chip) { BaselineAlignment = BaselineAlignment.Center };

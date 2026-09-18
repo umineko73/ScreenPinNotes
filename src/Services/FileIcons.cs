@@ -45,25 +45,28 @@ public static class FileIcons
     /// <summary>
     /// <paramref name="path"/> のアイコン。ファイルが無いときも拡張子から引く
     /// （リンク先が消えた付箋でも、何のファイルだったかは見せられる）。
-    /// 引けなければ null。
+    /// <paramref name="linkOverlay"/> のときは、エクスプローラーのショートカットと
+    /// 同じ矢印をシェルに重ねてもらう。引けなければ null。
     /// </summary>
-    public static ImageSource? Get(string path, bool isFolder = false)
+    public static ImageSource? Get(string path, bool isFolder = false, bool linkOverlay = false)
     {
         if (string.IsNullOrWhiteSpace(path))
             return null;
 
         var extension = Path.GetExtension(path);
-        // 拡張子ごとに覚えるものは、ファイルが消えても同じアイコンが出せる。
-        var key = isFolder ? "\\folder"
-            : extension.Length == 0 || PerFileExtensions.Contains(extension)
-                ? Path.GetFullPath(path)
-                : extension;
+        // 拡張子だけで決まるものは、拡張子ごとに1つ覚える。ファイルが消えても
+        // 同じアイコンを出せるし、同じ種類のファイルが並んでも1回で済む。
+        var byExtension = !isFolder && extension.Length > 0 && !PerFileExtensions.Contains(extension);
+        var key = byExtension ? extension : isFolder ? "\\folder" : Path.GetFullPath(path);
+        // 矢印を重ねたものは別物として覚える。
+        if (linkOverlay) key += "\\link";
 
         lock (Gate)
             if (Cache.TryGetValue(key, out var cached))
                 return cached;
 
-        var icon = Load(path, isFolder, usesFileAttributes: key == extension || !File.Exists(path));
+        var icon = Load(path, isFolder, linkOverlay,
+            usesFileAttributes: byExtension || !File.Exists(path));
         lock (Gate)
             Cache[key] = icon;
         return icon;
@@ -76,10 +79,13 @@ public static class FileIcons
             Cache.Clear();
     }
 
-    private static ImageSource? Load(string path, bool isFolder, bool usesFileAttributes)
+    private static ImageSource? Load(string path, bool isFolder, bool linkOverlay, bool usesFileAttributes)
     {
         var info = default(ShFileInfo);
         var flags = ShgfiIcon | ShgfiLargeIcon;
+        // 矢印はシェルに重ねてもらう。自前で描くより、エクスプローラーと同じ絵になる。
+        if (linkOverlay)
+            flags |= ShgfiLinkOverlay;
         var attributes = 0u;
         if (usesFileAttributes)
         {
@@ -119,6 +125,7 @@ public static class FileIcons
     private const uint ShgfiIcon = 0x000000100;
     private const uint ShgfiLargeIcon = 0x000000000;
     private const uint ShgfiUseFileAttributes = 0x000000010;
+    private const uint ShgfiLinkOverlay = 0x000008000;
     private const uint FileAttributeNormal = 0x00000080;
     private const uint FileAttributeDirectory = 0x00000010;
 

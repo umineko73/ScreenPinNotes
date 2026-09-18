@@ -52,6 +52,26 @@ public class FileIconsTests
         Assert.Same(first, second);
     }
 
+    /// <summary>
+    /// 元の場所を指すだけの札には、エクスプローラーと同じ矢印を重ねる。
+    /// 重ねたものと重ねていないものは別物として覚える。
+    /// </summary>
+    [WpfFact]
+    public void Get_KeepsTheShortcutArrowVersionApart()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "linked.rtf");
+
+        var plain = FileIcons.Get(path);
+        var linked = FileIcons.Get(path, linkOverlay: true);
+
+        Assert.NotNull(plain);
+        Assert.NotNull(linked);
+        Assert.NotSame(plain, linked);
+        // それぞれは覚えたものを使い回す。
+        Assert.Same(linked, FileIcons.Get(path, linkOverlay: true));
+        Assert.Same(plain, FileIcons.Get(path));
+    }
+
     [WpfFact]
     public void Get_AnswersNothingForAnEmptyPath()
         => Assert.Null(FileIcons.Get("   "));
