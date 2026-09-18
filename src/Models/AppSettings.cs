@@ -111,6 +111,12 @@ public sealed class AppSettings
     /// </summary>
     public NoteDefaultSettings NoteDefaults { get; set; } = new();
 
+    /// <summary>
+    /// draw.io 本体の場所。空なら既定の場所（Program Files など）から探す。
+    /// 持ち運び版を使っている人が settings.json で指し直せるようにしてある。
+    /// </summary>
+    public string DrawioPath { get; set; } = "";
+
     public List<string> IconPalette { get; set; } = DefaultIconPalette();
     public int IconPaletteVersion { get; set; }
 

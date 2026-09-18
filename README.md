@@ -29,6 +29,7 @@ A darker palette for your desktop, including notes without title bars and notes 
 | Markdown | Display headings, bold, italic, strikethrough, lists, quotes, code, tables, and links |
 | Checklists | Toggle completion with a click, even in view mode |
 | Images | Paste images or drop image files to save them, resize them, and fit a note to its images |
+| draw.io | Right-click a diagram PNG or a `.drawio` file to edit it in draw.io; saving redraws the picture in the note |
 | Files | Drop a file that is not an image to place it as a chip with Explorer's own icon; click to open it. Hold Shift to link to it where it is instead of copying |
 | Excel tables | Paste tables from Excel and copy Markdown tables back to Excel |
 | Appearance | Choose colors, fonts, icons, opacity, corners, borders, and title bar visibility |

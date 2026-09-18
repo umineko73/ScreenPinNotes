@@ -139,6 +139,7 @@ public partial class StickyNoteWindow
     private FileChipTarget? _contextMenuFileChip;
     private MenuItem _openFileChipItem = null!;
     private MenuItem _openFileChipWithItem = null!;
+    private MenuItem _editChipInDrawioItem = null!;
     private Separator _fileChipMenuSeparator = null!;
 
     /// <summary>
@@ -154,8 +155,12 @@ public partial class StickyNoteWindow
         _openFileChipWithItem = new MenuItem { Header = LocalizationService.T("FileChipOpenWith") };
         _openFileChipWithItem.Click += (_, _) => WithContextMenuFileChip(c => OpenDroppedFileWith(c.Path));
 
+        // .drawio などの図面を置いたときだけ出す。
+        _editChipInDrawioItem = new MenuItem { Header = LocalizationService.T("EditInDrawio") };
+        _editChipInDrawioItem.Click += (_, _) => WithContextMenuFileChip(c => EditInDrawio(c.Path));
+
         _fileChipMenuSeparator = new Separator();
-        return [_openFileChipItem, _openFileChipWithItem, _fileChipMenuSeparator];
+        return [_openFileChipItem, _openFileChipWithItem, _editChipInDrawioItem, _fileChipMenuSeparator];
     }
 
     private void WithContextMenuFileChip(Action<FileChipTarget> action)
@@ -179,6 +184,10 @@ public partial class StickyNoteWindow
         _openFileChipItem.Visibility = visibility;
         _openFileChipWithItem.Visibility = visibility;
         _fileChipMenuSeparator.Visibility = visibility;
+        _editChipInDrawioItem.Visibility =
+            _contextMenuFileChip is { IsFolder: false } drawioCandidate && CanEditInDrawio(drawioCandidate.Path)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         if (_contextMenuFileChip is not { } chip) return;
 
         // フォルダーと、もう無いファイルには選ぶアプリが無い。

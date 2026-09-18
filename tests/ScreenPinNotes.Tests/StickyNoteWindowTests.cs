@@ -4802,6 +4802,15 @@ public class StickyNoteWindowTests
         return Assert.Single(contexts.Values.Cast<object>());
     }
 
+    /// <summary>幅だけ違う絵。貼り直されたかを大きさで見分けるのに使う。</summary>
+    private static System.Windows.Media.Imaging.BitmapSource CreateBitmapSource(int width)
+    {
+        var pixels = new byte[width * 4];
+        Array.Fill(pixels, (byte)255);
+        return System.Windows.Media.Imaging.BitmapSource.Create(
+            width, 1, 96, 96, System.Windows.Media.PixelFormats.Bgra32, null, pixels, width * 4);
+    }
+
     private static System.Windows.Media.Imaging.BitmapSource CreateBitmapSource()
     {
         var pixels = new byte[]
@@ -4931,6 +4940,58 @@ public class StickyNoteWindowTests
 
     private static string EnumerateChipText(Border chip)
         => string.Concat(((Panel)chip.Child).Children.OfType<TextBlock>().Select(text => text.Text));
+
+    /// <summary>
+    /// draw.io へ渡した図が保存されたら、付箋の絵を貼り直す。
+    /// </summary>
+    [WpfFact]
+    public void DrawioWatch_RedrawsTheNoteWhenTheDiagramIsSaved()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote { Content = "![zu](assets/zu.png)" };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        var diagram = System.IO.Path.Combine(assetsDir, "zu.png");
+        SavePng(diagram, CreateBitmapSource());
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            window.Show();
+            InvokePrivate(window, "LoadContent", note.Content);
+            var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            var before = Assert.Single(EnumerateImages(contentBox.Document));
+            var beforeWidth = ((System.Windows.Media.Imaging.BitmapSource)before.Source).PixelWidth;
+
+            InvokePrivate(window, "WatchEditedDiagram", diagram);
+            // draw.io が保存し直したつもりで、大きさの違う絵に入れ替える。
+            SavePng(diagram, CreateBitmapSource(beforeWidth + 7));
+
+            Assert.True(WaitForDispatcher(window, () =>
+                EnumerateImages(contentBox.Document).Any(image =>
+                    ((System.Windows.Media.Imaging.BitmapSource)image.Source).PixelWidth != beforeWidth),
+                TimeSpan.FromSeconds(15)));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>ワーカースレッドからの知らせを待つ間も、UIスレッドを回しておく。</summary>
+    private static bool WaitForDispatcher(System.Windows.Window window, Func<bool> condition, TimeSpan timeout)
+    {
+        var until = Environment.TickCount64 + (long)timeout.TotalMilliseconds;
+        while (Environment.TickCount64 < until)
+        {
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.Background);
+            if (condition()) return true;
+            Thread.Sleep(50);
+        }
+        return condition();
+    }
 
     private static IEnumerable<Image> EnumerateImages(FlowDocument document)
     {

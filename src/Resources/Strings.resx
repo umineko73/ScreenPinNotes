@@ -312,6 +312,12 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="FileChipOpenWith" xml:space="preserve">
     <value>Open with...</value>
   </data>
+  <data name="EditInDrawio" xml:space="preserve">
+    <value>Edit in draw.io</value>
+  </data>
+  <data name="DrawioNotFound" xml:space="preserve">
+    <value>draw.io was not found on this PC. Install it, or set DrawioPath in settings.json to point at draw.io.exe.</value>
+  </data>
   <data name="FileChipOpenTitle" xml:space="preserve">
     <value>Open file</value>
   </data>

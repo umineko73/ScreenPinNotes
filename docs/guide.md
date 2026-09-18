@@ -124,6 +124,7 @@ Use the mini toolbar for colors, fonts, and icons. Unavailable actions are disab
 - Hold **Shift** while dropping to link to the file where it is instead of copying it — better for documents you keep editing and for large files. Folders are always linked. Point at a chip to see which it is and where the file lives.
 - A chip whose file is gone is shown with a line through its name.
 - Resize images between 20% and 200% using their context menu or `Ctrl` + wheel.
+- A diagram drawn in draw.io (a PNG with the diagram embedded in it) gets **Edit in draw.io** at the top of its context menu. Saving in draw.io redraws the picture in the note straight away, with the note left open. A chip holding a `.drawio` file offers the same item. draw.io is located automatically; set `DrawioPath` in `settings.json` if it is somewhere unusual.
 - Use the context menu to paste/copy Excel tables. Pasting images is also supported.
 - Very large documents or deeply nested formatting fall back to source text without discarding content.
 

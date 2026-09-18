@@ -312,6 +312,12 @@
   <data name="FileChipOpenWith" xml:space="preserve">
     <value>プログラムから開く...</value>
   </data>
+  <data name="EditInDrawio" xml:space="preserve">
+    <value>draw.io で編集</value>
+  </data>
+  <data name="DrawioNotFound" xml:space="preserve">
+    <value>draw.io が見つかりませんでした。インストールするか、settings.json の DrawioPath で draw.io.exe の場所を指定してください。</value>
+  </data>
   <data name="FileChipOpenTitle" xml:space="preserve">
     <value>ファイルを開く</value>
   </data>
