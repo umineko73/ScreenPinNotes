@@ -57,6 +57,39 @@ public sealed class ImageAssetImportTests : IDisposable
     public void ToSafeFileName_KeepsNamesReadableAndMarkdownSafe(string fileName, string expected)
         => Assert.Equal(expected, ImageAssetImport.ToSafeFileName(fileName));
 
+    /// <summary>
+    /// 付箋に落とせるのは画像だけではない。実在するファイルとフォルダーを、
+    /// 落とされた順のまま重複なく返す。
+    /// </summary>
+    [Fact]
+    public void GetDroppedPaths_KeepsExistingFilesAndFoldersOnce()
+    {
+        var pdf = CreateSourceFile("a.pdf");
+        var png = CreateSourceFile("b.png");
+        var folder = Path.Combine(SourceDirectory, "folder");
+        Directory.CreateDirectory(folder);
+
+        var paths = ImageAssetImport.GetDroppedPaths(
+            [pdf, png, folder, Path.Combine(SourceDirectory, "missing.pdf"), pdf.ToUpperInvariant(), ""]);
+
+        Assert.Equal([pdf, png, folder], paths);
+    }
+
+    [Theory]
+    [InlineData("資料.pdf", "assets/資料.pdf", "![資料.pdf](assets/資料.pdf)")]
+    [InlineData("見積 書.xlsx", "D:\\work\\見積 書.xlsx", "![見積 書.xlsx](<D:\\work\\見積 書.xlsx>)")]
+    [InlineData("a(1).zip", "D:\\work\\a(1).zip", "![a(1).zip](<D:\\work\\a(1).zip>)")]
+    [InlineData("[下書き].docx", "assets/-下書き-.docx", "![](assets/-下書き-.docx)")]
+    public void BuildFileMarkdown_WrapsAwkwardTargetsInAngleBrackets(
+        string displayName, string target, string expected)
+        => Assert.Equal(expected, ImageAssetImport.BuildFileMarkdown(displayName, target));
+
+    [Theory]
+    [InlineData("  .pdf", "file.pdf")]
+    [InlineData("NUL.zip", "file-NUL.zip")]
+    public void ToSafeFileName_UsesTheGivenFallbackForFilesThatAreNotImages(string fileName, string expected)
+        => Assert.Equal(expected, ImageAssetImport.ToSafeFileName(fileName, "file"));
+
     [Fact]
     public void CopyIntoAssets_CopiesWithoutTouchingTheOriginal()
     {

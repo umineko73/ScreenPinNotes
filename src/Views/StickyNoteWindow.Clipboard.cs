@@ -84,10 +84,10 @@ public partial class StickyNoteWindow
 
     private void PasteFromDataObject(System.Windows.IDataObject dataObject)
     {
-        // エクスプローラーでコピーした画像ファイルは、画像データより先に見て元の形式のまま取り込む。
-        if (TryGetImageFiles(dataObject, out var imageFiles))
+        // エクスプローラーでコピーしたファイルは、画像データより先に見て元の形式のまま取り込む。
+        if (TryGetDroppedPaths(dataObject, out var pastedPaths))
         {
-            InsertImageFiles(imageFiles);
+            InsertDroppedPaths(pastedPaths);
             return;
         }
 
@@ -116,22 +116,24 @@ public partial class StickyNoteWindow
         InsertTextAtSelection(clipboardText.TrimEnd('\n'));
     }
 
-    // ─── 画像ファイルの貼り付け・ドロップ ──────────────────────────
-    // エクスプローラーでコピー・ドラッグした画像ファイルは、元のファイルに触れずに付箋の assets へ
+    // ─── ファイルの貼り付け・ドロップ ──────────────────────────────
+    // エクスプローラーでコピー・ドラッグしたファイルは、元のファイルに触れずに付箋の assets へ
     // 元の形式のままコピーして参照する（PNG に変換して保存する画像データの貼り付けとは別の経路）。
+    // 画像はそのまま付箋に表示し、それ以外はアイコンとして置く。Shift を押しながら落とすと
+    // コピーせず元の場所を指す（フォルダーは必ずそちら）。
 
-    private static bool TryGetImageFiles(
+    private static bool TryGetDroppedPaths(
         System.Windows.IDataObject? dataObject,
-        out IReadOnlyList<string> files)
+        out IReadOnlyList<string> paths)
     {
-        files = [];
+        paths = [];
         try
         {
             if (dataObject == null || !dataObject.GetDataPresent(WpfDataFormats.FileDrop))
                 return false;
 
-            files = ImageAssetImport.GetImageFiles(dataObject.GetData(WpfDataFormats.FileDrop) as string[]);
-            return files.Count > 0;
+            paths = ImageAssetImport.GetDroppedPaths(dataObject.GetData(WpfDataFormats.FileDrop) as string[]);
+            return paths.Count > 0;
         }
         catch (Exception ex) when (ex is ExternalException or InvalidOperationException)
         {
@@ -139,7 +141,12 @@ public partial class StickyNoteWindow
         }
     }
 
-    private void InsertImageFiles(IReadOnlyList<string> files, int? insertionIndex = null)
+    /// <summary>
+    /// 落とされた・貼り付けられたファイルを本文に入れる。画像はそのまま表示され、
+    /// それ以外はアイコンとして置かれる（どちらも Markdown の画像記法で書く）。
+    /// <paramref name="asLink"/> のときはコピーせず元の場所を指す。
+    /// </summary>
+    private void InsertDroppedPaths(IReadOnlyList<string> paths, int? insertionIndex = null, bool asLink = false)
     {
         if (IsContentReadOnly())
         {
@@ -149,16 +156,27 @@ public partial class StickyNoteWindow
 
         var assetsDir = _storage.GetNoteAssetsDirectoryPath(ViewModel.Model.Id);
         var images = new List<string>();
-        foreach (var file in files)
+        foreach (var path in paths)
         {
+            // フォルダーは中身ごと持ってくると事故になりやすいので、必ず元の場所を指す。
+            if (asLink || Directory.Exists(path))
+            {
+                images.Add(BuildFileMarkdown(Path.GetFileName(path.TrimEnd(
+                    Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)), path));
+                continue;
+            }
+
             try
             {
-                var name = ImageAssetImport.CopyIntoAssets(file, assetsDir);
-                images.Add($"![{Path.GetFileNameWithoutExtension(name)}](assets/{name})");
+                var isImage = LinkDetector.IsRenderableImageTarget(path);
+                var name = ImageAssetImport.CopyIntoAssets(path, assetsDir, isImage ? "image" : "file");
+                images.Add(isImage
+                    ? $"![{Path.GetFileNameWithoutExtension(name)}](assets/{name})"
+                    : BuildFileMarkdown(Path.GetFileName(path), $"assets/{name}"));
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                ErrorReporter.ReportNonFatal("Copy an image file into note assets", ex);
+                ErrorReporter.ReportNonFatal("Copy a dropped file into note assets", ex);
                 ShowSizeOverlay(LocalizationService.T("ImageImportFailed"));
             }
         }
@@ -178,17 +196,25 @@ public partial class StickyNoteWindow
             EnterViewMode();
     }
 
+    private static string BuildFileMarkdown(string displayName, string target)
+        => ImageAssetImport.BuildFileMarkdown(displayName, target);
+
     private void OnImageFileDragEnter(object sender, System.Windows.DragEventArgs e)
     {
         OnImageFileDragOver(sender, e);
-        if (e.Handled && !ViewModel.IsFolded && IsContentReadOnly())
+        if (!e.Handled || ViewModel.IsFolded)
+            return;
+        if (IsContentReadOnly())
             ShowSizeOverlay(LocalizationService.T("EditLockNotice"));
+        else
+            ShowSizeOverlay(LocalizationService.T(
+                IsLinkDrop(e) ? "FileDropAsLinkNotice" : "FileDropAsCopyNotice"));
     }
 
     private void OnImageFileDragOver(object sender, System.Windows.DragEventArgs e)
     {
-        // 画像ファイル以外のドラッグ（本文内の文字の移動など）は、これまでどおり各コントロールに任せる。
-        if (!TryGetImageFiles(e.Data, out _))
+        // ファイル以外のドラッグ（本文内の文字の移動など）は、これまでどおり各コントロールに任せる。
+        if (!TryGetDroppedPaths(e.Data, out _))
             return;
 
         e.Effects = ViewModel.IsFolded || IsContentReadOnly() ||
@@ -198,9 +224,13 @@ public partial class StickyNoteWindow
         e.Handled = true;
     }
 
+    /// <summary>Shift を押しながら落としたか。コピーせず元の場所を指す合図。</summary>
+    private static bool IsLinkDrop(System.Windows.DragEventArgs e)
+        => e.KeyStates.HasFlag(System.Windows.DragDropKeyStates.ShiftKey);
+
     private void OnImageFileDrop(object sender, System.Windows.DragEventArgs e)
     {
-        if (!TryGetImageFiles(e.Data, out var files))
+        if (!TryGetDroppedPaths(e.Data, out var files))
             return;
 
         e.Handled = true;
@@ -221,7 +251,7 @@ public partial class StickyNoteWindow
             insertionIndex = TextInsertion.GetLineEnd(BodyEditBox.Text, index < 0 ? BodyEditBox.Text.Length : index);
         }
 
-        InsertImageFiles(files, insertionIndex);
+        InsertDroppedPaths(files, insertionIndex, IsLinkDrop(e));
     }
 
     private static bool TryGetClipboardText(
@@ -459,19 +489,29 @@ public partial class StickyNoteWindow
         try
         {
             var assetsDir = storage.GetNoteAssetsDirectoryPath(noteId);
-            if (TryGetImageFiles(dataObject, out var imageFiles))
+            if (TryGetDroppedPaths(dataObject, out var copiedPaths))
             {
                 var images = new List<string>();
-                foreach (var file in imageFiles)
+                foreach (var path in copiedPaths)
                 {
+                    if (Directory.Exists(path))
+                    {
+                        images.Add(BuildFileMarkdown(Path.GetFileName(path.TrimEnd(
+                            Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)), path));
+                        continue;
+                    }
+
                     try
                     {
-                        var name = ImageAssetImport.CopyIntoAssets(file, assetsDir);
-                        images.Add($"![{Path.GetFileNameWithoutExtension(name)}](assets/{name})");
+                        var isImage = LinkDetector.IsRenderableImageTarget(path);
+                        var name = ImageAssetImport.CopyIntoAssets(path, assetsDir, isImage ? "image" : "file");
+                        images.Add(isImage
+                            ? $"![{Path.GetFileNameWithoutExtension(name)}](assets/{name})"
+                            : BuildFileMarkdown(Path.GetFileName(path), $"assets/{name}"));
                     }
                     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                     {
-                        ErrorReporter.ReportNonFatal("Copy an image file into note assets", ex);
+                        ErrorReporter.ReportNonFatal("Copy a file into note assets", ex);
                     }
                 }
                 content = string.Join("\n", images);

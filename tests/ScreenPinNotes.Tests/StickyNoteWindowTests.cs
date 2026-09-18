@@ -2276,7 +2276,7 @@ public class StickyNoteWindowTests
     }
 
     [WpfFact]
-    public void PasteFromDataObject_ImageFiles_CopiesOriginalsIntoAssets()
+    public void PasteFromDataObject_Files_CopiesOriginalsIntoAssets()
     {
         EnsureApplication();
         using var temp = new TempDataDirectory();
@@ -2296,12 +2296,17 @@ public class StickyNoteWindowTests
 
             InvokePrivate(window, "PasteFromDataObject", files);
 
-            Assert.Equal("first\nsecond\n![旅行-写真-1](assets/旅行-写真-1.PNG)", vm.Content);
+            // 画像はそのまま表示され、画像でないファイルはアイコンの札になる。
+            Assert.Equal(
+                "first\nsecond\n![旅行-写真-1](assets/旅行-写真-1.PNG)\n![memo.txt](assets/memo.txt)",
+                vm.Content);
             var assets = storage.GetNoteAssetsDirectoryPath(vm.Model.Id);
-            var copied = Assert.Single(Directory.GetFiles(assets));
-            Assert.Equal("旅行-写真-1.PNG", Path.GetFileName(copied));
-            Assert.Equal(File.ReadAllBytes(photo), File.ReadAllBytes(copied));
+            var copied = Directory.GetFiles(assets).Select(Path.GetFileName).Order().ToArray();
+            Assert.Equal(["memo.txt", "旅行-写真-1.PNG"], copied);
+            Assert.Equal(File.ReadAllBytes(photo), File.ReadAllBytes(Path.Combine(assets, "旅行-写真-1.PNG")));
+            // どちらも元のファイルには触らない。
             Assert.True(File.Exists(photo));
+            Assert.True(File.Exists(memo));
         }
         finally
         {
@@ -2363,13 +2368,63 @@ public class StickyNoteWindowTests
         }
     }
 
+    /// <summary>
+    /// 画像以外のファイルは、assets へコピーして札として置く。
+    /// Shift を押しながら落としたときとフォルダーは、コピーせず元の場所を指す。
+    /// </summary>
+    [WpfFact]
+    public void FileDrop_CopiesIntoAssetsAndLinksWhileShiftIsHeld()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        Directory.CreateDirectory(temp.Path);
+        var report = Path.Combine(temp.Path, "report.pdf");
+        File.WriteAllText(report, "pdf");
+        var spec = Path.Combine(temp.Path, "spec sheet.docx");
+        File.WriteAllText(spec, "docx");
+        var folder = Path.Combine(temp.Path, "materials");
+        Directory.CreateDirectory(folder);
+        var vm = new StickyNoteViewModel(new StickyNote { Content = "first" }, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            InvokePrivate(window, "EnterEditMode");
+            var body = Assert.IsType<TextBox>(window.FindName("BodyEditBox"));
+
+            RaiseDragEvent(body, new DataObject(DataFormats.FileDrop, new[] { report }),
+                DragDrop.PreviewDropEvent, DragDrop.DropEvent);
+            Assert.Contains("![report.pdf](assets/report.pdf)", vm.Content);
+            Assert.True(File.Exists(Path.Combine(storage.GetNoteAssetsDirectoryPath(vm.Model.Id), "report.pdf")));
+
+            // Shift 付きはコピーしない。空白を含む場所は <> で囲む。
+            RaiseDragEvent(body, new DataObject(DataFormats.FileDrop, new[] { spec }),
+                DragDrop.PreviewDropEvent, DragDrop.DropEvent,
+                DragDropEffects.Copy | DragDropEffects.Move, DragDropKeyStates.ShiftKey);
+            Assert.Contains($"![spec sheet.docx](<{spec}>)", vm.Content);
+            Assert.False(File.Exists(Path.Combine(storage.GetNoteAssetsDirectoryPath(vm.Model.Id), "spec-sheet.docx")));
+
+            // フォルダーは中身ごと持ってこない。
+            RaiseDragEvent(body, new DataObject(DataFormats.FileDrop, new[] { folder }),
+                DragDrop.PreviewDropEvent, DragDrop.DropEvent);
+            Assert.Contains($"![materials]({folder})", vm.Content);
+            Assert.Equal(["report.pdf"],
+                Directory.GetFiles(storage.GetNoteAssetsDirectoryPath(vm.Model.Id)).Select(Path.GetFileName));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     private static DragEventArgs RaiseDragEvent(UIElement target, IDataObject data, RoutedEvent tunnel, RoutedEvent bubble,
-        DragDropEffects allowed = DragDropEffects.Copy | DragDropEffects.Move)
+        DragDropEffects allowed = DragDropEffects.Copy | DragDropEffects.Move,
+        DragDropKeyStates keyStates = DragDropKeyStates.None)
     {
         var constructor = typeof(DragEventArgs)
             .GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic)
             .Single(candidate => candidate.GetParameters().Length == 5);
-        var args = (DragEventArgs)constructor.Invoke([data, DragDropKeyStates.None, allowed, target, new Point(1, 1)]);
+        var args = (DragEventArgs)constructor.Invoke([data, keyStates, allowed, target, new Point(1, 1)]);
         args.Effects = allowed;
         args.RoutedEvent = tunnel;
         target.RaiseEvent(args);

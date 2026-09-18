@@ -288,6 +288,30 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="EditLockNotice" xml:space="preserve">
     <value>Editing is locked</value>
   </data>
+  <data name="FileDropAsCopyNotice" xml:space="preserve">
+    <value>Drop to copy into this note (hold Shift to link instead)</value>
+  </data>
+  <data name="FileDropAsLinkNotice" xml:space="preserve">
+    <value>Drop to link to the file where it is</value>
+  </data>
+  <data name="FileChipCopyHint" xml:space="preserve">
+    <value>A copy kept in this note. Double-click to open</value>
+  </data>
+  <data name="FileChipLinkHint" xml:space="preserve">
+    <value>Kept where it is. Double-click to open</value>
+  </data>
+  <data name="FileChipMissing" xml:space="preserve">
+    <value>This file is no longer there</value>
+  </data>
+  <data name="FileChipMissingMessage" xml:space="preserve">
+    <value>This file is no longer there:&#10;&#10;{0}</value>
+  </data>
+  <data name="FileChipOpenTitle" xml:space="preserve">
+    <value>Open file</value>
+  </data>
+  <data name="FileChipExecutableConfirm" xml:space="preserve">
+    <value>This file can run programs on your PC. Open it anyway?&#10;&#10;{0}</value>
+  </data>
   <data name="ImageImportFailed" xml:space="preserve">
     <value>Could not add the image file</value>
   </data>

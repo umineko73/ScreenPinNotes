@@ -667,8 +667,9 @@ public partial class StickyNoteWindow
     private Inline CreateMarkdownImage(MarkdownRenderer.MarkdownImage markdownImage)
     {
         var fallback = CreateMarkdownImageFallback(markdownImage);
+        // 画像として描けない相手は、付箋に置いたファイルとしてアイコンで見せる。
         if (!LinkDetector.IsRenderableImageTarget(markdownImage.Target))
-            return fallback;
+            return CreateFileChip(markdownImage, fallback);
 
         System.Windows.Media.Imaging.BitmapSource bitmap;
         string imagePath;

@@ -47,16 +47,32 @@ public static class ImageAssetImport
     }
 
     /// <summary>
+    /// 実在するファイルとフォルダーだけを、落とされた順のまま重複なく返す。
+    /// 画像かどうかは見ない（画像は付箋に貼り、それ以外はアイコンとして置く）。
+    /// </summary>
+    public static IReadOnlyList<string> GetDroppedPaths(IEnumerable<string>? paths)
+    {
+        if (paths == null)
+            return [];
+
+        return paths
+            .Where(path => !string.IsNullOrWhiteSpace(path) &&
+                           (File.Exists(path) || Directory.Exists(path)))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    /// <summary>
     /// <paramref name="sourcePath"/> を assets フォルダへコピーし、コピー先のファイル名を返す。
     /// 同名のファイルがあれば "名前-2.png" のように番号を付ける。すでにその assets フォルダにある
     /// ファイルはコピーせず、そのまま参照する。
     /// </summary>
-    public static string CopyIntoAssets(string sourcePath, string assetsDirectory)
+    public static string CopyIntoAssets(string sourcePath, string assetsDirectory, string fallbackStem = "image")
     {
         var source = Path.GetFullPath(sourcePath);
         var assets = Path.GetFullPath(assetsDirectory).TrimEnd(Path.DirectorySeparatorChar);
         var sourceName = Path.GetFileName(source);
-        var name = ToSafeFileName(sourceName);
+        var name = ToSafeFileName(sourceName, fallbackStem);
         if (string.Equals(Path.GetDirectoryName(source), assets, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(name, sourceName, StringComparison.Ordinal))
         {
@@ -83,10 +99,23 @@ public static class ImageAssetImport
     }
 
     /// <summary>
+    /// アイコンとして置くファイルの Markdown。画像と同じ記法で書き、画像として描けない
+    /// 相手は付箋が札（アイコン＋名前）にする。空白や括弧を含む場所は
+    /// <c>&lt;...&gt;</c> で囲む（MarkdownRenderer がそのままリンク先として渡してくれる）。
+    /// 表示名に角括弧が混じるときは名前を空にして、リンク先のファイル名を出させる。
+    /// </summary>
+    public static string BuildFileMarkdown(string displayName, string target)
+    {
+        var label = displayName.AsSpan().IndexOfAny('[', ']') >= 0 ? "" : displayName;
+        var needsAngles = target.AsSpan().IndexOfAny(" ()<>") >= 0;
+        return needsAngles ? $"![{label}](<{target}>)" : $"![{label}]({target})";
+    }
+
+    /// <summary>
     /// Markdown の画像記法にそのまま書けるファイル名にする。文字・数字・"-"・"_"・"." 以外
     /// （空白や括弧など）は "-" にまとめ、日本語などの文字はそのまま残す。
     /// </summary>
-    public static string ToSafeFileName(string fileName)
+    public static string ToSafeFileName(string fileName, string fallbackStem = "image")
     {
         var extension = new string(Path.GetExtension(fileName).Where(char.IsLetterOrDigit).ToArray());
         var builder = new StringBuilder();
@@ -100,9 +129,9 @@ public static class ImageAssetImport
 
         var stem = builder.ToString().Trim('-', '.');
         if (stem.Length == 0)
-            stem = "image";
+            stem = fallbackStem;
         else if (ReservedDeviceNames.Contains(stem))
-            stem = "image-" + stem;
+            stem = fallbackStem + "-" + stem;
 
         return extension.Length == 0 ? stem : $"{stem}.{extension}";
     }
