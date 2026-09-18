@@ -2408,10 +2408,12 @@ public class StickyNoteWindowTests
             Assert.Contains($"![spec sheet.docx](<{spec}>)", vm.Content);
             Assert.False(File.Exists(Path.Combine(storage.GetNoteAssetsDirectoryPath(vm.Model.Id), "spec-sheet.docx")));
 
-            // フォルダーは中身ごと持ってこない。
+            // フォルダーは中身ごと持ってこない。Windows パスは空白がなくても <> で囲む。
             RaiseDragEvent(body, new DataObject(DataFormats.FileDrop, new[] { folder }),
                 DragDrop.PreviewDropEvent, DragDrop.DropEvent);
-            Assert.Contains($"![materials]({folder})", vm.Content);
+            Assert.Contains($"![materials](<{folder}>)", vm.Content);
+            Assert.Contains(vm.Content.Split('\n'),
+                line => MarkdownRenderer.GetImageOnlyTarget(line) == folder);
             Assert.Equal(["report.pdf"],
                 Directory.GetFiles(storage.GetNoteAssetsDirectoryPath(vm.Model.Id)).Select(Path.GetFileName));
         }
