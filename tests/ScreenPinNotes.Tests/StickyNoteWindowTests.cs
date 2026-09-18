@@ -2301,7 +2301,7 @@ public class StickyNoteWindowTests
                 "first\nsecond\n![旅行-写真-1](assets/旅行-写真-1.PNG)\n![memo.txt](assets/memo.txt)",
                 vm.Content);
             var assets = storage.GetNoteAssetsDirectoryPath(vm.Model.Id);
-            var copied = Directory.GetFiles(assets).Select(Path.GetFileName).Order().ToArray();
+            var copied = Directory.GetFiles(assets).Select(file => Path.GetFileName(file)!).Order().ToArray();
             Assert.Equal(["memo.txt", "旅行-写真-1.PNG"], copied);
             Assert.Equal(File.ReadAllBytes(photo), File.ReadAllBytes(Path.Combine(assets, "旅行-写真-1.PNG")));
             // どちらも元のファイルには触らない。
@@ -4839,6 +4839,50 @@ public class StickyNoteWindowTests
         encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
         encoder.Save(stream);
     }
+
+    /// <summary>
+    /// 画像以外のファイルは札になる。札は開く先を Tag に持ち、
+    /// 本文のクリックを見ている側（ContentBox_PreviewMouseDown）がそれを拾う。
+    /// </summary>
+    [WpfFact]
+    public void LoadContent_PlacesANonImageFileAsAChipThatKnowsWhatItOpens()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote { Content = "![report.pdf](assets/report.pdf)" };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        var report = System.IO.Path.Combine(assetsDir, "report.pdf");
+        File.WriteAllText(report, "pdf");
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            InvokePrivate(window, "LoadContent", note.Content);
+            var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+
+            // 画像としては描かれない。
+            Assert.Empty(EnumerateImages(contentBox.Document));
+            var chip = Assert.Single(EnumerateChips(contentBox.Document));
+            // 開く先はクリックを見ている側が Tag から読む。
+            Assert.Contains(report, chip.Tag?.ToString());
+            Assert.Contains("report.pdf", EnumerateChipText(chip));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    private static IEnumerable<Border> EnumerateChips(FlowDocument document)
+        => document.Blocks.OfType<Paragraph>().SelectMany(paragraph => paragraph.Inlines)
+            .OfType<InlineUIContainer>()
+            .Select(container => container.Child)
+            .OfType<Border>();
+
+    private static string EnumerateChipText(Border chip)
+        => string.Concat(((Panel)chip.Child).Children.OfType<TextBlock>().Select(text => text.Text));
 
     private static IEnumerable<Image> EnumerateImages(FlowDocument document)
     {

@@ -295,10 +295,10 @@ No: create initial notes in the selected folder. The current notes folder will r
     <value>Drop to link to the file where it is</value>
   </data>
   <data name="FileChipCopyHint" xml:space="preserve">
-    <value>A copy kept in this note. Double-click to open</value>
+    <value>A copy kept in this note. Click to open</value>
   </data>
   <data name="FileChipLinkHint" xml:space="preserve">
-    <value>Kept where it is. Double-click to open</value>
+    <value>Kept where it is. Click to open</value>
   </data>
   <data name="FileChipMissing" xml:space="preserve">
     <value>This file is no longer there</value>

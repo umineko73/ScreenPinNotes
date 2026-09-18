@@ -575,6 +575,18 @@ public partial class StickyNoteWindow
                 return;
             }
 
+            // 置いたファイルの札は、リンクと同じくシングルクリックで開く。
+            // 編集モードに入るのがダブルクリックなので、札もそれに合わせると
+            // 開くより先に編集が始まってしまう。二度目の押下は握り潰す
+            // （同じ札を二重に開かず、編集モードにも入らない）。
+            if (TryGetFileChipAt(e.OriginalSource, out var chip))
+            {
+                e.Handled = true;
+                if (e.ClickCount == 1)
+                    OpenDroppedFile(chip.Path, chip.IsFolder);
+                return;
+            }
+
             // シングルクリックでは編集モードに入らない。誤って文字を
             // 選択しただけで編集が始まるのを避けるため、ダブルクリックを要求する。
             if (e.ClickCount == 1 && IsDescendantOfType<WpfImage>(e.OriginalSource as DependencyObject))

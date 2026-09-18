@@ -295,10 +295,10 @@
     <value>元の場所へのリンクとして置きます</value>
   </data>
   <data name="FileChipCopyHint" xml:space="preserve">
-    <value>この付箋の中のコピー。ダブルクリックで開きます</value>
+    <value>この付箋の中のコピー。クリックで開きます</value>
   </data>
   <data name="FileChipLinkHint" xml:space="preserve">
-    <value>元の場所のまま。ダブルクリックで開きます</value>
+    <value>元の場所のまま。クリックで開きます</value>
   </data>
   <data name="FileChipMissing" xml:space="preserve">
     <value>このファイルはもうありません</value>

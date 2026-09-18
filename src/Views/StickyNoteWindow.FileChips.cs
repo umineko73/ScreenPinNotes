@@ -34,13 +34,17 @@ namespace ScreenPinNotes.Views;
 /// </summary>
 /// <remarks>
 /// 本文は FlowDocument なので、札は文字と同じ流れに並ぶ（<see cref="InlineUIContainer"/>）。
-/// ハイパーリンクにはしない。既存のリンクはシングルクリックで開くため、同じ本文に
-/// 混ぜると押し間違えるうえ、ダブルクリックで開く動きも作れなくなる。
+/// 開くのは本文のクリックを見ている <c>ContentBox_PreviewMouseDown</c>（.EditMode.cs）で、
+/// リンクと同じシングルクリック。ダブルクリックにすると、開くより先に本文が
+/// 編集モードに入ってしまう（そちらがダブルクリックの役目なので）。
 /// </remarks>
 public partial class StickyNoteWindow
 {
     /// <summary>札のアイコンを本文の文字の何倍にするか。16px 相当に見えるあたり。</summary>
     private const double FileChipIconScale = 1.35;
+
+    /// <summary>札が指しているもの。札の <see cref="FrameworkElement.Tag"/> に付けておく。</summary>
+    private sealed record FileChipTarget(string Path, bool IsFolder);
 
     /// <summary>実行されると困る拡張子。開く前にひと声かける。</summary>
     private static readonly HashSet<string> ExecutableExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -72,6 +76,7 @@ public partial class StickyNoteWindow
             Padding = new Thickness(iconSize * 0.2, 0, iconSize * 0.35, 0),
             Cursor = WpfCursors.Hand,
             SnapsToDevicePixels = true,
+            Tag = new FileChipTarget(resolved, isFolder),
         };
 
         var label = new TextBlock
@@ -107,16 +112,25 @@ public partial class StickyNoteWindow
         chip.Child = row;
 
         chip.ToolTip = BuildFileChipToolTip(resolved, exists, IsInsideNoteAssets(resolved));
-        chip.MouseLeftButtonDown += (_, e) =>
-        {
-            if (e.ClickCount != 2)
-                return;
-            e.Handled = true;
-            OpenDroppedFile(resolved, isFolder);
-        };
 
         // 札の高さのぶん行間が空くのを抑える（文字の中に収まって見えるように）。
         return new InlineUIContainer(chip) { BaselineAlignment = BaselineAlignment.Center };
+    }
+
+    /// <summary>押された場所が札の中なら、その札が指しているものを返す。</summary>
+    private static bool TryGetFileChipAt(object? source, out FileChipTarget chip)
+    {
+        for (var element = source as DependencyObject; element != null; element = GetParentObject(element))
+        {
+            if (element is FrameworkElement { Tag: FileChipTarget found })
+            {
+                chip = found;
+                return true;
+            }
+        }
+
+        chip = null!;
+        return false;
     }
 
     private string BuildFileChipToolTip(string path, bool exists, bool inAssets)
