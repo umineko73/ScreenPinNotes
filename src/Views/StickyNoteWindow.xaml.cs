@@ -148,6 +148,9 @@ public partial class StickyNoteWindow : Window
     // 画像ごとに別のメニューを持たせると通常の項目が出せなくなるので、
     // 本文のメニューに畳み込み、対象の画像だけを開くたびに差し替える。
     private MarkdownImageContext? _contextMenuImage;
+    private MenuItem   _editImageInDrawioItem = new();
+    private MenuItem   _copyImageItem = new();
+    private MenuItem   _copyImageFileItem = new();
     private MenuItem   _imageSizeItem = new();
     private MenuItem   _removeImageWidthItem = new();
     private MenuItem   _fitWindowToImageItem = new();
@@ -303,6 +306,7 @@ public partial class StickyNoteWindow : Window
             StopFlashes();
             _isClosed = true;
             DisposeExternalContentWatcher();
+            DisposeDrawioWatches();
         };
         PreviewMouseDown += (_, _) => StopFlashes();
         PreviewKeyDown += (_, _) => StopFlashes();

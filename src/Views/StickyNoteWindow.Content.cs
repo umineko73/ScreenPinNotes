@@ -656,6 +656,11 @@ public partial class StickyNoteWindow
         var loaded = new WpfBitmapImage();
         loaded.BeginInit();
         loaded.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+        // WPF は同じ URI の画像を自前で覚えていて、ファイルが描き直されても
+        // 古いピクセルを返す。draw.io で編集した図や、外で描き直した画像を
+        // 貼り直せるよう、そちらのキャッシュは使わない。こちらは更新日時込みで
+        // 覚えている（_normalizedImageCache）ので、読み直すのは変わったときだけ。
+        loaded.CreateOptions = System.Windows.Media.Imaging.BitmapCreateOptions.IgnoreImageCache;
         loaded.UriSource = new Uri(imagePath, UriKind.Absolute);
         loaded.EndInit();
         loaded.Freeze();
@@ -667,8 +672,9 @@ public partial class StickyNoteWindow
     private Inline CreateMarkdownImage(MarkdownRenderer.MarkdownImage markdownImage)
     {
         var fallback = CreateMarkdownImageFallback(markdownImage);
+        // 画像として描けない相手は、付箋に置いたファイルとしてアイコンで見せる。
         if (!LinkDetector.IsRenderableImageTarget(markdownImage.Target))
-            return fallback;
+            return CreateFileChip(markdownImage, fallback);
 
         System.Windows.Media.Imaging.BitmapSource bitmap;
         string imagePath;
@@ -887,16 +893,46 @@ public partial class StickyNoteWindow
         _deleteImageFileItem = new MenuItem { Header = LocalizationService.T("DeleteImageFile") };
         _deleteImageFileItem.Click += (_, _) => WithContextMenuImage(c => RemoveMarkdownImage(c, deleteFile: true));
 
+        // draw.io の図が入った PNG のときだけ出す。貼ってある絵がそのまま
+        // 編集できる図面なので、画像の項目の先頭に置く。
+        _editImageInDrawioItem = new MenuItem { Header = LocalizationService.T("EditInDrawio") };
+        _editImageInDrawioItem.Click += (_, _) => WithContextMenuImage(c =>
+        {
+            if (ResolveImagePath(c.Target) is { } path) EditInDrawio(Path.GetFullPath(path));
+        });
+
+        // 絵として貼りたいのか、ファイルとして渡したいのかは場面で変わるので、
+        // どちらも用意する（Word へ貼る／メールに添える）。
+        _copyImageItem = new MenuItem { Header = LocalizationService.T("CopyImage") };
+        _copyImageItem.Click += (_, _) => WithContextMenuImage(c => CopyMarkdownImage(c, asFile: false));
+
+        _copyImageFileItem = new MenuItem { Header = LocalizationService.T("CopyImageFile") };
+        _copyImageFileItem.Click += (_, _) => WithContextMenuImage(c => CopyMarkdownImage(c, asFile: true));
+
         _imageMenuSeparator = new Separator();
         return new FrameworkElement[]
         {
-            _imageSizeItem, _fitWindowToImageItem, _detachImageItem, _deleteImageFileItem, _imageMenuSeparator,
+            _editImageInDrawioItem, _copyImageItem, _copyImageFileItem, _imageSizeItem,
+            _fitWindowToImageItem, _detachImageItem, _deleteImageFileItem, _imageMenuSeparator,
         };
     }
 
     private void WithContextMenuImage(Action<MarkdownImageContext> action)
     {
         if (_contextMenuImage is { } context) action(context);
+    }
+
+    /// <summary>
+    /// 右クリックした画像をクリップボードへ。<paramref name="asFile"/> なら
+    /// ファイルそのもの、そうでなければ絵として置く。
+    /// </summary>
+    private void CopyMarkdownImage(MarkdownImageContext context, bool asFile)
+    {
+        var imagePath = ResolveImagePath(context.Target);
+        var copied = imagePath != null && File.Exists(imagePath) &&
+            (asFile ? TrySetClipboardFile(Path.GetFullPath(imagePath)) : TrySetClipboardImage(imagePath));
+        if (!copied)
+            ShowSizeOverlay(LocalizationService.T("CopyImageFailed"));
     }
 
     /// <summary>
@@ -916,6 +952,14 @@ public partial class StickyNoteWindow
         // キーボードから開いたときは直前の右クリックの記憶が残っているだけなので捨てる。
         if (fromKeyboard) _contextMenuImage = null;
         var visibility = _contextMenuImage == null ? Visibility.Collapsed : Visibility.Visible;
+        // 図が入っていない普通の画像に draw.io の項目は出さない。
+        _editImageInDrawioItem.Visibility =
+            _contextMenuImage is { } drawioCandidate &&
+            CanEditInDrawio(ResolveImagePath(drawioCandidate.Target))
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        _copyImageItem.Visibility = visibility;
+        _copyImageFileItem.Visibility = visibility;
         _imageSizeItem.Visibility = visibility;
         _fitWindowToImageItem.Visibility = visibility;
         _fitWindowToImageItem.IsEnabled = !_isEditMode;

@@ -394,8 +394,13 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     /// <summary>帯が出ていないときの本文の余白。XAML の既定値と合わせてある。</summary>
     private const double DefaultContentPadding = 8;
 
-    /// <summary>本文が画像1枚だけか。余白の詰め方が変わる。</summary>
-    public bool IsImageOnlyContent => MarkdownRenderer.GetImageOnlyTarget(Content) != null;
+    /// <summary>
+    /// 本文が画像1枚だけか。余白の詰め方が変わる。ファイルを1つ置いただけの付箋は
+    /// 同じ記法でも札が本文の端に貼り付いてしまうので、画像に限る。
+    /// </summary>
+    public bool IsImageOnlyContent =>
+        MarkdownRenderer.GetImageOnlyTarget(Content) is { } target &&
+        LinkDetector.IsRenderableImageTarget(target);
 
     /// <summary>
     /// 画像を縁まで広げる表示か。畳んで1行になると画像ではなく画像パスの文字が
@@ -600,6 +605,15 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         private set { _scrollThumbHoverBrush = value; OnPropertyChanged(); }
     }
 
+    // 付箋に置いたファイルの札の地。付箋の色は自由に変えられるので、決め打ちの灰色ではなく
+    // 本文の色をごく薄めて使う。文字より少しだけ浮いて、どの配色でも札に見える。
+    private WpfBrush _fileChipBackground = WpfBrushes.Transparent;
+    public WpfBrush FileChipBackground
+    {
+        get => _fileChipBackground;
+        private set { _fileChipBackground = value; OnPropertyChanged(); }
+    }
+
     private static WpfBrush Fade(WpfBrush source, byte alpha)
     {
         if (source is not System.Windows.Media.SolidColorBrush solid)
@@ -644,6 +658,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         NoteBorderBrush = appearance.NoteBorderBrush;
         ScrollThumbBrush = Fade(appearance.TextForeground, 0x4D);
         ScrollThumbHoverBrush = Fade(appearance.TextForeground, 0x99);
+        FileChipBackground = Fade(appearance.TextForeground, 0x1F);
     }
 
     public bool UsesDarkNoteColors => NoteAppearance.UsesDarkColors(_model, _settings);

@@ -27,7 +27,9 @@ namespace ScreenPinNotes.Services;
 /// そこで監視の通知や付箋に触れたのをきっかけに、長さと更新日時を
 /// <see cref="ExternalFilePoller"/> の共有タイマーで確かめる。
 /// <see cref="ExternalFileSettings.PollStopAfterMs"/> のあいだ変化が無ければ確認を止め、
-/// 監視だけを残す。
+/// 監視だけを残す――ただし、止める前に <see cref="FileHolders"/> で
+/// 「まだ誰かが開いたままか」を確かめ、開いたままなら確認を続ける。
+/// 通知が届かないのはまさにその状態なので、止めてしまうと更新に気付けなくなる。
 /// </summary>
 /// <remarks><paramref name="changed"/> はワーカースレッドから呼ばれる。</remarks>
 public sealed class ExternalFileMonitor : IDisposable
@@ -40,6 +42,8 @@ public sealed class ExternalFileMonitor : IDisposable
     private readonly object _gate = new();
     private FileSignature _last;
     private long _lastActivity;
+    private bool _writerHoldsOpen;
+    private long _holdCheckedAt;
     private bool _disposed;
 
     public ExternalFileMonitor(string path, Func<ExternalFileSettings> settings, Action changed,
@@ -59,6 +63,12 @@ public sealed class ExternalFileMonitor : IDisposable
     }
 
     internal ExternalFileSettings Settings => _settings();
+
+    /// <summary>
+    /// 最後に確かめた時点で、ほかのプロセスがこのファイルを開いたままだったか。
+    /// 確認を止めようとするときにだけ確かめるので、動きのあるファイルでは false のまま。
+    /// </summary>
+    public bool WriterHoldsOpen { get { lock (_gate) return _writerHoldsOpen; } }
 
     private FileSystemWatcher? TryCreateWatcher()
     {
@@ -106,16 +116,60 @@ public sealed class ExternalFileMonitor : IDisposable
         // この順なら再開の要求を取りこぼさない。
         Interlocked.Exchange(ref _lastActivity, Environment.TickCount64);
         lock (_gate)
+        {
             if (_disposed) return;
+            // 次に止めようとするときは、開いたままかどうかを確かめ直す。
+            _holdCheckedAt = 0;
+        }
         _poller.Add(this);
     }
 
-    /// <summary>確認を続けるべきか。最後の変化から止めるまでの時間が経っていなければ続ける。</summary>
+    /// <summary>
+    /// 確認を続けるべきか。最後の変化から止めるまでの時間が経っていなければ続ける。
+    /// 経っていても、書き手がファイルを開いたままなら続ける
+    /// （<see cref="RefreshWriterHoldsOpen"/> が先に確かめておく）。
+    /// </summary>
     internal bool ShouldKeepPolling(long now)
     {
         lock (_gate)
+        {
             if (_disposed) return false;
+            if (_writerHoldsOpen) return true;
+        }
         return now - Interlocked.Read(ref _lastActivity) < _settings().PollStopAfterMs;
+    }
+
+    /// <summary>
+    /// 確認を止めようとしているときだけ、ほかのプロセスがこのファイルを
+    /// 開いたままかを確かめ直す。問い合わせは数十ミリ秒かかるので、
+    /// <see cref="ExternalFileSettings.PollStopAfterMs"/> に1回までに抑え、
+    /// 共有タイマーの鍵を持たないところから呼ぶ。
+    /// </summary>
+    internal void RefreshWriterHoldsOpen(long now)
+    {
+        var settings = _settings();
+        lock (_gate)
+        {
+            if (_disposed) return;
+            if (!settings.PollWhileWriterHoldsOpen)
+            {
+                _writerHoldsOpen = false;
+                return;
+            }
+            // まだ止める時間ではない（＝確認は続く）なら、尋ねる必要がない。
+            if (now - Interlocked.Read(ref _lastActivity) < settings.PollStopAfterMs) return;
+            if (_holdCheckedAt != 0 && now - _holdCheckedAt < settings.PollStopAfterMs) return;
+            // 尋ねる前に印を付ける。鍵を離している間に同じ問い合わせを重ねないため。
+            _holdCheckedAt = now;
+        }
+
+        var state = FileHolders.Query(_path);
+        lock (_gate)
+        {
+            if (_disposed) return;
+            // 確かめられなかったときは、これまでどおり時間で止める。
+            _writerHoldsOpen = state == FileHolders.HoldState.HeldByAnotherProcess;
+        }
     }
 
     /// <summary>長さと更新日時を確かめ、変わっていれば知らせる。</summary>
@@ -220,6 +274,15 @@ public sealed class ExternalFilePoller
         {
             try { monitor.Poll(); }
             catch (Exception ex) { ErrorReporter.ReportNonFatal("Poll external content", ex); }
+        }
+
+        // 「開いたままか」の問い合わせも鍵の外で。止めようとしている付箋だけが
+        // 実際に尋ねるので、動きのあるファイルばかりのときは何も起きない。
+        var beforeDecision = Environment.TickCount64;
+        foreach (var monitor in monitors)
+        {
+            try { monitor.RefreshWriterHoldsOpen(beforeDecision); }
+            catch (Exception ex) { ErrorReporter.ReportNonFatal("Check external file holders", ex); }
         }
 
         var stopped = new List<ExternalFileMonitor>();

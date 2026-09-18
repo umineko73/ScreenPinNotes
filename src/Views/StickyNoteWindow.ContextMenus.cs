@@ -99,8 +99,10 @@ public partial class StickyNoteWindow
 
         var cm = new ContextMenu { Tag = quickRow, Template = (ControlTemplate)FindResource("NoteContextMenuTemplate"), Background = PopupBackgroundBrush(), Foreground = PopupForegroundBrush(), BorderBrush = PopupBorderBrush() };
         ConfigureContextMenuTheme(cm);
-        // 画像の上で開いたときだけ出す項目。先頭に置くのは、画像を右クリック
+        // 画像や札の上で開いたときだけ出す項目。先頭に置くのは、そこを右クリック
         // した人が探しに行かなくて済むようにするため。
+        foreach (var chipItem in BuildFileChipMenuItems())
+            cm.Items.Add(chipItem);
         foreach (var imageItem in BuildImageMenuItems())
             cm.Items.Add(imageItem);
         cm.Items.Add(cutItem);
@@ -662,6 +664,7 @@ public partial class StickyNoteWindow
 
         // CursorLeft が負なら、マウスではなくキーボードから開かれている。
         UpdateImageMenuItems(fromKeyboard: e.CursorLeft < 0);
+        UpdateFileChipMenuItems(fromKeyboard: e.CursorLeft < 0);
 
         _contextMenuLink = GetHyperlinkAtCaret();
         _openLinkItem.IsEnabled = _contextMenuLink != null;

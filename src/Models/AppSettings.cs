@@ -111,6 +111,12 @@ public sealed class AppSettings
     /// </summary>
     public NoteDefaultSettings NoteDefaults { get; set; } = new();
 
+    /// <summary>
+    /// draw.io 本体の場所。空なら既定の場所（Program Files など）から探す。
+    /// 持ち運び版を使っている人が settings.json で指し直せるようにしてある。
+    /// </summary>
+    public string DrawioPath { get; set; } = "";
+
     public List<string> IconPalette { get; set; } = DefaultIconPalette();
     public int IconPaletteVersion { get; set; }
 
@@ -313,8 +319,17 @@ public sealed class ExternalFileSettings
     /// <summary>
     /// この時間ずっと変化が無ければ、その付箋の確認を止める。監視の通知、
     /// 付箋へのマウスオーバー、付箋のアクティブ化で確認を再開する。
+    /// ただし <see cref="PollWhileWriterHoldsOpen"/> のとき、書き手がファイルを
+    /// 開いたままなら止めない。
     /// </summary>
     public int PollStopAfterMs { get; set; } = 60_000;
+    /// <summary>
+    /// ほかのプロセスがファイルを開いたままの間は、変化が無くても確認を続ける。
+    /// 通知が届かないのはまさにその状態なので、止めると更新に気付けなくなる。
+    /// 止めようとするたびに1回だけ Windows に開いているプロセスを尋ねる
+    /// （<see cref="ScreenPinNotes.Services.FileHolders"/>）。
+    /// </summary>
+    public bool PollWhileWriterHoldsOpen { get; set; } = true;
 }
 
 public sealed class LayoutSettings

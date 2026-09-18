@@ -2276,7 +2276,7 @@ public class StickyNoteWindowTests
     }
 
     [WpfFact]
-    public void PasteFromDataObject_ImageFiles_CopiesOriginalsIntoAssets()
+    public void PasteFromDataObject_Files_CopiesOriginalsIntoAssets()
     {
         EnsureApplication();
         using var temp = new TempDataDirectory();
@@ -2296,12 +2296,17 @@ public class StickyNoteWindowTests
 
             InvokePrivate(window, "PasteFromDataObject", files);
 
-            Assert.Equal("first\nsecond\n![旅行-写真-1](assets/旅行-写真-1.PNG)", vm.Content);
+            // 画像はそのまま表示され、画像でないファイルはアイコンの札になる。
+            Assert.Equal(
+                "first\nsecond\n![旅行-写真-1](assets/旅行-写真-1.PNG)\n![memo.txt](assets/memo.txt)",
+                vm.Content);
             var assets = storage.GetNoteAssetsDirectoryPath(vm.Model.Id);
-            var copied = Assert.Single(Directory.GetFiles(assets));
-            Assert.Equal("旅行-写真-1.PNG", Path.GetFileName(copied));
-            Assert.Equal(File.ReadAllBytes(photo), File.ReadAllBytes(copied));
+            var copied = Directory.GetFiles(assets).Select(file => Path.GetFileName(file)!).Order().ToArray();
+            Assert.Equal(["memo.txt", "旅行-写真-1.PNG"], copied);
+            Assert.Equal(File.ReadAllBytes(photo), File.ReadAllBytes(Path.Combine(assets, "旅行-写真-1.PNG")));
+            // どちらも元のファイルには触らない。
             Assert.True(File.Exists(photo));
+            Assert.True(File.Exists(memo));
         }
         finally
         {
@@ -2363,13 +2368,63 @@ public class StickyNoteWindowTests
         }
     }
 
+    /// <summary>
+    /// 画像以外のファイルは、assets へコピーして札として置く。
+    /// Shift を押しながら落としたときとフォルダーは、コピーせず元の場所を指す。
+    /// </summary>
+    [WpfFact]
+    public void FileDrop_CopiesIntoAssetsAndLinksWhileShiftIsHeld()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        Directory.CreateDirectory(temp.Path);
+        var report = Path.Combine(temp.Path, "report.pdf");
+        File.WriteAllText(report, "pdf");
+        var spec = Path.Combine(temp.Path, "spec sheet.docx");
+        File.WriteAllText(spec, "docx");
+        var folder = Path.Combine(temp.Path, "materials");
+        Directory.CreateDirectory(folder);
+        var vm = new StickyNoteViewModel(new StickyNote { Content = "first" }, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            InvokePrivate(window, "EnterEditMode");
+            var body = Assert.IsType<TextBox>(window.FindName("BodyEditBox"));
+
+            RaiseDragEvent(body, new DataObject(DataFormats.FileDrop, new[] { report }),
+                DragDrop.PreviewDropEvent, DragDrop.DropEvent);
+            Assert.Contains("![report.pdf](assets/report.pdf)", vm.Content);
+            Assert.True(File.Exists(Path.Combine(storage.GetNoteAssetsDirectoryPath(vm.Model.Id), "report.pdf")));
+
+            // Shift 付きはコピーしない。空白を含む場所は <> で囲む。
+            RaiseDragEvent(body, new DataObject(DataFormats.FileDrop, new[] { spec }),
+                DragDrop.PreviewDropEvent, DragDrop.DropEvent,
+                DragDropEffects.Copy | DragDropEffects.Move, DragDropKeyStates.ShiftKey);
+            Assert.Contains($"![spec sheet.docx](<{spec}>)", vm.Content);
+            Assert.False(File.Exists(Path.Combine(storage.GetNoteAssetsDirectoryPath(vm.Model.Id), "spec-sheet.docx")));
+
+            // フォルダーは中身ごと持ってこない。
+            RaiseDragEvent(body, new DataObject(DataFormats.FileDrop, new[] { folder }),
+                DragDrop.PreviewDropEvent, DragDrop.DropEvent);
+            Assert.Contains($"![materials]({folder})", vm.Content);
+            Assert.Equal(["report.pdf"],
+                Directory.GetFiles(storage.GetNoteAssetsDirectoryPath(vm.Model.Id)).Select(Path.GetFileName));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     private static DragEventArgs RaiseDragEvent(UIElement target, IDataObject data, RoutedEvent tunnel, RoutedEvent bubble,
-        DragDropEffects allowed = DragDropEffects.Copy | DragDropEffects.Move)
+        DragDropEffects allowed = DragDropEffects.Copy | DragDropEffects.Move,
+        DragDropKeyStates keyStates = DragDropKeyStates.None)
     {
         var constructor = typeof(DragEventArgs)
             .GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic)
             .Single(candidate => candidate.GetParameters().Length == 5);
-        var args = (DragEventArgs)constructor.Invoke([data, DragDropKeyStates.None, allowed, target, new Point(1, 1)]);
+        var args = (DragEventArgs)constructor.Invoke([data, keyStates, allowed, target, new Point(1, 1)]);
         args.Effects = allowed;
         args.RoutedEvent = tunnel;
         target.RaiseEvent(args);
@@ -4747,6 +4802,15 @@ public class StickyNoteWindowTests
         return Assert.Single(contexts.Values.Cast<object>());
     }
 
+    /// <summary>幅だけ違う絵。貼り直されたかを大きさで見分けるのに使う。</summary>
+    private static System.Windows.Media.Imaging.BitmapSource CreateBitmapSource(int width)
+    {
+        var pixels = new byte[width * 4];
+        Array.Fill(pixels, (byte)255);
+        return System.Windows.Media.Imaging.BitmapSource.Create(
+            width, 1, 96, 96, System.Windows.Media.PixelFormats.Bgra32, null, pixels, width * 4);
+    }
+
     private static System.Windows.Media.Imaging.BitmapSource CreateBitmapSource()
     {
         var pixels = new byte[]
@@ -4784,6 +4848,210 @@ public class StickyNoteWindowTests
         encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
         encoder.Save(stream);
     }
+
+    /// <summary>
+    /// 画像以外のファイルは札になる。札は開く先を Tag に持ち、
+    /// 本文のクリックを見ている側（ContentBox_PreviewMouseDown）がそれを拾う。
+    /// </summary>
+    [WpfFact]
+    public void LoadContent_PlacesANonImageFileAsAChipThatKnowsWhatItOpens()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote { Content = "![report.pdf](assets/report.pdf)" };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        var report = System.IO.Path.Combine(assetsDir, "report.pdf");
+        File.WriteAllText(report, "pdf");
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            InvokePrivate(window, "LoadContent", note.Content);
+            var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+
+            // 画像としては描かれない。
+            Assert.Empty(EnumerateImages(contentBox.Document));
+            var chip = Assert.Single(EnumerateChips(contentBox.Document));
+            // 開く先はクリックを見ている側が Tag から読む。
+            Assert.Contains(report, chip.Tag?.ToString());
+            Assert.Contains("report.pdf", EnumerateChipText(chip));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>
+    /// 札を右クリックしたときだけ、本文メニューの先頭に開く項目が出る。
+    /// キーボードから開いたときは、直前の右クリックの記憶を持ち越さない。
+    /// </summary>
+    [WpfFact]
+    public void FileChipMenu_AppearsOnlyOnAChip()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote { Content = "![report.pdf](assets/report.pdf)" };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        File.WriteAllText(System.IO.Path.Combine(assetsDir, "report.pdf"), "pdf");
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            InvokePrivate(window, "LoadContent", note.Content);
+            var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            var chip = Assert.Single(EnumerateChips(contentBox.Document));
+            var open = FindMenuItem(contentBox.ContextMenu!, LocalizationService.T("FileChipOpen"));
+            var openWith = FindMenuItem(contentBox.ContextMenu!, LocalizationService.T("FileChipOpenWith"));
+
+            // 本文の何も無いところを右クリックしたときは出ない。
+            InvokePrivate(window, "CaptureContextMenuFileChip", contentBox);
+            InvokePrivate(window, "UpdateFileChipMenuItems", false);
+            Assert.Equal(Visibility.Collapsed, open.Visibility);
+            Assert.Equal(Visibility.Collapsed, openWith.Visibility);
+
+            InvokePrivate(window, "CaptureContextMenuFileChip", chip);
+            InvokePrivate(window, "UpdateFileChipMenuItems", false);
+            Assert.Equal(Visibility.Visible, open.Visibility);
+            Assert.Equal(Visibility.Visible, openWith.Visibility);
+            Assert.True(openWith.IsEnabled);
+
+            InvokePrivate(window, "UpdateFileChipMenuItems", true);
+            Assert.Equal(Visibility.Collapsed, open.Visibility);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    private static MenuItem FindMenuItem(ContextMenu menu, string header)
+        => menu.Items.OfType<MenuItem>().Single(item => (item.Header as string) == header);
+
+    private static IEnumerable<Border> EnumerateChips(FlowDocument document)
+        => document.Blocks.OfType<Paragraph>().SelectMany(paragraph => paragraph.Inlines)
+            .OfType<InlineUIContainer>()
+            .Select(container => container.Child)
+            .OfType<Border>();
+
+    private static string EnumerateChipText(Border chip)
+        => string.Concat(((Panel)chip.Child).Children.OfType<TextBlock>().Select(text => text.Text));
+
+    /// <summary>
+    /// draw.io へ渡した図が保存されたら、付箋の絵を貼り直す。
+    /// </summary>
+    [WpfFact]
+    public void DrawioWatch_RedrawsTheNoteWhenTheDiagramIsSaved()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote { Content = "![zu](assets/zu.png)" };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        var diagram = System.IO.Path.Combine(assetsDir, "zu.png");
+        SavePng(diagram, CreateBitmapSource());
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            window.Show();
+            InvokePrivate(window, "LoadContent", note.Content);
+            var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            var before = Assert.Single(EnumerateImages(contentBox.Document));
+            var beforeWidth = ((System.Windows.Media.Imaging.BitmapSource)before.Source).PixelWidth;
+
+            InvokePrivate(window, "WatchEditedDiagram", diagram);
+            // draw.io が保存し直したつもりで、大きさの違う絵に入れ替える。
+            SavePng(diagram, CreateBitmapSource(beforeWidth + 7));
+
+            Assert.True(WaitForDispatcher(window, () =>
+                EnumerateImages(contentBox.Document).Any(image =>
+                    ((System.Windows.Media.Imaging.BitmapSource)image.Source).PixelWidth != beforeWidth),
+                TimeSpan.FromSeconds(15)));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>ワーカースレッドからの知らせを待つ間も、UIスレッドを回しておく。</summary>
+    private static bool WaitForDispatcher(System.Windows.Window window, Func<bool> condition, TimeSpan timeout)
+    {
+        var until = Environment.TickCount64 + (long)timeout.TotalMilliseconds;
+        while (Environment.TickCount64 < until)
+        {
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.Background);
+            if (condition()) return true;
+            Thread.Sleep(50);
+        }
+        return condition();
+    }
+
+    /// <summary>
+    /// 画像の右クリックから、絵としてもファイルとしてもコピーできる。
+    /// 絵は貼り付け先に合わせて 2 つの形で渡す。
+    /// </summary>
+    [WpfFact]
+    public void CopyImage_PutsThePictureAndTheFileOnTheClipboard()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote { Content = "![shot](assets/shot.png)" };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        var image = System.IO.Path.Combine(assetsDir, "shot.png");
+        SavePng(image, CreateBitmapSource());
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            InvokePrivate(window, "LoadContent", note.Content);
+            var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            var rendered = Assert.Single(EnumerateImages(contentBox.Document));
+            var contexts = (System.Collections.IDictionary)typeof(StickyNoteWindow)
+                .GetField("_markdownImageContexts", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .GetValue(window)!;
+            var context = contexts[rendered]!;
+
+            // 実際のクリップボードは共有の場所なので、渡す中身だけを見る。
+            var picture = (DataObject)InvokePrivateResult(window, "BuildImageDataObject",
+                typeof(System.Windows.Media.Imaging.BitmapSource),
+                InvokePrivateResult(window, "GetOrLoadNormalizedImage", typeof(string), image))!;
+            Assert.True(picture.ContainsImage());
+            // 透明を保てる形も添えておく。
+            Assert.True(picture.GetDataPresent("PNG"));
+
+            var file = (DataObject)InvokePrivateResult(window, "BuildFileDataObject", typeof(string), image)!;
+            Assert.Equal(image, Assert.Single(file.GetFileDropList().Cast<string>()));
+            // 貼り付け先で「移動」にならないよう、コピーを指定しておく。
+            var effect = Assert.IsType<MemoryStream>(file.GetData("Preferred DropEffect"));
+            Assert.Equal(1u, BitConverter.ToUInt32(effect.ToArray()));
+
+            // 実クリップボードは触らないが、取れないときに黙って終わらないことは見る。
+            File.Delete(image);
+            InvokePrivate(window, "CopyMarkdownImage", context, true);
+            var overlay = Assert.IsType<TextBlock>(window.FindName("SizeOverlayText"));
+            Assert.Equal(LocalizationService.T("CopyImageFailed"), overlay.Text);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>戻り値のある非公開メソッドを、引数の型を指定して呼ぶ。</summary>
+    private static object? InvokePrivateResult(object target, string name, Type parameterType, object argument)
+        => target.GetType()
+            .GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Static,
+                null, [parameterType], null)!
+            .Invoke(target, [argument]);
 
     private static IEnumerable<Image> EnumerateImages(FlowDocument document)
     {
