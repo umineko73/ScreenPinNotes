@@ -26,17 +26,8 @@ namespace ScreenPinNotes.Views;
 /// 付箋に貼った図を draw.io で編集する。draw.io は図の XML を PNG の中に
 /// 忍ばせて保存するので、貼ってある画像がそのまま編集できる図面でもある。
 /// </summary>
-/// <remarks>
-/// 編集して保存されると同じ PNG が描き直される。付箋は開いたままのことが多いので、
-/// 保存に気付いて貼り直せるよう、開いたファイルを <see cref="ExternalFileMonitor"/> で
-/// 見張る。外部ファイル付箋と同じ仕組みで、draw.io がファイルを開いたままでも
-/// 更新を取りこぼさない。
-/// </remarks>
 public partial class StickyNoteWindow
 {
-    private readonly Dictionary<string, ExternalFileMonitor> _drawioWatches =
-        new(StringComparer.OrdinalIgnoreCase);
-
     /// <summary>draw.io で開ける図か（メニューに項目を出すかの判断）。</summary>
     private bool CanEditInDrawio(string? fullPath)
         => fullPath != null && File.Exists(fullPath) && DrawioFiles.IsDiagram(fullPath);
@@ -63,51 +54,5 @@ public partial class StickyNoteWindow
             return;
         }
 
-        WatchEditedDiagram(fullPath);
-    }
-
-    /// <summary>
-    /// draw.io へ渡したファイルを見張り、保存されたら貼り直す。付箋を閉じるまで
-    /// 見張り続けるのは、draw.io を開いたまま何度も保存されるため。
-    /// </summary>
-    private void WatchEditedDiagram(string fullPath)
-    {
-        if (_isClosed || _drawioWatches.ContainsKey(fullPath))
-            return;
-
-        try
-        {
-            var settings = Settings;
-            _drawioWatches[fullPath] = new ExternalFileMonitor(
-                fullPath,
-                () => settings.ExternalFile,
-                // 知らせはワーカースレッドから届く。
-                () => Dispatcher.BeginInvoke(new Action(ReloadEditedDiagram)));
-        }
-        catch (Exception ex)
-        {
-            ErrorReporter.ReportNonFatal("Watch a diagram edited in draw.io", ex);
-        }
-    }
-
-    /// <summary>
-    /// 描き直された図を貼り直す。画像はパスと更新日時で覚えているので、
-    /// 本文を読み込み直せば新しい絵に入れ替わる。
-    /// </summary>
-    private void ReloadEditedDiagram()
-    {
-        // 編集モードは生の Markdown を見せている最中で、閲覧へ戻るときに
-        // どのみち読み込み直す。折りたたみ中も、開くときに読み直される。
-        if (_isClosed || _isEditMode || ViewModel.IsFolded)
-            return;
-
-        LoadContent(ViewModel.Content);
-    }
-
-    private void DisposeDrawioWatches()
-    {
-        foreach (var watch in _drawioWatches.Values)
-            watch.Dispose();
-        _drawioWatches.Clear();
     }
 }

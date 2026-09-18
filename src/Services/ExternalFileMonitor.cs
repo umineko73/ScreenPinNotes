@@ -21,7 +21,7 @@ using Timer = System.Threading.Timer;
 namespace ScreenPinNotes.Services;
 
 /// <summary>
-/// 外部ファイルの更新を知らせる。FileSystemWatcher だけでは足りない。
+/// 外部ファイルの更新を知らせる。通常は変更通知のみ、ログではポーリングも併用できる。
 /// 書き手がファイルを開いたまま追記していると、NTFS はディレクトリ側の
 /// 長さ・更新日時を閉じるまで更新せず、監視の通知も届かないことがある。
 /// そこで監視の通知や付箋に触れたのをきっかけに、長さと更新日時を
@@ -38,6 +38,7 @@ public sealed class ExternalFileMonitor : IDisposable
     private readonly Func<ExternalFileSettings> _settings;
     private readonly Action _changed;
     private readonly ExternalFilePoller _poller;
+    private readonly bool _usePolling;
     private readonly FileSystemWatcher? _watcher;
     private readonly object _gate = new();
     private FileSignature _last;
@@ -47,13 +48,14 @@ public sealed class ExternalFileMonitor : IDisposable
     private bool _disposed;
 
     public ExternalFileMonitor(string path, Func<ExternalFileSettings> settings, Action changed,
-        bool useWatcher = true, ExternalFilePoller? poller = null)
+        bool useWatcher = true, ExternalFilePoller? poller = null, bool usePolling = true)
     {
         _path = Path.GetFullPath(path);
         _settings = settings;
         _changed = changed;
         _poller = poller ?? ExternalFilePoller.Shared;
-        _last = FileSignature.Read(_path);
+        _usePolling = usePolling;
+        if (_usePolling) _last = FileSignature.Read(_path);
 
         if (useWatcher)
             _watcher = TryCreateWatcher();
@@ -92,7 +94,7 @@ public sealed class ExternalFileMonitor : IDisposable
         }
         catch (Exception ex)
         {
-            // フォルダが無い・ネットワーク越しで監視できないなどでも、確認だけで追える。
+            // ログのポーリングが有効なら、監視できない場所でも定期確認は続ける。
             ErrorReporter.ReportNonFatal("Watch external content", ex);
             return null;
         }
@@ -103,7 +105,7 @@ public sealed class ExternalFileMonitor : IDisposable
         lock (_gate)
         {
             if (_disposed) return;
-            _last = FileSignature.Read(_path);
+            if (_usePolling) _last = FileSignature.Read(_path);
         }
         Wake();
         _changed();
@@ -112,6 +114,7 @@ public sealed class ExternalFileMonitor : IDisposable
     /// <summary>確認を（止まっていれば）再開し、止めるまでの時間を数え直す。</summary>
     public void Wake()
     {
+        if (!_usePolling) return;
         // 先に時刻を進めてから登録する。確認側が止める直前に時刻を読み直すので、
         // この順なら再開の要求を取りこぼさない。
         Interlocked.Exchange(ref _lastActivity, Environment.TickCount64);

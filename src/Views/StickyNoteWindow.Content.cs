@@ -101,6 +101,7 @@ public partial class StickyNoteWindow
         // and do not retain generated documents in the editor's undo history.
         var undoEnabled = ContentBox.IsUndoEnabled;
         _renderedImageFiles.Clear();
+        _referencedFilesInRender.Clear();
         ContentBox.IsUndoEnabled = false;
         ContentBox.BeginChange();
         try
@@ -132,6 +133,7 @@ public partial class StickyNoteWindow
         }
         _expandedContentText = text;
         _expandedContentValid = true;
+        PruneReferencedFileWatches();
     }
 
     public void ReloadExternalContent()
@@ -644,9 +646,8 @@ public partial class StickyNoteWindow
         LoadContent(ViewModel.Content);
     }
 
-    // 同じ画像は再描画（リサイズ・編集/閲覧モード切替）のたびに
-    // ゼロアルファ正規化（全ピクセル走査）をやり直さないよう、
-    // ファイルパス＋更新日時をキーにキャッシュする。
+    // 同じ画像を再描画のたびにデコードしないよう、パス＋更新日時でキャッシュする。
+    // ファイルに保存されたアルファは、全画素が透明な場合もそのまま尊重する。
     private System.Windows.Media.Imaging.BitmapSource GetOrLoadNormalizedImage(string imagePath)
     {
         var writeTimeUtc = File.GetLastWriteTimeUtc(imagePath);
@@ -664,9 +665,8 @@ public partial class StickyNoteWindow
         loaded.UriSource = new Uri(imagePath, UriKind.Absolute);
         loaded.EndInit();
         loaded.Freeze();
-        var normalized = NormalizeZeroAlphaImage(loaded);
-        _normalizedImageCache[imagePath] = (writeTimeUtc, normalized);
-        return normalized;
+        _normalizedImageCache[imagePath] = (writeTimeUtc, loaded);
+        return loaded;
     }
 
     private Inline CreateMarkdownImage(MarkdownRenderer.MarkdownImage markdownImage)
@@ -685,6 +685,7 @@ public partial class StickyNoteWindow
                 return fallback;
 
             imagePath = Path.GetFullPath(resolvedImagePath);
+            WatchReferencedFile(imagePath);
             _renderedImageFiles[imagePath] = File.GetLastWriteTimeUtc(imagePath);
             if (!File.Exists(imagePath))
                 return fallback;
@@ -1602,12 +1603,12 @@ public partial class StickyNoteWindow
 
         try
         {
-            // 書き手が開いたまま追記するファイルは監視の通知が届かないことがあるので、
-            // 長さと更新日時の確認も併用する。確認は全付箋で共有するタイマーで走り、
-            // ReloadExternalContent が UI スレッドへ渡す。
+            // 通常の外部参照は変更通知のみ。tail 表示のログだけは、開いたままの
+            // 追記に備えて共有タイマーで長さ・更新日時の確認も併用する。
             var settings = Settings;
             _externalContentMonitor = new ExternalFileMonitor(
-                ViewModel.Model.ExternalContentPath, () => settings.ExternalFile, ReloadExternalContent);
+                ViewModel.Model.ExternalContentPath, () => settings.ExternalFile, ReloadExternalContent,
+                usePolling: ViewModel.Model.ExternalTailMode);
             _externalContentMonitor.Polled += OnExternalContentPolled;
             _externalContentMonitor.PollingStopped += OnExternalContentPollingStopped;
             // 起動時の読み込みから初回表示までの変更も、監視開始後に拾う。
@@ -1677,6 +1678,7 @@ public partial class StickyNoteWindow
             return;
 
         ViewModel.IsExternalTailMode = !ViewModel.IsExternalTailMode;
+        ConfigureExternalContentWatcher();
         ViewModel.Model.UpdatedAt = DateTime.Now;
         RequestSave();
 

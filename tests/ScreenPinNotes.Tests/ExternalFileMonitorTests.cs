@@ -32,6 +32,35 @@ public class ExternalFileMonitorTests
         new() { PollIntervalMs = 200, PollStopAfterMs = 60_000 };
 
     [Fact]
+    public void WatcherOnly_NoticesWritesAndReplacementWithoutStartingPolling()
+    {
+        var dir = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(dir, "image.png");
+            File.WriteAllText(path, "first");
+            var poller = new ExternalFilePoller();
+            var notifications = 0;
+            using var monitor = new ExternalFileMonitor(path, () => FastPolling,
+                () => Interlocked.Increment(ref notifications), poller: poller, usePolling: false);
+            monitor.Wake();
+            Assert.False(poller.IsRunning);
+            Assert.Equal(0, poller.Count);
+            File.WriteAllText(path, "second");
+            Assert.True(SpinWait.SpinUntil(() => Volatile.Read(ref notifications) > 0, 5000));
+            var before = Volatile.Read(ref notifications);
+            var replacement = Path.Combine(dir, "replacement.tmp");
+            File.WriteAllText(replacement, "third");
+            File.Move(replacement, path, overwrite: true);
+            Assert.True(SpinWait.SpinUntil(() => Volatile.Read(ref notifications) > before, 5000));
+            Assert.False(poller.IsRunning);
+            Assert.Equal(0, poller.Count);
+            Assert.False(monitor.WriterHoldsOpen);
+        }
+        finally { DeleteTempDirectory(dir); }
+    }
+
+    [Fact]
     public void Polling_NoticesAppendsToAFileTheWriterKeepsOpen()
     {
         var dir = CreateTempDirectory();

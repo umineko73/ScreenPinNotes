@@ -1594,7 +1594,7 @@ public class StickyNoteWindowTests
         external.PollIntervalMs = 200;
         external.PollStopAfterMs = 1000;
         var vm = new StickyNoteViewModel(
-            new StickyNote { Content = "line\n", ExternalContentPath = path, IsReadOnly = true }, app.Settings);
+            new StickyNote { Content = "line\n", ExternalContentPath = path, ExternalTailMode = true, IsReadOnly = true }, app.Settings);
         var window = new StickyNoteWindow(vm, new StorageService(temp.Path));
         try
         {
@@ -1880,17 +1880,25 @@ public class StickyNoteWindowTests
             window.UpdateLayout();
             var indicator = (TextBlock)window.FindName("TailModeIndicator")!;
             Assert.Equal(Visibility.Collapsed, indicator.Visibility);
+            var watcherOnly = GetPrivateField<ExternalFileMonitor>(window, "_externalContentMonitor");
+            watcherOnly.Wake();
+            Assert.False(ExternalFilePoller.Shared.Contains(watcherOnly));
 
             window.ToggleExternalTailMode();
             window.UpdateLayout();
 
             Assert.Equal(Visibility.Visible, indicator.Visibility);
             Assert.NotNull(indicator.ToolTip);
+            var tailMonitor = GetPrivateField<ExternalFileMonitor>(window, "_externalContentMonitor");
+            Assert.True(ExternalFilePoller.Shared.Contains(tailMonitor));
 
             window.ToggleExternalTailMode();
             window.UpdateLayout();
 
             Assert.Equal(Visibility.Collapsed, indicator.Visibility);
+            Assert.False(ExternalFilePoller.Shared.Contains(tailMonitor));
+            Assert.False(ExternalFilePoller.Shared.Contains(
+                GetPrivateField<ExternalFileMonitor>(window, "_externalContentMonitor")));
         }
         finally
         {
@@ -3255,6 +3263,49 @@ public class StickyNoteWindowTests
             InvokePrivate(window, "ToggleTitleBarHidden");
             window.UpdateLayout();
             Assert.Equal(Visibility.Collapsed, spine.Visibility);
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfTheory]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    public void TitleBarHiddenSpine_DoesNotCoverEditorsAndReturnsAfterEditing(bool titleOnly, bool showSpine)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { IsTitleBarHidden = true, Width = 260, Height = 220,
+            EditWidth = 260, EditHeight = 220, Content = new string('x', 200) };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note,
+            new AppSettings { ShowTitleBarHiddenSpine = showSpine }), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var spine = (System.Windows.Shapes.Rectangle)window.FindName("TitleBarHiddenSpine");
+            var handle = (Border)window.FindName("TitleBarHiddenSpineHandle");
+            var expectedViewing = showSpine ? Visibility.Visible : Visibility.Collapsed;
+            Assert.Equal(expectedViewing, spine.Visibility);
+
+            InvokePrivate(window, titleOnly ? "EnterTitleEditMode" : "EnterEditMode");
+            window.UpdateLayout();
+            Assert.Equal(Visibility.Collapsed, spine.Visibility);
+            Assert.Equal(Visibility.Collapsed, handle.Visibility);
+            Assert.False(handle.IsVisible);
+            if (!titleOnly)
+            {
+                var editor = (TextBox)window.FindName("BodyEditBox");
+                var scrollViewer = Assert.Single(FindVisualChildren<ScrollViewer>(editor));
+                Assert.Equal(Visibility.Visible, scrollViewer.ComputedHorizontalScrollBarVisibility);
+            }
+
+            InvokePrivate(window, "EnterViewMode");
+            window.UpdateLayout();
+            Assert.Equal(expectedViewing, spine.Visibility);
+            Assert.Equal(expectedViewing, handle.Visibility);
+            Assert.True(note.IsTitleBarHidden);
         }
         finally { window.Close(); }
     }
@@ -4953,7 +5004,7 @@ public class StickyNoteWindowTests
     /// draw.io へ渡した図が保存されたら、付箋の絵を貼り直す。
     /// </summary>
     [WpfFact]
-    public void DrawioWatch_RedrawsTheNoteWhenTheDiagramIsSaved()
+    public void ReferencedImage_RedrawsOnExternalSaveWithoutLaunchingDrawio()
     {
         EnsureApplication();
         using var temp = new TempDataDirectory();
@@ -4973,7 +5024,9 @@ public class StickyNoteWindowTests
             var before = Assert.Single(EnumerateImages(contentBox.Document));
             var beforeWidth = ((System.Windows.Media.Imaging.BitmapSource)before.Source).PixelWidth;
 
-            InvokePrivate(window, "WatchEditedDiagram", diagram);
+            var watches = GetPrivateField<Dictionary<string, ExternalFileMonitor>>(window, "_referencedFileWatches");
+            Assert.Single(watches);
+            Assert.False(ExternalFilePoller.Shared.Contains(watches[diagram]));
             // draw.io が保存し直したつもりで、大きさの違う絵に入れ替える。
             SavePng(diagram, CreateBitmapSource(beforeWidth + 7));
 
@@ -4981,6 +5034,14 @@ public class StickyNoteWindowTests
                 EnumerateImages(contentBox.Document).Any(image =>
                     ((System.Windows.Media.Imaging.BitmapSource)image.Source).PixelWidth != beforeWidth),
                 TimeSpan.FromSeconds(15)));
+            // 原子的な置換保存や削除後の再作成でも同じパスの監視が残る。
+            File.Delete(diagram);
+            Assert.True(WaitForDispatcher(window, () => !EnumerateImages(contentBox.Document).Any(), TimeSpan.FromSeconds(5)));
+            SavePng(diagram, CreateBitmapSource(beforeWidth + 9));
+            Assert.True(WaitForDispatcher(window, () => EnumerateImages(contentBox.Document).Any(image =>
+                ((System.Windows.Media.Imaging.BitmapSource)image.Source).PixelWidth == beforeWidth + 9), TimeSpan.FromSeconds(5)));
+            InvokePrivate(window, "LoadContent", "no image");
+            Assert.Empty(watches);
         }
         finally
         {

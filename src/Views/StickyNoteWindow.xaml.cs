@@ -306,7 +306,7 @@ public partial class StickyNoteWindow : Window
             StopFlashes();
             _isClosed = true;
             DisposeExternalContentWatcher();
-            DisposeDrawioWatches();
+            DisposeReferencedFileWatches();
         };
         PreviewMouseDown += (_, _) => StopFlashes();
         PreviewKeyDown += (_, _) => StopFlashes();

@@ -362,7 +362,9 @@ public partial class StickyNoteWindow
     {
         try
         {
-            return System.Windows.Clipboard.ContainsImage();
+            return System.Windows.Clipboard.ContainsImage() ||
+                System.Windows.Clipboard.ContainsData("PNG") ||
+                System.Windows.Clipboard.ContainsData("image/png");
         }
         catch (System.Runtime.InteropServices.ExternalException)
         {
@@ -481,6 +483,11 @@ public partial class StickyNoteWindow
         System.Windows.IDataObject dataObject,
         out System.Windows.Media.Imaging.BitmapSource image)
     {
+        // Bitmap の相互変換では透過が失われることがある。コピー時に添えた
+        // PNG があれば、そのアルファを持つピクセルを優先して読む。
+        if (TryGetPastedPng(dataObject, out image))
+            return true;
+
         image = null!;
         if (!dataObject.GetDataPresent(WpfDataFormats.Bitmap, autoConvert: true))
             return false;
@@ -488,7 +495,7 @@ public partial class StickyNoteWindow
         var data = dataObject.GetData(WpfDataFormats.Bitmap, autoConvert: true);
         if (data is System.Windows.Media.Imaging.BitmapSource bitmap)
         {
-            image = bitmap;
+            image = NormalizeZeroAlphaImage(bitmap);
             return true;
         }
 
@@ -496,7 +503,7 @@ public partial class StickyNoteWindow
         {
             using (drawingBitmap)
             {
-                image = ConvertDrawingBitmapToBitmapSource(drawingBitmap);
+                image = NormalizeZeroAlphaImage(ConvertDrawingBitmapToBitmapSource(drawingBitmap));
             }
             return true;
         }
@@ -506,7 +513,7 @@ public partial class StickyNoteWindow
             var clipboardImage = System.Windows.Clipboard.GetImage();
             if (clipboardImage != null)
             {
-                image = clipboardImage;
+                image = NormalizeZeroAlphaImage(clipboardImage);
                 return true;
             }
         }
@@ -517,6 +524,45 @@ public partial class StickyNoteWindow
         {
         }
 
+        return false;
+    }
+
+    private static bool TryGetPastedPng(System.Windows.IDataObject dataObject,
+        out System.Windows.Media.Imaging.BitmapSource image)
+    {
+        image = null!;
+        foreach (var format in new[] { "PNG", "image/png" })
+        {
+            try
+            {
+                if (!dataObject.GetDataPresent(format, autoConvert: false)) continue;
+                var data = dataObject.GetData(format, autoConvert: false);
+                using var bytesStream = data is byte[] bytes ? new MemoryStream(bytes, writable: false) : null;
+                var stream = data as Stream ?? bytesStream;
+                if (stream == null || !stream.CanRead) continue;
+                var position = stream.CanSeek ? stream.Position : (long?)null;
+                try
+                {
+                    if (position.HasValue) stream.Position = 0;
+                    var decoder = new System.Windows.Media.Imaging.PngBitmapDecoder(stream,
+                        System.Windows.Media.Imaging.BitmapCreateOptions.PreservePixelFormat,
+                        System.Windows.Media.Imaging.BitmapCacheOption.OnLoad);
+                    image = decoder.Frames[0];
+                    image.Freeze();
+                    return true;
+                }
+                finally
+                {
+                    // IDataObject が所有するストリームは閉じず、次の貼り付けにも使えるようにする。
+                    if (position.HasValue) stream.Position = position.Value;
+                }
+            }
+            catch (Exception ex) when (ex is IOException or NotSupportedException or ArgumentException
+                or InvalidOperationException or ExternalException)
+            {
+                // PNG が壊れていても、別形式や従来の Bitmap で貼り付けられる。
+            }
+        }
         return false;
     }
 
@@ -616,7 +662,8 @@ public partial class StickyNoteWindow
         var fileName = $"image-{DateTime.Now:yyyyMMdd-HHmmss-fff}-{Guid.NewGuid():N}.png";
         var path = Path.Combine(assetsDir, fileName);
 
-        image = NormalizeZeroAlphaImage(image);
+        // PNG のアルファはそのまま保存する。全画素が透明でも不透明化しない。
+        // 古い Bitmap の未設定アルファの補正は、読み取り時だけ行う。
         var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
         encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(image));
         using (var stream = File.Create(path))

@@ -60,6 +60,8 @@ public partial class StickyNoteWindow
         if (resolved == null)
             return fallback;
 
+        WatchReferencedFile(resolved);
+
         var isFolder = Directory.Exists(resolved);
         var exists = isFolder || File.Exists(resolved);
         // 付箋が持っているコピーか、元の場所を指しているだけか。

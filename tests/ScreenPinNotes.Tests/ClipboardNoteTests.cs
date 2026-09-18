@@ -106,6 +106,102 @@ public class ClipboardNoteTests
     }
 
     [WpfTheory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void CopiedPng_PreservesAlphaEvenWhenBitmapHasLostIt(bool pasteIntoExisting, bool fullyTransparent)
+    {
+        WpfApplicationFixture.Ensure();
+        var (root, storage) = CreateStorage();
+        StickyNoteWindow? window = null;
+        try
+        {
+            byte[] pixels = [10, 20, 30, 0, 40, 50, 60, 128, 70, 80, 90, 255];
+            if (fullyTransparent) { pixels[7] = 0; pixels[11] = 0; }
+            var bitmap = BitmapSource.Create(3, 1, 96, 96, PixelFormats.Bgra32, null, pixels, 12);
+            var data = (DataObject)typeof(StickyNoteWindow)
+                .GetMethod("BuildImageDataObject", BindingFlags.Static | BindingFlags.NonPublic)!
+                .Invoke(null, [bitmap])!;
+            var png = Assert.IsType<MemoryStream>(data.GetData("PNG"));
+            // OLE の Bitmap 変換で透明部分が不透明になった状態を再現する。
+            var flattened = pixels.ToArray();
+            for (var i = 3; i < flattened.Length; i += 4) flattened[i] = 255;
+            data.SetImage(BitmapSource.Create(3, 1, 96, 96, PixelFormats.Bgra32, null, flattened, 12));
+            png.Position = png.Length; // ストリーム位置にも依存せず、繰り返し貼れること。
+            var note = new StickyNote();
+            for (var attempt = 0; attempt < 2; attempt++)
+            {
+                if (pasteIntoExisting)
+                {
+                    window ??= new StickyNoteWindow(
+                        new ScreenPinNotes.ViewModels.StickyNoteViewModel(note, new AppSettings()), storage);
+                    typeof(StickyNoteWindow).GetMethod("PasteFromDataObject", BindingFlags.Instance | BindingFlags.NonPublic)!
+                        .Invoke(window, [data]);
+                }
+                else
+                {
+                    Assert.True(StickyNoteWindow.TryBuildClipboardNoteContent(data, storage, note.Id, out _));
+                }
+                Assert.Equal(png.Length, png.Position);
+            }
+            var savedFiles = Directory.GetFiles(storage.GetNoteAssetsDirectoryPath(note.Id));
+            Assert.Equal(2, savedFiles.Length);
+            foreach (var path in savedFiles)
+            {
+                using var file = File.OpenRead(path);
+                var saved = new PngBitmapDecoder(file, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad).Frames[0];
+                var bgra = new FormatConvertedBitmap(saved, PixelFormats.Bgra32, null, 0);
+                var actual = new byte[12];
+                bgra.CopyPixels(actual, 12, 0);
+                Assert.Equal(pixels, actual);
+                if (window != null)
+                {
+                    var rendered = (BitmapSource)typeof(StickyNoteWindow)
+                        .GetMethod("GetOrLoadNormalizedImage", BindingFlags.Instance | BindingFlags.NonPublic)!
+                        .Invoke(window, [path])!;
+                    new FormatConvertedBitmap(rendered, PixelFormats.Bgra32, null, 0).CopyPixels(actual, 12, 0);
+                    Assert.Equal(pixels, actual);
+                }
+            }
+        }
+        finally { window?.Close(); Delete(root); }
+    }
+
+    [WpfTheory]
+    [InlineData("PNG", false)]
+    [InlineData("image/png", true)]
+    public void PngWithoutBitmap_IsAccepted(string format, bool asBytes)
+    {
+        var (root, storage) = CreateStorage();
+        try
+        {
+            using var png = new MemoryStream();
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(CreateBitmap()));
+            encoder.Save(png);
+            var data = new DataObject();
+            data.SetData(format, asBytes ? (object)png.ToArray() : png);
+            Assert.True(StickyNoteWindow.TryBuildClipboardNoteContent(data, storage, Guid.NewGuid().ToString(), out _));
+        }
+        finally { Delete(root); }
+    }
+
+    [WpfFact]
+    public void InvalidPng_FallsBackToBitmap()
+    {
+        var (root, storage) = CreateStorage();
+        try
+        {
+            var data = new DataObject();
+            data.SetData("PNG", new MemoryStream([1, 2, 3]));
+            data.SetImage(CreateBitmap());
+            Assert.True(StickyNoteWindow.TryBuildClipboardNoteContent(data, storage, Guid.NewGuid().ToString(), out _));
+        }
+        finally { Delete(root); }
+    }
+
+    [WpfTheory]
     [InlineData(null)]
     [InlineData("  \r\n\t")]
     public void NothingUsable_IsRejected(string? text)

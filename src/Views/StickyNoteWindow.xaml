@@ -37,6 +37,15 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="pack://application:,,,/ScreenPinNotes;component/Resources/Styles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
+            <!-- 編集中は縦線と持ち手を隠し、入力欄とスクロールバーを遮らない。 -->
+            <Style x:Key="ViewingSpineStyle" TargetType="FrameworkElement">
+                <Setter Property="Visibility" Value="{Binding TitleSpineVisibility}"/>
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding Visibility, ElementName=TitleEditBox}" Value="Visible">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
         </ResourceDictionary>
     </Window.Resources>
 
@@ -413,7 +422,7 @@
                  （帯そのものは細すぎて狙えない）。 -->
             <Border x:Name="TitleBarHiddenSpineHandle"
                     Grid.Row="0" Grid.RowSpan="2"
-                    Visibility="{Binding TitleSpineVisibility}"
+                    Style="{StaticResource ViewingSpineStyle}"
                     Panel.ZIndex="14"
                     Background="Transparent"
                     Cursor="SizeAll"
@@ -428,7 +437,7 @@
 
             <Rectangle x:Name="TitleBarHiddenSpine"
                        Grid.Row="0" Grid.RowSpan="2"
-                       Visibility="{Binding TitleSpineVisibility}"
+                       Style="{StaticResource ViewingSpineStyle}"
                        Panel.ZIndex="15"
                        IsHitTestVisible="False"
                        HorizontalAlignment="Left"
