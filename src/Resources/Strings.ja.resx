@@ -318,6 +318,15 @@
   <data name="DrawioNotFound" xml:space="preserve">
     <value>draw.io が見つかりませんでした。インストールするか、settings.json の DrawioPath で draw.io.exe の場所を指定してください。</value>
   </data>
+  <data name="CopyImage" xml:space="preserve">
+    <value>画像をコピー</value>
+  </data>
+  <data name="CopyImageFile" xml:space="preserve">
+    <value>画像ファイルをコピー</value>
+  </data>
+  <data name="CopyImageFailed" xml:space="preserve">
+    <value>画像をコピーできませんでした</value>
+  </data>
   <data name="FileChipOpenTitle" xml:space="preserve">
     <value>ファイルを開く</value>
   </data>

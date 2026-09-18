@@ -149,6 +149,8 @@ public partial class StickyNoteWindow : Window
     // 本文のメニューに畳み込み、対象の画像だけを開くたびに差し替える。
     private MarkdownImageContext? _contextMenuImage;
     private MenuItem   _editImageInDrawioItem = new();
+    private MenuItem   _copyImageItem = new();
+    private MenuItem   _copyImageFileItem = new();
     private MenuItem   _imageSizeItem = new();
     private MenuItem   _removeImageWidthItem = new();
     private MenuItem   _fitWindowToImageItem = new();

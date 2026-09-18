@@ -374,6 +374,73 @@ public partial class StickyNoteWindow
         }
     }
 
+    /// <summary>
+    /// 画像を「絵」としてクリップボードへ置く。貼り付け先に合わせて2つの形で渡す
+    /// ――多くのアプリが読む昔からのビットマップと、透明を保てる PNG。
+    /// 付箋を閉じても貼れるよう、クリップボードへ預けきる（copy: true）。
+    /// </summary>
+    private bool TrySetClipboardImage(string imagePath)
+    {
+        try
+        {
+            System.Windows.Clipboard.SetDataObject(
+                BuildImageDataObject(GetOrLoadNormalizedImage(imagePath)), copy: true);
+            return true;
+        }
+        catch (Exception ex) when (ex is ExternalException or InvalidOperationException
+            or IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 画像ファイルそのものをクリップボードへ置く。エクスプローラーやメールに
+    /// そのまま貼れる。切り取りと間違われないよう、貼り付け方は「コピー」を指定する。
+    /// </summary>
+    private static bool TrySetClipboardFile(string path)
+    {
+        try
+        {
+            System.Windows.Clipboard.SetDataObject(BuildFileDataObject(path), copy: true);
+            return true;
+        }
+        catch (Exception ex) when (ex is ExternalException or InvalidOperationException
+            or IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 絵として渡すときの中身。貼り付け先に合わせて2つの形を載せる
+    /// ――多くのアプリが読む昔からのビットマップと、透明を保てる PNG。
+    /// </summary>
+    private static System.Windows.DataObject BuildImageDataObject(
+        System.Windows.Media.Imaging.BitmapSource bitmap)
+    {
+        var data = new System.Windows.DataObject();
+        data.SetImage(bitmap);
+
+        var png = new MemoryStream();
+        var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+        encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+        encoder.Save(png);
+        png.Position = 0;
+        data.SetData("PNG", png);
+        return data;
+    }
+
+    /// <summary>ファイルとして渡すときの中身。</summary>
+    private static System.Windows.DataObject BuildFileDataObject(string path)
+    {
+        var data = new System.Windows.DataObject();
+        data.SetFileDropList([path]);
+        // DROPEFFECT_COPY。これが無いと、貼り付け先によっては移動と受け取られる。
+        data.SetData("Preferred DropEffect", new MemoryStream(BitConverter.GetBytes(1u)));
+        return data;
+    }
+
     private static bool TrySetClipboardText(string text)
     {
         try

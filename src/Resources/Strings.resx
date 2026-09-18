@@ -318,6 +318,15 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="DrawioNotFound" xml:space="preserve">
     <value>draw.io was not found on this PC. Install it, or set DrawioPath in settings.json to point at draw.io.exe.</value>
   </data>
+  <data name="CopyImage" xml:space="preserve">
+    <value>Copy image</value>
+  </data>
+  <data name="CopyImageFile" xml:space="preserve">
+    <value>Copy image file</value>
+  </data>
+  <data name="CopyImageFailed" xml:space="preserve">
+    <value>Could not copy the image</value>
+  </data>
   <data name="FileChipOpenTitle" xml:space="preserve">
     <value>Open file</value>
   </data>

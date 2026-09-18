@@ -4993,6 +4993,66 @@ public class StickyNoteWindowTests
         return condition();
     }
 
+    /// <summary>
+    /// 画像の右クリックから、絵としてもファイルとしてもコピーできる。
+    /// 絵は貼り付け先に合わせて 2 つの形で渡す。
+    /// </summary>
+    [WpfFact]
+    public void CopyImage_PutsThePictureAndTheFileOnTheClipboard()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote { Content = "![shot](assets/shot.png)" };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        var image = System.IO.Path.Combine(assetsDir, "shot.png");
+        SavePng(image, CreateBitmapSource());
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            InvokePrivate(window, "LoadContent", note.Content);
+            var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            var rendered = Assert.Single(EnumerateImages(contentBox.Document));
+            var contexts = (System.Collections.IDictionary)typeof(StickyNoteWindow)
+                .GetField("_markdownImageContexts", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .GetValue(window)!;
+            var context = contexts[rendered]!;
+
+            // 実際のクリップボードは共有の場所なので、渡す中身だけを見る。
+            var picture = (DataObject)InvokePrivateResult(window, "BuildImageDataObject",
+                typeof(System.Windows.Media.Imaging.BitmapSource),
+                InvokePrivateResult(window, "GetOrLoadNormalizedImage", typeof(string), image))!;
+            Assert.True(picture.ContainsImage());
+            // 透明を保てる形も添えておく。
+            Assert.True(picture.GetDataPresent("PNG"));
+
+            var file = (DataObject)InvokePrivateResult(window, "BuildFileDataObject", typeof(string), image)!;
+            Assert.Equal(image, Assert.Single(file.GetFileDropList().Cast<string>()));
+            // 貼り付け先で「移動」にならないよう、コピーを指定しておく。
+            var effect = Assert.IsType<MemoryStream>(file.GetData("Preferred DropEffect"));
+            Assert.Equal(1u, BitConverter.ToUInt32(effect.ToArray()));
+
+            // 実クリップボードは触らないが、取れないときに黙って終わらないことは見る。
+            File.Delete(image);
+            InvokePrivate(window, "CopyMarkdownImage", context, true);
+            var overlay = Assert.IsType<TextBlock>(window.FindName("SizeOverlayText"));
+            Assert.Equal(LocalizationService.T("CopyImageFailed"), overlay.Text);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>戻り値のある非公開メソッドを、引数の型を指定して呼ぶ。</summary>
+    private static object? InvokePrivateResult(object target, string name, Type parameterType, object argument)
+        => target.GetType()
+            .GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Static,
+                null, [parameterType], null)!
+            .Invoke(target, [argument]);
+
     private static IEnumerable<Image> EnumerateImages(FlowDocument document)
     {
         foreach (var block in document.Blocks)

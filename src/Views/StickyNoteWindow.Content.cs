@@ -901,17 +901,38 @@ public partial class StickyNoteWindow
             if (ResolveImagePath(c.Target) is { } path) EditInDrawio(Path.GetFullPath(path));
         });
 
+        // 絵として貼りたいのか、ファイルとして渡したいのかは場面で変わるので、
+        // どちらも用意する（Word へ貼る／メールに添える）。
+        _copyImageItem = new MenuItem { Header = LocalizationService.T("CopyImage") };
+        _copyImageItem.Click += (_, _) => WithContextMenuImage(c => CopyMarkdownImage(c, asFile: false));
+
+        _copyImageFileItem = new MenuItem { Header = LocalizationService.T("CopyImageFile") };
+        _copyImageFileItem.Click += (_, _) => WithContextMenuImage(c => CopyMarkdownImage(c, asFile: true));
+
         _imageMenuSeparator = new Separator();
         return new FrameworkElement[]
         {
-            _editImageInDrawioItem, _imageSizeItem, _fitWindowToImageItem, _detachImageItem,
-            _deleteImageFileItem, _imageMenuSeparator,
+            _editImageInDrawioItem, _copyImageItem, _copyImageFileItem, _imageSizeItem,
+            _fitWindowToImageItem, _detachImageItem, _deleteImageFileItem, _imageMenuSeparator,
         };
     }
 
     private void WithContextMenuImage(Action<MarkdownImageContext> action)
     {
         if (_contextMenuImage is { } context) action(context);
+    }
+
+    /// <summary>
+    /// 右クリックした画像をクリップボードへ。<paramref name="asFile"/> なら
+    /// ファイルそのもの、そうでなければ絵として置く。
+    /// </summary>
+    private void CopyMarkdownImage(MarkdownImageContext context, bool asFile)
+    {
+        var imagePath = ResolveImagePath(context.Target);
+        var copied = imagePath != null && File.Exists(imagePath) &&
+            (asFile ? TrySetClipboardFile(Path.GetFullPath(imagePath)) : TrySetClipboardImage(imagePath));
+        if (!copied)
+            ShowSizeOverlay(LocalizationService.T("CopyImageFailed"));
     }
 
     /// <summary>
@@ -937,6 +958,8 @@ public partial class StickyNoteWindow
             CanEditInDrawio(ResolveImagePath(drawioCandidate.Target))
                 ? Visibility.Visible
                 : Visibility.Collapsed;
+        _copyImageItem.Visibility = visibility;
+        _copyImageFileItem.Visibility = visibility;
         _imageSizeItem.Visibility = visibility;
         _fitWindowToImageItem.Visibility = visibility;
         _fitWindowToImageItem.IsEnabled = !_isEditMode;
