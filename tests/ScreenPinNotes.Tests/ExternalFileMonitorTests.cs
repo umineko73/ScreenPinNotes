@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+using System.Diagnostics;
 using System.IO;
 using ScreenPinNotes.Models;
 using ScreenPinNotes.Services;
@@ -308,6 +309,254 @@ public class ExternalFileMonitorTests
         finally { DeleteTempDirectory(dir); }
     }
 
+    /// <summary>
+    /// 書き手が開いたままのファイルは、変化が止まっても確認を続ける。
+    /// 通知が届かないのはまさにその状態なので、止めると更新に気付けなくなる。
+    /// </summary>
+    [Fact]
+    public void Poller_KeepsPollingWhileAnotherProcessHoldsTheFileOpen()
+    {
+        var dir = CreateTempDirectory();
+        Process? writer = null;
+        try
+        {
+            var path = Path.Combine(dir, "held.log");
+            File.WriteAllText(path, "first\n");
+            // 同じプロセスのハンドルは「開いたまま」と見なさないので、別のプロセスに握らせる。
+            writer = StartHoldingProcess(path, seconds: 30);
+
+            var settings = new ExternalFileSettings { PollIntervalMs = 200, PollStopAfterMs = 1000 };
+            var poller = new ExternalFilePoller();
+            using var monitor = new ExternalFileMonitor(path, () => settings, () => { }, useWatcher: false, poller);
+
+            // 止めるまでの時間を大きく超えても、確認は続いている。
+            Assert.False(WaitUntil(() => !poller.Contains(monitor), TimeSpan.FromSeconds(4)));
+            Assert.True(poller.IsRunning);
+            Assert.True(monitor.WriterHoldsOpen);
+        }
+        finally
+        {
+            StopHoldingProcess(writer);
+            DeleteTempDirectory(dir);
+        }
+    }
+
+    /// <summary>書き手が閉じたら、いつもどおり時間で止まる。</summary>
+    [Fact]
+    public void Poller_StopsOnceTheHoldingProcessClosesTheFile()
+    {
+        var dir = CreateTempDirectory();
+        Process? writer = null;
+        try
+        {
+            var path = Path.Combine(dir, "released.log");
+            File.WriteAllText(path, "first\n");
+            writer = StartHoldingProcess(path, seconds: 30);
+
+            var settings = new ExternalFileSettings { PollIntervalMs = 200, PollStopAfterMs = 600 };
+            var poller = new ExternalFilePoller();
+            using var monitor = new ExternalFileMonitor(path, () => settings, () => { }, useWatcher: false, poller);
+            Assert.True(WaitUntil(() => monitor.WriterHoldsOpen, TimeSpan.FromSeconds(5)));
+
+            StopHoldingProcess(writer);
+            writer = null;
+
+            Assert.True(WaitUntil(() => !poller.IsRunning, TimeSpan.FromSeconds(10)));
+            Assert.False(poller.Contains(monitor));
+            Assert.False(monitor.WriterHoldsOpen);
+        }
+        finally
+        {
+            StopHoldingProcess(writer);
+            DeleteTempDirectory(dir);
+        }
+    }
+
+    /// <summary>設定で切れば、開いたままでもこれまでどおり時間で止まる。</summary>
+    [Fact]
+    public void Poller_StopsWhilePollWhileWriterHoldsOpenIsOff()
+    {
+        var dir = CreateTempDirectory();
+        Process? writer = null;
+        try
+        {
+            var path = Path.Combine(dir, "ignored.log");
+            File.WriteAllText(path, "first\n");
+            writer = StartHoldingProcess(path, seconds: 30);
+
+            var settings = new ExternalFileSettings
+            {
+                PollIntervalMs = 200,
+                PollStopAfterMs = 600,
+                PollWhileWriterHoldsOpen = false,
+            };
+            var poller = new ExternalFilePoller();
+            using var monitor = new ExternalFileMonitor(path, () => settings, () => { }, useWatcher: false, poller);
+
+            Assert.True(WaitUntil(() => !poller.IsRunning, TimeSpan.FromSeconds(5)));
+            Assert.False(monitor.WriterHoldsOpen);
+        }
+        finally
+        {
+            StopHoldingProcess(writer);
+            DeleteTempDirectory(dir);
+        }
+    }
+
+    [Fact]
+    public void Holders_ReportsNobodyForAFileNoOneHasOpen()
+    {
+        var dir = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(dir, "closed.log");
+            File.WriteAllText(path, "first\n");
+
+            Assert.Equal(FileHolders.HoldState.NotHeld, FileHolders.Query(path));
+        }
+        finally { DeleteTempDirectory(dir); }
+    }
+
+    /// <summary>自分のプロセスが開いているだけなら「開きっぱなし」とは見なさない。</summary>
+    [Fact]
+    public void Holders_IgnoresHandlesOfThisProcess()
+    {
+        var dir = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(dir, "mine.log");
+            File.WriteAllText(path, "first\n");
+            using var mine = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+
+            Assert.Equal(FileHolders.HoldState.NotHeld, FileHolders.Query(path));
+        }
+        finally { DeleteTempDirectory(dir); }
+    }
+
+    [Fact]
+    public void Holders_ReportsUnknownForAMissingFile()
+    {
+        var dir = CreateTempDirectory();
+        try
+        {
+            Assert.Equal(FileHolders.HoldState.Unknown, FileHolders.Query(Path.Combine(dir, "nothing.log")));
+        }
+        finally { DeleteTempDirectory(dir); }
+    }
+
+    /// <summary>共有を許さずに開かれていて中身が読めなくても、掴まれているのは分かる。</summary>
+    [Fact]
+    public void Holders_ReportsHeldWhenTheWriterAllowsNoSharing()
+    {
+        var dir = CreateTempDirectory();
+        Process? writer = null;
+        try
+        {
+            var path = Path.Combine(dir, "exclusive.log");
+            File.WriteAllText(path, "first\n");
+            writer = StartHoldingProcess(path, seconds: 30, share: "None");
+
+            Assert.Equal(FileHolders.HoldState.HeldByAnotherProcess, FileHolders.Query(path));
+        }
+        finally
+        {
+            StopHoldingProcess(writer);
+            DeleteTempDirectory(dir);
+        }
+    }
+
+    /// <summary>
+    /// 尋ねている間もファイルを掴まない。属性を読むだけの開き方は共有の
+    /// 取り合いに加わらないので、書き手が排他で開き直しても弾かれない。
+    /// 中身を読む開き方に戻すと、この試験は必ず落ちる。
+    /// </summary>
+    [Fact]
+    public void Holders_DoesNotGetInTheWayOfAWriterThatOpensExclusively()
+    {
+        var dir = CreateTempDirectory();
+        Process? writer = null;
+        try
+        {
+            var path = Path.Combine(dir, "reopened.log");
+            File.WriteAllText(path, "first\n");
+            var result = Path.Combine(dir, "failures.txt");
+            // 開いては閉じる書き手。数秒のあいだ排他で開き直し、開けなかった回数を残す。
+            writer = StartOpeningProcess(path, result, seconds: 3);
+
+            // その間ずっと尋ね続ける。
+            Assert.True(WaitUntil(
+                () =>
+                {
+                    FileHolders.Query(path);
+                    return File.Exists(result);
+                },
+                TimeSpan.FromSeconds(30)));
+
+            Assert.Equal("0", File.ReadAllText(result).Trim());
+        }
+        finally
+        {
+            StopHoldingProcess(writer);
+            DeleteTempDirectory(dir);
+        }
+    }
+
+    /// <summary>
+    /// ファイルを開いては閉じるを繰り返す別プロセス
+    /// （ログを1行ごとに開き直すアプリの代役）。排他で開き、
+    /// 開けなかった回数を <paramref name="resultPath"/> に残す。
+    /// </summary>
+    private static Process StartOpeningProcess(string path, string resultPath, int seconds)
+    {
+        var script =
+            $"$fails=0; $until=(Get-Date).AddSeconds({seconds}); " +
+            "while((Get-Date) -lt $until) { " +
+            $"try {{ $fs=[IO.File]::Open('{path}','Append','Write','None'); $fs.Dispose() }} " +
+            "catch { $fails++ } " +
+            "Start-Sleep -Milliseconds 20 } " +
+            $"$fails | Set-Content -Path '{resultPath}'";
+        return Process.Start(new ProcessStartInfo("powershell", $"-NoProfile -Command \"{script}\"")
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        })!;
+    }
+
+    /// <summary>
+    /// ファイルを開いたまま待つだけの別プロセス（ログを書くアプリの代役）。
+    /// 開けたら合図のファイルを作らせ、それを待ってから確かめる。相手がまだ
+    /// 開いていないうちに尋ねて空振りしないため。
+    /// </summary>
+    private static Process StartHoldingProcess(string path, int seconds, string share = "ReadWrite")
+    {
+        var ready = path + ".ready";
+        var script = $"$fs=[IO.File]::Open('{path}','Append','Write','{share}'); " +
+            $"New-Item -ItemType File -Path '{ready}' | Out-Null; " +
+            $"Start-Sleep -Seconds {seconds}; $fs.Dispose()";
+        var process = Process.Start(new ProcessStartInfo("powershell", $"-NoProfile -Command \"{script}\"")
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        })!;
+        if (WaitUntil(() => File.Exists(ready), TimeSpan.FromSeconds(30)))
+            return process;
+
+        StopHoldingProcess(process);
+        throw new InvalidOperationException("ファイルを開いたまま待つプロセスを用意できなかった。");
+    }
+
+    private static void StopHoldingProcess(Process? process)
+    {
+        if (process == null) return;
+        try
+        {
+            if (!process.HasExited) process.Kill(entireProcessTree: true);
+            process.WaitForExit(5000);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception) { }
+        finally { process.Dispose(); }
+    }
+
     [Fact]
     public void Normalize_KeepsPollingSettingsInRange()
     {
@@ -326,6 +575,7 @@ public class ExternalFileMonitorTests
 
         Assert.Equal(1000, settings.PollIntervalMs);
         Assert.Equal(60_000, settings.PollStopAfterMs);
+        Assert.True(settings.PollWhileWriterHoldsOpen);
     }
 
     private static bool WaitUntil(Func<bool> condition, TimeSpan timeout)
