@@ -107,7 +107,9 @@ public static class ImageAssetImport
     public static string BuildFileMarkdown(string displayName, string target)
     {
         var label = displayName.AsSpan().IndexOfAny('[', ']') >= 0 ? "" : displayName;
-        var needsAngles = target.AsSpan().IndexOfAny(" ()<>") >= 0;
+        // Windows の区切りを Markdown のエスケープとして解釈させない。
+        // UNC の先頭や、_・[ などで始まる名前の直前の \ もそのまま保持する。
+        var needsAngles = target.AsSpan().IndexOfAny(" ()<>\\") >= 0;
         return needsAngles ? $"![{label}](<{target}>)" : $"![{label}]({target})";
     }
 

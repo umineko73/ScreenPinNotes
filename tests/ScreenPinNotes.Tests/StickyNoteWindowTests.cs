@@ -239,8 +239,10 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
-    [WpfFact]
-    public async Task UnspecifiedImageFitsHeightAndFollowsHeightOnlyResize()
+    [WpfTheory]
+    [InlineData(800, 1600)]
+    [InlineData(40, 80)]
+    public async Task UnspecifiedImageFitsHeightAndFollowsHeightOnlyResize(int pixelWidth, int pixelHeight)
     {
         EnsureApplication();
         using var temp = new TempDataDirectory();
@@ -249,7 +251,7 @@ public class StickyNoteWindowTests
             Content = "![image](assets/tall.png)" };
         var assets = storage.GetNoteAssetsDirectoryPath(note.Id);
         Directory.CreateDirectory(assets);
-        SavePng(System.IO.Path.Combine(assets, "tall.png"), CreateSolidBitmapSource(800, 1600));
+        SavePng(System.IO.Path.Combine(assets, "tall.png"), CreateSolidBitmapSource(pixelWidth, pixelHeight));
         var window = new StickyNoteWindow(new StickyNoteViewModel(note, App.Current.Settings), storage);
         try
         {
@@ -259,6 +261,8 @@ public class StickyNoteWindowTests
             var first = Assert.Single(EnumerateImages(box.Document));
             Assert.InRange(first.Height, 1, box.ActualHeight);
             Assert.Equal(2, first.Height / first.Width, 6);
+            if (pixelHeight == 80)
+                Assert.True(first.Height > pixelHeight / VisualTreeHelper.GetDpi(window).DpiScaleY);
             var firstHeight = first.Height;
             window.Height = 160;
             window.UpdateLayout();
@@ -2492,7 +2496,7 @@ public class StickyNoteWindowTests
     }
 
     [WpfFact]
-    public void LoadContent_ReadOnlyMarkdownImageWithoutWidth_DoesNotUpscaleNaturalSize()
+    public void LoadContent_ReadOnlyMarkdownImageWithoutWidth_UpscalesToFitWindow()
     {
         EnsureApplication();
         using var temp = new TempDataDirectory();
@@ -2515,7 +2519,8 @@ public class StickyNoteWindowTests
             var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
             var image = Assert.Single(EnumerateImages(contentBox.Document));
 
-            Assert.Equal(2 / VisualTreeHelper.GetDpi(window).DpiScaleX, image.Width, 8);
+            Assert.True(image.Width > 2 / VisualTreeHelper.GetDpi(window).DpiScaleX);
+            Assert.Equal(image.Width, image.Height, 8);
         }
         finally
         {
@@ -4434,7 +4439,7 @@ public class StickyNoteWindowTests
     }
 
     [WpfFact]
-    public void ToggleFold_ReadOnlyImageWithoutWidth_KeepsNaturalSizeAfterUnfold()
+    public void ToggleFold_ReadOnlyImageWithoutWidth_UpscalesAfterUnfold()
     {
         EnsureApplication();
         using var temp = new TempDataDirectory();
@@ -4462,7 +4467,8 @@ public class StickyNoteWindowTests
             InvokePrivate(window, "ToggleFold", (object?)null);
             var unfoldedImage = Assert.Single(EnumerateImages(contentBox.Document));
 
-            Assert.Equal(2 / VisualTreeHelper.GetDpi(window).DpiScaleX, unfoldedImage.Width, 8);
+            Assert.True(unfoldedImage.Width > 2 / VisualTreeHelper.GetDpi(window).DpiScaleX);
+            Assert.Equal(unfoldedImage.Width, unfoldedImage.Height, 8);
         }
         finally
         {

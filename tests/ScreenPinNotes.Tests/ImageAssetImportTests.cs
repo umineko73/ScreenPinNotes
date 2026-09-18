@@ -85,6 +85,17 @@ public sealed class ImageAssetImportTests : IDisposable
         => Assert.Equal(expected, ImageAssetImport.BuildFileMarkdown(displayName, target));
 
     [Theory]
+    [InlineData(@"\\server\share\file.pdf")]
+    [InlineData(@"C:\work\_draft.txt")]
+    [InlineData(@"C:\work\[draft].txt")]
+    [InlineData(@"C:\")]
+    public void BuildFileMarkdown_PreservesWindowsPathsWhenParsed(string target)
+    {
+        var markdown = ImageAssetImport.BuildFileMarkdown("file", target);
+        Assert.Equal(target, MarkdownRenderer.GetImageOnlyTarget(markdown));
+    }
+
+    [Theory]
     [InlineData("  .pdf", "file.pdf")]
     [InlineData("NUL.zip", "file-NUL.zip")]
     public void ToSafeFileName_UsesTheGivenFallbackForFilesThatAreNotImages(string fileName, string expected)

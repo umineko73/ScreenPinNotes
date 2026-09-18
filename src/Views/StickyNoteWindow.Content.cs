@@ -723,17 +723,16 @@ public partial class StickyNoteWindow
             var naturalWidth = markdownImage.Height.HasValue
                 ? originalWidth * markdownImage.Height.Value / originalHeight
                 : originalWidth;
-            // サイズ未指定の画像は、付箋に収まる範囲でだけ縮小する。
-            // 元のピクセル寸法より拡大すると、低解像度画像がぼやけてしまう。
+            // 本文中の画像や「付箋を画像に合わせる」操作では元の寸法を上限にする。
             displayWidth = Math.Min(naturalWidth, GetMarkdownImageAvailableWidth(
                 reserveScrollBar: NeedsScrollBarAllowance(naturalWidth, originalWidth, originalHeight)));
             displayHeight = originalHeight * displayWidth / originalWidth;
             if (ViewModel.UsesTightImageLayout && !markdownImage.Height.HasValue && !_isFittingWindowToImages)
             {
-                // Fit a standalone, unspecified image to both dimensions without distortion.
-                var scale = Math.Min(1, Math.Min(
+                // 画像1枚の付箋は、縦横比を保ってウィンドウに合わせて拡大・縮小する。
+                var scale = Math.Min(
                     GetMarkdownImageAvailableWidth(reserveScrollBar: false) / originalWidth,
-                    Math.Max(1, GetMarkdownImageAvailableHeight()) / originalHeight));
+                    Math.Max(1, GetMarkdownImageAvailableHeight()) / originalHeight);
                 displayWidth = originalWidth * scale;
                 displayHeight = originalHeight * scale;
             }
