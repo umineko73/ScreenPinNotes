@@ -306,6 +306,12 @@
   <data name="FileChipMissingMessage" xml:space="preserve">
     <value>このファイルはもうありません:&#10;&#10;{0}</value>
   </data>
+  <data name="FileChipOpen" xml:space="preserve">
+    <value>開く</value>
+  </data>
+  <data name="FileChipOpenWith" xml:space="preserve">
+    <value>プログラムから開く...</value>
+  </data>
   <data name="FileChipOpenTitle" xml:space="preserve">
     <value>ファイルを開く</value>
   </data>

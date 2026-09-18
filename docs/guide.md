@@ -120,7 +120,7 @@ Use the mini toolbar for colors, fonts, and icons. Unavailable actions are disab
 - Use **Markdown formatting** while editing to insert syntax (bold, strikethrough, highlight, code, headings, bulleted and numbered lists, checklists, quotes). **Edit link** changes a link's label and URL.
 - Pasted images are saved as PNGs in the note's `assets` folder. Local images render inline; web image URLs do not.
 - Dropping files onto a note, or pasting files copied in Explorer, copies them into the note's `assets` folder in their original format. The original files stay where they were.
-- Files that are not images sit in the text as a small chip with the same icon Explorer shows, plus the file name. **Click** one to open it in its associated app (like a link, it does not start editing the body) (files that can run programs ask first).
+- Files that are not images sit in the text as a small chip with the same icon Explorer shows, plus the file name. **Click** one to open it in its associated app (like a link, it does not start editing the body) (files that can run programs ask first). Right-click a chip for **Open** and **Open with...**, which lets you pick the app, at the top of the menu.
 - Hold **Shift** while dropping to link to the file where it is instead of copying it — better for documents you keep editing and for large files. Folders are always linked. Point at a chip to see which it is and where the file lives.
 - A chip whose file is gone is shown with a line through its name.
 - Resize images between 20% and 200% using their context menu or `Ctrl` + wheel.

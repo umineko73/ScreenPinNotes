@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -131,6 +132,89 @@ public partial class StickyNoteWindow
 
         chip = null!;
         return false;
+    }
+
+    // ─── 右クリックメニュー ────────────────────────────────────────
+
+    private FileChipTarget? _contextMenuFileChip;
+    private MenuItem _openFileChipItem = null!;
+    private MenuItem _openFileChipWithItem = null!;
+    private Separator _fileChipMenuSeparator = null!;
+
+    /// <summary>
+    /// 本文メニューの先頭へ差し込む札用の項目を作る。画像用の項目と同じく、
+    /// 開くたびに <see cref="UpdateFileChipMenuItems"/> が右クリック先の札へ
+    /// 向け直すので、ここでは器だけを1回作る。
+    /// </summary>
+    private IReadOnlyList<FrameworkElement> BuildFileChipMenuItems()
+    {
+        _openFileChipItem = new MenuItem { Header = LocalizationService.T("FileChipOpen") };
+        _openFileChipItem.Click += (_, _) => WithContextMenuFileChip(c => OpenDroppedFile(c.Path, c.IsFolder));
+
+        _openFileChipWithItem = new MenuItem { Header = LocalizationService.T("FileChipOpenWith") };
+        _openFileChipWithItem.Click += (_, _) => WithContextMenuFileChip(c => OpenDroppedFileWith(c.Path));
+
+        _fileChipMenuSeparator = new Separator();
+        return [_openFileChipItem, _openFileChipWithItem, _fileChipMenuSeparator];
+    }
+
+    private void WithContextMenuFileChip(Action<FileChipTarget> action)
+    {
+        if (_contextMenuFileChip is { } chip) action(chip);
+    }
+
+    /// <summary>
+    /// 右クリックがどの札に当たったかを覚える。画像と同じ理由で、
+    /// ContextMenuOpening では押された要素が分からないので押した時点で拾う。
+    /// </summary>
+    private void CaptureContextMenuFileChip(object? originalSource)
+        => _contextMenuFileChip = TryGetFileChipAt(originalSource, out var chip) ? chip : null;
+
+    /// <summary>札の上で開いたときだけ、札用の項目を出す。</summary>
+    private void UpdateFileChipMenuItems(bool fromKeyboard)
+    {
+        // キーボードから開いたときは直前の右クリックの記憶が残っているだけなので捨てる。
+        if (fromKeyboard) _contextMenuFileChip = null;
+        var visibility = _contextMenuFileChip == null ? Visibility.Collapsed : Visibility.Visible;
+        _openFileChipItem.Visibility = visibility;
+        _openFileChipWithItem.Visibility = visibility;
+        _fileChipMenuSeparator.Visibility = visibility;
+        if (_contextMenuFileChip is not { } chip) return;
+
+        // フォルダーと、もう無いファイルには選ぶアプリが無い。
+        _openFileChipWithItem.IsEnabled = !chip.IsFolder && File.Exists(chip.Path);
+    }
+
+    /// <summary>Windows の「プログラムから開く」を出す。開くアプリを選びたいとき用。</summary>
+    private void OpenDroppedFileWith(string path)
+    {
+        if (!File.Exists(path))
+        {
+            WpfMessageBox.Show(this,
+                string.Format(LocalizationService.T("FileChipMissingMessage"), path),
+                LocalizationService.T("FileChipOpenTitle"),
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        try
+        {
+            // エクスプローラーの「プログラムから開く」と同じ入口。
+            // ShellExecute の "openas" 動詞は、その拡張子に openas が登録されて
+            // いないと「関連付けがありません」(1155) で失敗するので使わない
+            // （.txt でも実際に失敗した）。引数は引用符で囲まない。
+            // OpenAs_RunDLL はコマンドラインの残り全部をパスとして読むので、
+            // 空白を含む場所もそのまま渡せる。
+            // 開くアプリは本人が選ぶので、実行できる種類でも確認は挟まない。
+            Process.Start(new ProcessStartInfo("rundll32.exe", $"shell32.dll,OpenAs_RunDLL {path}")
+            {
+                UseShellExecute = false,
+            });
+        }
+        catch (Exception ex)
+        {
+            ErrorReporter.ReportNonFatal("Show the open-with dialog", ex);
+        }
     }
 
     private string BuildFileChipToolTip(string path, bool exists, bool inAssets)

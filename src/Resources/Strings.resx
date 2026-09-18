@@ -306,6 +306,12 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="FileChipMissingMessage" xml:space="preserve">
     <value>This file is no longer there:&#10;&#10;{0}</value>
   </data>
+  <data name="FileChipOpen" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="FileChipOpenWith" xml:space="preserve">
+    <value>Open with...</value>
+  </data>
   <data name="FileChipOpenTitle" xml:space="preserve">
     <value>Open file</value>
   </data>

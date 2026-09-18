@@ -4875,6 +4875,54 @@ public class StickyNoteWindowTests
         }
     }
 
+    /// <summary>
+    /// 札を右クリックしたときだけ、本文メニューの先頭に開く項目が出る。
+    /// キーボードから開いたときは、直前の右クリックの記憶を持ち越さない。
+    /// </summary>
+    [WpfFact]
+    public void FileChipMenu_AppearsOnlyOnAChip()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote { Content = "![report.pdf](assets/report.pdf)" };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        File.WriteAllText(System.IO.Path.Combine(assetsDir, "report.pdf"), "pdf");
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            InvokePrivate(window, "LoadContent", note.Content);
+            var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            var chip = Assert.Single(EnumerateChips(contentBox.Document));
+            var open = FindMenuItem(contentBox.ContextMenu!, LocalizationService.T("FileChipOpen"));
+            var openWith = FindMenuItem(contentBox.ContextMenu!, LocalizationService.T("FileChipOpenWith"));
+
+            // 本文の何も無いところを右クリックしたときは出ない。
+            InvokePrivate(window, "CaptureContextMenuFileChip", contentBox);
+            InvokePrivate(window, "UpdateFileChipMenuItems", false);
+            Assert.Equal(Visibility.Collapsed, open.Visibility);
+            Assert.Equal(Visibility.Collapsed, openWith.Visibility);
+
+            InvokePrivate(window, "CaptureContextMenuFileChip", chip);
+            InvokePrivate(window, "UpdateFileChipMenuItems", false);
+            Assert.Equal(Visibility.Visible, open.Visibility);
+            Assert.Equal(Visibility.Visible, openWith.Visibility);
+            Assert.True(openWith.IsEnabled);
+
+            InvokePrivate(window, "UpdateFileChipMenuItems", true);
+            Assert.Equal(Visibility.Collapsed, open.Visibility);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    private static MenuItem FindMenuItem(ContextMenu menu, string header)
+        => menu.Items.OfType<MenuItem>().Single(item => (item.Header as string) == header);
+
     private static IEnumerable<Border> EnumerateChips(FlowDocument document)
         => document.Blocks.OfType<Paragraph>().SelectMany(paragraph => paragraph.Inlines)
             .OfType<InlineUIContainer>()
