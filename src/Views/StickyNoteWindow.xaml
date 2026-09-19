@@ -294,8 +294,9 @@
                      FontSize="{Binding FontSize}"
                      Foreground="{Binding TextForeground}" CaretBrush="{Binding TextForeground}"
                      Background="Transparent"
-                     BorderThickness="2"
-                     BorderBrush="CornflowerBlue"
+                     BorderThickness="0"
+                     BorderBrush="Transparent"
+                     FocusVisualStyle="{x:Null}"
                      Padding="{Binding NoteEditorPadding}"
                      AcceptsReturn="True"
                      AcceptsTab="True"
@@ -497,7 +498,7 @@
                     BorderThickness="1">
                 <TextBlock x:Name="EditingBadgeText"
                            Foreground="White"
-                           FontSize="11"
+                           FontSize="13"
                            FontWeight="SemiBold"/>
             </Border>
 
