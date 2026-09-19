@@ -507,6 +507,7 @@ public partial class StickyNoteWindow : Window
         ContentBox.ToolTip = GetContentBoxTooltip();
         HideEditToolbar();
         _isEditMode = false;
+        DoneEditingButton.Visibility = Visibility.Collapsed;
         ViewModel.SetForceOpaque(false);
         LoadContent(ViewModel.Content);
         Keyboard.ClearFocus();

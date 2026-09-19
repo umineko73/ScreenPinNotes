@@ -500,6 +500,24 @@
                            FontWeight="SemiBold"/>
             </Border>
 
+            <!-- 編集を確定するボタン。ツールバーはフォーカスが外れると隠れるので、
+                 そこに置くと編集を終える手段まで一緒に消えてしまう。編集中は
+                 常に出ている「編集中」の反対側、付箋の右下に置く。
+                 Focusable を切るのは、押した瞬間に本文からフォーカスが移って
+                 カーソル位置や選択が乱れるのを避けるため。 -->
+            <Button x:Name="DoneEditingButton"
+                    Grid.Row="1"
+                    Content="✓"
+                    Visibility="Collapsed"
+                    Panel.ZIndex="31"
+                    Focusable="False"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom"
+                    Margin="0,0,6,6"
+                    Style="{StaticResource DoneEditingToolbarButton}"
+                    ToolTip="編集を確定"
+                    Click="DoneEditing_Click"/>
+
             <Popup x:Name="EditToolbarPopup"
                    Opened="EditToolbarPopup_Opened"
                    PlacementTarget="{Binding ElementName=RootBorder}"
@@ -546,9 +564,6 @@
                                 Style="{StaticResource EditToolbarButton}"
                                 ToolTip="色を変更"
                                 Click="Color_Click"/>
-                        <Button x:Name="DoneEditingButton" Content="✓"
-                                Style="{StaticResource DoneEditingToolbarButton}"
-                                ToolTip="編集を確定" Click="DoneEditing_Click"/>
                     </StackPanel>
                 </Border>
             </Popup>
