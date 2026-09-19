@@ -456,7 +456,32 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     /// 編集欄の余白。編集中は画像も生の Markdown 文字列なので、本文が画像1枚でも
     /// 詰めない。詰めると文字が付箋の縁に貼り付いて読めなくなる。
     /// </summary>
-    public Thickness NoteEditorPadding => NoteTextPadding;
+    public Thickness NoteEditorPadding
+    {
+        get
+        {
+            var padding = NoteTextPadding;
+            return new Thickness(padding.Left, padding.Top, padding.Right,
+                Math.Max(padding.Bottom, _editorBottomReserve));
+        }
+    }
+
+    private double _editorBottomReserve;
+
+    /// <summary>
+    /// 編集中、最終行の下に空ける帯の高さを決める。「編集中」と確定ボタンの置き場で、
+    /// 最終行がそれらの下に隠れて選べなくなるのを防ぐ。小さな付箋では本文の欄が
+    /// 潰れないよう、ウィンドウ側が減らして渡す。
+    /// </summary>
+    public void SetEditorBottomReserve(double value)
+    {
+        value = Math.Max(0, value);
+        if (Math.Abs(_editorBottomReserve - value) < 0.5)
+            return;
+
+        _editorBottomReserve = value;
+        OnPropertyChanged(nameof(NoteEditorPadding));
+    }
 
     /// <summary>付箋の四隅の丸み。0 なら角のまま。</summary>
     public CornerRadius NoteCornerRadius => new(_settings.Layout.NoteCornerRadius);

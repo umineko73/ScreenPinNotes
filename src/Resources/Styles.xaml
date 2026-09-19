@@ -186,8 +186,10 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
+                    <!-- 角丸を大きめの固定値にしておくと、WPF が辺の半分に切り詰めるので、
+                         ボタンの大きさを変えても円のまま。 -->
                     <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                            CornerRadius="14" Margin="1">
+                            CornerRadius="100" Margin="1">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
