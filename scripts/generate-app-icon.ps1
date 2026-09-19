@@ -1,4 +1,4 @@
-# ScreenPinNotes - a desktop sticky notes app for Windows 11
+﻿# ScreenPinNotes - a desktop sticky notes app for Windows 11
 # Copyright (C) 2026 umineko73
 #
 # This program is free software: you can redistribute it and/or modify
@@ -13,6 +13,14 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+# 付箋に画鋲を1本刺した絵。過去に試した黄色い付箋は「新着メールの通知」と
+# 見間違えるという声があり、そのときの絵は右上に三角の折り返しを付けていた。
+# 黄色い長方形の上辺に三角 = 開いた封筒そのものなので、ここでは
+#   * 折り返しは右下だけ（上辺に三角を作らない）
+#   * 画鋲は上辺の中央（右上に赤い丸を置くと未読バッジに見える）
+#   * 地色はフォルダーの黄色から離した琥珀
+# を守る。輪郭で見分ける16pxのために、画鋲は上辺からはみ出させる。
 
 param(
     [string]$OutputPath = (Join-Path $PSScriptRoot "..\src\app.ico"),
@@ -45,57 +53,121 @@ function New-IconBitmap {
     $g.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
     $g.Clear([System.Drawing.Color]::Transparent)
 
-    # Draw in a 256x256 space; the transform scales stroke widths with it.
-    $g.ScaleTransform([float]($Size / 256.0), [float]($Size / 256.0))
+    # ダークテーマ用はわずかに沈ませる。明るいテーマ用は白い背景でも輪郭が立つ濃さ。
+    $body  = [System.Drawing.SolidBrush]::new((Get-Color $(if ($Dark) { '#DE8413' } else { '#F0911C' })))
+    $fold  = [System.Drawing.SolidBrush]::new((Get-Color $(if ($Dark) { '#AE6409' } else { '#C66F0E' })))
+    $ink   = [System.Drawing.SolidBrush]::new((Get-Color '#FFFFFF'))
+    $pin   = [System.Drawing.SolidBrush]::new((Get-Color '#DE3E36'))
+    $ring  = [System.Drawing.SolidBrush]::new((Get-Color '#A3241F'))
+    $shine = [System.Drawing.SolidBrush]::new((Get-Color '#FF9690'))
 
-    # Angular memo (concept C): flush cyan band, heading and square bullets.
-    $bodyColor = if ($Dark) { '#204B7A' } else { '#245FA8' }
-    $body = [System.Drawing.SolidBrush]::new((Get-Color $bodyColor))
-    $ink = [System.Drawing.SolidBrush]::new((Get-Color '#F0F6FF'))
-    $accent = [System.Drawing.SolidBrush]::new((Get-Color '#65C9EB'))
-
-    # At tray sizes use pixel-aligned strokes and size-specific row spacing.
-    # Larger artwork follows the approved thin-stroke proportions.
     if ($Size -le 32) {
+        # トレイの大きさでは、紙と行はドットの境目に合わせて置く。
+        # 縮小任せにすると1pxの線が灰色ににじんで、ただの塊になる。
         $g.ResetTransform()
         $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
         $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::Default
-        $stroke = [Math]::Max(1, [Math]::Floor($Size / 24.0))
-        $step = [Math]::Max(3, [Math]::Round($Size * 0.13))
-        $top = [Math]::Floor(($Size - 3 * $step - $stroke) / 2)
-        $left = [Math]::Max(1, [Math]::Round($Size / 32.0))
-        $paperTop = [Math]::Round($Size * 0.10)
-        $paperHeight = $Size - 2 * $paperTop
-        $g.FillRectangle($body, $left, $paperTop, $Size - 2 * $left, $paperHeight)
-        $g.FillRectangle($accent, $left, $paperTop, [Math]::Max(2, [Math]::Round($Size * 0.12)), $paperHeight)
-        $bullet = [Math]::Round($Size * 0.27)
-        $text = $bullet + 2 * $stroke
-        $right = $Size - [Math]::Max(2, [Math]::Round($Size * 0.12))
-        $g.FillRectangle($ink, $bullet, $top, $right - $bullet, $stroke)
-        $lengths = @(0.72, 1.0, 0.65)
-        for ($row = 0; $row -lt 3; $row++) {
-            $y = $top + ($row + 1) * $step
-            $g.FillRectangle($ink, $bullet, $y, $stroke, $stroke)
-            $g.FillRectangle($ink, $text, $y, [Math]::Max(2, [Math]::Round(($right - $text) * $lengths[$row])), $stroke)
+
+        # トレイでは枠いっぱいまで使う。ここで余白を取ると、周りのアイコンより
+        # ひと回り小さく見える（トレイが使うのは 16/20/24/32 の4枚だけ）。
+        $margin = [Math]::Floor($Size / 24.0)
+        $left = $margin
+        $right = $Size - $margin
+        $top = [Math]::Round($Size * 0.20)
+        $bottom = $Size - $margin
+        $cut = [Math]::Max(2, [Math]::Round($Size * 0.26))
+
+        $g.FillRectangle($body, $left, $top, $right - $left, $bottom - $top)
+
+        # 右下を三角に削ってから、折り返しの色を置く。
+        $g.CompositingMode = [System.Drawing.Drawing2D.CompositingMode]::SourceCopy
+        $clear = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::Transparent)
+        $g.FillPolygon($clear, @(
+            [System.Drawing.Point]::new($right - $cut, $bottom),
+            [System.Drawing.Point]::new($right, $bottom - $cut),
+            [System.Drawing.Point]::new($right, $bottom)))
+        $clear.Dispose()
+        $g.CompositingMode = [System.Drawing.Drawing2D.CompositingMode]::SourceOver
+        $g.FillPolygon($fold, @(
+            [System.Drawing.Point]::new($right - $cut, $bottom),
+            [System.Drawing.Point]::new($right, $bottom - $cut),
+            [System.Drawing.Point]::new($right - [Math]::Round($cut * 0.34), $bottom - [Math]::Round($cut * 0.34))))
+
+        # 白い2行。3行だとこの大きさでは団子になる。
+        $stroke = [Math]::Max(1, [Math]::Round($Size / 9.0))
+        $gap = [Math]::Max(2, [Math]::Round($Size * 0.13))
+        $inset = [Math]::Max(1, [Math]::Round($Size * 0.11))
+        $lineLeft = $left + $inset
+        $lineRight = $right - $inset
+        $blockTop = $top + [Math]::Round((($bottom - $top) - (2 * $stroke + $gap)) / 2) - [Math]::Round($Size * 0.02)
+        $g.FillRectangle($ink, $lineLeft, $blockTop, $lineRight - $lineLeft, $stroke)
+        $g.FillRectangle($ink, $lineLeft, $blockTop + $stroke + $gap,
+            [Math]::Max(2, [Math]::Round(($lineRight - $lineLeft) * 0.72)), $stroke)
+
+        # 画鋲。丸なのでここだけ滑らかに描く。小さいうちは輪郭も光も省き、
+        # 赤い円として残す方を選ぶ（この赤が16pxでの見分けを担っている）。
+        $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+        $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+        $pinSize = [Math]::Max(5, [Math]::Round($Size * 0.36))
+        $pinLeft = [Math]::Round(($Size - $pinSize) / 2.0)
+        $pinTop = 0
+        if ($Size -ge 24) {
+            $g.FillEllipse($ring, $pinLeft, $pinTop, $pinSize, $pinSize)
+            $inner = [Math]::Round($pinSize * 0.72)
+            $g.FillEllipse($pin, $pinLeft + [Math]::Round(($pinSize - $inner) / 2.0),
+                $pinTop + [Math]::Round(($pinSize - $inner) / 2.0), $inner, $inner)
         }
-    } else {
-        $g.FillRectangle($body, 8, 26, 240, 204)
-        $g.FillRectangle($accent, 8, 26, 30, 204)
-        $line = [System.Drawing.Pen]::new((Get-Color '#F0F6FF'), 10)
-        $line.StartCap = [System.Drawing.Drawing2D.LineCap]::Flat
-        $line.EndCap = [System.Drawing.Drawing2D.LineCap]::Flat
-        $g.FillRectangle($ink, 65, 69, 153, 20)
-        $ends = @(178, 218, 174)
-        for ($row = 0; $row -lt 3; $row++) {
-            $y = 119 + $row * 34
-            $g.FillRectangle($ink, 65, $y - 7, 14, 14)
-            $g.DrawLine($line, 94, $y, $ends[$row], $y)
+        else {
+            $g.FillEllipse($pin, $pinLeft, $pinTop, $pinSize, $pinSize)
         }
-        $line.Dispose()
     }
+    else {
+        # 256x256 の下絵として描き、変換で縮める（線の太さも一緒に縮む）。
+        $g.ScaleTransform([float]($Size / 256.0), [float]($Size / 256.0))
+
+        $x0 = 28; $y0 = 59; $x1 = 228; $y1 = 238
+        $cut = 67
+        $paper = New-RoundedPath $x0 $y0 ($x1 - $x0) ($y1 - $y0) 15
+        $g.FillPath($body, $paper)
+        $paper.Dispose()
+
+        $g.CompositingMode = [System.Drawing.Drawing2D.CompositingMode]::SourceCopy
+        $clear = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::Transparent)
+        $g.FillPolygon($clear, @(
+            [System.Drawing.Point]::new($x1 - $cut, $y1),
+            [System.Drawing.Point]::new($x1, $y1 - $cut),
+            [System.Drawing.Point]::new($x1, $y1)))
+        $clear.Dispose()
+        $g.CompositingMode = [System.Drawing.Drawing2D.CompositingMode]::SourceOver
+        $g.FillPolygon($fold, @(
+            [System.Drawing.Point]::new($x1 - $cut, $y1),
+            [System.Drawing.Point]::new($x1, $y1 - $cut),
+            [System.Drawing.Point]::new($x1 - 20, $y1 - 20)))
+
+        $stroke = 17
+        $lineLeft = 56; $lineRight = 200
+        $blockTop = 125
+        $g.FillRectangle($ink, $lineLeft, $blockTop, $lineRight - $lineLeft, $stroke)
+        $g.FillRectangle($ink, $lineLeft, $blockTop + $stroke + 22,
+            [Math]::Round(($lineRight - $lineLeft) * 0.78), $stroke)
+
+        # 画鋲は上辺をまたいで置く。輪郭が四角のままだと、小さいときに
+        # フォルダーとも封筒とも紛れる。
+        $pinRadius = 33
+        $pinCx = 128; $pinCy = 49
+        $g.FillEllipse($ring, $pinCx - $pinRadius, $pinCy - $pinRadius, $pinRadius * 2, $pinRadius * 2)
+        $innerRadius = [Math]::Round($pinRadius * 0.72)
+        $g.FillEllipse($pin, $pinCx - $innerRadius, $pinCy - $innerRadius, $innerRadius * 2, $innerRadius * 2)
+        $g.FillEllipse($shine, $pinCx - [Math]::Round($pinRadius * 0.34), $pinCy - [Math]::Round($pinRadius * 0.44),
+            [Math]::Round($pinRadius * 0.36), [Math]::Round($pinRadius * 0.36))
+    }
+
     $body.Dispose()
+    $fold.Dispose()
     $ink.Dispose()
-    $accent.Dispose()
+    $pin.Dispose()
+    $ring.Dispose()
+    $shine.Dispose()
     $g.Dispose()
     return $bmp
 }
