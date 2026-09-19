@@ -83,6 +83,7 @@ public partial class StickyNoteWindow
         var startingEdit = !_isEditMode;
         _isEditMode = true;
         EditingBadge.Visibility = Visibility.Visible;
+        DoneEditingButton.Visibility = Visibility.Visible;
         if (startingEdit) ApplyEditingSize(true);
         ViewModel.SetForceOpaque(true);
         _suppressTextChange = true;
@@ -154,6 +155,8 @@ public partial class StickyNoteWindow
         if (!_isEditMode)
         {
             _isEditMode = true;
+            // タイトルだけ直すときも、確定はここから。ツールバーには置いていない。
+            DoneEditingButton.Visibility = Visibility.Visible;
             ApplyEditingSize(true);
             ContentBox.IsReadOnly = true;
             BodyEditBox.Visibility = Visibility.Collapsed;
@@ -195,6 +198,7 @@ public partial class StickyNoteWindow
 
         _isEditMode = false;
         EditingBadge.Visibility = Visibility.Collapsed;
+        DoneEditingButton.Visibility = Visibility.Collapsed;
         ApplyEditingSize(false);
         ViewModel.SetForceOpaque(false);
         // ドキュメントを再構築してMarkdown表示とリンクを正しく復元する
@@ -506,6 +510,13 @@ public partial class StickyNoteWindow
             scrollViewer.ComputedVerticalScrollBarVisibility == Visibility.Visible
             ? SystemParameters.VerticalScrollBarWidth
             : 0;
+
+        // 確定ボタンも本文の隅にあるので、スクロールバーが出ている間は
+        // 「編集中」と同じくそのぶん内側へ寄せる（つまみに重ならないように）。
+        var doneMargin = DoneEditingButton.Margin;
+        var doneRight = 6 + barWidth;
+        if (Math.Abs(doneMargin.Bottom - bottom) >= 0.5 || Math.Abs(doneMargin.Right - doneRight) >= 0.5)
+            DoneEditingButton.Margin = new Thickness(doneMargin.Left, doneMargin.Top, doneRight, bottom);
 
         var margin = TitleBarOverlay.Margin;
         var right = TitleBarOverlayRightMargin + barWidth;

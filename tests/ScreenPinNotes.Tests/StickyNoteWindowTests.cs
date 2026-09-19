@@ -2705,6 +2705,87 @@ public class StickyNoteWindowTests
         }
     }
 
+    /// <summary>
+    /// 確定ボタンはツールバーではなく付箋本体の右下にある。ツールバーはフォーカスが
+    /// 外れると隠れるので、そこに置くと編集を終える手段まで一緒に消えてしまう。
+    /// 「編集中」（左下）の反対側に置く。
+    /// </summary>
+    [WpfFact]
+    public void DoneEditingButton_SitsAtTheBottomRightOfTheNoteNotInTheToolbar()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var vm = new StickyNoteViewModel(new StickyNote { Content = "body" }, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            var done = Assert.IsType<Button>(window.FindName("DoneEditingButton"));
+            var badge = Assert.IsType<Border>(window.FindName("EditingBadge"));
+            var toolbar = Assert.IsType<Border>(window.FindName("StatusBar"));
+
+            // ツールバーの中にはいない。
+            Assert.False(IsInside(done, toolbar));
+            // 「編集中」と同じ行の反対側の隅。
+            Assert.Equal(System.Windows.HorizontalAlignment.Right, done.HorizontalAlignment);
+            Assert.Equal(System.Windows.VerticalAlignment.Bottom, done.VerticalAlignment);
+            Assert.Equal(System.Windows.HorizontalAlignment.Left, badge.HorizontalAlignment);
+            Assert.Equal(System.Windows.VerticalAlignment.Bottom, badge.VerticalAlignment);
+            Assert.Equal(Grid.GetRow(badge), Grid.GetRow(done));
+            // 押してもフォーカスが本文から動かない（カーソルや選択を乱さない）。
+            Assert.False(done.Focusable);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    private static bool IsInside(DependencyObject? node, DependencyObject container)
+    {
+        for (; node != null; node = LogicalTreeHelper.GetParent(node) ?? VisualTreeHelper.GetParent(node))
+            if (ReferenceEquals(node, container)) return true;
+        return false;
+    }
+
+    /// <summary>編集している間だけ出る。ツールバーが隠れても出たまま。</summary>
+    [WpfFact]
+    public void DoneEditingButton_ShowsOnlyWhileEditingAndSurvivesTheToolbarHiding()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var vm = new StickyNoteViewModel(new StickyNote { Content = "body" }, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            var done = Assert.IsType<Button>(window.FindName("DoneEditingButton"));
+            var toolbar = Assert.IsType<Popup>(window.FindName("EditToolbarPopup"));
+            Assert.Equal(Visibility.Collapsed, done.Visibility);
+
+            InvokePrivate(window, "EnterEditMode");
+            Assert.Equal(Visibility.Visible, done.Visibility);
+
+            // フォーカスが外れてツールバーが隠れても、確定ボタンは残る。
+            InvokePrivate(window, "HideEditToolbar");
+            Assert.False(toolbar.IsOpen);
+            Assert.Equal(Visibility.Visible, done.Visibility);
+
+            InvokePrivate(window, "DoneEditing_Click", done, new RoutedEventArgs());
+            Assert.Equal(Visibility.Collapsed, done.Visibility);
+
+            // タイトルだけ直すときも同じ。ツールバーには無いので、ここに出す。
+            InvokePrivate(window, "EnterTitleEditMode");
+            Assert.Equal(Visibility.Visible, done.Visibility);
+            InvokePrivate(window, "DoneEditing_Click", done, new RoutedEventArgs());
+            Assert.Equal(Visibility.Collapsed, done.Visibility);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [WpfFact]
     public void EnterEditMode_KeepsEditToolbarOpen()
     {

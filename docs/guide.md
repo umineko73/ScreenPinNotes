@@ -78,7 +78,7 @@ Normal dragging links expanded and collapsed positions. Use **Align to collapsed
 | `T−` / `T＋` | Title and single-line font size |
 | `Aa` / `🦊` / `🎨` (mini toolbar) | Font / icon / color picker |
 | `↶` / `↷` (editing toolbar) | Undo / redo |
-| Round `✓` | Finish editing; black in light mode, white in dark mode |
+| Round `✓` (bottom right of the note) | Finish editing; black in light mode, white in dark mode. It stays in place while editing, opposite the "Editing" label, even when the toolbar hides |
 
 The mini toolbar appears above context menus and below the note while editing. When there is no room below, such as near the taskbar, the editing toolbar appears above the note and stays within the screen's working area. `🔒`, `⛓️‍💥`, and `⏰` are status indicators.
 
