@@ -5176,6 +5176,50 @@ public class StickyNoteWindowTests
     private static MenuItem FindMenuItem(ContextMenu menu, string header)
         => menu.Items.OfType<MenuItem>().Single(item => (item.Header as string) == header);
 
+    /// <summary>
+    /// 札のアイコンは、画面の画素にちょうど合う大きさで描いてもらい、縮めずに1対1で出す。
+    /// 縮めるとにじんで、文字に比べてアイコンだけが見にくくなる。白い下地の上に載せる。
+    /// </summary>
+    [WpfFact]
+    public void FileChip_DrawsItsIconAtTheExactDisplaySizeOnAWhiteTile()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote { Content = "![report.pdf](assets/report.pdf)", FontSize = 13 };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        File.WriteAllText(System.IO.Path.Combine(assetsDir, "report.pdf"), "pdf");
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            window.Show();
+            InvokePrivate(window, "LoadContent", note.Content);
+            var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            var chip = Assert.Single(EnumerateChips(contentBox.Document));
+
+            var row = Assert.IsType<StackPanel>(chip.Child);
+            var tile = Assert.IsType<Border>(row.Children[0]);
+            var image = Assert.IsType<Image>(tile.Child);
+            var dpi = VisualTreeHelper.GetDpi(window).DpiScaleX;
+            var expectedPixels = (int)Math.Round(Math.Round(13 * 1.7) * dpi);
+
+            // 描いてもらった大きさと、画面に出す大きさが1対1（縮めない）。
+            var bitmap = Assert.IsAssignableFrom<System.Windows.Media.Imaging.BitmapSource>(image.Source);
+            Assert.Equal(expectedPixels, bitmap.PixelWidth);
+            Assert.Equal(expectedPixels, image.Width * dpi, 3);
+            // 白い下地は透けさせる（不透明の白い四角にはしない）。
+            var brush = Assert.IsType<SolidColorBrush>(tile.Background);
+            Assert.Equal(255, brush.Color.R);
+            Assert.InRange(brush.Color.A, 1, 254);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     private static IEnumerable<Border> EnumerateChips(FlowDocument document)
         => document.Blocks.OfType<Paragraph>().SelectMany(paragraph => paragraph.Inlines)
             .OfType<InlineUIContainer>()
