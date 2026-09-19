@@ -41,8 +41,24 @@ namespace ScreenPinNotes.Views;
 /// </remarks>
 public partial class StickyNoteWindow
 {
-    /// <summary>札のアイコンを本文の文字の何倍にするか。16px 相当に見えるあたり。</summary>
-    private const double FileChipIconScale = 1.35;
+    /// <summary>
+    /// 札のアイコンを本文の文字の何倍にするか。文字と並べたときにアイコンだけが
+    /// 見劣りしないよう、行の高さより少し大きめ（13ptの文字で22px）にしている。
+    /// </summary>
+    private const double FileChipIconScale = 1.7;
+
+    /// <summary>
+    /// アイコンの下に敷く白い地。付箋の色や札の灰色に、白い紙の形をした
+    /// アイコン（Word・PDF など）が溶けて輪郭が消えるのを防ぐ。
+    /// </summary>
+    private static readonly SolidColorBrush FileChipIconTileBrush = CreateFrozenBrush(0xB0, 255, 255, 255);
+
+    private static SolidColorBrush CreateFrozenBrush(byte alpha, byte red, byte green, byte blue)
+    {
+        var brush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(alpha, red, green, blue));
+        brush.Freeze();
+        return brush;
+    }
 
     /// <summary>札が指しているもの。札の <see cref="FrameworkElement.Tag"/> に付けておく。</summary>
     private sealed record FileChipTarget(string Path, bool IsFolder);
@@ -78,7 +94,7 @@ public partial class StickyNoteWindow
         {
             Background = ViewModel.FileChipBackground,
             CornerRadius = new CornerRadius(Math.Round(fontSize * 0.35)),
-            Padding = new Thickness(iconSize * 0.2, 0, iconSize * 0.35, 0),
+            Padding = new Thickness(iconSize * 0.2, 1, iconSize * 0.35, 1),
             Cursor = WpfCursors.Hand,
             SnapsToDevicePixels = true,
             Tag = new FileChipTarget(resolved, isFolder),
@@ -102,17 +118,34 @@ public partial class StickyNoteWindow
         var row = new StackPanel { Orientation = WpfOrientation.Horizontal };
         // 元の場所を指しているだけの札には、エクスプローラーのショートカットと
         // 同じ矢印を重ねる。付箋の中のコピーと見分けがつくように。
-        var icon = FileIcons.Get(resolved, isFolder, linkOverlay: !inAssets);
+        // アイコンは画面の画素にちょうど合う大きさで描いてもらう。32pxの絵を縮めて
+        // 使うと、Word の「W」や PDF の文字がにじんで読めなくなる。
+        var dpiScale = VisualTreeHelper.GetDpi(this).DpiScaleX;
+        var iconPixels = (int)Math.Round(iconSize * dpiScale);
+        var icon = FileIcons.GetForDisplay(resolved, isFolder, linkOverlay: !inAssets, iconPixels);
         if (icon != null)
         {
-            row.Children.Add(new WpfImage
+            var image = new WpfImage
             {
                 Source = icon,
-                Width = iconSize,
-                Height = iconSize,
+                // 画素数ちょうど（拡大率で割って DIP に戻す）。1対1で表示して、拡縮させない。
+                Width = iconPixels / dpiScale,
+                Height = iconPixels / dpiScale,
+                SnapsToDevicePixels = true,
+            };
+            // 代用の絵（実物が無いとき）は縮めることがあるので、そのときも滑らかに。
+            RenderOptions.SetBitmapScalingMode(image, BitmapScalingMode.HighQuality);
+
+            row.Children.Add(new Border
+            {
+                Background = FileChipIconTileBrush,
+                CornerRadius = new CornerRadius(Math.Round(iconSize * 0.18)),
+                Padding = new Thickness(2),
                 Margin = new Thickness(0, 0, iconSize * 0.25, 0),
                 VerticalAlignment = VerticalAlignment.Center,
+                SnapsToDevicePixels = true,
                 Opacity = exists ? 1 : 0.55,
+                Child = image,
             });
         }
         row.Children.Add(label);
