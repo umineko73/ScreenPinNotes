@@ -303,6 +303,7 @@
                      VerticalScrollBarVisibility="Auto"
                      HorizontalScrollBarVisibility="Auto"
                      ScrollViewer.ScrollChanged="Content_ScrollChanged"
+                     SizeChanged="BodyEditBox_SizeChanged"
                      Visibility="Collapsed"
                      GotKeyboardFocus="EditableControl_GotKeyboardFocus"
                      TextChanged="BodyEditBox_TextChanged" PreviewMouseWheel="ContentBox_PreviewMouseWheel"
@@ -513,7 +514,8 @@
                     Focusable="False"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Bottom"
-                    Margin="0,0,6,6"
+                    Width="36" Height="36" FontSize="20"
+                    Margin="0,0,10,10"
                     Style="{StaticResource DoneEditingToolbarButton}"
                     ToolTip="編集を確定"
                     Click="DoneEditing_Click"/>

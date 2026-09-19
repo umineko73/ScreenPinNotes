@@ -2741,6 +2741,110 @@ public class StickyNoteWindowTests
         }
     }
 
+    /// <summary>
+    /// 確定ボタンは角から少し離して、押しやすい大きさにする。
+    /// </summary>
+    [WpfFact]
+    public void DoneEditingButton_IsBigEnoughAndKeptOffTheCorner()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var vm = new StickyNoteViewModel(new StickyNote { Content = "body" }, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            var done = Assert.IsType<Button>(window.FindName("DoneEditingButton"));
+
+            Assert.Equal(36, done.Width);
+            Assert.Equal(36, done.Height);
+            Assert.Equal(10, done.Margin.Right);
+            Assert.Equal(10, done.Margin.Bottom);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>
+    /// 編集中は最終行の下に帯を空け、最終行が確定ボタンや「編集中」の下に
+    /// 隠れないようにする。本文はその帯の上で終わる。
+    /// </summary>
+    [WpfFact]
+    public void BodyEditing_LeavesARoomBelowTheLastLineForTheButtons()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var text = string.Join("\n", Enumerable.Range(1, 60).Select(i => "line " + i));
+        var vm = new StickyNoteViewModel(new StickyNote { Content = text, Height = 260 }, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            window.Show();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            InvokePrivate(window, "EnterEditMode");
+            window.UpdateLayout();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+
+            var editor = Assert.IsType<TextBox>(window.FindName("BodyEditBox"));
+            var done = Assert.IsType<Button>(window.FindName("DoneEditingButton"));
+            var badge = Assert.IsType<Border>(window.FindName("EditingBadge"));
+
+            // いちばん下までスクロールして、最終行を確定ボタンの高さに来るところまで送る。
+            editor.ScrollToEnd();
+            window.UpdateLayout();
+            var lastLine = editor.GetRectFromCharacterIndex(editor.Text.Length);
+            var lastLineBottom = editor.TranslatePoint(lastLine.BottomLeft, window).Y;
+            var buttonTop = done.TranslatePoint(new Point(), window).Y;
+            var badgeTop = badge.TranslatePoint(new Point(), window).Y;
+
+            // 最終行は、確定ボタンと「編集中」のどちらの上端よりも上に収まる。
+            Assert.True(lastLineBottom <= buttonTop, $"last line ends at {lastLineBottom}, button starts at {buttonTop}");
+            Assert.True(lastLineBottom <= badgeTop, $"last line ends at {lastLineBottom}, badge starts at {badgeTop}");
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>
+    /// 小さな付箋では帯のぶん本文の欄が潰れて編集できなくなってしまう。
+    /// 帯を削ってでも、本文には3行ぶんの高さを残す。
+    /// </summary>
+    [WpfFact]
+    public void BodyEditing_ShrinksTheRoomOnATinyNoteInsteadOfCrushingTheText()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var vm = new StickyNoteViewModel(new StickyNote { Content = "text", Height = 125 }, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            window.Show();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            InvokePrivate(window, "EnterEditMode");
+            window.UpdateLayout();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+
+            var editor = Assert.IsType<TextBox>(window.FindName("BodyEditBox"));
+            var viewer = (ScrollViewer)editor.Template.FindName("PART_ContentHost", editor);
+
+            // 帯は満額(50)までは取れないが、まったく無くなるわけでもない。
+            // そのうえで、本文には3行ぶんの高さが残っている。
+            Assert.InRange(editor.Padding.Bottom, 9, 49);
+            Assert.True(viewer.ViewportHeight >= vm.FontSize * 1.5 * 3 - 1,
+                $"text area {viewer.ViewportHeight}pt for a {vm.FontSize}pt font");
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     private static bool IsInside(DependencyObject? node, DependencyObject container)
     {
         for (; node != null; node = LogicalTreeHelper.GetParent(node) ?? VisualTreeHelper.GetParent(node))

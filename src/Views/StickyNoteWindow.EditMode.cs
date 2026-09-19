@@ -488,6 +488,35 @@ public partial class StickyNoteWindow
     /// <summary>XAML で TitleBarOverlay に付けている右余白。</summary>
     private const double TitleBarOverlayRightMargin = 4;
 
+    /// <summary>確定ボタンの直径と、付箋の角からの距離。XAML の Width/Height/Margin と合わせる。</summary>
+    private const double DoneButtonSize = 36;
+    private const double DoneButtonInset = 10;
+
+    /// <summary>
+    /// 編集中、最終行の下に空ける帯。確定ボタンの上端より上で本文が終わるように、
+    /// ボタンの高さと角からの距離に少しの隙間を足した高さにする。
+    /// </summary>
+    private const double EditorBottomReserve = DoneButtonSize + DoneButtonInset + 4;
+
+    private void BodyEditBox_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        UpdateEditorBottomReserve();
+        UpdateTitleBarOverlayOffset();
+    }
+
+    /// <summary>
+    /// 最終行の下に帯を空ける。空けないと、最終行は「編集中」や確定ボタンの
+    /// 下に隠れてクリックしにくい。ただし小さな付箋では帯のぶん本文の欄が潰れて
+    /// 編集できなくなるので、最低でも3行ぶんの高さは本文に残す。
+    /// </summary>
+    private void UpdateEditorBottomReserve()
+    {
+        var keep = ViewModel.FontSize * 1.5 * 3
+                   + ViewModel.NoteTextPadding.Top
+                   + BodyEditBox.BorderThickness.Top * 2;
+        ViewModel.SetEditorBottomReserve(Math.Clamp(BodyEditBox.ActualHeight - keep, 0, EditorBottomReserve));
+    }
+
     /// <summary>
     /// 縦スクロールバーが出ている間は、その幅ぶんオーバーレイを左へ寄せる。
     /// どちらも本文の右上にあるので、そのままだとアイコンがつまみに重なる。
@@ -511,12 +540,14 @@ public partial class StickyNoteWindow
             ? SystemParameters.VerticalScrollBarWidth
             : 0;
 
-        // 確定ボタンも本文の隅にあるので、スクロールバーが出ている間は
-        // 「編集中」と同じくそのぶん内側へ寄せる（つまみに重ならないように）。
+        // 確定ボタンも本文の隅にあるので、スクロールバーが出ている間はそのぶん
+        // 内側へ寄せる（つまみに重ならないように）。空けた帯は本文の領域だけを
+        // 縮めるもので、スクロールバーは付箋の縁に残る。
         var doneMargin = DoneEditingButton.Margin;
-        var doneRight = 6 + barWidth;
-        if (Math.Abs(doneMargin.Bottom - bottom) >= 0.5 || Math.Abs(doneMargin.Right - doneRight) >= 0.5)
-            DoneEditingButton.Margin = new Thickness(doneMargin.Left, doneMargin.Top, doneRight, bottom);
+        var doneBottom = DoneButtonInset + barHeight;
+        var doneRight = DoneButtonInset + barWidth;
+        if (Math.Abs(doneMargin.Bottom - doneBottom) >= 0.5 || Math.Abs(doneMargin.Right - doneRight) >= 0.5)
+            DoneEditingButton.Margin = new Thickness(doneMargin.Left, doneMargin.Top, doneRight, doneBottom);
 
         var margin = TitleBarOverlay.Margin;
         var right = TitleBarOverlayRightMargin + barWidth;
