@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- 絵文字 PNG を焼き直すためだけの道具。アプリ本体からは参照しないので、
+       ScreenPinNotes.sln にも入れていない（入れると通常のビルドと CI の
+       リリースにまで SkiaSharp の 11MB のネイティブ DLL が降ってくる）。
+       使い方は CLAUDE.md の「絵文字アイコン」を参照。 -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>ScreenPinNotes.Tools.EmojiAssets</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" Version="3.119.4-preview.1.1" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="3.119.4-preview.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 焼く絵文字の一覧（EmojiRenderer.BakedGlyphs）とファイル名の付け方
+         （EmojiRenderer.AssetKey）をアプリ本体と共有するための参照。 -->
+    <ProjectReference Include="..\..\src\ScreenPinNotes.csproj" />
+  </ItemGroup>
+</Project>

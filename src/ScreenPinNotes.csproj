@@ -27,8 +27,10 @@
          タスクトレイから読めるよう WPF リソースとしても持たせる -->
     <Resource Include="app.ico" />
     <Resource Include="app-dark.ico" />
-    <PackageReference Include="SkiaSharp" Version="3.119.4-preview.1.1" />
-    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="3.119.4-preview.1.1" />
+    <!-- アイコン用の絵文字を焼いた PNG。WPF はカラーフォントを描けないので
+         画像として持つ（Services\EmojiRenderer.cs）。焼き直しは
+         tools\EmojiAssets。埋め込みリソースなので exe 1つで完結する。 -->
+    <EmbeddedResource Include="Resources\Emoji\*.png" />
     <PackageReference Include="YamlDotNet" Version="18.1.0" />
   </ItemGroup>
 

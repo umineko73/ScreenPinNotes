@@ -30,7 +30,6 @@ using System.Windows.Shell;
 using ScreenPinNotes.Models;
 using ScreenPinNotes.Services;
 using ScreenPinNotes.ViewModels;
-using SkiaSharp;
 using WpfBrushes     = System.Windows.Media.Brushes;
 using WpfButton      = System.Windows.Controls.Button;
 using WpfBitmapImage = System.Windows.Media.Imaging.BitmapImage;
@@ -537,7 +536,7 @@ public partial class StickyNoteWindow : Window
     }
 
     // WPFはSegoe UI Emojiのカラーフォントを直接描画できないため、
-    // SkiaSharpで一度PNGへ描画してImageとして表示する。
+    // あらかじめPNGに焼いた絵文字をImageとして表示する。
     private void UpdateIconImage()
     {
         IconImage.Source = RenderEmoji(ViewModel.Icon);
@@ -547,7 +546,7 @@ public partial class StickyNoteWindow : Window
     }
 
     // 絵文字の画像化は設定画面とも共有する。実装は Services/EmojiRenderer.cs。
-    private static WpfBitmapImage? RenderEmoji(string icon)
+    private static ImageSource? RenderEmoji(string icon)
         => EmojiRenderer.Render(icon, App.Current.Settings.MonochromeIcons);
 
     // ─── ウィンドウイベント ──────────────────────────────────────

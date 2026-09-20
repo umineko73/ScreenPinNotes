@@ -58,8 +58,35 @@ public class EmojiRendererTests
         Assert.Same(mono, EmojiRenderer.Render("🦊", monochrome: true));
     }
 
+    // パレットの絵文字は PNG が焼いてあること。焼き忘れると色が出ず白黒になるので、
+    // アイコンを足したら tools/EmojiAssets を流し直す必要がある。
+    [Fact]
+    public void BakedGlyphs_AllHaveAnImage()
+    {
+        var missing = EmojiRenderer.BakedGlyphs.Where(glyph => !EmojiRenderer.HasBakedImage(glyph)).ToArray();
+
+        Assert.True(missing.Length == 0,
+            $"PNG が無い絵文字: {string.Join(" ", missing)} — dotnet run --project tools/EmojiAssets で焼き直す");
+    }
+
+    // settings.json の IconPalette に手で足した絵文字など、焼いていないものは
+    // WPF のフォント描画に落とす。色は出ないが形は出る。
+    [WpfFact]
+    public void Render_GlyphWithoutAnImage_FallsBackToTheFont()
+    {
+        const string NotInPalette = "🥝";
+        Assert.False(EmojiRenderer.HasBakedImage(NotInPalette), "この絵文字はパレットに入っていない前提");
+
+        var rendered = Assert.IsAssignableFrom<BitmapSource>(EmojiRenderer.Render(NotInPalette));
+        var average = AveragePixel(rendered);
+
+        Assert.True(average.A > 0, "the emoji did not render");
+        Assert.InRange(Math.Abs(average.R - average.G), 0, 2);
+        Assert.InRange(Math.Abs(average.G - average.B), 0, 2);
+    }
+
     // 不透明度で重みを付けた平均色。背景の透明部分に薄められないようにする。
-    private static (double A, double R, double G, double B) AveragePixel(BitmapImage image)
+    private static (double A, double R, double G, double B) AveragePixel(BitmapSource image)
     {
         var converted = new FormatConvertedBitmap(image, System.Windows.Media.PixelFormats.Bgra32, null, 0);
         var stride = converted.PixelWidth * 4;
