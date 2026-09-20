@@ -663,7 +663,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     private WpfBrush EndOfTextShade()
     {
         var shade = new System.Windows.Media.SolidColorBrush(
-            System.Windows.Media.Color.FromArgb(UsesDarkNoteColors ? (byte)0x2E : (byte)0x0A, 0, 0, 0));
+            System.Windows.Media.Color.FromArgb(UsesDarkNoteColors ? (byte)0x31 : (byte)0x0A, 0, 0, 0));
         shade.Freeze();
         return shade;
     }
