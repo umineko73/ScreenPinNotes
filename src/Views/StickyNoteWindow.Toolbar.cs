@@ -134,6 +134,8 @@ public partial class StickyNoteWindow
         RequestSave();
         ShowSizeOverlay(string.Format(LocalizationService.T("BodySize"), ViewModel.FontSize));
         UpdateToolbarTooltips();
+        // 行の高さが変わるので、本文の終わりを示す帯も位置を取り直す。
+        QueueEndOfTextShadeUpdate();
     }
 
     private void TitleSmaller_Click(object sender, RoutedEventArgs e)

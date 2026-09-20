@@ -17,6 +17,7 @@
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
+using ScreenPinNotes.Services;
 using ScreenPinNotes.Views;
 
 namespace ScreenPinNotes.Tests;
@@ -260,22 +261,77 @@ public class ReminderDialogTests
             typeof(ReminderDialog).GetMethod("Accept", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(dialog, null);
             Assert.False(string.IsNullOrEmpty(Field<TextBlock>("_errorText").Text));
             Assert.False(dialog.Result.Accepted);
-            if (Environment.GetEnvironmentVariable("SCREENPINNOTES_REMINDER_PREVIEW") is { Length: > 0 } folder)
-            {
-                System.IO.Directory.CreateDirectory(folder);
-                var root = (FrameworkElement)dialog.Content;
-                dialog.UpdateLayout();
-                root.Measure(new Size(460, double.PositiveInfinity));
-                root.Arrange(new Rect(root.DesiredSize));
-                root.UpdateLayout();
-                var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap((int)root.ActualWidth, (int)root.ActualHeight, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
-                bitmap.Render(root);
-                var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
-                encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
-                using var stream = System.IO.File.Create(System.IO.Path.Combine(folder, theme + ".png"));
-                encoder.Save(stream);
-            }
+            SavePreview(dialog, theme);
         }
         finally { dialog.Close(); app.Settings.Theme = original; }
+    }
+
+    // 開いた瞬間に ON / OFF が読めること。日時の欄には初期値が入るので、
+    // 欄の中身だけでは設定済みかどうか分からない。
+    [WpfTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void CurrentSettingBannerTellsWhetherTheReminderIsOn(bool hasReminder)
+    {
+        WpfApplicationFixture.Ensure();
+        var language = App.Current.Settings.Language;
+        var current = hasReminder
+            ? new ScreenPinNotes.Models.ReminderSettings
+            {
+                NextAt = new DateTime(2030, 5, 1, 9, 30, 0),
+                Recurrence = "None",
+                WindowsNotification = true,
+                ShowAlert = false,
+                FlashNote = true,
+            }
+            : null;
+        var dialog = (ReminderDialog)Activator.CreateInstance(
+            typeof(ReminderDialog),
+            BindingFlags.Instance | BindingFlags.NonPublic,
+            null,
+            [current?.NextAt, current],
+            null)!;
+        try
+        {
+            var texts = Texts((DependencyObject)dialog.Content).ToList();
+
+            Assert.Contains(LocalizationService.T("ReminderStatusCurrent", language), texts);
+            Assert.Contains(ReminderDialog.StatusHeading(current, language), texts);
+            Assert.Contains(ReminderDialog.StatusDetail(current, language), texts);
+            SavePreview(dialog, hasReminder ? "status-on" : "status-off");
+        }
+        finally { dialog.Close(); }
+    }
+
+    /// <summary>
+    /// SCREENPINNOTES_REMINDER_PREVIEW にフォルダーを指定して実行すると、
+    /// 設定画面の見た目を PNG に書き出す。配色や余白は目で見ないと分からない。
+    /// </summary>
+    private static void SavePreview(ReminderDialog dialog, string name)
+    {
+        if (Environment.GetEnvironmentVariable("SCREENPINNOTES_REMINDER_PREVIEW") is not { Length: > 0 } folder)
+            return;
+
+        System.IO.Directory.CreateDirectory(folder);
+        var root = (FrameworkElement)dialog.Content;
+        dialog.UpdateLayout();
+        root.Measure(new Size(460, double.PositiveInfinity));
+        root.Arrange(new Rect(root.DesiredSize));
+        root.UpdateLayout();
+        var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(
+            (int)root.ActualWidth, (int)root.ActualHeight, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+        bitmap.Render(root);
+        var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+        encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+        using var stream = System.IO.File.Create(System.IO.Path.Combine(folder, name + ".png"));
+        encoder.Save(stream);
+    }
+
+    private static IEnumerable<string> Texts(DependencyObject root)
+    {
+        if (root is TextBlock text) yield return text.Text;
+        foreach (var child in LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>())
+            foreach (var found in Texts(child))
+                yield return found;
     }
 }

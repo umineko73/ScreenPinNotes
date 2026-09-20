@@ -201,6 +201,8 @@ public partial class StickyNoteWindow : Window
                 FitFoldedWidth();
             if (e.PropertyName is nameof(StickyNoteViewModel.IsReadOnly) or null)
                 ApplyReadOnlyState();
+            if (e.PropertyName is nameof(StickyNoteViewModel.ReminderTooltip) or null)
+                RefreshContentBoxTooltip();
         };
         UpdateIconImage();
 
@@ -481,10 +483,28 @@ public partial class StickyNoteWindow : Window
         UpdateToolbarTooltips();
     }
 
+    /// <summary>
+    /// 本文のツールチップ。リマインダーを設定してあるときは、その内容を先に出す。
+    /// 付箋のどこをホバーしても設定を読めるようにするためで、本文そのものの案内
+    /// （ダブルクリックで編集）はその後ろに続ける。
+    /// </summary>
     private string GetContentBoxTooltip()
-        => IsContentReadOnly()
+    {
+        var hint = IsContentReadOnly()
             ? LocalizationService.T("EditLockBodyTooltip")
             : LocalizationService.T("EditBodyTooltip");
+        return ViewModel.ReminderTooltip is string reminder ? reminder + "\n\n" + hint : hint;
+    }
+
+    /// <summary>
+    /// 本文のツールチップを貼り直す。リマインダーを設定・解除したときに、
+    /// 付箋を開き直さなくても内容が変わるようにする。編集中は案内を出さないので触らない。
+    /// </summary>
+    private void RefreshContentBoxTooltip()
+    {
+        if (_isEditMode && BodyEditBox.Visibility == Visibility.Visible) return;
+        ContentBox.ToolTip = GetContentBoxTooltip();
+    }
 
     private void ApplyReadOnlyState()
     {

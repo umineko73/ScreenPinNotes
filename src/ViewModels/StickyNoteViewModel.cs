@@ -167,10 +167,18 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     public Visibility ReminderVisibility =>
         _model.HasReminder ? Visibility.Visible : Visibility.Collapsed;
 
-    public string? ReminderTooltip =>
-        _model.Reminder?.NextAt is DateTime nextAt
-            ? $"{ReminderLabel()}:\n{FormatReminder(nextAt)}"
-            : null;
+    /// <summary>
+    /// リマインダーの設定内容。付箋のどこをホバーしても同じものが出る。
+    /// 設定が無ければ null で、ツールチップ自体が出ない。
+    /// </summary>
+    public string? ReminderTooltip
+    {
+        get
+        {
+            var summary = ReminderSummary.Describe(_model.Reminder, _settings.Language);
+            return summary == null ? null : $"{T("ReminderStatusOn")}\n{summary}";
+        }
+    }
 
     public bool IsTopmost
     {
@@ -246,6 +254,8 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(EditLockVisibility));
         OnPropertyChanged(nameof(TitleIconTooltip));
         OnPropertyChanged(nameof(TitleTooltip));
+        // 言語が変わるとリマインダーの読み方も変わる。
+        OnPropertyChanged(nameof(ReminderTooltip));
         OnPropertyChanged(nameof(TitleBarDisplayText));
     }
 
@@ -639,6 +649,24 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         private set { _fileChipBackground = value; OnPropertyChanged(); }
     }
 
+    // 編集中、本文の終わりから下を少しだけ濃くする色。付箋の色は自由に選べるので、
+    // 決め打ちの灰色ではなく黒をごく薄く重ねる。暗い配色では同じ濃さだと差が出ないので
+    // 濃いめにする。
+    private WpfBrush _endOfTextShadeBrush = WpfBrushes.Transparent;
+    public WpfBrush EndOfTextShadeBrush
+    {
+        get => _endOfTextShadeBrush;
+        private set { _endOfTextShadeBrush = value; OnPropertyChanged(); }
+    }
+
+    private WpfBrush EndOfTextShade()
+    {
+        var shade = new System.Windows.Media.SolidColorBrush(
+            System.Windows.Media.Color.FromArgb(UsesDarkNoteColors ? (byte)0x2E : (byte)0x14, 0, 0, 0));
+        shade.Freeze();
+        return shade;
+    }
+
     private static WpfBrush Fade(WpfBrush source, byte alpha)
     {
         if (source is not System.Windows.Media.SolidColorBrush solid)
@@ -681,6 +709,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         TitleBarForeground = appearance.TitleBarForeground;
         TextForeground = appearance.TextForeground;
         NoteBorderBrush = appearance.NoteBorderBrush;
+        EndOfTextShadeBrush = EndOfTextShade();
         ScrollThumbBrush = Fade(appearance.TextForeground, 0x4D);
         ScrollThumbHoverBrush = Fade(appearance.TextForeground, 0x99);
         FileChipBackground = Fade(appearance.TextForeground, 0x1F);
@@ -691,19 +720,11 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     private string T(string key)
         => LocalizationService.T(key, _settings.Language);
 
-    private string ReminderLabel()
-        => LocalizationService.T("ReminderDialogTitle", _settings.Language);
-
     private string TailModeLabel()
         => LocalizationService.T("ExternalTailMode", _settings.Language);
 
     private string TailModeLineCountFormat()
         => LocalizationService.T("ExternalTailModeLineCount", _settings.Language);
-
-    private string FormatReminder(DateTime nextAt)
-    {
-        return nextAt.ToString("yyyy/MM/dd HH:mm", System.Globalization.CultureInfo.GetCultureInfo(_settings.Language));
-    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
     protected void OnPropertyChanged([CallerMemberName] string? name = null)

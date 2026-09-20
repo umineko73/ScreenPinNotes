@@ -828,4 +828,17 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="ImportConflictOverwrite" xml:space="preserve"><value>Overwrite</value></data>
   <data name="ImportConflictRename" xml:space="preserve"><value>Rename (keep both)</value></data>
   <data name="ImportConflictSkip" xml:space="preserve"><value>Do not import</value></data>
+  <data name="ReminderStatusCurrent" xml:space="preserve"><value>Current setting</value></data>
+  <data name="ReminderStatusOn" xml:space="preserve"><value>Reminder: ON</value></data>
+  <data name="ReminderStatusOff" xml:space="preserve"><value>Reminder: OFF</value></data>
+  <data name="ReminderStatusOffHint" xml:space="preserve"><value>No reminder is set for this note yet.</value></data>
+  <data name="ReminderSummaryNext" xml:space="preserve"><value>Next</value></data>
+  <data name="ReminderSummaryRepeat" xml:space="preserve"><value>Repeat</value></data>
+  <data name="ReminderSummaryNotify" xml:space="preserve"><value>Notify</value></data>
+  <data name="ReminderSummarySeparator" xml:space="preserve"><value>, </value></data>
+  <data name="ReminderSummaryWeeksFormat" xml:space="preserve"><value> ({0})</value></data>
+  <data name="ReminderSummaryMonthDay" xml:space="preserve"><value>day {0}</value></data>
+  <data name="ReminderMethodNotification" xml:space="preserve"><value>Windows notification</value></data>
+  <data name="ReminderMethodAlert" xml:space="preserve"><value>Alert window</value></data>
+  <data name="ReminderMethodFlash" xml:space="preserve"><value>Flash the note</value></data>
 </root>

@@ -828,4 +828,17 @@
   <data name="ImportConflictOverwrite" xml:space="preserve"><value>上書きする</value></data>
   <data name="ImportConflictRename" xml:space="preserve"><value>名前を変える（別名で追加）</value></data>
   <data name="ImportConflictSkip" xml:space="preserve"><value>インポートしない</value></data>
+  <data name="ReminderStatusCurrent" xml:space="preserve"><value>現在の設定</value></data>
+  <data name="ReminderStatusOn" xml:space="preserve"><value>リマインダー: ON</value></data>
+  <data name="ReminderStatusOff" xml:space="preserve"><value>リマインダー: OFF</value></data>
+  <data name="ReminderStatusOffHint" xml:space="preserve"><value>この付箋にはリマインダーが設定されていません。</value></data>
+  <data name="ReminderSummaryNext" xml:space="preserve"><value>次回</value></data>
+  <data name="ReminderSummaryRepeat" xml:space="preserve"><value>繰り返し</value></data>
+  <data name="ReminderSummaryNotify" xml:space="preserve"><value>通知</value></data>
+  <data name="ReminderSummarySeparator" xml:space="preserve"><value>・</value></data>
+  <data name="ReminderSummaryWeeksFormat" xml:space="preserve"><value>（{0}）</value></data>
+  <data name="ReminderSummaryMonthDay" xml:space="preserve"><value>{0}日</value></data>
+  <data name="ReminderMethodNotification" xml:space="preserve"><value>Windowsの通知</value></data>
+  <data name="ReminderMethodAlert" xml:space="preserve"><value>通知ウィンドウ</value></data>
+  <data name="ReminderMethodFlash" xml:space="preserve"><value>付箋を点滅</value></data>
 </root>

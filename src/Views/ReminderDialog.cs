@@ -33,6 +33,9 @@ public sealed class ReminderDialog : Window
     private readonly System.Windows.Controls.CheckBox _alert = new();
     private readonly System.Windows.Controls.CheckBox _flash = new();
     private ReminderSettings? _resultSettings;
+    // 開いた時点で保存されている設定。画面の上に「現在の設定」として出すためだけに持つ。
+    private readonly ReminderSettings? _current;
+    private readonly bool _dark;
 
     public ReminderDialog(DateTime? currentAt) : this(currentAt, null) { }
 
@@ -59,7 +62,9 @@ public sealed class ReminderDialog : Window
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         FontFamily = new System.Windows.Media.FontFamily("Yu Gothic UI");
         FontSize = 13;
+        _current = current;
         var dark = string.Equals(App.Current.Settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase);
+        _dark = dark;
         ControlTheme.Apply(this, dark);
         System.Windows.Media.Brush Color(string value) => new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(value));
         Background = Color(dark ? "#202020" : "#FFFFFF");
@@ -159,6 +164,8 @@ public sealed class ReminderDialog : Window
         var root = new StackPanel();
         root.Children.Add(new TextBlock { Text = Title, FontSize = 22, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 16) });
 
+        root.Children.Add(BuildStatusBanner());
+
         root.Children.Add(new TextBlock
         {
             Text = LocalizationService.T("ReminderDialogDescription"),
@@ -256,6 +263,60 @@ public sealed class ReminderDialog : Window
         };
         return new Border { Padding = new Thickness(24), Background = Background, Child = root };
     }
+
+    /// <summary>
+    /// いまこの付箋に設定されているリマインダー。日時の欄には「いま + 15分」など
+    /// 初期値が入っているので、それだけでは設定済みかどうか分からない。
+    /// 開いた瞬間に ON / OFF が読めるように、画面の一番上に出す。
+    /// </summary>
+    private UIElement BuildStatusBanner()
+    {
+        var on = _current?.NextAt != null;
+        var accent = on
+            ? (_dark ? "#81C784" : "#2E7D32")   // 設定あり：緑
+            : (_dark ? "#9E9E9E" : "#757575");  // 設定なし：灰
+        System.Windows.Media.Brush Color(string value)
+            => new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(value));
+
+        var panel = new StackPanel();
+        panel.Children.Add(new TextBlock
+        {
+            Text = LocalizationService.T("ReminderStatusCurrent"),
+            FontSize = 11,
+            Opacity = 0.75,
+            Margin = new Thickness(0, 0, 0, 2),
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = StatusHeading(_current, App.Current.Settings.Language),
+            FontWeight = FontWeights.SemiBold,
+            Foreground = Color(accent),
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = StatusDetail(_current, App.Current.Settings.Language),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 4, 0, 0),
+        });
+
+        return new Border
+        {
+            BorderBrush = Color(accent),
+            BorderThickness = new Thickness(4, 0, 0, 0),
+            Background = Color(_dark ? "#2A2A2A" : "#F5F5F5"),
+            Padding = new Thickness(12, 8, 12, 10),
+            Margin = new Thickness(0, 0, 0, 16),
+            Child = panel,
+        };
+    }
+
+    /// <summary>現在の状態の見出し。ON か OFF かだけを短く出す。</summary>
+    public static string StatusHeading(ReminderSettings? current, string language)
+        => LocalizationService.T(current?.NextAt != null ? "ReminderStatusOn" : "ReminderStatusOff", language);
+
+    /// <summary>見出しの下に出す、いまの設定の中身。設定が無ければその旨を出す。</summary>
+    public static string StatusDetail(ReminderSettings? current, string language)
+        => ReminderSummary.Describe(current, language) ?? LocalizationService.T("ReminderStatusOffHint", language);
 
     private static void AddLabeledInput(Grid grid, int row, string label, System.Windows.Controls.Control box)
     {

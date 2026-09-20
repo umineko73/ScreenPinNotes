@@ -109,6 +109,7 @@ public partial class StickyNoteWindow
             BodyEditBox.Focus();
             Keyboard.Focus(BodyEditBox);
         }
+        QueueEndOfTextShadeUpdate();
     }
 
     private bool IsBodyEditing()
@@ -159,11 +160,12 @@ public partial class StickyNoteWindow
             ApplyEditingSize(true);
             ContentBox.IsReadOnly = true;
             BodyEditBox.Visibility = Visibility.Collapsed;
+            UpdateEndOfTextShade();
             ContentBox.Visibility = Visibility.Visible;
             ContentBox.Cursor = WpfCursors.Arrow;
             ContentBox.BorderThickness = new Thickness(0);
             ContentBox.BorderBrush = WpfBrushes.Transparent;
-            ContentBox.ToolTip = LocalizationService.T("EditBodyTooltip");
+            ContentBox.ToolTip = GetContentBoxTooltip();
         }
 
         TitleText.Visibility    = Visibility.Collapsed;
@@ -204,11 +206,12 @@ public partial class StickyNoteWindow
         LoadContent(ViewModel.Content);
         ContentBox.IsReadOnly = true;
         BodyEditBox.Visibility = Visibility.Collapsed;
+        UpdateEndOfTextShade();
         ApplyFoldedContentPresentation();
         ContentBox.Cursor = WpfCursors.Arrow;
         ContentBox.BorderThickness = new Thickness(0);
         ContentBox.BorderBrush = WpfBrushes.Transparent;
-        ContentBox.ToolTip = LocalizationService.T("EditBodyTooltip");
+        ContentBox.ToolTip = GetContentBoxTooltip();
         TitleText.Visibility    = Visibility.Visible;
         TitleEditBox.Visibility = Visibility.Collapsed;
         ApplyTitleBarVisibility();   // タイトル編集のために出していた場合に戻す
@@ -501,7 +504,49 @@ public partial class StickyNoteWindow
     {
         UpdateEditorBottomReserve();
         UpdateTitleBarOverlayOffset();
+        UpdateEndOfTextShade();
     }
+
+    /// <summary>
+    /// 編集中に、本文の終わりから下を少し濃くして、どこまでが文章かを見せる。
+    /// 最終行の下端は TextBox に教えてもらうので、折り返し・スクロール・字の大きさが
+    /// 変わってもそのまま付いてくる。
+    /// </summary>
+    private void UpdateEndOfTextShade()
+    {
+        var top = IsBodyEditing() ? EndOfTextShadeTop(BodyEditBox) : null;
+        if (top == null)
+        {
+            EndOfTextShade.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        EndOfTextShade.Margin = new Thickness(0, top.Value, 0, 0);
+        EndOfTextShade.Visibility = Visibility.Visible;
+    }
+
+    /// <summary>
+    /// 帯の上端。本文の最終行の下端（BodyEditBox の座標）を返す。本文が下まで
+    /// 埋まっていて空きが無いときは null で、帯を出さない。
+    /// </summary>
+    internal static double? EndOfTextShadeTop(System.Windows.Controls.TextBox box)
+    {
+        if (box.ActualHeight <= 0) return null;
+
+        var end = box.GetRectFromCharacterIndex(box.Text.Length, true);
+        if (end.IsEmpty || double.IsInfinity(end.Bottom) || double.IsNaN(end.Bottom)) return null;
+        if (end.Bottom >= box.ActualHeight) return null;
+        // 本文の終わりより上までスクロールしている間は、見えているところが丸ごと
+        // 本文の外なので上端から塗る。
+        return Math.Max(0, end.Bottom);
+    }
+
+    /// <summary>
+    /// 帯の位置合わせを、いまの入力が片付いてからにする。編集に入った直後や
+    /// 字の大きさを変えた直後は、まだ本文の行が組み上がっていないため。
+    /// </summary>
+    private void QueueEndOfTextShadeUpdate()
+        => Dispatcher.BeginInvoke(new Action(UpdateEndOfTextShade), System.Windows.Threading.DispatcherPriority.Background);
 
     /// <summary>
     /// 最終行の下に帯を空ける。空けないと、最終行は「編集中」や確定ボタンの
@@ -561,7 +606,10 @@ public partial class StickyNoteWindow
     /// そのたびにオーバーレイの位置を合わせ直す。
     /// </summary>
     private void Content_ScrollChanged(object sender, ScrollChangedEventArgs e)
-        => UpdateTitleBarOverlayOffset();
+    {
+        UpdateTitleBarOverlayOffset();
+        UpdateEndOfTextShade();
+    }
 
     private void KeepInsideWorkArea(double targetWidth, double targetHeight)
     {
@@ -918,6 +966,7 @@ public partial class StickyNoteWindow
 
         if (!TrySetNoteContent(BodyEditBox.Text))
             RevertBodyEditBoxToCurrentContent();
+        UpdateEndOfTextShade();
     }
 
     private bool TrySetNoteContent(string text)

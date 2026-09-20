@@ -20,6 +20,7 @@ Title bar visibility and collapse/expand are independent settings.
 - Image-only notes show their image path in single-line mode. Narrow notes retain the end, such as `…/photos/image.png`.
 - An empty title falls back to the body. A title you enter takes priority.
 - Editing shows Markdown source and an *Editing* label. The label moves above the horizontal scrollbar when it appears. Edit width and height are remembered separately from view mode.
+- While editing, the area below the last line is shaded slightly darker so you can see where the text ends. Text that fills the box leaves nothing to shade.
 - Expanding a note temporarily brings it above pinned notes while you work with it. Switching to another window or collapsing the note ends this temporary raise without changing its pin setting.
 
 ## Mouse actions
@@ -73,7 +74,7 @@ Normal dragging links expanded and collapsed positions. Use **Align to collapsed
 | `🔗` | Linked to an external file |
 | `🔒` | Editing is locked |
 | `⛓️‍💥` | Expanded and collapsed positions are separate |
-| `⏰` | Reminder set; hover for its next time |
+| `⏰` | Reminder set; hover anywhere on the note for its next time, repeat, and how it notifies |
 | `A−` / `A＋` | Body font size |
 | `T−` / `T＋` | Title and single-line font size |
 | `Aa` / `🦊` / `🎨` (mini toolbar) | Font / icon / color picker |
@@ -145,7 +146,7 @@ Open **Note list** from the tray. Columns show layer order, pin status, visibili
 
 ![The reminder editor](reminder-en.png)
 
-Configure a reminder from a note's context menu or the **Note list**. Choose a date from the calendar. The editor appears above pinned notes.
+Configure a reminder from a note's context menu or the **Note list**. Choose a date from the calendar. The editor appears above pinned notes. **Current setting** at the top of the editor states whether the note has a reminder right now, and when it does, its next time, repeat, and how it notifies - the date and time fields start filled in, so they alone do not tell you.
 
 **+5 min, +10 min, +1 hour** add to the date and time currently entered, including repeated clicks and crossing midnight. Use **Reset to now** then **+10 min** for ten minutes from now. **Set minutes to 00** keeps the date and hour. Choose a future time before saving.
 
