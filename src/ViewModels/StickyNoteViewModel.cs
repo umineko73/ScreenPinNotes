@@ -650,8 +650,9 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     }
 
     // 編集中、本文の終わりから下を少しだけ濃くする色。付箋の色は自由に選べるので、
-    // 決め打ちの灰色ではなく黒をごく薄く重ねる。暗い配色では同じ濃さだと差が出ないので
-    // 濃いめにする。
+    // 決め打ちの灰色ではなく黒をごく薄く重ねる。明るい配色では 0x14 だとクリーム色が
+    // 灰色がかって見えるほど差が付いたので、その半分以下に留める。暗い配色は
+    // 同じ濃さでは差が出ないので濃いめにする。
     private WpfBrush _endOfTextShadeBrush = WpfBrushes.Transparent;
     public WpfBrush EndOfTextShadeBrush
     {
@@ -662,7 +663,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     private WpfBrush EndOfTextShade()
     {
         var shade = new System.Windows.Media.SolidColorBrush(
-            System.Windows.Media.Color.FromArgb(UsesDarkNoteColors ? (byte)0x2E : (byte)0x14, 0, 0, 0));
+            System.Windows.Media.Color.FromArgb(UsesDarkNoteColors ? (byte)0x2E : (byte)0x0A, 0, 0, 0));
         shade.Freeze();
         return shade;
     }
