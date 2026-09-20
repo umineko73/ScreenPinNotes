@@ -30,7 +30,6 @@ using System.Windows.Shell;
 using ScreenPinNotes.Models;
 using ScreenPinNotes.Services;
 using ScreenPinNotes.ViewModels;
-using SkiaSharp;
 using WpfBrushes     = System.Windows.Media.Brushes;
 using WpfButton      = System.Windows.Controls.Button;
 using WpfBitmapImage = System.Windows.Media.Imaging.BitmapImage;
