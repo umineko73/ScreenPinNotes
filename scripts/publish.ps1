@@ -21,11 +21,10 @@
 .DESCRIPTION
     artifacts/ に以下を出力します。
 
-      ScreenPinNotes-<version>-win-x64.zip            自己完結型（約68MB）
-      ScreenPinNotes-<version>-win-x64-runtime.zip    ランタイム必須（約11MB）
+      ScreenPinNotes-<version>-win-x64.zip            自己完結型（約63MB）
+      ScreenPinNotes-<version>-win-x64-runtime.zip    ランタイム必須（約0.6MB）
 
-    それぞれの zip の中身は publish 出力一式（ScreenPinNotes.exe、
-    ネイティブ DLL など）と、初回起動時に
+    それぞれの zip の中身は ScreenPinNotes.exe 1つと、初回起動時に
     サンプル付箋としてコピーされる SampleNotes\ フォルダです
     （SampleNoteFactory.cs 参照）。展開してそのまま使えるように、
     あらかじめ同じフォルダにまとめてあります。
