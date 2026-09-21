@@ -72,7 +72,7 @@ public partial class StickyNoteWindow
                 BorderThickness = new Thickness(1),
                 BorderBrush     = header,   // 枠線でヘッダー色も判るようにする
                 Foreground      = preview.TextForeground,   // 配色に合わせてチェックのコントラストを確保
-                FontWeight      = FontWeights.Bold,
+                FontFamily      = UiIcons.Font,
                 FontSize        = 13,
                 Tag             = key,
                 ToolTip         = key,
@@ -141,7 +141,7 @@ public partial class StickyNoteWindow
                 Content    = isNone
                     ? new TextBlock
                     {
-                        Text = "✕", FontSize = 11, Foreground = WpfBrushes.Gray,
+                        Text = UiIcons.Cancel, FontFamily = UiIcons.Font, FontSize = 11, Foreground = WpfBrushes.Gray,
                         HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
                         VerticalAlignment = System.Windows.VerticalAlignment.Center,
                     }
@@ -219,18 +219,21 @@ public partial class StickyNoteWindow
     // メニューと同じ Popup 内に置き、マウスキャプチャを共有する。
     private Border BuildQuickActionsRow(out WpfButton iconButton)
     {
-        WpfButton MakeButton(string content, string tooltip, Action onClick)
+        WpfButton MakeButton(string content, string tooltip, Action onClick, bool icon = false)
         {
             var btn = new WpfButton
             {
-                Content = content is IconPickerGlyph or "🎨"
-                    ? new WpfImage { Source = RenderEmoji(content), Width = 20, Height = 20 }
-                    : content,
+                Content = content,
                 Style = (Style)FindResource("EditToolbarButton"),
                 Foreground = PopupForegroundBrush(),
                 ToolTip = tooltip,
                 Focusable = false,
             };
+            if (icon)
+            {
+                btn.FontFamily = UiIcons.Font;
+                btn.FontSize = 16;
+            }
             btn.Click += (_, e) => { onClick(); e.Handled = true; };
             return btn;
         }
@@ -264,11 +267,11 @@ public partial class StickyNoteWindow
                 _fontPopup.Placement = PlacementMode.MousePoint;
                 _fontPopup.IsOpen = true;
             })));
-        iconButton = MakeButton(IconPickerGlyph, LocalizationService.T("IconTooltip"),
-            () => RunQuickAction(OpenIconPickerAtMouse));
+        iconButton = MakeButton(UiIcons.Emoji, LocalizationService.T("IconTooltip"),
+            () => RunQuickAction(OpenIconPickerAtMouse), icon: true);
         panel.Children.Add(iconButton);
-        panel.Children.Add(MakeButton("🎨", LocalizationService.T("ColorTooltip"),
-            () => RunQuickAction(OpenColorPickerAtMouse)));
+        panel.Children.Add(MakeButton(UiIcons.Palette, LocalizationService.T("ColorTooltip"),
+            () => RunQuickAction(OpenColorPickerAtMouse), icon: true));
 
         // Keep live sizes in the menu's own window so they cannot hide behind it.
         var sizes = new TextBlock

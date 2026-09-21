@@ -298,7 +298,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         }
     }
 
-    public string FoldIcon => IsFolded ? "⮟" : "⮝";
+    public string FoldIcon => IsFolded ? UiIcons.ChevronDown : UiIcons.ChevronUp;
 
     public bool IsTitleBarHidden
     {
