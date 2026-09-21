@@ -430,7 +430,10 @@
     <value>すべて選択</value>
   </data>
   <data name="OpenLink" xml:space="preserve">
-    <value>リンクを開く</value>
+    <value>リンクに移動</value>
+  </data>
+  <data name="CopyLink" xml:space="preserve">
+    <value>リンクをコピー</value>
   </data>
   <data name="ConvertLink" xml:space="preserve">
     <value>Markdownリンクに変換</value>

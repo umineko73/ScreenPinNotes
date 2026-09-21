@@ -699,6 +699,7 @@ public partial class StickyNoteWindow
         // 本文がスクロールしないときはここで抜けるので、先に拾っておく。
         CaptureContextMenuImage(e.OriginalSource);
         CaptureContextMenuFileChip(e.OriginalSource);
+        CaptureContextMenuLink(e.OriginalSource, e.GetPosition(ContentBox));
 
         var scrollViewer = FindVisualChild<ScrollViewer>(ContentBox);
         if (scrollViewer == null ||

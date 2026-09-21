@@ -75,7 +75,9 @@ public partial class StickyNoteWindow
 
     private ContextMenu BuildContentContextMenu()
     {
-        _openLinkItem    = new MenuItem { Header = LocalizationService.T("OpenLink"), IsEnabled = false };
+        _openLinkItem    = new MenuItem { Header = LocalizationService.T("OpenLink"), Visibility = Visibility.Collapsed };
+        _copyLinkItem    = new MenuItem { Header = LocalizationService.T("CopyLink"), Visibility = Visibility.Collapsed };
+        _linkMenuSeparator = new Separator { Visibility = Visibility.Collapsed };
         _convertLinkItem = new MenuItem { Header = LocalizationService.T("ConvertLink"), IsEnabled = false };
         _pasteMarkdownLinkItem = new MenuItem { Header = LocalizationService.T("PasteMarkdownLink"), IsEnabled = false };
         _pasteExcelTableItem = BuildPasteExcelTableMenuItem();
@@ -88,6 +90,7 @@ public partial class StickyNoteWindow
         var reminderItem = BuildReminderMenuItem();
         var deleteItem = new MenuItem { Header = LocalizationService.T("Delete") };
         _openLinkItem.Click    += OpenLink_Click;
+        _copyLinkItem.Click    += CopyLink_Click;
         _convertLinkItem.Click += ConvertLink_Click;
         _pasteMarkdownLinkItem.Click += PasteMarkdownLink_Click;
         _copyExcelTableItem.Click += CopyExcelTable_Click;
@@ -104,6 +107,9 @@ public partial class StickyNoteWindow
             cm.Items.Add(chipItem);
         foreach (var imageItem in BuildImageMenuItems())
             cm.Items.Add(imageItem);
+        cm.Items.Add(_openLinkItem);
+        cm.Items.Add(_copyLinkItem);
+        cm.Items.Add(_linkMenuSeparator);
         cm.Items.Add(cutItem);
         cm.Items.Add(new MenuItem { Header = LocalizationService.T("Copy"), Command = ApplicationCommands.Copy, CommandTarget = ContentBox });
         cm.Items.Add(pasteItem);
@@ -118,7 +124,6 @@ public partial class StickyNoteWindow
         cm.Items.Add(_fitWindowToImagesSeparator);
         cm.Items.Add(_fitWindowToImagesItem);
         cm.Items.Add(new Separator());
-        cm.Items.Add(_openLinkItem);
         cm.Items.Add(_convertLinkItem);
         cm.Items.Add(new Separator());
         // タイトルバーを隠しているとタイトル右クリックに届かないので、
@@ -665,8 +670,7 @@ public partial class StickyNoteWindow
         UpdateImageMenuItems(fromKeyboard: e.CursorLeft < 0);
         UpdateFileChipMenuItems(fromKeyboard: e.CursorLeft < 0);
 
-        _contextMenuLink = GetHyperlinkAtCaret();
-        _openLinkItem.IsEnabled = _contextMenuLink != null;
+        UpdateLinkMenuItems(fromKeyboard: e.CursorLeft < 0);
 
         var sel = ContentBox.Selection.IsEmpty ? "" : ContentBox.Selection.Text.Trim();
         var hasClipboardLink = TryGetClipboardText(out var clipboardText) &&
@@ -705,20 +709,44 @@ public partial class StickyNoteWindow
         return pasteItem;
     }
 
-    private Hyperlink? GetHyperlinkAtCaret()
+    /// <summary>
+    /// 右クリックがどのリンクに当たったかを覚える。閲覧中の本文は読み取り専用で、
+    /// 右クリックしてもキャレットが動かないので、キャレット位置では探せない。
+    /// 画像や札と同じく、押された要素か押された位置から拾っておく。
+    /// </summary>
+    private void CaptureContextMenuLink(object? originalSource, System.Windows.Point? point)
+        => _contextMenuLinkTarget = FindHyperlinkTarget(originalSource as TextElement)
+            ?? (point is { } pt ? GetHyperlinkAt(pt) : null);
+
+    /// <summary>リンクの上で開いたときだけ、リンク用の項目を先頭に出す。</summary>
+    private void UpdateLinkMenuItems(bool fromKeyboard)
     {
-        var el = ContentBox.CaretPosition.Parent as TextElement;
-        while (el != null)
+        // キーボードから開いたときはマウスの位置ではなくキャレットの位置のリンクを見る。
+        if (fromKeyboard)
+            _contextMenuLinkTarget = FindHyperlinkTarget(ContentBox.CaretPosition.Parent as TextElement);
+        var visibility = _contextMenuLinkTarget == null ? Visibility.Collapsed : Visibility.Visible;
+        _openLinkItem.Visibility = visibility;
+        _copyLinkItem.Visibility = visibility;
+        _linkMenuSeparator.Visibility = visibility;
+    }
+
+    private static string? FindHyperlinkTarget(TextElement? element)
+    {
+        for (var el = element; el != null; el = el.Parent as TextElement)
         {
-            if (el is Hyperlink h) return h;
-            el = el.Parent as TextElement;
+            if (el is Hyperlink { Tag: string target }) return target;
         }
         return null;
     }
 
     private void OpenLink_Click(object sender, RoutedEventArgs e)
     {
-        if (_contextMenuLink?.Tag is string t) OpenTarget(t);
+        if (_contextMenuLinkTarget is { } target) OpenTarget(target);
+    }
+
+    private void CopyLink_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMenuLinkTarget is { } target) TrySetClipboardText(target);
     }
 
     private void PasteMarkdownLink_Click(object sender, RoutedEventArgs e)
