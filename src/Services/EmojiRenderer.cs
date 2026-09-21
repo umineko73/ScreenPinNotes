@@ -52,13 +52,9 @@ public static class EmojiRenderer
     // 実際に埋まっている名前から引くので、リソース名の綴りに依存しない。
     private static readonly Lazy<Dictionary<string, string>> Assets = new(FindAssets);
 
-    // パレットには無いが UI が出す絵文字。ツールバーの色ボタン。
-    private static readonly string[] ExtraGlyphs = ["🎨"];
-
     /// <summary>PNG を焼いておく絵文字。tools/EmojiAssets はこの一覧を描く。</summary>
     public static IEnumerable<string> BakedGlyphs
         => AppSettings.IconGroups.SelectMany(group => group.Icons)
-            .Concat(ExtraGlyphs)
             .Where(icon => !string.IsNullOrEmpty(icon))
             .Distinct(StringComparer.Ordinal);
 

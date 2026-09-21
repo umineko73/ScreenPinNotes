@@ -3384,7 +3384,7 @@ public class StickyNoteWindowTests
             new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
         try
         {
-            var handle = Assert.IsType<System.Windows.Shapes.Path>(window.FindName("OverlayMoveHandle"));
+            var handle = Assert.IsType<TextBlock>(window.FindName("OverlayMoveHandle"));
             InvokePrivate(window, "UpdateTitleBarButtonsVisibility");
             Assert.Equal(expected, handle.Visibility);
         }
@@ -4681,15 +4681,35 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
-    // アイコンピッカーのボタンに、そのピッカーで選べない絵文字を出していると、
-    // 気に入って探しても見つからない。看板はパレット収録のものに限る。
-    [Fact]
-    public void IconPickerButtonGlyph_IsInTheDefaultPalette()
+    // 操作の目印は絵文字ではなく線画アイコンの字で揃える。絵文字は
+    // 利用者が付箋に選ぶアイコンだけに残す。
+    [WpfFact]
+    public void ToolbarButtons_UseLineIconsInsteadOfEmoji()
     {
-        var glyph = Assert.IsType<string>(typeof(StickyNoteWindow)
-            .GetField("IconPickerGlyph", BindingFlags.Static | BindingFlags.NonPublic)!
-            .GetRawConstantValue());
-        Assert.Contains(glyph, AppSettings.DefaultIconPalette());
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var vm = new StickyNoteViewModel(new StickyNote(), new AppSettings());
+        var window = new StickyNoteWindow(vm, new StorageService(temp.Path));
+        try
+        {
+            Assert.Same(UiIcons.Font, Assert.IsType<Button>(window.FindName("FoldButton")).FontFamily);
+            Assert.Equal(UiIcons.ChevronUp, vm.FoldIcon);
+            vm.IsFolded = true;
+            Assert.Equal(UiIcons.ChevronDown, vm.FoldIcon);
+            foreach (var (name, glyph) in new[]
+            {
+                ("UndoButton", UiIcons.Undo), ("RedoButton", UiIcons.Redo),
+                ("IconButton", UiIcons.Emoji), ("ColorButton", UiIcons.Palette),
+                ("AddNoteButton", UiIcons.Add), ("PinButton", UiIcons.Pin),
+                ("DoneEditingButton", UiIcons.CheckMark),
+            })
+            {
+                var button = Assert.IsAssignableFrom<Control>(window.FindName(name));
+                Assert.True(Equals(glyph, (button as ContentControl)?.Content), name);
+                Assert.Same(UiIcons.Font, button.FontFamily);
+            }
+        }
+        finally { window.Close(); }
     }
 
     // 閉じた付箋を開いた表示の高さで作ってから Loaded で縮めていたため、

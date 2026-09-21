@@ -336,7 +336,7 @@ public partial class StickyNoteWindow
         if (_colorPanel == null) return;
         foreach (var child in _colorPanel.Children)
             if (child is WpfButton b)
-                b.Content = (b.Tag as string) == ViewModel.ColorKey ? "✓" : null;
+                b.Content = (b.Tag as string) == ViewModel.ColorKey ? UiIcons.CheckMark : null;
     }
 
     private void Close_Click(object sender, RoutedEventArgs e)

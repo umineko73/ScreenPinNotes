@@ -220,12 +220,20 @@ public sealed class NoteManagerWindow : Window
             ApplyFilter();
         };
         _sortHeaders.Add((columnHeader, header, property));
-        grid.Columns.Add(new GridViewColumn
+        var column = new GridViewColumn { Header = columnHeader, Width = width };
+        if (property == nameof(NoteRow.Pinned))
         {
-            Header = columnHeader,
-            DisplayMemberBinding = new WpfBinding(property),
-            Width = width,
-        });
+            // 最前面の印は線画アイコンの字なので、アイコンの書体で描く。
+            var cell = new FrameworkElementFactory(typeof(TextBlock));
+            cell.SetBinding(TextBlock.TextProperty, new WpfBinding(property));
+            cell.SetValue(TextBlock.FontFamilyProperty, UiIcons.Font);
+            column.CellTemplate = new DataTemplate { VisualTree = cell };
+        }
+        else
+        {
+            column.DisplayMemberBinding = new WpfBinding(property);
+        }
+        grid.Columns.Add(column);
     }
 
     private void UpdateSortHeaders()
@@ -253,7 +261,7 @@ public sealed class NoteManagerWindow : Window
     {
         var byId = App.Current.NoteWindows.ToDictionary(w => w.ViewModel.Model.Id);
         _allRows = NoteLayers.Ordered(App.Current.NoteWindows.Select(w => w.ViewModel.Model))
-            .Select((note, index) => NoteRow.FromWindow(byId[note.Id]) with { Layer = index + 1, Pinned = note.IsTopmost ? "📌" : "" }).ToList();
+            .Select((note, index) => NoteRow.FromWindow(byId[note.Id]) with { Layer = index + 1, Pinned = note.IsTopmost ? UiIcons.Pin : "" }).ToList();
         ApplyFilter();
     }
 

@@ -60,8 +60,8 @@ Windows 10 or later, x64. No installation needed.
 | Double-click the body | Edit the Markdown source |
 | `Ctrl+Enter` / `Esc` / `✓` | Save changes and finish editing |
 | Drag the title bar or left-hand strip | Move the note |
-| Double-click the title bar, or use `⮝` / `⮟` | Collapse or expand |
-| `📌` | Toggle always-on-top |
+| Double-click the title bar, or use the chevron (up / down) | Collapse or expand |
+| Pin | Toggle always-on-top |
 | Right-click the title, body, or image | Open actions for that area |
 | `Ctrl` + mouse wheel | Resize body text, title text, or the image under the pointer |
 | Click a checkbox | Toggle task completion |

@@ -16,7 +16,8 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 -->
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:services="clr-namespace:ScreenPinNotes.Services">
 
     <SolidColorBrush x:Key="NoteToolbarBackground" Color="#50565E"/>
 
@@ -36,7 +37,7 @@
                                     <ColumnDefinition Width="16"/>
                                 </Grid.ColumnDefinitions>
                                 <ContentPresenter x:Name="Icon" ContentSource="Icon" VerticalAlignment="Center"/>
-                                <TextBlock x:Name="Check" Text="✓" Visibility="Collapsed" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="Check" Text="{x:Static services:UiIcons.CheckMark}" FontFamily="{x:Static services:UiIcons.Font}" Visibility="Collapsed" VerticalAlignment="Center"/>
                                 <ContentPresenter Grid.Column="1" ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center"/>
                                 <TextBlock Grid.Column="2" Text="{TemplateBinding InputGestureText}" Margin="24,0,0,0" VerticalAlignment="Center"/>
                                 <Path x:Name="Arrow" Grid.Column="3" Data="M 0,0 L 4,4 L 0,8 Z" Fill="{TemplateBinding Foreground}"
