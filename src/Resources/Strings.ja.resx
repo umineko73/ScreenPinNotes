@@ -51,6 +51,12 @@
   <data name="FormatBold" xml:space="preserve">
     <value>太字</value>
   </data>
+  <data name="FormatItalic" xml:space="preserve">
+    <value>斜体</value>
+  </data>
+  <data name="FormatClear" xml:space="preserve">
+    <value>修飾を削除</value>
+  </data>
   <data name="FormatHighlight" xml:space="preserve">
     <value>ハイライト</value>
   </data>

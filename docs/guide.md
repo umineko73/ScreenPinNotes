@@ -118,7 +118,7 @@ Use the mini toolbar for colors, fonts, and icons. Unavailable actions are disab
 | Links | `[label](URL)`, `[label][1]` with a separate `[1]: URL` line, or a plain URL |
 | Images | `![alt](assets/image.png)`; append `{width=240}` to set width |
 
-- Use **Markdown formatting** while editing to insert syntax (bold, strikethrough, highlight, code, headings, bulleted and numbered lists, checklists, quotes). **Edit link** changes a link's label and URL.
+- Selecting text while editing shows a formatting toolbar above it (bold, italic, strikethrough, highlight, inline code, bulleted and numbered lists, checklist, link, and clear formatting, which also removes the line's heading/list/quote marker). Right-click **Markdown formatting** offers the same plus headings and quotes. **Edit link** changes a link's label and URL.
 - Pasted images are saved as PNGs in the note's `assets` folder. Local images render inline; web image URLs do not.
 - Dropping files onto a note, or pasting files copied in Explorer, copies them into the note's `assets` folder in their original format. The original files stay where they were.
 - Files that are not images sit in the text as a small chip with the same icon Explorer shows, plus the file name. **Click** one to open it in its associated app (like a link, it does not start editing the body) (files that can run programs ask first). Right-click a chip for **Open** and **Open with...**, which lets you pick the app, at the top of the menu.

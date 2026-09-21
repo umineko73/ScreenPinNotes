@@ -4,7 +4,7 @@ This note lists the Markdown syntax supported in the body. When editing is locke
 
 ## Markdown input assistance
 
-While editing, select text and right-click **Markdown formatting** for bold, strikethrough, inline code, headings 1–3, bullets, checklists, and links. Line formatting applies to whole affected lines. With no selection, inline formatting places the caret between markers. Reapplying the matching supported format removes it. Use `Ctrl+Z` to undo.
+While editing, selecting text shows a small toolbar above it: bold, italic, strikethrough, highlight, inline code, bulleted/numbered lists, checklist, link, and Tₓ to clear formatting (inline marks, links, and the line's heading/list/quote marker). Right-click **Markdown formatting** for the same plus headings 1–3 and quotes. Line formatting applies to whole affected lines. With no selection, inline formatting places the caret between markers. Reapplying the matching supported format removes it. Use `Ctrl+Z` to undo.
 
 Place the caret inside an existing link and choose **Edit link...** to edit its display text and URL separately. The URL wraps and the dialog can be resized. **Markdown formatting > Insert / edit link...** also creates new links.
 
