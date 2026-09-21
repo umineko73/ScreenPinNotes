@@ -305,6 +305,7 @@ public partial class StickyNoteWindow
         foreach (var button in new[] { FontSmallerButton, FontLargerButton, TitleSmallerButton,
             TitleLargerButton, FontButton, IconButton, ColorButton, UndoButton, RedoButton })
             button.Foreground = PopupForegroundBrush();
+        QueueFormatToolbarUpdate();
     }
 
     private void EditToolbarPopup_Opened(object? sender, EventArgs e)
@@ -320,7 +321,13 @@ public partial class StickyNoteWindow
 
     private void SyncEditToolbarZOrder()
     {
-        if (PresentationSource.FromVisual(StatusBar) is not HwndSource source) return;
+        SyncPopupZOrder(StatusBar);
+        SyncPopupZOrder(FormatBar);
+    }
+
+    private void SyncPopupZOrder(Visual popupContent)
+    {
+        if (PresentationSource.FromVisual(popupContent) is not HwndSource source) return;
         // WPF Popup defaults to HWND_TOPMOST, independently of its owning note.
         SetWindowPos(source.Handle, new IntPtr(Topmost ? -1 : -2), 0, 0, 0, 0,
             SetWindowPosFlags.NoMove | SetWindowPosFlags.NoSize | SetWindowPosFlags.NoActivate);
@@ -380,6 +387,8 @@ public partial class StickyNoteWindow
 
         if (EditToolbarPopup?.IsOpen == true)
             UpdateEditToolbarPlacement();
+        if (FormatToolbarPopup?.IsOpen == true)
+            QueueFormatToolbarUpdate();
     }
 
     /// <summary>
@@ -415,6 +424,7 @@ public partial class StickyNoteWindow
     {
         _toolbarHideTimer.Stop();
         EditToolbarPopup.IsOpen = false;
+        HideFormatToolbar();
     }
 
     private void Window_Activated(object? sender, EventArgs e)
@@ -609,6 +619,8 @@ public partial class StickyNoteWindow
     {
         UpdateTitleBarOverlayOffset();
         UpdateEndOfTextShade();
+        if (FormatToolbarPopup?.IsOpen == true)
+            QueueFormatToolbarUpdate();
     }
 
     private void KeepInsideWorkArea(double targetWidth, double targetHeight)

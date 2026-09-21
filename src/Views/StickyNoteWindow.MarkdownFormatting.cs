@@ -27,7 +27,8 @@ public partial class StickyNoteWindow
         var menu = new MenuItem { Header = LocalizationService.T("MarkdownFormatting") };
         foreach (var (key, marker, line) in new[]
         {
-            ("FormatBold", "**", false), ("FormatStrike", "~~", false), ("FormatHighlight", "==", false),
+            ("FormatBold", "**", false), ("FormatItalic", "*", false),
+            ("FormatStrike", "~~", false), ("FormatHighlight", "==", false),
             ("FormatCode", "`", false),
             ("FormatHeading1", "# ", true), ("FormatHeading2", "## ", true), ("FormatHeading3", "### ", true),
             ("FormatBullets", "- ", true), ("FormatNumbered", "1. ", true), ("FormatTasks", "- [ ] ", true),
@@ -35,49 +36,67 @@ public partial class StickyNoteWindow
         })
         {
             var item = new MenuItem { Header = LocalizationService.T(key) };
-            item.Click += (_, _) =>
-            {
-                if (!IsBodyEditing() || IsContentReadOnly()) return;
-                var edit = line
-                    ? MarkdownFormatting.Lines(BodyEditBox.Text, BodyEditBox.SelectionStart, BodyEditBox.SelectionLength, marker)
-                    : MarkdownFormatting.Inline(BodyEditBox.Text, BodyEditBox.SelectionStart, BodyEditBox.SelectionLength, marker);
-                ApplyMarkdownEdit(edit);
-            };
+            item.Click += (_, _) => ApplyMarkdownFormat(marker, line);
             menu.Items.Add(item);
         }
         var linkItem = new MenuItem { Header = LocalizationService.T("FormatLink") };
-        linkItem.Click += (_, _) =>
-        {
-            var start = BodyEditBox.SelectionStart;
-            var length = BodyEditBox.SelectionLength;
-            var existing = MarkdownLinkEditor.FindAt(BodyEditBox.Text, start);
-            OpenPickerAfterContextMenuClosed(() =>
-            {
-                if (!IsBodyEditing() || IsContentReadOnly()) return;
-                if (existing != null) { EditMarkdownLink(existing); return; }
-                var original = BodyEditBox.Text;
-                if (!MarkdownFormatting.IsRangeValid(original, start, length)) return;
-                _isLinkEditDialogOpen = true;
-                _suppressViewMode = true;
-                HideEditToolbar();
-                try
-                {
-                    var dialog = new LinkEditDialog(this, original.Substring(start, length), "");
-                    if (dialog.ShowDialog() != true || original != BodyEditBox.Text) return;
-                    var replacement = MarkdownLinkFormatter.Build(dialog.LinkLabel, dialog.LinkTarget);
-                    ApplyMarkdownEdit(new(start, length, replacement, start, replacement.Length));
-                }
-                finally
-                {
-                    _isLinkEditDialogOpen = false;
-                    _suppressViewMode = false;
-                    if (!_isClosed && IsVisible) { BodyEditBox.Focus(); ShowEditToolbar(); }
-                }
-            });
-        };
+        linkItem.Click += (_, _) => InsertOrEditMarkdownLink();
+        var clearItem = new MenuItem { Header = LocalizationService.T("FormatClear") };
+        clearItem.Click += (_, _) => ClearMarkdownFormatting();
         menu.Items.Add(new Separator());
         menu.Items.Add(linkItem);
+        menu.Items.Add(new Separator());
+        menu.Items.Add(clearItem);
         return menu;
+    }
+
+    private void ApplyMarkdownFormat(string marker, bool line)
+    {
+        if (!IsBodyEditing() || IsContentReadOnly()) return;
+        var edit = line
+            ? MarkdownFormatting.Lines(BodyEditBox.Text, BodyEditBox.SelectionStart, BodyEditBox.SelectionLength, marker)
+            : MarkdownFormatting.Inline(BodyEditBox.Text, BodyEditBox.SelectionStart, BodyEditBox.SelectionLength, marker);
+        ApplyMarkdownEdit(edit);
+    }
+
+    private void ClearMarkdownFormatting()
+    {
+        if (!IsBodyEditing() || IsContentReadOnly()) return;
+        ApplyMarkdownEdit(MarkdownFormatting.Clear(BodyEditBox.Text, BodyEditBox.SelectionStart, BodyEditBox.SelectionLength));
+    }
+
+    /// <summary>
+    /// 選んだ文字をリンクにする。カーソルが既存のリンクの上なら、そのリンクを編集する。
+    /// ダイアログはメニューやツールバーが閉じてから開く。
+    /// </summary>
+    private void InsertOrEditMarkdownLink()
+    {
+        var start = BodyEditBox.SelectionStart;
+        var length = BodyEditBox.SelectionLength;
+        var existing = MarkdownLinkEditor.FindAt(BodyEditBox.Text, start);
+        OpenPickerAfterContextMenuClosed(() =>
+        {
+            if (!IsBodyEditing() || IsContentReadOnly()) return;
+            if (existing != null) { EditMarkdownLink(existing); return; }
+            var original = BodyEditBox.Text;
+            if (!MarkdownFormatting.IsRangeValid(original, start, length)) return;
+            _isLinkEditDialogOpen = true;
+            _suppressViewMode = true;
+            HideEditToolbar();
+            try
+            {
+                var dialog = new LinkEditDialog(this, original.Substring(start, length), "");
+                if (dialog.ShowDialog() != true || original != BodyEditBox.Text) return;
+                var replacement = MarkdownLinkFormatter.Build(dialog.LinkLabel, dialog.LinkTarget);
+                ApplyMarkdownEdit(new(start, length, replacement, start, replacement.Length));
+            }
+            finally
+            {
+                _isLinkEditDialogOpen = false;
+                _suppressViewMode = false;
+                if (!_isClosed && IsVisible) { BodyEditBox.Focus(); ShowEditToolbar(); }
+            }
+        });
     }
 
     private void ApplyMarkdownEdit(MarkdownFormatting.Edit edit)

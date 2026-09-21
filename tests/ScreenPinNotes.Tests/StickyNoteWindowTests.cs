@@ -612,6 +612,60 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
+    /// <summary>
+    /// 編集中に文字を選ぶと、選んだ行の上に書式ツールバーが出て、ボタンが
+    /// 選んだ文字に効く。選択が空になると消える。
+    /// </summary>
+    [WpfFact]
+    public void FormatToolbar_AppearsAboveTheSelectionAndFormatsIt()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var window = new StickyNoteWindow(new StickyNoteViewModel(new StickyNote { Content = "first\n- second line", Width = 400, Height = 220 }, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            InvokePrivate(window, "EnterEditMode");
+            window.Activate();
+            var editor = (TextBox)window.FindName("BodyEditBox");
+            var popup = (Popup)window.FindName("FormatToolbarPopup");
+            var bar = (Border)window.FindName("FormatBar");
+            var buttons = ((StackPanel)window.FindName("FormatBarButtons")).Children.OfType<Button>().ToList();
+            Assert.Equal(
+                new[] { "FormatBold", "FormatItalic", "FormatStrike", "FormatHighlight", "FormatCode", "FormatBullets", "FormatNumbered", "FormatTasks", "FormatLink", "FormatClear" }
+                    .Select(key => LocalizationService.T(key)),
+                buttons.Select(button => button.ToolTip as string));
+
+            void Refresh()
+            {
+                InvokePrivate(window, "UpdateFormatToolbar");
+                window.UpdateLayout();
+                window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            }
+
+            editor.Select(editor.Text.IndexOf("second"), "second".Length);
+            Refresh();
+            Assert.True(popup.IsOpen);
+            var selectionTop = editor.PointToScreen(editor.GetRectFromCharacterIndex(editor.SelectionStart).TopLeft).Y;
+            var barBottom = bar.PointToScreen(new Point(0, bar.ActualHeight)).Y;
+            Assert.True(barBottom <= selectionTop + 1, $"bar bottom {barBottom}, selection top {selectionTop}");
+
+            buttons[0].RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Assert.Equal("first\n- **second** line", editor.Text.Replace("\r\n", "\n"));
+            Assert.Equal("second", editor.SelectedText);
+
+            buttons[^1].RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Assert.Equal("first\nsecond line", editor.Text.Replace("\r\n", "\n"));
+            Assert.Equal("second", editor.SelectedText);
+
+            editor.Select(0, 0);
+            Refresh();
+            Assert.False(popup.IsOpen);
+        }
+        finally { window.Close(); }
+    }
+
     [WpfFact]
     public void EditingBadge_ClearsHorizontalScrollbarAndReturnsWhenItDisappears()
     {

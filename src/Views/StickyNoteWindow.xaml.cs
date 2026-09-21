@@ -184,6 +184,7 @@ public partial class StickyNoteWindow : Window
         InitializeComponent();
         _uiDispatcher = Dispatcher;
         DataContext = vm;
+        InitializeFormatToolbar();
         ContentBox.SizeChanged += (_, _) => UpdateImagePathPreview();
         FoldedPreviewHost.SizeChanged += (_, _) => UpdateImagePathPreview();
         TitleText.SizeChanged += (_, _) => UpdateImagePathPreview();
@@ -614,6 +615,8 @@ public partial class StickyNoteWindow : Window
     {
         if (EditToolbarPopup?.IsOpen == true)
             UpdateEditToolbarPlacement();
+        if (FormatToolbarPopup?.IsOpen == true)
+            QueueFormatToolbarUpdate();
         if (_isDragging || _isInitializing) return;
         if (_suppressWindowBoundsSave) return;
         // 編集モードの位置は SizeChanged 側の大きさと同じく一時的なもの。

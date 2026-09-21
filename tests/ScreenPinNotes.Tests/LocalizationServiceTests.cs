@@ -54,6 +54,8 @@ public class LocalizationServiceTests
     // 繰り返しリマインダー機能で追加したキー。両方の .resx に実際の文言が
     // 載っていることの確認になる（見つからないキーはキー名がそのまま返る）。
     [Theory]
+    [InlineData("FormatItalic", "Italic", "斜体")]
+    [InlineData("FormatClear", "Clear formatting", "修飾を削除")]
     [InlineData("OpenLink", "Go to link", "リンクに移動")]
     [InlineData("CopyLink", "Copy link", "リンクをコピー")]
     [InlineData("ReminderRepeat", "Repeat", "繰り返し")]

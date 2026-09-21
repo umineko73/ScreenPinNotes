@@ -127,4 +127,60 @@ public class MarkdownFormattingTests
     [Fact]
     public void HeadingsAreAddedAtTheStartOfTheLine()
         => Assert.Equal("# title", MarkdownFormatting.Lines("  title", 0, 0, "# ").Replacement);
+
+    // ─── 斜体 ───
+
+    [Theory]
+    [InlineData("a «b» c", "a *«b»* c")]
+    [InlineData("a *«b»* c", "a «b» c")]
+    [InlineData("a «*b*» c", "a «b» c")]
+    // 太字の ** を斜体の * と取り違えない。
+    [InlineData("a **«b»** c", "a ***«b»*** c")]
+    [InlineData("a «**b**» c", "a *«**b**»* c")]
+    [InlineData("a ***«b»*** c", "a **«b»** c")]
+    public void ItalicTogglesWithoutTouchingBold(string input, string expected)
+        => Assert.Equal(expected, Apply(input, (t, s, l) => MarkdownFormatting.Inline(t, s, l, "*")));
+
+    // ─── 修飾の削除 ───
+
+    [Theory]
+    [InlineData("a «**b**» c", "a «b» c")]
+    [InlineData("a **«b»** c", "a «b» c")]
+    [InlineData("«**b** and *i* and ~~s~~ and ==h== and `c`»", "«b and i and s and h and c»")]
+    [InlineData("«***both***»", "«both»")]
+    [InlineData("x «[label](https://example.com)» y", "x «label» y")]
+    // 画像は外すと消えてしまうので残す。
+    [InlineData("«![alt](a.png)»", "«![alt](a.png)»")]
+    // 範囲の外に残る部分は修飾したまま。
+    [InlineData("**b«ol»d**", "**b**«ol»**d**")]
+    [InlineData("**bo«ld** te»xt", "**bo**«ld te»xt")]
+    // 範囲が空なら、カーソルを含む修飾を丸ごと外す。
+    [InlineData("a **bo«»ld** c", "a bo«»ld c")]
+    // 行頭の印も外し、字下げも落とす。
+    [InlineData("- [ ] «task»", "«task»")]
+    [InlineData("  - «item»", "«item»")]
+    [InlineData("## «Heading»", "«Heading»")]
+    [InlineData("> - «quoted item»", "«quoted item»")]
+    [InlineData("«1. one\n2. two»", "«one\ntwo»")]
+    [InlineData("«- a\r\n- b»", "«a\r\nb»")]
+    // 範囲に掛からない行や修飾はそのまま。
+    [InlineData("- keep\n- «drop»\n- keep", "- keep\n«drop»\n- keep")]
+    [InlineData("**keep** «plain»", "**keep** «plain»")]
+    // 印に見えるだけの字は外さない。
+    [InlineData("«2 * 3 * 4 and snake_case_name»", "«2 * 3 * 4 and snake_case_name»")]
+    public void ClearRemovesFormattingFromTheSelection(string input, string expected)
+        => Assert.Equal(expected, Apply(input, MarkdownFormatting.Clear));
+
+    /// <summary>« » で選択範囲を書いた文字列に編集を当て、結果の選択範囲も « » で返す。</summary>
+    private static string Apply(string marked, Func<string, int, int, MarkdownFormatting.Edit> format)
+    {
+        var start = marked.IndexOf('«');
+        var end = marked.IndexOf('»') - 1;
+        var text = marked.Replace("«", "").Replace("»", "");
+        var edit = format(text, start, end - start);
+        var result = text.Remove(edit.Start, edit.Length).Insert(edit.Start, edit.Replacement);
+        return result
+            .Insert(edit.SelectionStart + edit.SelectionLength, "»")
+            .Insert(edit.SelectionStart, "«");
+    }
 }

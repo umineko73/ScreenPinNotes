@@ -581,6 +581,22 @@
                 </Border>
             </Popup>
 
+            <!-- 本文の編集中に文字を選ぶと、選んだ文字のそばに出る書式ツールバー。
+                 ボタンは .FormatToolbar.cs が作る（ツールチップを言語に合わせるため）。 -->
+            <Popup x:Name="FormatToolbarPopup"
+                   Opened="FormatToolbarPopup_Opened"
+                   PlacementTarget="{Binding ElementName=BodyEditBox}"
+                   Placement="Custom"
+                   StaysOpen="True"
+                   AllowsTransparency="True">
+                <Border x:Name="FormatBar"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="2">
+                    <StackPanel x:Name="FormatBarButtons" Orientation="Horizontal"/>
+                </Border>
+            </Popup>
+
             <!-- 閉じた表示でホバーすると本文を確認できるプレビュー。タイトルバーを
                  隠しているときはそこが Collapsed で位置が取れないため、常に
                  表示されている RootBorder を基準にする（畳んだ表示では

@@ -51,6 +51,12 @@
   <data name="FormatBold" xml:space="preserve">
     <value>Bold</value>
   </data>
+  <data name="FormatItalic" xml:space="preserve">
+    <value>Italic</value>
+  </data>
+  <data name="FormatClear" xml:space="preserve">
+    <value>Clear formatting</value>
+  </data>
   <data name="FormatHighlight" xml:space="preserve">
     <value>Highlight</value>
   </data>
