@@ -471,6 +471,53 @@ public static class MarkdownRenderer
             ? new WpfSolidBrush(WpfColor.FromArgb(34, 255, 255, 255))
             : new WpfSolidBrush(WpfColor.FromArgb(24, 0, 0, 0));
 
+    // インラインコードの地の色は Run.Background では塗らない。Background は
+    // 実際に字を描いたフォントの高さで塗られるので、Consolas に無い字
+    // (↶ ☑ 🐱、全角文字など) が代替フォントで描かれた所だけ帯の上端がずれ、
+    // 段差になる。ベースライン基準・フォントサイズ単位の太い線なら、どの
+    // フォントで描かれても同じ位置・同じ太さの帯になる。-0.35em / 1.15em は
+    // Consolas の Background と同じ範囲を塗る値。線は字の上に重なるが、
+    // 地の色はほぼ透明なので字の見え方は変わらない。
+    private static TextDecorationCollection GetInlineCodeBand(bool darkMode)
+        => darkMode ? DarkInlineCodeBand : LightInlineCodeBand;
+
+    private static readonly TextDecorationCollection LightInlineCodeBand = CreateInlineCodeBand(false);
+    private static readonly TextDecorationCollection DarkInlineCodeBand = CreateInlineCodeBand(true);
+
+    private static TextDecorationCollection CreateInlineCodeBand(bool darkMode)
+    {
+        var pen = new System.Windows.Media.Pen(GetCodeBackground(darkMode), 1.15);
+        var band = new TextDecorationCollection
+        {
+            new TextDecoration(TextDecorationLocation.Baseline, pen, -0.35,
+                TextDecorationUnit.FontRenderingEmSize, TextDecorationUnit.FontRenderingEmSize),
+        };
+        band.Freeze();
+        return band;
+    }
+
+    // コードの Run は自前の TextDecorations (地の帯) を持つので、外側の ~~ の
+    // 取り消し線を継承しない。帯に取り消し線を足したものに差し替える。
+    private static void StrikeThroughInlineCode(InlineCollection inlines)
+    {
+        foreach (var inline in inlines)
+        {
+            if (inline is Span span)
+            {
+                StrikeThroughInlineCode(span.Inlines);
+            }
+            else if (inline is Run run &&
+                     (ReferenceEquals(run.TextDecorations, LightInlineCodeBand) ||
+                      ReferenceEquals(run.TextDecorations, DarkInlineCodeBand)))
+            {
+                var decorations = run.TextDecorations.Clone();
+                decorations.Add(TextDecorations.Strikethrough);
+                decorations.Freeze();
+                run.TextDecorations = decorations;
+            }
+        }
+    }
+
     private static WpfSolidBrush GetBorderBrush(bool darkMode)
         => darkMode
             ? new WpfSolidBrush(WpfColor.FromArgb(95, 255, 255, 255))
@@ -944,7 +991,7 @@ public static class MarkdownRenderer
                     yield return new Run(text[(pos + 1)..end])
                     {
                         FontFamily = CodeFontFamily,
-                        Background = GetCodeBackground(darkMode),
+                        TextDecorations = GetInlineCodeBand(darkMode),
                     };
                     pos = end + 1;
                     continue;
@@ -974,6 +1021,7 @@ public static class MarkdownRenderer
             {
                 var span = new Span { TextDecorations = TextDecorations.Strikethrough };
                 AddInlineContent(span.Inlines, strikeText, lineIndex, lineOffset + pos + 2, createHyperlink, createImage, references, darkMode, depth + 1);
+                StrikeThroughInlineCode(span.Inlines);
                 yield return span;
                 pos += strikeLength;
                 continue;
