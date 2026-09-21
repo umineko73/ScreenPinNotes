@@ -81,7 +81,7 @@ While editing is locked, the title text cannot be edited and the note cannot be 
 - Cut / copy / paste
 - Paste as Markdown link
 - Paste / copy Excel tables
-- Open link
+- Go to link / Copy link (when right-clicking a link)
 - Convert to Markdown link
 - Resize note to fit images
 - Set / clear a reminder

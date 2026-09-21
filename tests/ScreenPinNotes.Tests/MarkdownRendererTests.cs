@@ -372,6 +372,61 @@ public class MarkdownRendererTests
         Assert.Equal("deleted", GetInlineText(span.Inlines));
     }
 
+    // Run.Background は字を描いたフォントの高さで塗られるため、Consolas に無い
+    // 字が代替フォントで描かれた所だけ地の帯に段差ができていた。
+    [WpfFact]
+    public void Render_InlineCode_ShadesOneEvenBandAcrossFallbackGlyphs()
+    {
+        WpfApplicationFixture.Ensure();
+        var blocks = MarkdownRenderer.Render("x `↶ ↷ ｜ B I S H • ☑ 🔗 ｜ A- A+ T- T+ Aa 🐱 🎨`", 20, CreateHyperlink, darkMode: true).ToList();
+        var code = Assert.Single(Assert.IsType<Paragraph>(Assert.Single(blocks)).Inlines.OfType<Run>(), r => r.Text.StartsWith('↶'));
+        Assert.Null(code.Background);
+
+        // 帯だけを見るため、字は背景と同じ色にして消す。
+        const int width = 700, height = 60;
+        var box = new RichTextBox
+        {
+            Document = new FlowDocument { PagePadding = new Thickness(0) },
+            FontFamily = new System.Windows.Media.FontFamily("Yu Gothic UI"),
+            Foreground = System.Windows.Media.Brushes.Black,
+            Background = System.Windows.Media.Brushes.Black,
+            BorderThickness = new Thickness(0),
+        };
+        box.Document.Blocks.AddRange(blocks);
+        box.Measure(new Size(width, height));
+        box.Arrange(new Rect(0, 0, width, height));
+        box.UpdateLayout();
+        var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(width, height, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+        bitmap.Render(box);
+        var pixels = new byte[width * height * 4];
+        bitmap.CopyPixels(pixels, width * 4, 0);
+
+        var edges = new HashSet<(int Top, int Bottom)>();
+        for (var x = 0; x < width; x++)
+        {
+            int top = -1, bottom = -1;
+            for (var y = 0; y < height; y++)
+            {
+                if (pixels[(y * width + x) * 4] <= 8) continue;
+                if (top < 0) top = y;
+                bottom = y;
+            }
+            if (top >= 0) edges.Add((top, bottom));
+        }
+        Assert.Single(edges);
+    }
+
+    [Fact]
+    public void Render_InlineCodeInsideStrikethrough_KeepsTheStrikethrough()
+    {
+        var blocks = MarkdownRenderer.Render("~~a `code` b~~", 13, CreateHyperlink).ToList();
+
+        var span = Assert.IsType<Span>(Assert.Single(Assert.IsType<Paragraph>(Assert.Single(blocks)).Inlines));
+        var code = Assert.Single(span.Inlines.OfType<Run>(), r => r.Text == "code");
+        Assert.Contains(code.TextDecorations, d => d.Location == TextDecorationLocation.Strikethrough);
+        Assert.Contains(code.TextDecorations, d => d.Location == TextDecorationLocation.Baseline);
+    }
+
     [Fact]
     public void Render_EscapedMarkdownMarkers_RemainPlainText()
     {

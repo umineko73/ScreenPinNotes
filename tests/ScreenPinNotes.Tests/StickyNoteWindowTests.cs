@@ -5173,6 +5173,44 @@ public class StickyNoteWindowTests
         }
     }
 
+    /// <summary>
+    /// 閲覧中は右クリックしてもキャレットが動かないので、リンクの項目は
+    /// 押された要素から拾ったリンクに対して、リンクの上でだけ出す。
+    /// </summary>
+    [WpfFact]
+    public void LinkMenu_AppearsOnlyOnALink()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote { Content = "Orca : https://www.onorca.dev/" };
+        var vm = new StickyNoteViewModel(note, new AppSettings());
+        var window = new StickyNoteWindow(vm, storage);
+        try
+        {
+            InvokePrivate(window, "LoadContent", note.Content);
+            var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            var link = Assert.Single(contentBox.Document.Blocks.OfType<Paragraph>().SelectMany(p => p.Inlines).OfType<Hyperlink>());
+            var goTo = FindMenuItem(contentBox.ContextMenu!, LocalizationService.T("OpenLink"));
+            var copy = FindMenuItem(contentBox.ContextMenu!, LocalizationService.T("CopyLink"));
+
+            InvokePrivate(window, "CaptureContextMenuLink", contentBox, null);
+            InvokePrivate(window, "UpdateLinkMenuItems", false);
+            Assert.Equal(Visibility.Collapsed, goTo.Visibility);
+            Assert.Equal(Visibility.Collapsed, copy.Visibility);
+
+            InvokePrivate(window, "CaptureContextMenuLink", link.Inlines.FirstInline, null);
+            InvokePrivate(window, "UpdateLinkMenuItems", false);
+            Assert.Equal(Visibility.Visible, goTo.Visibility);
+            Assert.Equal(Visibility.Visible, copy.Visibility);
+            Assert.Equal("https://www.onorca.dev/", GetPrivateField<string>(window, "_contextMenuLinkTarget"));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     private static MenuItem FindMenuItem(ContextMenu menu, string header)
         => menu.Items.OfType<MenuItem>().Single(item => (item.Header as string) == header);
 

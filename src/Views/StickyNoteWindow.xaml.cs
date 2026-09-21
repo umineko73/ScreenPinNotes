@@ -136,8 +136,10 @@ public partial class StickyNoteWindow : Window
     // タイトルバーに付けられるアイコン。先頭の "" は「アイコンなし」で固定。
     // それ以降は settings.json の IconPalette で差し替えられる。
     private IEnumerable<string> IconList => new[] { "" }.Concat(Settings.IconPalette);
-    private Hyperlink? _contextMenuLink;
+    private string?   _contextMenuLinkTarget;
     private MenuItem   _openLinkItem  = new();
+    private MenuItem   _copyLinkItem  = new();
+    private Separator  _linkMenuSeparator = new();
     private MenuItem   _convertLinkItem = new();
     private MenuItem   _pasteMarkdownLinkItem = new();
     private MenuItem   _pasteExcelTableItem = new();

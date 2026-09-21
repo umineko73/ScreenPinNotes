@@ -430,7 +430,10 @@ No: create initial notes in the selected folder. The current notes folder will r
     <value>Select all</value>
   </data>
   <data name="OpenLink" xml:space="preserve">
-    <value>Open link</value>
+    <value>Go to link</value>
+  </data>
+  <data name="CopyLink" xml:space="preserve">
+    <value>Copy link</value>
   </data>
   <data name="ConvertLink" xml:space="preserve">
     <value>Convert to Markdown link</value>
