@@ -633,7 +633,7 @@ public class StickyNoteWindowTests
             var bar = (Border)window.FindName("FormatBar");
             var buttons = ((StackPanel)window.FindName("FormatBarButtons")).Children.OfType<Button>().ToList();
             Assert.Equal(
-                new[] { "FormatBold", "FormatItalic", "FormatStrike", "FormatHighlight", "FormatCode", "FormatBullets", "FormatNumbered", "FormatTasks", "FormatLink", "FormatClear" }
+                new[] { "Cut", "Copy", "Paste", "FormatBold", "FormatItalic", "FormatStrike", "FormatHighlight", "FormatCode", "FormatBullets", "FormatNumbered", "FormatTasks", "FormatLink", "FormatClear" }
                     .Select(key => LocalizationService.T(key)),
                 buttons.Select(button => button.ToolTip as string));
 
@@ -651,7 +651,7 @@ public class StickyNoteWindowTests
             var barBottom = bar.PointToScreen(new Point(0, bar.ActualHeight)).Y;
             Assert.True(barBottom <= selectionTop + 1, $"bar bottom {barBottom}, selection top {selectionTop}");
 
-            buttons[0].RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            buttons[3].RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
             Assert.Equal("first\n- **second** line", editor.Text.Replace("\r\n", "\n"));
             Assert.Equal("second", editor.SelectedText);
 

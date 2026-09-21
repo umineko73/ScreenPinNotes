@@ -29,21 +29,24 @@ public static class UiIcons
 {
     public static readonly WpfFontFamily Font = new("Segoe Fluent Icons, Segoe MDL2 Assets");
 
-    public const string Add = "";
-    public const string Pin = "";
-    public const string ChevronUp = "";
-    public const string ChevronDown = "";
-    public const string Lock = "";
-    public const string Clock = "";
-    public const string Link = "";
+    public const string Add = "\uE710";
+    public const string Pin = "\uE718";
+    public const string ChevronUp = "\uE70E";
+    public const string ChevronDown = "\uE70D";
+    public const string Lock = "\uE72E";
+    public const string Clock = "\uE121";
+    public const string Link = "\uE71B";
     /// <summary>下線へ向かう矢印。末尾へ追従している（tail 表示）ことの目印。</summary>
-    public const string ToEnd = "";
-    public const string Move = "";
-    public const string Undo = "";
-    public const string Redo = "";
-    public const string Palette = "";
+    public const string ToEnd = "\uE896";
+    public const string Move = "\uE7C2";
+    public const string Undo = "\uE7A7";
+    public const string Redo = "\uE7A6";
+    public const string Palette = "\uE790";
     /// <summary>笑顔。付箋のアイコンを選ぶボタン。</summary>
-    public const string Emoji = "";
-    public const string CheckMark = "";
-    public const string Cancel = "";
+    public const string Emoji = "\uE76E";
+    public const string CheckMark = "\uE73E";
+    public const string Cut = "\uE8C6";
+    public const string Copy = "\uE8C8";
+    public const string Paste = "\uE77F";
+    public const string Cancel = "\uE711";
 }
