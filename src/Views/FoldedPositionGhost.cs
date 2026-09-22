@@ -40,8 +40,13 @@ namespace ScreenPinNotes.Views;
 /// クリックでその場所へ畳み、ドラッグで畳んだときの位置だけを動かし、右クリックで
 /// 位置をそろえ直せる。マウスを乗せると本体の付箋を強調して、どれの影かを示す。
 ///
-/// フォーカスは取らない（WS_EX_NOACTIVATE）。タスクバーにも Alt+Tab にも出さない
-/// （WS_EX_TOOLWINDOW）。重なり順は本体が動くたびに本体のすぐ後ろへ置き直してもらう。
+/// フォーカスは取らない（ShowActivated=false と WM_MOUSEACTIVATE への MA_NOACTIVATE）。
+/// タスクバーにも Alt+Tab にも出ないのは ShowInTaskbar=false のおかげ ―― WPF はそのとき
+/// 見えない親ウィンドウの下に作るので、Alt+Tab の一覧からも外れる。拡張スタイルを
+/// 拡張スタイルを SetWindowLongPtr で後から書き換える（WS_EX_TOOLWINDOW / WS_EX_NOACTIVATE）
+/// 作りにしていた版は Microsoft Defender の振る舞い検知（Behavior:Win32/DefenseEvasion.A!ml）で
+/// 隔離された。それが決め手かは分からないが、「ウィンドウを隠す」振る舞いに見えるので避ける。
+/// 重なり順は本体が動くたびに本体のすぐ後ろへ置き直してもらう。
 /// Owner にしないのは、所有されたウィンドウは常に所有者より前に出るため。
 /// </summary>
 internal sealed class FoldedPositionGhost : Window
@@ -95,12 +100,7 @@ internal sealed class FoldedPositionGhost : Window
         root.ContextMenu = new WpfContextMenu { Items = { _resetItem } };
 
         SourceInitialized += (_, _) =>
-        {
-            var hwnd = new WindowInteropHelper(this).Handle;
-            var style = GetWindowLongPtr(hwnd, GWL_EXSTYLE).ToInt64();
-            SetWindowLongPtr(hwnd, GWL_EXSTYLE, new IntPtr(style | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW));
             (PresentationSource.FromVisual(this) as HwndSource)?.AddHook(WndProc);
-        };
         MouseEnter += (_, _) => _note.SetFoldedGhostHighlight(true);
         MouseLeave += (_, _) => _note.SetFoldedGhostHighlight(false);
         MouseLeftButtonDown += OnPress;
@@ -220,9 +220,6 @@ internal sealed class FoldedPositionGhost : Window
         return brush;
     }
 
-    private const int GWL_EXSTYLE = -20;
-    private const long WS_EX_NOACTIVATE = 0x08000000;
-    private const long WS_EX_TOOLWINDOW = 0x00000080;
     private const int WM_MOUSEACTIVATE = 0x0021;
     private const int MA_NOACTIVATE = 3;
     private const uint SWP_NOSIZE = 0x0001;
@@ -238,10 +235,4 @@ internal sealed class FoldedPositionGhost : Window
 
     [DllImport("user32.dll")]
     private static extern bool SetWindowPos(IntPtr hwnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
-
-    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
-    private static extern IntPtr GetWindowLongPtr(IntPtr hwnd, int index);
-
-    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
-    private static extern IntPtr SetWindowLongPtr(IntPtr hwnd, int index, IntPtr value);
 }
