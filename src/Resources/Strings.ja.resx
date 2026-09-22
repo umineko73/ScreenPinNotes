@@ -850,4 +850,10 @@
   <data name="ReminderMethodNotification" xml:space="preserve"><value>Windowsの通知</value></data>
   <data name="ReminderMethodAlert" xml:space="preserve"><value>通知ウィンドウ</value></data>
   <data name="ReminderMethodFlash" xml:space="preserve"><value>付箋を点滅</value></data>
+  <data name="SettingsShowFoldedPositionGhost" xml:space="preserve">
+    <value>位置を分けた付箋を開いているとき、折りたたみ時の位置に影を表示</value>
+  </data>
+  <data name="FoldedGhostTooltip" xml:space="preserve">
+    <value>折りたたむとこの位置に戻ります&#xA;クリック: ここに折りたたむ&#xA;ドラッグ: 折りたたみ時の位置を動かす</value>
+  </data>
 </root>

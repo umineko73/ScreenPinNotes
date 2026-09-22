@@ -132,6 +132,35 @@ public class NoteScreenPlacementTests
     }
 
     [WpfFact]
+    public void NoteReturnsToWhereItWasPlacedInTheCurrentLayout()
+    {
+        WpfApplicationFixture.Ensure();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var monitors = MonitorLayout.Current();
+        var signature = MonitorLayout.Signature(monitors);
+        var scale = MonitorLayout.PrimaryScale(monitors);
+        // 別の構成（ドッキング先など）がホームで、今の構成で置いた位置も覚えている付箋。
+        var note = new StickyNote { X = 900, Y = 800, Width = 260, Height = 220,
+            PositionLayout = "docked", PositionScale = 2,
+            OtherLayoutPositions = [new LayoutPosition { Layout = signature, X = 150, Y = 160, Scale = scale }] };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, App.Current.Settings), storage);
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+
+            var placed = PhysicalRect(window);
+            Assert.Equal(Math.Round(150 * scale), placed.X);
+            Assert.Equal(Math.Round(160 * scale), placed.Y);
+            Assert.Equal((150d, 160d, signature), (note.X, note.Y, note.PositionLayout));
+            var docked = Assert.Single(note.OtherLayoutPositions);
+            Assert.Equal(("docked", 900d, 800d, 2d), (docked.Layout, docked.X, docked.Y, docked.Scale));
+        }
+        finally { window.Close(); }
+    }
+
+    [WpfFact]
     public void MovesAreSavedUnderTheHomeLayoutAndDroppedUnderAnother()
     {
         WpfApplicationFixture.Ensure();
@@ -167,6 +196,9 @@ public class NoteScreenPlacementTests
             StoreCurrentPosition(window);
             Assert.Equal((240d, 230d), (note.X, note.Y));
             Assert.Equal(signature, note.PositionLayout);
+            // 元の構成での位置は捨てずに残る。その構成に戻れば帰れるように。
+            var kept = Assert.Single(note.OtherLayoutPositions);
+            Assert.Equal(("other-layout", 180d, 170d), (kept.Layout, kept.X, kept.Y));
         }
         finally { window.Close(); }
     }

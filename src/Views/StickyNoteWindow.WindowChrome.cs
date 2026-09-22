@@ -394,6 +394,7 @@ public partial class StickyNoteWindow
     private const int WM_NCLBUTTONDBLCLK = 0x00A3;
     private const int WM_ENTERSIZEMOVE   = 0x0231;
     private const int WM_EXITSIZEMOVE    = 0x0232;
+    private const int WM_WINDOWPOSCHANGED = 0x0047;
     private const int HTTOP              = 12;
     private const int HTBOTTOM           = 15;
     private const int WMSZ_LEFT          = 1;
@@ -412,6 +413,8 @@ public partial class StickyNoteWindow
     private bool _isSizingGesture;
     /// <summary>その辺ドラッグを1行表示で始めたかどうか。</summary>
     private bool _sizingGestureStartedFolded;
+    /// <summary>その辺ドラッグを始めたときの矩形（物理px）。枠をクリックしただけなら何も引き受けない。</summary>
+    private RECT _sizingGestureStartRect;
 
     /// <summary>
     /// 今届いている大きさを、表示状態に対応する保存先へ書いてよいか。
@@ -472,6 +475,8 @@ public partial class StickyNoteWindow
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         if (DiagnosticTrace.Enabled) TraceMessage(msg, wParam, lParam);
+        if (msg == WM_WINDOWPOSCHANGED)
+            KeepFoldedGhostBehind(hwnd, lParam);
         if (msg == 0x0021) // WM_MOUSEACTIVATE: remember before WPF activates us.
             _mouseActivating = ((lParam.ToInt64() >> 16) & 0xffff) == 0x0201;
         HandleTaskbarMessage(hwnd, msg, wParam, lParam, ref handled);
@@ -495,12 +500,24 @@ public partial class StickyNoteWindow
         {
             _isSizingGesture = true;
             _sizingGestureStartedFolded = ViewModel.IsFolded;
+            GetWindowRect(hwnd, out _sizingGestureStartRect);
             return IntPtr.Zero;
         }
         if (msg == WM_EXITSIZEMOVE)
         {
             var startedFolded = _sizingGestureStartedFolded;
             _isSizingGesture = false;
+            // 辺のリサイズ（とシステムメニューの「移動」）もドラッグと同じく自分で置き直す操作。
+            // 左辺・上辺を動かすと左上も変わるので、今の構成の位置として引き受けて書き戻す。
+            // そうしないと、寄せている構成のあいだは位置だけ捨てられ、構成が戻ったときに
+            // 「新しい大きさ＋元の左上」になって右端・下端がずれる。編集中の位置は一時的なので除く。
+            if (startedFolded == ViewModel.IsFolded && !(_isEditMode && !ViewModel.IsFolded) &&
+                GetWindowRect(hwnd, out var endRect) && !endRect.Equals(_sizingGestureStartRect))
+            {
+                AdoptCurrentLayoutAsHome();
+                SaveCurrentPositionToModel();
+                RequestSave();
+            }
             // 途中で表示が切り替わっていたら、今の表示本来の大きさへ戻す。Windows は
             // 掴んだ時点の矩形を基準に大きさを当て続けるので、1行表示で始めた辺ドラッグの
             // 途中で開くと、高さは1行分へ潰される。幅だけ戻すと、開いた付箋が

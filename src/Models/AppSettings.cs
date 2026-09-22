@@ -28,6 +28,11 @@ public sealed class AppSettings
     public bool ShowTitlePreviewTooltip { get; set; }
     public bool EnableFoldAnimation { get; set; }
     public bool ShowFoldButton { get; set; }
+    /// <summary>
+    /// 開いた位置と畳んだ位置を分けた付箋を開いているあいだ、畳んだときの置き場所に
+    /// 灰色の影を出すか。影はクリックでその場所へ畳み、ドラッグで畳んだ位置を動かせる。
+    /// </summary>
+    public bool ShowFoldedPositionGhost { get; set; } = true;
     /// <summary>タイトルバーを隠している付箋の左端に、見分けのための帯を出すかどうか。</summary>
     public bool ShowTitleBarHiddenSpine { get; set; } = true;
     /// <summary>

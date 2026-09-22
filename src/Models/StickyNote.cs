@@ -74,6 +74,13 @@ public class StickyNote
     public double PositionScale { get; set; }
 
     /// <summary>
+    /// ほかのモニタ構成で置いた位置（新しい順、<see cref="Services.NoteGeometryState.MaxRememberedLayouts"/> 件まで）。
+    /// ドッキングを外したノートPCで動かしても、ドッキングし直せばその構成の位置へ帰れるように、
+    /// 構成ごとのホームを残しておく。今の構成（<see cref="PositionLayout"/>）の分は X/Y 側にあり、ここには入れない。
+    /// </summary>
+    public List<LayoutPosition> OtherLayoutPositions { get; set; } = [];
+
+    /// <summary>
     /// タイトルバーを常時は出さず、右上にホバーで重ねる表示にするか。
     /// 本文だけの見た目にしたい人向け。このとき折りたたみは本文の1行目だけを残す。
     /// </summary>
@@ -125,4 +132,15 @@ public sealed class ReminderSettings
     public DateTime? NextAt { get; set; }
     public string Recurrence { get; set; } = "None";
     public DateTime? LastTriggeredAt { get; set; }
+}
+
+/// <summary>ある1つのモニタ構成での位置。値の意味は <see cref="StickyNote"/> の同名の項目と同じ。</summary>
+public sealed class LayoutPosition
+{
+    public string Layout { get; set; } = "";
+    public double X { get; set; }
+    public double Y { get; set; }
+    public double? FoldedX { get; set; }
+    public double? FoldedY { get; set; }
+    public double Scale { get; set; }
 }

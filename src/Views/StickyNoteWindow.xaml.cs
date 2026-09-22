@@ -199,6 +199,11 @@ public partial class StickyNoteWindow : Window
                 ApplyReadOnlyState();
             if (e.PropertyName is nameof(StickyNoteViewModel.ReminderTooltip) or null)
                 RefreshContentBoxTooltip();
+            if (e.PropertyName is nameof(StickyNoteViewModel.IsFolded) or nameof(StickyNoteViewModel.IsPositionSeparated)
+                or nameof(StickyNoteViewModel.DisplayTitle) or nameof(StickyNoteViewModel.Icon)
+                or nameof(StickyNoteViewModel.TitleFontSize) or nameof(StickyNoteViewModel.IsTopmost)
+                or nameof(StickyNoteViewModel.IsTitleBarHidden) or null)
+                QueueFoldedGhostUpdate();
         };
         UpdateIconImage();
 
@@ -236,7 +241,9 @@ public partial class StickyNoteWindow : Window
                 HideTransientPopups();
             else
                 ReconcileScreenPlacement();
+            QueueFoldedGhostUpdate();
         };
+        StateChanged += (_, _) => QueueFoldedGhostUpdate();
         ApplySettings();
         FitFoldedWidth();
         ApplyLocalizedText();
@@ -302,6 +309,7 @@ public partial class StickyNoteWindow : Window
         {
             StopFlashes();
             _isClosed = true;
+            CloseFoldedGhost();
             DisposeExternalContentWatcher();
             DisposeReferencedFileWatches();
         };
@@ -319,6 +327,7 @@ public partial class StickyNoteWindow : Window
         ConfigureContextMenus();
         if (!_isEditMode)
             LoadContent(ViewModel.Content);
+        QueueFoldedGhostUpdate();
     }
 
     private void ConfigureContextMenus()
@@ -605,6 +614,7 @@ public partial class StickyNoteWindow : Window
             UpdateEditToolbarPlacement();
         if (FormatToolbarPopup?.IsOpen == true)
             QueueFormatToolbarUpdate();
+        QueueFoldedGhostUpdate(); // 影と同じ場所まで動かしたら影を消す
         if (_isDragging || _isInitializing) return;
         if (_suppressWindowBoundsSave) return;
         // 編集モードの位置は SizeChanged 側の大きさと同じく一時的なもの。

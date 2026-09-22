@@ -609,6 +609,8 @@ public partial class StickyNoteWindow
             Top = titleBarTop;
             KeepInsideWorkArea(Width, Height);
         });
+        // 自分で揃え直したのだから、今の構成での位置として覚えてよい。
+        AdoptCurrentLayoutAsHome();
         if (TryStampPositionContext())
         {
             ViewModel.Model.X = Left;
