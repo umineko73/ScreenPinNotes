@@ -39,6 +39,13 @@ public static class NoteDuplicator
         copy.Y += offset;
         if (copy.FoldedX is { } foldedX) copy.FoldedX = foldedX + offset;
         if (copy.FoldedY is { } foldedY) copy.FoldedY = foldedY + offset;
+        foreach (var other in copy.OtherLayoutPositions)
+        {
+            other.X += offset;
+            other.Y += offset;
+            if (other.FoldedX is { } x) other.FoldedX = x + offset;
+            if (other.FoldedY is { } y) other.FoldedY = y + offset;
+        }
         copy.LayerOrder = layerOrder;
         // 複製した付箋は目の前に出す。元が非表示でも（一覧から複製した場合など）同じ。
         copy.IsHidden = false;

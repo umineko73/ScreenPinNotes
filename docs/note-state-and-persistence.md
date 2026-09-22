@@ -43,9 +43,21 @@
 1. 保存された位置（ホーム）へ物理ピクセルで戻す。編集中は一時的な位置なので戻さない。
 2. そこでタイトルバーを掴めない（`MonitorLayout.IsReachable` が false）なら、今映せるモニタへ寄せる（`Rescue`）。大きさは変えない。
 
-ドラッグで自分で置き直したときだけ、今の構成を `PositionLayout` として引き受ける（`AdoptCurrentLayoutAsHome`）。解像度を変えたまま使い続ける場合も、並べ直した位置はそのまま覚える。
+自分で置き直したとき ―― ドラッグ、辺のリサイズ（`WM_EXITSIZEMOVE` で矩形が変わっていたとき。システムメニューの「移動」も同じ経路）、位置の揃え直し ―― だけ、今の構成を `PositionLayout` として引き受ける（`AdoptCurrentLayoutAsHome`）。解像度を変えたまま使い続ける場合も、並べ直した位置はそのまま覚える。左辺・上辺のリサイズも引き受けるのは、そうしないと位置だけが捨てられ、構成が戻ったときに「新しい大きさ＋元の左上」になって右端・下端がずれるため。
 
-寄せた位置は保存しない。`PositionLayout` が今の構成と違うあいだ、`NoteGeometryState` は位置の書き戻しを捨てる（大きさは構成に関係ないので記録する）。このため構成が元に戻れば付箋は元の位置へ帰り、モニタを外しているあいだに OS がウィンドウを動かしても本来の位置は壊れない。逆に、その構成のあいだに自分で動かした位置も覚えない。
+引き受けるとき、それまでのホームは捨てずに `OtherLayoutPositions` へ構成ごとに残す（新しい順に `NoteGeometryState.MaxRememberedLayouts` 件）。`ReconcileScreenPlacement` は最初に `RestoreLayoutHome` で今の構成の分を探し、あればそれをホームにする。ドッキングを外したノートPCで1枚だけ動かしても、ドッキングし直せばその付箋もほかと一緒に元の位置へ帰り、また外せばノートPCで置いた位置へ戻る。
+
+寄せた位置は保存しない。`PositionLayout` が今の構成と違うあいだ、`NoteGeometryState` は位置の書き戻しを捨てる（大きさは構成に関係ないので記録する）。このため構成が元に戻れば付箋は元の位置へ帰り、モニタを外しているあいだに OS がウィンドウを動かしても本来の位置は壊れない。構成ごとのホームを切り替えるのも構成の文字列だけを鍵にするので、OS が動かした位置がどこかの構成のホームになることはない。
+
+## 折りたたみ時の位置の影
+
+位置を分けた付箋（`IsPositionSeparated`）を開いているあいだは、折りたたむと戻る場所に `FoldedPositionGhost`（グレーの影）を出す（`AppSettings.ShowFoldedPositionGhost`、既定でオン）。`StickyNoteWindow.FoldedGhost.cs` が出し入れを受け持つ。
+
+- 位置は `FoldedX`/`FoldedY` × `PositionScale` の物理ピクセル。今の構成で掴めない位置なら、畳んだときと同じく `MonitorLayout.Rescue` で寄せて見せる。
+- 開いた付箋の左上と同じ場所なら、付箋の真後ろに隠れるだけなので出さない。
+- 状態の変化は `QueueFoldedGhostUpdate` でまとめる。畳むアニメーションの途中は残し、畳み終えた時点で消す。
+- フォーカスを取らない別ウィンドウ。Owner にしないのは、所有されたウィンドウが常に所有者より前に出るため。付箋の重なり順が変わるたび（`WM_WINDOWPOSCHANGED`）に付箋のすぐ後ろへ置き直す。
+- クリックでその場所へ畳む。ドラッグは畳んだ位置だけを書き換える（今の構成を引き受けてから `NoteGeometryState.StoreFoldedPhysicalPosition`）。影は付箋と別のモニタに居ることがあるので、物理ピクセルで受け取る。右クリックで「折りたたみ時の位置にそろえる」。マウスを乗せると付箋を縁取る（`FoldedGhostHighlight`）。
 
 ## テスト
 
@@ -53,6 +65,7 @@
 - `NoteTransitionRegressionTests`：展開中の本文／タイトル編集、タイトル表示／文字サイズ変更、非表示付箋へのスナップ除外。
 - `NotePersistenceTests`：アプリへの登録なしで注入先へ保存、保存失敗後の再試行、削除後の保存抑止。
 - `AppNoteWindowTests`：実タイマーによる自動保存、Undo／Redo、新規作成、非表示、リマインダーとの連携。
+- `FoldedPositionGhostTests`：影の位置・連動した付箋では出ないこと・畳み終えたら消えること・非表示と設定への追従・ドラッグで畳んだ位置だけが変わること。
 - `MonitorLayoutTests` / `NoteScreenPlacementTests`：構成の判定と寄せ先の計算、画面外の付箋の表示位置、一時的な位置を保存しないこと、拡大率の違うモニタでの位置の往復。
 
 テストホスト（testhost.exe）はアプリ本体の `app.manifest` を使わないため、`TestHostDpiAwareness` のモジュール初期化子で PerMonitorV2 に切り替えている。これが無いと `GetDpiForMonitor` がどのモニタにもプロセスと同じ拡大率を返し、拡大率が混在した実機でも「すべて同じ」に見えて位置の検証にならない。拡大率が一様な環境では、混在を前提としたテストは何も確かめずに通る（合成した構成での計算は `MonitorLayoutTests`）。

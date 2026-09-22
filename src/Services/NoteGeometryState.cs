@@ -63,6 +63,52 @@ public sealed class NoteGeometryState(StickyNote note, Func<NotePositionContext>
         note.PositionScale = context.Scale;
     }
 
+    /// <summary>構成ごとのホームを覚えておく数。ドッキング先・単体・プロジェクター程度なら十分。</summary>
+    public const int MaxRememberedLayouts = 8;
+
+    /// <summary>
+    /// ユーザーが今の構成で自分で置き直した。これまでのホームは元の構成の分として
+    /// 取っておき、その構成に戻ったとき <see cref="RestoreLayoutHome"/> で帰れるようにする。
+    /// 位置そのものは呼び出し側がこのあと書き戻す。
+    /// </summary>
+    public static void AdoptLayout(StickyNote note, string layout)
+    {
+        if (note.PositionLayout == layout) return;
+        StashCurrentHome(note);
+        note.OtherLayoutPositions.RemoveAll(p => p.Layout == layout);
+        note.PositionLayout = layout;
+    }
+
+    /// <summary>
+    /// 今の構成で置いた位置を覚えていれば、それをホームにする。
+    /// 覚えていなければ何もしない（寄せた位置は一時的なもので、保存しない）。
+    /// </summary>
+    public static bool RestoreLayoutHome(StickyNote note, string layout)
+    {
+        if (note.PositionLayout == layout) return false;
+        var saved = note.OtherLayoutPositions.Find(p => p.Layout == layout);
+        if (saved is null) return false;
+        StashCurrentHome(note);
+        note.OtherLayoutPositions.Remove(saved);
+        (note.X, note.Y, note.FoldedX, note.FoldedY) = (saved.X, saved.Y, saved.FoldedX, saved.FoldedY);
+        (note.PositionScale, note.PositionLayout) = (saved.Scale, saved.Layout);
+        return true;
+    }
+
+    private static void StashCurrentHome(StickyNote note)
+    {
+        if (note.PositionLayout.Length == 0) return; // 未記録の位置はどの構成のものか分からない
+        var list = note.OtherLayoutPositions;
+        list.RemoveAll(p => p.Layout == note.PositionLayout);
+        list.Insert(0, new LayoutPosition
+        {
+            Layout = note.PositionLayout, X = note.X, Y = note.Y,
+            FoldedX = note.FoldedX, FoldedY = note.FoldedY, Scale = note.PositionScale,
+        });
+        if (list.Count > MaxRememberedLayouts)
+            list.RemoveRange(MaxRememberedLayouts, list.Count - MaxRememberedLayouts);
+    }
+
     public (double Width, double Height) GetSize(bool editing)
     {
         static double Valid(double? size, double fallback) =>
@@ -84,6 +130,18 @@ public sealed class NoteGeometryState(StickyNote note, Func<NotePositionContext>
         else
             (note.Width, note.Height) = (PreserveLogicalValue(note.Width, width, dpiX),
                 PreserveLogicalValue(note.Height, height, dpiY));
+    }
+
+    /// <summary>
+    /// 畳んだときの位置だけを物理ピクセルで書き戻す（影をドラッグしたとき）。
+    /// 影は付箋と別のモニタに居ることがあるので、論理ピクセルではなく物理ピクセルで受け取り、
+    /// 位置の基準（<see cref="StickyNote.PositionScale"/>）で割って保存する。
+    /// </summary>
+    public void StoreFoldedPhysicalPosition(double x, double y)
+    {
+        if (!BeginStorePosition()) return;
+        var scale = note.PositionScale > 0 ? note.PositionScale : 1;
+        (note.FoldedX, note.FoldedY) = (x / scale, y / scale);
     }
 
     public void StorePosition(double x, double y)

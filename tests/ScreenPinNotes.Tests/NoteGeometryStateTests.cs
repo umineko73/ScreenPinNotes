@@ -169,4 +169,66 @@ public class NoteGeometryStateTests
         new NoteGeometryState(note).StorePosition(500, 600);
         Assert.Equal((500d, 600d, "old", 1d), (note.X, note.Y, note.PositionLayout, note.PositionScale));
     }
+
+    // ─── 構成ごとのホーム ──────────────────────────────────────
+
+    [Fact]
+    public void MovingANoteInAnotherLayoutKeepsTheOriginalLayoutsHome()
+    {
+        // ドッキング中に置いた位置。
+        var note = new StickyNote { X = 100, Y = 110, FoldedX = 120, FoldedY = 130,
+            PositionLayout = "docked", PositionScale = 1.5 };
+        var state = new NoteGeometryState(note, () => new(note.PositionLayout == "laptop", "laptop", 1));
+
+        // ノートPC単体で自分で動かした。
+        NoteGeometryState.AdoptLayout(note, "laptop");
+        state.StorePosition(10, 20);
+        Assert.Equal((10d, 20d, "laptop", 1d), (note.X, note.Y, note.PositionLayout, note.PositionScale));
+
+        // ドッキングし直すと、ドッキング中の位置へ帰る。
+        Assert.True(NoteGeometryState.RestoreLayoutHome(note, "docked"));
+        Assert.Equal((100d, 110d, 120d, 130d), (note.X, note.Y, note.FoldedX!.Value, note.FoldedY!.Value));
+        Assert.Equal(("docked", 1.5), (note.PositionLayout, note.PositionScale));
+
+        // もう一度外せば、ノートPCで置いた位置へ。
+        Assert.True(NoteGeometryState.RestoreLayoutHome(note, "laptop"));
+        Assert.Equal((10d, 20d, "laptop"), (note.X, note.Y, note.PositionLayout));
+        Assert.Equal(["docked"], note.OtherLayoutPositions.Select(p => p.Layout));
+    }
+
+    [Fact]
+    public void AnUnknownLayoutLeavesTheHomeUntouched()
+    {
+        var note = new StickyNote { X = 100, Y = 110, PositionLayout = "docked", PositionScale = 1 };
+
+        Assert.False(NoteGeometryState.RestoreLayoutHome(note, "projector"));
+        Assert.False(NoteGeometryState.RestoreLayoutHome(note, "docked"));
+
+        Assert.Equal((100d, 110d, "docked"), (note.X, note.Y, note.PositionLayout));
+        Assert.Empty(note.OtherLayoutPositions);
+    }
+
+    [Fact]
+    public void OnlyTheMostRecentLayoutsAreRemembered()
+    {
+        var note = new StickyNote { PositionLayout = "layout0", PositionScale = 1 };
+        for (var i = 1; i <= NoteGeometryState.MaxRememberedLayouts + 3; i++)
+        {
+            NoteGeometryState.AdoptLayout(note, $"layout{i}");
+            note.X = i;
+        }
+
+        Assert.Equal(NoteGeometryState.MaxRememberedLayouts, note.OtherLayoutPositions.Count);
+        Assert.Equal($"layout{NoteGeometryState.MaxRememberedLayouts + 2}", note.OtherLayoutPositions[0].Layout);
+        Assert.DoesNotContain(note.OtherLayoutPositions, p => p.Layout == note.PositionLayout);
+    }
+
+    [Fact]
+    public void AdoptingFromAnUnrecordedLayoutStashesNothing()
+    {
+        var note = new StickyNote { X = 5, Y = 6 };
+        NoteGeometryState.AdoptLayout(note, "laptop");
+        Assert.Equal("laptop", note.PositionLayout);
+        Assert.Empty(note.OtherLayoutPositions);
+    }
 }

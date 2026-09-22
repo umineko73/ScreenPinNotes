@@ -59,7 +59,7 @@ While the app is running, **Ctrl+Alt+N** creates a new note from other apps, and
 | `Ctrl+C` / `Ctrl+X` / `Ctrl+V` | Copy/cut/paste |
 | `Alt+F4` / taskbar close | Hide the note |
 
-Normal dragging links expanded and collapsed positions. Use **Align to collapsed position** to reconnect separated positions. Each mode remembers its own width. Snapping adjacent notes leaves a one-physical-pixel gap.
+Normal dragging links expanded and collapsed positions. Use **Align to collapsed position** to reconnect separated positions. While a note with separate positions is expanded, a gray placeholder marks where it collapses to: click it to collapse the note there, drag it to move only the collapsed position, or right-click it to align the positions. Hovering the placeholder outlines its note. Turn it off under **Settings → Collapsing**. Each mode remembers its own width. Snapping adjacent notes leaves a one-physical-pixel gap.
 
 ## Icons and toolbars
 

@@ -50,12 +50,13 @@ public partial class StickyNoteWindow
     }
 
     /// <summary>
-    /// ユーザーが自分でドラッグした先は、今の構成での正しい置き場所として引き受ける。
-    /// これが無いと、解像度を変えたまま使い続ける人の付箋が「一時的に寄せた位置」の
-    /// ままになり、並べ直しても覚えてくれない。
+    /// ユーザーが自分で置き直した先（ドラッグ・辺のリサイズ・位置の揃え直し）は、
+    /// 今の構成での正しい置き場所として引き受ける。これが無いと、解像度を変えたまま
+    /// 使い続ける人の付箋が「一時的に寄せた位置」のままになり、並べ直しても覚えてくれない。
+    /// 元の構成でのホームは捨てずに残すので、その構成に戻れば元の位置へ帰る。
     /// </summary>
     private void AdoptCurrentLayoutAsHome()
-        => ViewModel.Model.PositionLayout = MonitorLayout.Signature(MonitorLayout.Current());
+        => NoteGeometryState.AdoptLayout(ViewModel.Model, MonitorLayout.Signature(MonitorLayout.Current()));
 
     /// <summary>
     /// <see cref="NoteGeometryState"/> を通さずモデルへ直接位置を書くところ用。
@@ -82,6 +83,10 @@ public partial class StickyNoteWindow
         var monitors = MonitorLayout.Current();
         if (monitors.Count == 0) return;
 
+        // この構成で置いた位置を覚えていれば、それが今のホーム。
+        if (NoteGeometryState.RestoreLayoutHome(ViewModel.Model, MonitorLayout.Signature(monitors)))
+            RequestSave();
+
         // 編集中の位置は保存対象ではない一時的なものなので、ホームへは引き戻さない
         // （編集を終えた時点で EnterViewMode がモデルの位置へ戻す）。
         var editing = _isEditMode && !ViewModel.IsFolded;
@@ -95,6 +100,7 @@ public partial class StickyNoteWindow
             if (rescued != rect)
                 MoveToPhysical(hwnd, rescued);
         });
+        QueueFoldedGhostUpdate();
     }
 
     /// <summary>

@@ -639,6 +639,8 @@ public sealed class SettingsWindow : Window
             () => _settings.ShowFoldButton, v => _settings.ShowFoldButton = v));
         folding.Children.Add(Toggle("TrayDoubleClickToToggleView",
             () => _settings.DoubleClickToToggleView, v => _settings.DoubleClickToToggleView = v));
+        folding.Children.Add(Toggle("SettingsShowFoldedPositionGhost",
+            () => _settings.ShowFoldedPositionGhost, v => _settings.ShowFoldedPositionGhost = v));
         panel.Children.Add(LabeledRow("SettingsFolding", folding));
 
         var externalFiles = new StackPanel();

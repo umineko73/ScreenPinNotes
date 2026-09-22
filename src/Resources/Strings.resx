@@ -850,4 +850,10 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="ReminderMethodNotification" xml:space="preserve"><value>Windows notification</value></data>
   <data name="ReminderMethodAlert" xml:space="preserve"><value>Alert window</value></data>
   <data name="ReminderMethodFlash" xml:space="preserve"><value>Flash the note</value></data>
+  <data name="SettingsShowFoldedPositionGhost" xml:space="preserve">
+    <value>Show where a note with separate positions collapses to while it is expanded</value>
+  </data>
+  <data name="FoldedGhostTooltip" xml:space="preserve">
+    <value>The note returns here when collapsed&#xA;Click: collapse it here&#xA;Drag: move the collapsed position</value>
+  </data>
 </root>

@@ -154,6 +154,7 @@ public partial class StickyNoteWindow
                 if (!_isEditMode)
                     EnsureExpandedContent();
                 ReconcileScreenPlacement();
+                QueueFoldedGhostUpdate();
                 onUnfolded?.Invoke();
             });
         }
@@ -195,6 +196,7 @@ public partial class StickyNoteWindow
                 SetResizeEnabled(false); // タイトルバーのみの時はリサイズ不可
                 UpdateLayout();
                 UpdateImagePathPreview();
+                QueueFoldedGhostUpdate(); // 影の場所へ着いたので影を消す
             });
         }
         RequestSave();
