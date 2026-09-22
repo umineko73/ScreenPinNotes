@@ -35,7 +35,6 @@ namespace ScreenPinNotes.Views;
 public partial class StickyNoteWindow
 {
     private bool _isFormatToolbarUpdateQueued;
-    private Button? _formatPasteButton;
 
     // 16x16 の線画アイコン。線は押せるボタンの文字色で描く（Fill の図形だけ塗る）。
     private const string BoldIcon = "M4.5,2.5 H9 A2.9,2.9 0 0 1 9,8.3 H4.5 Z M4.5,8.3 H9.8 A3.1,3.1 0 0 1 9.8,14.5 H4.5 Z";
@@ -63,7 +62,6 @@ public partial class StickyNoteWindow
         // 選んだ直後に使うことが多いので、書式より前に置く。
         AddGlyphButton(UiIcons.Cut, "Cut", BodyEditBox.Cut);
         AddGlyphButton(UiIcons.Copy, "Copy", BodyEditBox.Copy);
-        _formatPasteButton = AddGlyphButton(UiIcons.Paste, "Paste", PasteFromClipboard);
         AddFormatDivider();
         AddFormatButton(BoldIcon, "FormatBold", () => ApplyMarkdownFormat("**", line: false));
         AddFormatButton(ItalicIcon, "FormatItalic", () => ApplyMarkdownFormat("*", line: false));
@@ -107,7 +105,7 @@ public partial class StickyNoteWindow
         return button;
     }
 
-    /// <summary>Segoe Fluent Icons の字をそのまま顔にするボタン（切り取り・コピー・貼り付け）。</summary>
+    /// <summary>Segoe Fluent Icons の字をそのまま顔にするボタン（切り取り・コピー）。</summary>
     private Button AddGlyphButton(string glyph, string tooltipKey, Action apply)
     {
         var button = CreateFormatBarButton(tooltipKey, apply);
@@ -180,9 +178,6 @@ public partial class StickyNoteWindow
             button.Foreground = foreground;
         foreach (var divider in FormatBarButtons.Children.OfType<Border>())
             divider.Background = FormatBar.BorderBrush;
-        // 貼り付けるものが無いときは押せないようにする（右クリックの「貼り付け」と同じ判定）。
-        if (_formatPasteButton != null)
-            _formatPasteButton.IsEnabled = TryGetClipboardText(out _) || ClipboardHasImage();
         FormatToolbarPopup.CustomPopupPlacementCallback = PlaceFormatToolbar;
         FormatToolbarPopup.IsOpen = true;
         // 開いたままでは選択が動いても位置を計算し直さないので、ずらして促す。

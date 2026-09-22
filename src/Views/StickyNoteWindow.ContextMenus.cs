@@ -177,7 +177,7 @@ public partial class StickyNoteWindow
         var pasteExcelTableItem = BuildPasteExcelTableMenuItem();
         var cutItem = new MenuItem { Header = LocalizationService.T("Cut"), Command = ApplicationCommands.Cut, CommandTarget = BodyEditBox };
         var copyItem = new MenuItem { Header = LocalizationService.T("Copy"), Command = ApplicationCommands.Copy, CommandTarget = BodyEditBox };
-        var pasteItem = new MenuItem { Header = LocalizationService.T("Paste") };
+        var pasteItem = new MenuItem { Header = LocalizationService.T("Paste"), InputGestureText = "Ctrl+V" };
         var readOnlyItem = BuildReadOnlyMenuItem();
         var externalItem = BuildExternalContentMenuItem();
         var reminderItem = BuildReminderMenuItem();

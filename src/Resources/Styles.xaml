@@ -90,7 +90,7 @@
     <ControlTemplate x:Key="NoteContextMenuTemplate" TargetType="ContextMenu">
         <StackPanel>
             <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                    BorderThickness="1" CornerRadius="3" HorizontalAlignment="Left" Margin="0,0,0,6">
+                    BorderThickness="1" CornerRadius="3" HorizontalAlignment="Left" Margin="0,0,16,6">
                 <ContentPresenter Content="{TemplateBinding Tag}"/>
             </Border>
             <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"

@@ -175,6 +175,10 @@ public partial class StickyNoteWindow : Window
     {
         _geometry = new NoteGeometryState(vm.Model, CurrentPositionContext);
         InitializeComponent();
+        SetFontSizeButtonContent(FontLargerButton, "A", 1);
+        SetFontSizeButtonContent(FontSmallerButton, "A", -1);
+        SetFontSizeButtonContent(TitleLargerButton, "T", 1);
+        SetFontSizeButtonContent(TitleSmallerButton, "T", -1);
         _uiDispatcher = Dispatcher;
         DataContext = vm;
         InitializeFormatToolbar();

@@ -633,7 +633,7 @@ public class StickyNoteWindowTests
             var bar = (Border)window.FindName("FormatBar");
             var buttons = ((StackPanel)window.FindName("FormatBarButtons")).Children.OfType<Button>().ToList();
             Assert.Equal(
-                new[] { "Cut", "Copy", "Paste", "FormatBold", "FormatItalic", "FormatStrike", "FormatHighlight", "FormatCode", "FormatBullets", "FormatNumbered", "FormatTasks", "FormatLink", "FormatClear" }
+                new[] { "Cut", "Copy", "FormatBold", "FormatItalic", "FormatStrike", "FormatHighlight", "FormatCode", "FormatBullets", "FormatNumbered", "FormatTasks", "FormatLink", "FormatClear" }
                     .Select(key => LocalizationService.T(key)),
                 buttons.Select(button => button.ToolTip as string));
 
@@ -651,7 +651,7 @@ public class StickyNoteWindowTests
             var barBottom = bar.PointToScreen(new Point(0, bar.ActualHeight)).Y;
             Assert.True(barBottom <= selectionTop + 1, $"bar bottom {barBottom}, selection top {selectionTop}");
 
-            buttons[3].RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            buttons[2].RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
             Assert.Equal("first\n- **second** line", editor.Text.Replace("\r\n", "\n"));
             Assert.Equal("second", editor.SelectedText);
 
@@ -1201,14 +1201,16 @@ public class StickyNoteWindowTests
             menu.PlacementTarget = content;
             menu.IsOpen = true;
             var toolbar = (StackPanel)((Border)menu.Tag).Child;
-            var buttons = (StackPanel)toolbar.Children[0];
+            var buttons = toolbar.Children.OfType<Button>().ToList();
             for (var i = 0; i < 3; i++)
-                ((Button)buttons.Children[1]).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            ((Button)buttons.Children[3]).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                buttons[0].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            buttons[2].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
             Assert.True(menu.IsOpen);
-            var sizes = (TextBlock)toolbar.Children[1];
-            Assert.Equal($"A: {window.ViewModel.FontSize} pt    T: {window.ViewModel.TitleFontSize} pt", sizes.Text);
+            var sizes = toolbar.Children.OfType<TextBlock>().ToList();
+            Assert.Equal(window.ViewModel.FontSize.ToString("0.#"), sizes[0].Text);
+            Assert.Equal(window.ViewModel.TitleFontSize.ToString("0.#"), sizes[1].Text);
+            Assert.All(sizes, size => Assert.False(size.IsHitTestVisible));
             menu.IsOpen = false;
         }
         finally { window.Close(); }
@@ -2289,7 +2291,8 @@ public class StickyNoteWindowTests
             Assert.NotNull(contentBox.ContextMenu);
             Assert.Contains(
                 bodyEditBox.ContextMenu.Items.OfType<MenuItem>(),
-                item => Equals(item.Header, "貼り付け") || Equals(item.Header, "Paste"));
+                item => (Equals(item.Header, "貼り付け") || Equals(item.Header, "Paste"))
+                    && item.InputGestureText == "Ctrl+V");
             Assert.Contains(
                 bodyEditBox.ContextMenu.Items.OfType<MenuItem>(),
                 item => Equals(item.Header, "Markdownリンクとして貼り付け") || Equals(item.Header, "Paste as Markdown link"));
@@ -2535,11 +2538,10 @@ public class StickyNoteWindowTests
                 Assert.NotNull(contextMenu);
                 var row = Assert.IsType<Border>(contextMenu.Tag);
                 var toolbar = Assert.IsType<StackPanel>(row.Child);
-                var panel = Assert.IsType<StackPanel>(toolbar.Children[0]);
                 Assert.False(row.Focusable);
-                Assert.Equal(7, panel.Children.Count);
+                Assert.Equal(7, toolbar.Children.OfType<Button>().Count());
                 Assert.All(
-                    panel.Children.OfType<Button>(),
+                    toolbar.Children.OfType<Button>(),
                     button => Assert.False(button.Focusable));
             }
         }

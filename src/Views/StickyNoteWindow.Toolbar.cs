@@ -132,7 +132,6 @@ public partial class StickyNoteWindow
         if (!_isEditMode)
             LoadContent(ViewModel.Content);
         RequestSave();
-        ShowSizeOverlay(string.Format(LocalizationService.T("BodySize"), ViewModel.FontSize));
         UpdateToolbarTooltips();
         // 行の高さが変わるので、本文の終わりを示す帯も位置を取り直す。
         QueueEndOfTextShadeUpdate();
@@ -164,15 +163,13 @@ public partial class StickyNoteWindow
             Height = FoldedHeight;
             FitFoldedWidth();
         }
-        ShowSizeOverlay(string.Format(LocalizationService.T("TitleSize"), ViewModel.TitleFontSize));
         UpdateToolbarTooltips();
         RequestSave();
     }
 
-    // ─── サイズ表示オーバーレイ ──────────────────────────────────
+    // ─── 操作通知オーバーレイ ──────────────────────────────────
     //
-    // ツールチップはクリックで閉じてしまい連打中に読めないため、
-    // 音量 OSD のように一時表示してフェードアウトさせる。
+    // ドラッグ中の操作状態やエラーを一時表示してフェードアウトさせる。
 
     private void ShowSizeOverlay(string text)
     {

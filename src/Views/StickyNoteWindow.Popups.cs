@@ -216,6 +216,37 @@ public partial class StickyNoteWindow
         }
     }
 
+    private static void SetFontSizeButtonContent(WpfButton button, string label, int delta)
+    {
+        button.Width = 24;
+        var face = new StackPanel
+        {
+            Orientation = System.Windows.Controls.Orientation.Horizontal,
+            Height = 22,
+        };
+        face.Children.Add(new TextBlock
+        {
+            Text = label,
+            FontSize = delta > 0 ? 16 : 12,
+            VerticalAlignment = VerticalAlignment.Bottom,
+        });
+        var chevron = new System.Windows.Shapes.Path
+        {
+            Data = System.Windows.Media.Geometry.Parse(delta > 0 ? "M0,3 L3,0 L6,3" : "M0,0 L3,3 L6,0"),
+            StrokeThickness = 1.2,
+            StrokeStartLineCap = System.Windows.Media.PenLineCap.Round,
+            StrokeEndLineCap = System.Windows.Media.PenLineCap.Round,
+            StrokeLineJoin = System.Windows.Media.PenLineJoin.Round,
+            Width = 7, Height = 5,
+            Margin = new Thickness(1, 2, 0, 0),
+            VerticalAlignment = VerticalAlignment.Top,
+        };
+        chevron.SetBinding(System.Windows.Shapes.Shape.StrokeProperty,
+            new System.Windows.Data.Binding(nameof(WpfButton.Foreground)) { Source = button });
+        face.Children.Add(chevron);
+        button.Content = face;
+    }
+
     // メニューと同じ Popup 内に置き、マウスキャプチャを共有する。
     private Border BuildQuickActionsRow(out WpfButton iconButton)
     {
@@ -241,10 +272,10 @@ public partial class StickyNoteWindow
         var panel = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
         foreach (var (label, key, title, delta) in new[]
         {
-            ("A-", "FontSmallerTooltip", false, -1),
-            ("A+", "FontLargerTooltip", false, 1),
-            ("T-", "TitleSmallerTooltip", true, -1),
-            ("T+", "TitleLargerTooltip", true, 1),
+            ("A", "FontLargerTooltip", false, 1),
+            ("A", "FontSmallerTooltip", false, -1),
+            ("T", "TitleLargerTooltip", true, 1),
+            ("T", "TitleSmallerTooltip", true, -1),
         })
         {
             var button = MakeButton(label, "", () =>
@@ -252,13 +283,46 @@ public partial class StickyNoteWindow
                 if (title) SetTitleFontSize(ViewModel.TitleFontSize + delta);
                 else SetBodyFontSize(ViewModel.FontSize + delta);
             });
+            SetFontSizeButtonContent(button, label, delta);
             button.SetBinding(ToolTipProperty, new System.Windows.Data.Binding(title ? "TitleFontSize" : "FontSize")
             {
                 Source = ViewModel, StringFormat = LocalizationService.T(key),
             });
             panel.Children.Add(button);
+            if (delta > 0)
+            {
+                // Plain, non-interactive text distinguishes the current size from buttons.
+                var size = new TextBlock
+                {
+                    MinWidth = 22,
+                    Margin = new Thickness(2, 0, 2, 0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    TextAlignment = TextAlignment.Center,
+                    FontSize = 12,
+                    Foreground = PopupForegroundBrush(),
+                    Opacity = 0.75,
+                    IsHitTestVisible = false,
+                    Focusable = false,
+                };
+                size.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding(title ? "TitleFontSize" : "FontSize")
+                {
+                    Source = ViewModel, StringFormat = "{0:0.#}",
+                });
+                panel.Children.Add(size);
+            }
+            else
+            {
+                panel.Children.Add(new Border
+                {
+                    Width = 1, Height = 16,
+                    Margin = new Thickness(5, 0, 5, 0),
+                    Background = PopupBorderBrush(),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    IsHitTestVisible = false,
+                });
+            }
         }
-        panel.Children.Add(MakeButton("Aa", LocalizationService.T("FontTooltip"),
+        var fontButton = MakeButton("Aa", LocalizationService.T("FontTooltip"),
             () => RunQuickAction(() =>
             {
                 if (_fontPopup == null) return;
@@ -266,33 +330,22 @@ public partial class StickyNoteWindow
                 _fontPopup.PlacementTarget = this;
                 _fontPopup.Placement = PlacementMode.MousePoint;
                 _fontPopup.IsOpen = true;
-            })));
+            }));
+        fontButton.Width = 24;
+        panel.Children.Add(fontButton);
         iconButton = MakeButton(UiIcons.Emoji, LocalizationService.T("IconTooltip"),
             () => RunQuickAction(OpenIconPickerAtMouse), icon: true);
         panel.Children.Add(iconButton);
         panel.Children.Add(MakeButton(UiIcons.Palette, LocalizationService.T("ColorTooltip"),
             () => RunQuickAction(OpenColorPickerAtMouse), icon: true));
 
-        // Keep live sizes in the menu's own window so they cannot hide behind it.
-        var sizes = new TextBlock
-        {
-            Margin = new Thickness(5, 2, 5, 2), FontSize = 12,
-            Foreground = PopupForegroundBrush(),
-        };
-        var sizeBinding = new System.Windows.Data.MultiBinding { StringFormat = "A: {0} pt    T: {1} pt" };
-        sizeBinding.Bindings.Add(new System.Windows.Data.Binding("FontSize") { Source = ViewModel });
-        sizeBinding.Bindings.Add(new System.Windows.Data.Binding("TitleFontSize") { Source = ViewModel });
-        sizes.SetBinding(TextBlock.TextProperty, sizeBinding);
-        var toolbar = new StackPanel();
-        toolbar.Children.Add(panel);
-        toolbar.Children.Add(sizes);
         var border = new Border
         {
             DataContext = ViewModel,
             BorderThickness = new Thickness(0),
             CornerRadius = new CornerRadius(4),
             Padding = new Thickness(3),
-            Child = toolbar,
+            Child = panel,
         };
         border.Background = PopupBackgroundBrush();
         border.SetValue(TextElement.ForegroundProperty, PopupForegroundBrush());

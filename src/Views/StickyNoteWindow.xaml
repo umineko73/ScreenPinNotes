@@ -571,19 +571,31 @@
                                 Command="ApplicationCommands.Undo" CommandTarget="{Binding ElementName=BodyEditBox}"/>
                         <Button x:Name="RedoButton" Content="{x:Static services:UiIcons.Redo}" FontFamily="{x:Static services:UiIcons.Font}" FontSize="16" Style="{StaticResource EditToolbarButton}"
                                 Command="ApplicationCommands.Redo" CommandTarget="{Binding ElementName=BodyEditBox}"/>
-                        <Button x:Name="FontSmallerButton" Content="A-" Style="{StaticResource EditToolbarButton}"
-                                ToolTip="{Binding FontSize, StringFormat=本文のフォントを小さく (現在 {0}pt)}"
-                                Click="FontSmaller_Click"/>
-                        <Button x:Name="FontLargerButton" Content="A+" Style="{StaticResource EditToolbarButton}"
+                        <Button x:Name="FontLargerButton" Style="{StaticResource EditToolbarButton}"
                                 ToolTip="{Binding FontSize, StringFormat=本文のフォントを大きく (現在 {0}pt)}"
                                 Click="FontLarger_Click"/>
-                        <Button x:Name="TitleSmallerButton" Content="T-" Style="{StaticResource EditToolbarButton}"
-                                ToolTip="{Binding TitleFontSize, StringFormat=タイトルのフォントを小さく (現在 {0}pt)}"
-                                Click="TitleSmaller_Click"/>
-                        <Button x:Name="TitleLargerButton" Content="T+" Style="{StaticResource EditToolbarButton}"
+                        <TextBlock Text="{Binding FontSize, StringFormat={}{0:0.#}}"
+                                   MinWidth="22" Margin="2,0" FontSize="12" Opacity="0.75"
+                                   VerticalAlignment="Center" TextAlignment="Center"
+                                   IsHitTestVisible="False" Focusable="False"/>
+                        <Button x:Name="FontSmallerButton" Style="{StaticResource EditToolbarButton}"
+                                ToolTip="{Binding FontSize, StringFormat=本文のフォントを小さく (現在 {0}pt)}"
+                                Click="FontSmaller_Click"/>
+                        <Border Width="1" Height="16" Margin="5,0" VerticalAlignment="Center"
+                                Background="{Binding BorderBrush, ElementName=StatusBar}" IsHitTestVisible="False"/>
+                        <Button x:Name="TitleLargerButton" Style="{StaticResource EditToolbarButton}"
                                 ToolTip="{Binding TitleFontSize, StringFormat=タイトルのフォントを大きく (現在 {0}pt)}"
                                 Click="TitleLarger_Click"/>
-                        <Button x:Name="FontButton" Content="Aa"
+                        <TextBlock Text="{Binding TitleFontSize, StringFormat={}{0:0.#}}"
+                                   MinWidth="22" Margin="2,0" FontSize="12" Opacity="0.75"
+                                   VerticalAlignment="Center" TextAlignment="Center"
+                                   IsHitTestVisible="False" Focusable="False"/>
+                        <Button x:Name="TitleSmallerButton" Style="{StaticResource EditToolbarButton}"
+                                ToolTip="{Binding TitleFontSize, StringFormat=タイトルのフォントを小さく (現在 {0}pt)}"
+                                Click="TitleSmaller_Click"/>
+                        <Border Width="1" Height="16" Margin="5,0" VerticalAlignment="Center"
+                                Background="{Binding BorderBrush, ElementName=StatusBar}" IsHitTestVisible="False"/>
+                        <Button x:Name="FontButton" Content="Aa" Width="24"
                                 Style="{StaticResource EditToolbarButton}"
                                 ToolTip="フォントを変更" Click="Font_Click"/>
                         <Button x:Name="IconButton" Content="{x:Static services:UiIcons.Emoji}"
