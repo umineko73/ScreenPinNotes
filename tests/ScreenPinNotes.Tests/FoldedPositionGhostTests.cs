@@ -16,6 +16,9 @@
 
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Windows;
+using System.Windows.Interop;
 using System.Windows.Threading;
 using ScreenPinNotes.Models;
 using ScreenPinNotes.Services;
@@ -118,6 +121,42 @@ public class FoldedPositionGhostTests
         Assert.False(scope.Note.IsPositionSeparated);
         Assert.Null(scope.GhostLocation());
     }
+
+    [WpfFact]
+    public void GhostStaysOutOfTheTaskbarAndAltTabWithoutTakingFocus()
+    {
+        using var scope = new NoteScope(separated: true);
+        var foreground = GetForegroundWindow();
+        Assert.NotNull(scope.GhostLocation());
+        var ghost = (Window)typeof(StickyNoteWindow)
+            .GetField("_foldedGhost", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(scope.Window)!;
+        var hwnd = new WindowInteropHelper(ghost).Handle;
+
+        // ShowInTaskbar=false の WPF ウィンドウは見えない親の下に作られ、Alt+Tab の一覧に出ない。
+        var owner = GetWindow(hwnd, GW_OWNER);
+        Assert.NotEqual(IntPtr.Zero, owner);
+        Assert.False(IsWindowVisible(owner));
+        Assert.Equal(0, GetWindowLongPtr(hwnd, GWL_EXSTYLE).ToInt64() & WS_EX_APPWINDOW);
+        // 出しただけで前面を奪わない。
+        Assert.Equal(foreground, GetForegroundWindow());
+        Assert.NotEqual(hwnd, GetForegroundWindow());
+    }
+
+    private const int GW_OWNER = 4;
+    private const int GWL_EXSTYLE = -20;
+    private const long WS_EX_APPWINDOW = 0x00040000;
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetWindow(IntPtr hwnd, int cmd);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr hwnd);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+    private static extern IntPtr GetWindowLongPtr(IntPtr hwnd, int index);
 
     [Theory]
     [InlineData("en", "SettingsShowFoldedPositionGhost", "Show where a note with separate positions collapses to while it is expanded")]
