@@ -118,6 +118,38 @@
                     </Image.Effect>
                 </Image>
 
+                <!-- 編集中の持ち手。タイトル入力欄の上は掴めないので、アイコンが
+                     無い付箋では入力欄がタイトルバーを埋めると動かせなくなる。
+                     アイコンがあればそちらが持ち手になるので、無いときだけ出す。
+                     押した処理はタイトルバーへそのまま流れる。 -->
+                <Border x:Name="TitleGripHandle"
+                        Grid.Column="0"
+                        Width="14"
+                        Margin="3,0,0,0"
+                        Background="Transparent"
+                        Cursor="SizeAll">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding Visibility, ElementName=TitleEditBox}" Value="Visible"/>
+                                        <Condition Binding="{Binding Visibility, ElementName=IconImage}" Value="Collapsed"/>
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </MultiDataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <Path Data="M0,0h2v2h-2z M4,0h2v2h-2z M0,4h2v2h-2z M4,4h2v2h-2z M0,8h2v2h-2z M4,8h2v2h-2z"
+                          Fill="{Binding TitleBarForeground}"
+                          Opacity="0.55"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"
+                          IsHitTestVisible="False"/>
+                </Border>
+
                 <!-- タイトル表示（Title があればそれを、無ければ本文1行目を表示）。
                      閉じた表示/開いた表示にかかわらず常に表示する -->
                 <TextBlock x:Name="TitleText"
@@ -147,9 +179,13 @@
 
                 <!-- タイトル直接入力欄。編集モード中だけ表示する
                      （EnterEditMode/EnterViewMode で切り替え）。
-                     空欄のままなら DisplayTitle は本文1行目にフォールバックする -->
+                     空欄のままなら DisplayTitle は本文1行目にフォールバックする。
+                     幅は文字に合わせ、残りはタイトルバーの持ち手として空けておく
+                     （空いた所のクリックはこの欄へのフォーカスになる）。 -->
                 <TextBox x:Name="TitleEditBox"
                          Grid.Column="1"
+                         HorizontalAlignment="Left"
+                         MinWidth="48"
                          Text="{Binding Title, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          Visibility="Collapsed"
                          Background="Transparent"

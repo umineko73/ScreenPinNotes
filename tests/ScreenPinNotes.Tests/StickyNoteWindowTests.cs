@@ -1039,6 +1039,68 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
+    // 入力欄の上は掴めない。アイコンの無い付箋でも、編集中に掴める所が
+    // タイトルバーに残ること（左端の持ち手と、入力欄の右の空き）。
+    [WpfTheory]
+    [InlineData("", true)]
+    [InlineData("🔴", false)]    // アイコンがそのまま持ち手になる
+    public void TitleBar_WhileEditing_KeepsSomewhereToGrab(string icon, bool gripExpected)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { Icon = icon, Title = "abc", Width = 320, Height = 200 };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            InvokePrivate(window, "EnterEditMode");
+            window.UpdateLayout();
+
+            var titleBar = (FrameworkElement)window.FindName("TitleBar");
+            var titleEditBox = (FrameworkElement)window.FindName("TitleEditBox");
+            var grip = (FrameworkElement)window.FindName("TitleGripHandle");
+            Assert.Equal(gripExpected ? Visibility.Visible : Visibility.Collapsed, grip.Visibility);
+
+            // 短いタイトルなら入力欄はバーを埋めず、右に掴める所が残る。
+            var editRight = titleEditBox.TranslatePoint(new Point(titleEditBox.ActualWidth, 0), titleBar).X;
+            Assert.True(titleBar.ActualWidth - editRight > 100,
+                $"title bar {titleBar.ActualWidth}, edit box ends at {editRight}");
+
+            InvokePrivate(window, "EnterViewMode");
+            Assert.Equal(Visibility.Collapsed, grip.Visibility);
+        }
+        finally { window.Close(); }
+    }
+
+    // 入力欄の右の空きを動かさずにクリックしたら、畳まずに入力欄へ入る。
+    [WpfFact]
+    public void TitleBar_ClickBesideTheTitleEditor_FocusesItInsteadOfFolding()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var note = new StickyNote { Title = "abc", Width = 320, Height = 200 };
+        var settings = new AppSettings { DoubleClickToToggleView = false };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            InvokePrivate(window, "EnterEditMode");
+            window.UpdateLayout();
+            var titleBar = (UIElement)window.FindName("TitleBar");
+            var titleEditBox = (TextBox)window.FindName("TitleEditBox");
+
+            titleBar.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left)
+                { RoutedEvent = UIElement.MouseLeftButtonDownEvent });
+            titleBar.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left)
+                { RoutedEvent = UIElement.MouseLeftButtonUpEvent });
+
+            Assert.False(window.ViewModel.IsFolded);
+            Assert.Same(titleEditBox, FocusManager.GetFocusedElement(window));
+            Assert.Equal(titleEditBox.Text.Length, titleEditBox.CaretIndex);
+        }
+        finally { window.Close(); }
+    }
+
     // 畳んだタイトルバー無しの本文は、タイトルバーとして扱う（掴んで動かせる）。
     [WpfTheory]
     [InlineData(true, true, true)]

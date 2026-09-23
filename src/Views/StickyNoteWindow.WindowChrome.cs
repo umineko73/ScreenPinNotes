@@ -53,6 +53,7 @@ public partial class StickyNoteWindow
     // 確認しただけで畳まれてしまう。畳んだ付箋は1回のクリックで開く。
     private bool _mouseActivating;
     private bool _suppressTitleAction;
+    private bool _titleClickFocusesEditor;
 
     // ─── ドラッグ & スナップ ─────────────────────────────────────
     //
@@ -72,7 +73,15 @@ public partial class StickyNoteWindow
         if (_isEditMode && e.OriginalSource is DependencyObject src && IsDescendantOf(src, TitleEditBox))
             return;
 
-        if (ShouldToggleViewOnMouseDown(e.ClickCount))
+        // 編集中、入力欄の右に空けてある所は持ち手を兼ねる。動かせば移動、
+        // 動かさなければ入力欄へのフォーカス（畳みはしない。ここは今まで
+        // 入力欄が埋めていた所なので、押して畳まれると驚く）。
+        _titleClickFocusesEditor = _isEditMode &&
+            TitleEditBox.Visibility == Visibility.Visible &&
+            ReferenceEquals(sender, TitleBar) &&
+            ReferenceEquals(e.OriginalSource, TitleBar);
+
+        if (!_titleClickFocusesEditor && ShouldToggleViewOnMouseDown(e.ClickCount))
         {
             _isDragging = false;
             _dragMoved = false;
@@ -141,8 +150,22 @@ public partial class StickyNoteWindow
         }
 
         _dragSeparatesFoldedPosition = false;
+        if (_titleClickFocusesEditor)
+        {
+            _titleClickFocusesEditor = false;
+            FocusTitleEditBoxAtEnd();
+            return;
+        }
         if (ShouldToggleViewOnMouseUp(e.ClickCount))
             ToggleFold();
+    }
+
+    private void FocusTitleEditBoxAtEnd()
+    {
+        if (!_isEditMode || TitleEditBox.Visibility != Visibility.Visible) return;
+        TitleEditBox.Focus();
+        Keyboard.Focus(TitleEditBox);
+        TitleEditBox.Select(TitleEditBox.Text.Length, 0);
     }
 
     private bool ShouldToggleViewOnMouseDown(int clickCount)
