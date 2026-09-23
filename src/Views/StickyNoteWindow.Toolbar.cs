@@ -1,4 +1,4 @@
-﻿// ScreenPinNotes - a desktop sticky notes app for Windows 11
+// ScreenPinNotes - a desktop sticky notes app for Windows 11
 // Copyright (C) 2026 umineko73
 //
 // This program is free software: you can redistribute it and/or modify
@@ -55,7 +55,7 @@ public partial class StickyNoteWindow
     {
         var (x, y) = GetNewNotePositionNearCursor();
         // 位置はこのウィンドウの拡大率を基準に出しているので、基準も一緒に渡す。
-        App.Current.AddNewNote(ViewModel.Model, x, y, GetDpi().dpiX);
+        _host?.AddNewNote(ViewModel.Model, x, y, GetDpi().dpiX);
     }
 
     private (double x, double y) GetNewNotePositionNearCursor()
@@ -386,7 +386,7 @@ public partial class StickyNoteWindow
             LocalizationService.T("DeleteConfirmTitle"));
         if (confirmed)
         {
-            if (App.Current.RemoveNote(ViewModel.Model.Id))
+            if (_host?.RemoveNote(ViewModel.Model.Id) == true)
                 Close();
         }
     }

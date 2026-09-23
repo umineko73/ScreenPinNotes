@@ -56,8 +56,7 @@ public partial class StickyNoteWindow
     private double _expandedScrollX;
     private double _expandedScrollY;
     private readonly Dictionary<string, DateTime> _renderedImageFiles = new(StringComparer.OrdinalIgnoreCase);
-    private DateTime _lastExternalContentReloadUtc = DateTime.MinValue;
-    private System.Windows.Threading.DispatcherTimer? _externalContentReloadThrottleTimer;
+    private ExternalContentSession? _externalContentSession;
 
     private void EnsureExpandedContent()
     {
@@ -137,138 +136,83 @@ public partial class StickyNoteWindow
 
     public void ReloadExternalContent()
     {
+        _ = ReloadExternalContentAsync();
+    }
+
+    public async Task ReloadExternalContentAsync()
+    {
         try
         {
-            if (_uiDispatcher.HasShutdownStarted || _uiDispatcher.HasShutdownFinished)
-                return;
-
-            // FileSystemWatcher はワーカースレッドで発火する。ここでは WPF の
-            // Window/コントロール/ViewModel には触れず、UI スレッドだけで処理する。
-            _uiDispatcher.BeginInvoke(ScheduleExternalContentReload);
-        }
-        // FileSystemWatcher のイベントがウィンドウ終了後に届く場合がある。
-        // 終了済み Dispatcher へキューできなくても、アプリ全体を終了させない。
-        catch (InvalidOperationException)
-        {
-        }
-        catch (Exception ex)
-        {
-            ErrorReporter.ReportNonFatal("Queue external content reload", ex);
-        }
-    }
-
-    /// <summary>
-    /// FileSystemWatcher は保存の途中経過も含めて短時間に何度も発火し得る。
-    /// 設定した最短間隔より短い間隔では読み直さず、間隔内で最後に来た変化だけを
-    /// 間隔経過後にまとめて反映する（末尾＝trailing edge のデバウンス）。
-    /// 間隔0は「毎回即時反映」に等しい。
-    /// </summary>
-    private void ScheduleExternalContentReload()
-    {
-        if (_isClosed)
-            return;
-
-        var minInterval = TimeSpan.FromMilliseconds(Math.Max(0, Settings.ExternalFile.MinRefreshIntervalMs));
-        var remaining = minInterval - (DateTime.UtcNow - _lastExternalContentReloadUtc);
-        if (remaining <= TimeSpan.Zero)
-        {
-            ReloadExternalContentOnUiThread();
-            return;
-        }
-
-        QueueExternalContentReload(remaining);
-    }
-
-    private void QueueExternalContentReload(TimeSpan delay)
-    {
-        // 既に待機中のタイマーがあれば、それが発火したときに最新の内容を
-        // 読み直すのでここでは何もしない。
-        if (_externalContentReloadThrottleTimer != null)
-            return;
-
-        _externalContentReloadThrottleTimer = new System.Windows.Threading.DispatcherTimer { Interval = delay };
-        _externalContentReloadThrottleTimer.Tick += (_, _) =>
-        {
-            _externalContentReloadThrottleTimer?.Stop();
-            _externalContentReloadThrottleTimer = null;
-            ReloadExternalContentOnUiThread();
-        };
-        _externalContentReloadThrottleTimer.Start();
-    }
-
-    private void ReloadExternalContentOnUiThread()
-        => ReloadExternalContentOnUiThread(initialRead: false);
-
-    private void ReloadExternalContentOnUiThread(bool initialRead)
-    {
-        // 通知による即時更新が成功した場合も、待機中の再試行を残さない。
-        _externalContentReloadThrottleTimer?.Stop();
-        _externalContentReloadThrottleTimer = null;
-        try
-        {
-            // ウォッチャーのイベント発火後にウィンドウが閉じられている場合は何もしない。
-            if (_isClosed || !ViewModel.Model.IsExternalContent)
-                return;
-
-            // 初回の同期で、直後に届く最初の変更通知を間引かない。
-            if (!initialRead)
-                _lastExternalContentReloadUtc = DateTime.UtcNow;
-
-            // 一時的にファイルが読めない場合は表示中の内容を維持する
-            // （エラー文言で上書きしてキャッシュを壊さない）。
-            if (StorageService.TryReadExternalContentForDisplay(
-                    ViewModel.Model, Settings.ExternalFile.TailLineCount, out var content))
+            if (_uiDispatcher.HasShutdownStarted || _uiDispatcher.HasShutdownFinished) return;
+            var refresh = await _uiDispatcher.InvokeAsync(() =>
             {
-                // 監視イベントは中身が変わらなくても届く（更新日時だけ触る保存など）。
-                // 変化が無いのに読み直すと、表示位置を揺らし、更新の知らせも空振りになる。
-                if (string.Equals(content, ViewModel.Content, StringComparison.Ordinal))
-                    return;
+                if (_isClosed || !ViewModel.Model.IsExternalContent) return Task.CompletedTask;
+                var session = EnsureExternalContentSession();
+                session.Request();
+                return session.Completion;
+            });
+            await refresh.ConfigureAwait(false);
+        }
+        catch (InvalidOperationException) { }
+        catch (TaskCanceledException) { }
+    }
 
-                // 今回届いた分にエラーが含まれていたら、知らせる枠も赤にする。
-                // 画面に残っているエラーではなく「今来たか」で見るので、前回の
-                // 表示との差分だけを調べる。
-                var hasError = ViewModel.Model.ExternalTailMode &&
-                    LogLevelHighlighter.ContainsError(
-                        LogLevelHighlighter.GetAppendedText(ViewModel.Content, content));
+    private ExternalContentSession EnsureExternalContentSession()
+    {
+        if (_externalContentSession != null) return _externalContentSession;
+        // Capture the source on the UI thread. A new mode/path owns a new session.
+        var source = new StickyNote
+        {
+            ExternalContentPath = ViewModel.Model.ExternalContentPath,
+            ExternalTailMode = ViewModel.Model.ExternalTailMode,
+        };
+        var settings = Settings.ExternalFile;
+        return _externalContentSession = new ExternalContentSession(
+            token => ExternalContentReader.ReadForDisplayAsync(source.ExternalContentPath!, source.ExternalTailMode,
+                settings.TailLineCount, token),
+            action => _uiDispatcher.InvokeAsync(action).Task,
+            ApplyExternalContent,
+            () => settings.MinRefreshIntervalMs,
+            () => Math.Max(settings.PollIntervalMs, settings.MinRefreshIntervalMs));
+    }
 
-                ViewModel.Content = content;
-                if (!_isEditMode)
-                {
-                    if (ViewModel.Model.ExternalTailMode)
-                    {
-                        // tail 表示は「常に最新行へスクロール」が目的なので、更新のたびに追う。
-                        LoadContent(ViewModel.Content);
-                        ContentBox.ScrollToEnd();
-                    }
-                    else
-                    {
-                        // 通常表示は読んでいた位置（スクロール・キャレット）をできるだけ保つ。
-                        // 文書を丸ごと作り直すと既定では先頭に戻ってしまうため、
-                        // 作り直す前に位置を控え、作り直した後に同じ位置へ戻す。
-                        var horizontalOffset = ContentBox.HorizontalOffset;
-                        var verticalOffset = ContentBox.VerticalOffset;
-                        var caretOffset = GetCaretSymbolOffset();
-                        LoadContent(ViewModel.Content);
-                        ContentBox.ScrollToHorizontalOffset(horizontalOffset);
-                        ContentBox.ScrollToVerticalOffset(verticalOffset);
-                        RestoreCaretSymbolOffset(caretOffset);
-                    }
+    private void ApplyExternalContent(string content)
+    {
+        if (_isClosed || !ViewModel.Model.IsExternalContent) return;
+        if (string.Equals(content, ViewModel.Content, StringComparison.Ordinal))
+            return;
 
-                    FlashForExternalUpdate(hasError);
-                }
+        // 今回届いた分にエラーが含まれていたら、知らせる枠も赤にする。
+        // 画面に残っているエラーではなく「今来たか」で見るので、前回の
+        // 表示との差分だけを調べる。
+        var hasError = ViewModel.Model.ExternalTailMode &&
+            LogLevelHighlighter.ContainsError(
+                LogLevelHighlighter.GetAppendedText(ViewModel.Content, content));
+
+        ViewModel.Content = content;
+        if (!_isEditMode)
+        {
+            if (ViewModel.Model.ExternalTailMode)
+            {
+                // tail 表示は「常に最新行へスクロール」が目的なので、更新のたびに追う。
+                LoadContent(ViewModel.Content);
+                ContentBox.ScrollToEnd();
             }
             else
             {
-                // 監視側の比較基準は既に更新されているため、ロック解除だけでは
-                // 次の通知が来ないことがある。本文を取得できるまで再試行する。
-                // 最短更新間隔が0でも、読めないファイルを連続で開き続けない。
-                QueueExternalContentReload(TimeSpan.FromMilliseconds(Math.Max(200,
-                    Math.Max(Settings.ExternalFile.PollIntervalMs, Settings.ExternalFile.MinRefreshIntervalMs))));
+                // 通常表示は読んでいた位置（スクロール・キャレット）をできるだけ保つ。
+                // 文書を丸ごと作り直すと既定では先頭に戻ってしまうため、
+                // 作り直す前に位置を控え、作り直した後に同じ位置へ戻す。
+                var horizontalOffset = ContentBox.HorizontalOffset;
+                var verticalOffset = ContentBox.VerticalOffset;
+                var caretOffset = GetCaretSymbolOffset();
+                LoadContent(ViewModel.Content);
+                ContentBox.ScrollToHorizontalOffset(horizontalOffset);
+                ContentBox.ScrollToVerticalOffset(verticalOffset);
+                RestoreCaretSymbolOffset(caretOffset);
             }
-        }
-        catch (Exception ex)
-        {
-            ErrorReporter.ReportNonFatal("Reload external content", ex);
+
+            FlashForExternalUpdate(hasError);
         }
     }
 
@@ -1611,7 +1555,7 @@ public partial class StickyNoteWindow
             _externalContentMonitor.Polled += OnExternalContentPolled;
             _externalContentMonitor.PollingStopped += OnExternalContentPollingStopped;
             // 起動時の読み込みから初回表示までの変更も、監視開始後に拾う。
-            ReloadExternalContentOnUiThread(initialRead: true);
+            EnsureExternalContentSession().Request();
         }
         catch (Exception ex)
         {
@@ -1654,8 +1598,8 @@ public partial class StickyNoteWindow
 
     private void DisposeExternalContentWatcher()
     {
-        _externalContentReloadThrottleTimer?.Stop();
-        _externalContentReloadThrottleTimer = null;
+        _externalContentSession?.Dispose();
+        _externalContentSession = null;
 
         if (_externalContentMonitor != null)
         {
@@ -1680,10 +1624,6 @@ public partial class StickyNoteWindow
         ConfigureExternalContentWatcher();
         ViewModel.Model.UpdatedAt = DateTime.Now;
         RequestSave();
-
-        if (StorageService.TryReadExternalContentForDisplay(
-                ViewModel.Model, Settings.ExternalFile.TailLineCount, out var content))
-            ViewModel.Content = content;
 
         if (_isEditMode)
             return;

@@ -43,11 +43,7 @@ public sealed class StorageServiceTests : IDisposable
     public void TailReadRejectsUnexpectedEndInsteadOfReturningZeroPadding()
     {
         using var stream = new MemoryStream(new byte[] { 65 });
-        var method = typeof(StorageService).GetMethod("ReadExact",
-            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
-        var exception = Assert.Throws<System.Reflection.TargetInvocationException>(() =>
-            method.Invoke(null, new object[] { stream, new byte[10], 10 }));
-        Assert.IsType<EndOfStreamException>(exception.InnerException);
+        Assert.Throws<EndOfStreamException>(() => ExternalContentReader.ReadExact(stream, new byte[10], 10));
     }
 
     [Fact]

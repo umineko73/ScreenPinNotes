@@ -26,7 +26,7 @@ public static class MarkdownLinkEditor
         {
             if (text[i] == '\\') { i++; continue; }
             if (text[i] != '[' || (i > 0 && text[i - 1] == '!')) continue;
-            if (!MarkdownRenderer.TryGetMarkdownLink(text, i, out var label, out var target, out var length)) continue;
+            if (!MarkdownSyntax.TryGetMarkdownLink(text, i, out var label, out var target, out var length)) continue;
             if (caret >= i && caret <= i + length)
                 return new Link(i, length, label, target);
             i += length - 1;

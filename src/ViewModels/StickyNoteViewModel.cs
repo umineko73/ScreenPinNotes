@@ -33,6 +33,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     private bool _forceOpaque;
     private bool _isHovered;
     public StickyNote Model => _model;
+    public AppSettings Settings => _settings;
 
     public StickyNoteViewModel(StickyNote model, AppSettings settings)
     {
@@ -87,7 +88,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
 
     /// <summary>タイトルバーに実際に表示する文字列（Title が空なら FirstLine）。</summary>
     public string DisplayTitle =>
-        string.IsNullOrWhiteSpace(_model.Title) ? MarkdownRenderer.GetImageOnlyTarget(Content) ?? FirstLine : _model.Title!;
+        string.IsNullOrWhiteSpace(_model.Title) ? MarkdownSyntax.GetImageOnlyTarget(Content) ?? FirstLine : _model.Title!;
 
     /// <summary>
     /// タイトルバーの表示用テキスト。外部ファイル連動中は末尾に直近の取得日時を
@@ -418,7 +419,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     /// 同じ記法でも札が本文の端に貼り付いてしまうので、画像に限る。
     /// </summary>
     public bool IsImageOnlyContent =>
-        MarkdownRenderer.GetImageOnlyTarget(Content) is { } target &&
+        MarkdownSyntax.GetImageOnlyTarget(Content) is { } target &&
         LinkDetector.IsRenderableImageTarget(target);
 
     /// <summary>
