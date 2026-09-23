@@ -393,6 +393,16 @@
   <data name="ColorTooltip" xml:space="preserve">
     <value>色を変更</value>
   </data>
+  <data name="ColorPaletteCustom" xml:space="preserve"><value>カスタム</value></data>
+  <data name="CustomColorTooltip" xml:space="preserve"><value>カスタム配色（タイトルバーは背景色を少し濃くした色）</value></data>
+  <data name="CustomBackgroundColor" xml:space="preserve"><value>背景色</value></data>
+  <data name="CustomAccentColor" xml:space="preserve"><value>ポイントカラー</value></data>
+  <data name="CustomColorEdit" xml:space="preserve"><value>カスタム配色を編集...</value></data>
+  <data name="CustomColorDialogTitle" xml:space="preserve"><value>カスタム配色</value></data>
+  <data name="CustomColorChange" xml:space="preserve"><value>変更...</value></data>
+  <data name="CustomColorPreviewTitle" xml:space="preserve"><value>タイトル</value></data>
+  <data name="CustomColorPreviewText" xml:space="preserve"><value>付箋はこのように表示されます。</value></data>
+  <data name="CustomAccentColorDisabledTooltip" xml:space="preserve"><value>ポイントカラーはタイトルバーを隠したときの帯の色です。変更するにはタイトルバーを隠してください。</value></data>
   <data name="DoneEditingLabel" xml:space="preserve">
     <value>✓ 完了</value>
   </data>

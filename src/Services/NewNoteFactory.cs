@@ -52,6 +52,8 @@ public static class NewNoteFactory
         if (template != null)
         {
             note.ColorKey = template.ColorKey;
+            note.CustomBackgroundColor = template.CustomBackgroundColor;
+            note.CustomAccentColor = template.CustomAccentColor;
             note.Icon = template.Icon;
             note.FontFamily = template.FontFamily;
             note.FontSize = template.FontSize;

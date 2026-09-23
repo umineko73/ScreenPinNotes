@@ -230,6 +230,8 @@ public partial class StickyNoteWindow
         ClosePickerPopups(except: _fontPopup);
         _fontPopup.PlacementTarget = (UIElement)sender;
         _fontPopup.Placement = PlacementMode.Bottom;
+        _fontPopup.HorizontalOffset = 0;
+        _fontPopup.VerticalOffset = 0;
         _fontPopup.IsOpen = true;
     }
 
@@ -240,7 +242,25 @@ public partial class StickyNoteWindow
         => OpenColorPicker(placementTarget, PlacementMode.Bottom, 0, 0);
 
     private void OpenColorPickerAtMouse()
-        => OpenColorPicker(null, PlacementMode.MousePoint, 12, 12);
+    {
+        var (x, y) = PickerOffsetNearNote();
+        OpenColorPicker(null, PlacementMode.Relative, x, y);
+    }
+
+    /// <summary>
+    /// メニューから開くピッカーの位置（RootBorder 基準）。マウスはメニュー上にあり、
+    /// メニューは付箋から大きく外れて出ることがあるので、そのままマウス位置に出すと
+    /// 付箋から遠く離れてしまう。マウス位置を付箋の範囲に収めてから少しずらす。
+    /// </summary>
+    private (double X, double Y) PickerOffsetNearNote()
+    {
+        const double Offset = 12;
+        var cursor = System.Windows.Forms.Cursor.Position;   // デバイスピクセル
+        var point = RootBorder.PointFromScreen(new System.Windows.Point(cursor.X, cursor.Y));
+        return (
+            Math.Clamp(point.X, 0, Math.Max(0, RootBorder.ActualWidth)) + Offset,
+            Math.Clamp(point.Y, 0, Math.Max(0, RootBorder.ActualHeight)) + Offset);
+    }
 
     private void OpenColorPicker(UIElement? placementTarget, PlacementMode placement, double horizontalOffset, double verticalOffset)
     {
@@ -278,7 +298,10 @@ public partial class StickyNoteWindow
         => OpenIconPicker(placementTarget, PlacementMode.Bottom, 0, 0);
 
     private void OpenIconPickerAtMouse()
-        => OpenIconPicker(null, PlacementMode.MousePoint, 12, 12);
+    {
+        var (x, y) = PickerOffsetNearNote();
+        OpenIconPicker(null, PlacementMode.Relative, x, y);
+    }
 
     private void OpenIconPicker(UIElement? placementTarget, PlacementMode placement, double horizontalOffset, double verticalOffset)
     {
@@ -332,8 +355,11 @@ public partial class StickyNoteWindow
     {
         if (_colorPanel == null) return;
         foreach (var child in _colorPanel.Children)
-            if (child is WpfButton b)
-                b.Content = (b.Tag as string) == ViewModel.ColorKey ? UiIcons.CheckMark : null;
+        {
+            if (child is not WpfButton { Tag: string key } b) continue;
+            b.Content = key == ViewModel.ColorKey ? UiIcons.CheckMark : null;
+            if (key == NoteAppearance.CustomColorKey) PaintColorSwatch(b, CustomColorPreviewNote());
+        }
     }
 
     private void Close_Click(object sender, RoutedEventArgs e)

@@ -106,6 +106,15 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         set { _model.ColorKey = value; UpdateBrushes(); OnPropertyChanged(); }
     }
 
+    /// <summary>カスタム配色に切り替える。null の色は今の配色から引き継ぐ。</summary>
+    public void SetCustomColors(string? background, string? accent)
+    {
+        var (currentBackground, currentAccent) = NoteAppearance.ResolveColors(_model);
+        _model.CustomBackgroundColor = NoteAppearance.NormalizeHex(background) ?? NoteAppearance.ToHex(currentBackground);
+        _model.CustomAccentColor = NoteAppearance.NormalizeHex(accent) ?? NoteAppearance.ToHex(currentAccent);
+        ColorKey = NoteAppearance.CustomColorKey;
+    }
+
     /// <summary>タイトルバーに表示する絵文字。空文字ならアイコンなし。</summary>
     public string Icon
     {
@@ -716,7 +725,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         FileChipBackground = Fade(appearance.TextForeground, 0x1F);
     }
 
-    public bool UsesDarkNoteColors => NoteAppearance.UsesDarkColors(_model, _settings);
+    public bool UsesDarkNoteColors => NoteAppearance.UsesDarkColors(_model);
 
     private string T(string key)
         => LocalizationService.T(key, _settings.Language);
