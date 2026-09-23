@@ -66,6 +66,9 @@ public sealed class AppSettings
     /// <see cref="NoteBorderNoteColor"/>、または "#RRGGBB" 形式の色。
     /// </summary>
     public string NoteBorderColor { get; set; } = NoteBorderNone;
+
+    /// <summary>色の設定ダイアログの「作成した色」（Win32 の COLORREF、0x00BBGGRR）。</summary>
+    public List<int> ColorDialogCustomColors { get; set; } = [];
     /// <summary>付箋のアイコンを色を抜いて描くかどうか。</summary>
     public bool MonochromeIcons { get; set; }
     /// <summary>
@@ -185,6 +188,7 @@ public sealed class AppSettings
         Language = ScreenPinNotes.Services.LocalizationService.ResolveLanguage(Language, "ja");
         Theme = string.Equals(Theme, "Dark", StringComparison.OrdinalIgnoreCase) ? "Dark" : "Light";
         TrayClickAction = string.Equals(TrayClickAction, "NewNote", StringComparison.OrdinalIgnoreCase) ? "NewNote" : "ToggleAll";
+        ColorDialogCustomColors ??= [];
         StorageRoot = StorageRoot?.Trim() ?? "";
         NotesRoot = NotesRoot?.Trim() ?? "";
 

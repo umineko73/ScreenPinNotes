@@ -114,6 +114,27 @@ public class LocalizationServiceTests
         Assert.Equal(japanese, LocalizationService.T(key, "ja"));
     }
 
+    [Theory]
+    [InlineData("ColorPaletteCustom", "Custom", "カスタム")]
+    [InlineData("CustomBackgroundColor", "Background", "背景色")]
+    [InlineData("CustomAccentColor", "Accent color", "ポイントカラー")]
+    [InlineData("CustomColorEdit", "Edit custom colors...", "カスタム配色を編集...")]
+    [InlineData("CustomColorDialogTitle", "Custom colors", "カスタム配色")]
+    [InlineData("CustomColorChange", "Change...", "変更...")]
+    [InlineData("CustomColorPreviewTitle", "Title", "タイトル")]
+    [InlineData("CustomColorPreviewText", "This is how the note will look.", "付箋はこのように表示されます。")]
+    [InlineData("CustomAccentColorDisabledTooltip",
+        "The accent color is used for the spine shown when the title bar is hidden. Hide the title bar to change it.",
+        "ポイントカラーはタイトルバーを隠したときの帯の色です。変更するにはタイトルバーを隠してください。")]
+    [InlineData("CustomColorTooltip",
+        "Custom colors (the title bar is the background made slightly darker)",
+        "カスタム配色（タイトルバーは背景色を少し濃くした色）")]
+    public void ColorPaletteStringsAreInTheCatalog(string key, string english, string japanese)
+    {
+        Assert.Equal(english, LocalizationService.T(key, "en"));
+        Assert.Equal(japanese, LocalizationService.T(key, "ja"));
+    }
+
     // 外部ファイルの自動更新・tail 表示で追加したキー。
     [Theory]
     [InlineData("ExternalTailMode",

@@ -393,6 +393,16 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="ColorTooltip" xml:space="preserve">
     <value>Change color</value>
   </data>
+  <data name="ColorPaletteCustom" xml:space="preserve"><value>Custom</value></data>
+  <data name="CustomColorTooltip" xml:space="preserve"><value>Custom colors (the title bar is the background made slightly darker)</value></data>
+  <data name="CustomBackgroundColor" xml:space="preserve"><value>Background</value></data>
+  <data name="CustomAccentColor" xml:space="preserve"><value>Accent color</value></data>
+  <data name="CustomColorEdit" xml:space="preserve"><value>Edit custom colors...</value></data>
+  <data name="CustomColorDialogTitle" xml:space="preserve"><value>Custom colors</value></data>
+  <data name="CustomColorChange" xml:space="preserve"><value>Change...</value></data>
+  <data name="CustomColorPreviewTitle" xml:space="preserve"><value>Title</value></data>
+  <data name="CustomColorPreviewText" xml:space="preserve"><value>This is how the note will look.</value></data>
+  <data name="CustomAccentColorDisabledTooltip" xml:space="preserve"><value>The accent color is used for the spine shown when the title bar is hidden. Hide the title bar to change it.</value></data>
   <data name="DoneEditingLabel" xml:space="preserve">
     <value>✓ Done</value>
   </data>

@@ -49,6 +49,22 @@ public class NewNoteFactoryTests
         Assert.Equal(20, note.Y);
     }
 
+    [Fact]
+    public void WithACustomColoredTemplate_TheCustomColorsAreCopied()
+    {
+        var template = new StickyNote
+        {
+            ColorKey = NoteAppearance.CustomColorKey,
+            CustomBackgroundColor = "#102030",
+            CustomAccentColor = "#FFAA00",
+        };
+
+        var note = NewNoteFactory.Create(SettingsWithDefaults(), template, 0, 0, When);
+
+        Assert.Equal((NoteAppearance.CustomColorKey, "#102030", "#FFAA00"),
+            (note.ColorKey, note.CustomBackgroundColor, note.CustomAccentColor));
+    }
+
     // 既存の付箋の「＋」から増やしたときは、そちらの見た目を引き継ぐ。
     // 既定値で上書きすると、揃えて並べた付箋の中に1枚だけ違う色が混ざる。
     [Fact]

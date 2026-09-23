@@ -50,46 +50,45 @@ public partial class StickyNoteWindow
 {
     // ─── カラーピッカー ──────────────────────────────────────────
 
+    private const double ColorSwatch = 28;
+    private const double ColorSwatchGap = 3;
+
     private Popup BuildColorPopup()
     {
-        const double Swatch  = 28;
-        const double Gap     = 3;
-        const int    Columns = 6;
+        const int Columns = 10;
 
         // 端数で列が折り返さないよう僅かに余裕を持たせる
-        var panel = new WrapPanel { Width = Columns * (Swatch + Gap * 2) + 2 };
+        var panel = new WrapPanel { Width = Columns * (ColorSwatch + ColorSwatchGap * 2) + 2 };
         _colorPanel = panel;
 
-        foreach (var key in NoteAppearance.Presets.Keys)
+        // 1行目がライト、2行目がダーク。アプリのテーマに関係なく同じ10色ずつを並べる。
+        foreach (var key in NoteAppearance.LightPresetKeys) panel.Children.Add(BuildColorSwatch(key));
+        foreach (var key in NoteAppearance.DarkPresetKeys) panel.Children.Add(BuildColorSwatch(key));
+
+        panel.Children.Add(new TextBlock
         {
-            var preview = new NoteAppearance(new StickyNote { ColorKey = key, OpacityPercent = 100 }, Settings);
-            var header = preview.HeaderBrush;
-            var btn = new WpfButton
-            {
-                Width = Swatch, Height = Swatch, Margin = new Thickness(Gap),
-                Padding         = new Thickness(0),
-                Background      = preview.BackgroundBrush,
-                BorderThickness = new Thickness(1),
-                BorderBrush     = header,   // 枠線でヘッダー色も判るようにする
-                Foreground      = preview.TextForeground,   // 配色に合わせてチェックのコントラストを確保
-                FontFamily      = UiIcons.Font,
-                FontSize        = 13,
-                Tag             = key,
-                ToolTip         = key,
-                Cursor          = WpfCursors.Hand,
-            };
-            btn.Click += (s, _) =>
-            {
-                if (s is WpfButton b && b.Tag is string k)
-                {
-                    ViewModel.ColorKey = k;
-                    if (!_isEditMode) LoadContent(ViewModel.Content);
-                    if (_colorPopup != null) _colorPopup.IsOpen = false;
-                    RequestSave();
-                }
-            };
-            panel.Children.Add(btn);
-        }
+            Text = LocalizationService.T("ColorPaletteCustom"), Width = panel.Width,
+            Margin = new Thickness(3, 6, 0, 2), FontSize = 12,
+            Foreground = PopupForegroundBrush(), Opacity = 0.8,
+            FontWeight = FontWeights.SemiBold,
+        });
+        var custom = BuildColorSwatch(NoteAppearance.CustomColorKey);
+        custom.ToolTip = LocalizationService.T("CustomColorTooltip");
+        panel.Children.Add(custom);
+        var edit = new WpfButton
+        {
+            // 見出しが「カスタム」なので、ボタンは文字を繰り返さず「…」だけにする。
+            Content = "…",
+            ToolTip = LocalizationService.T("CustomColorEdit"),
+            Width = ColorSwatch, Height = ColorSwatch, Margin = new Thickness(ColorSwatchGap),
+            Padding = new Thickness(0),
+            Background = PopupBackgroundBrush(), Foreground = PopupForegroundBrush(),
+            BorderBrush = PopupBorderBrush(), BorderThickness = new Thickness(1),
+            Cursor = WpfCursors.Hand,
+        };
+        edit.Click += (_, _) => OpenCustomColorDialog();
+        panel.Children.Add(edit);
+
         return new Popup
         {
             Child = new Border
@@ -99,6 +98,75 @@ public partial class StickyNoteWindow
             },
             Placement = PlacementMode.Bottom, StaysOpen = false,
         };
+    }
+
+    private WpfButton BuildColorSwatch(string key)
+    {
+        var btn = new WpfButton
+        {
+            Width = ColorSwatch, Height = ColorSwatch, Margin = new Thickness(ColorSwatchGap),
+            Padding         = new Thickness(0),
+            BorderThickness = new Thickness(1),
+            FontFamily      = UiIcons.Font,
+            FontSize        = 13,
+            Tag             = key,
+            ToolTip         = key,
+            Cursor          = WpfCursors.Hand,
+        };
+        PaintColorSwatch(btn, key == NoteAppearance.CustomColorKey
+            ? CustomColorPreviewNote()
+            : new StickyNote { ColorKey = key });
+        btn.Click += (s, _) =>
+        {
+            if (s is not WpfButton { Tag: string k }) return;
+            if (k == NoteAppearance.CustomColorKey)
+                ViewModel.SetCustomColors(ViewModel.Model.CustomBackgroundColor, ViewModel.Model.CustomAccentColor);
+            else
+                ViewModel.ColorKey = k;
+            ApplyColorChange(closePopup: true);
+        };
+        return btn;
+    }
+
+    private void PaintColorSwatch(WpfButton button, StickyNote note)
+    {
+        note.OpacityPercent = 100;
+        var preview = new NoteAppearance(note, Settings);
+        button.Background  = preview.BackgroundBrush;
+        button.BorderBrush = preview.HeaderBrush;      // 枠線でヘッダー色も判るようにする
+        button.Foreground  = preview.TextForeground;   // 配色に合わせてチェックのコントラストを確保
+    }
+
+    // カスタムの見本。まだ色を選んでいなければ今の配色から始まる。
+    private StickyNote CustomColorPreviewNote()
+    {
+        var (background, accent) = NoteAppearance.ResolveColors(ViewModel.Model);
+        return new StickyNote
+        {
+            ColorKey = NoteAppearance.CustomColorKey,
+            CustomBackgroundColor = ViewModel.Model.CustomBackgroundColor ?? NoteAppearance.ToHex(background),
+            CustomAccentColor = ViewModel.Model.CustomAccentColor ?? NoteAppearance.ToHex(accent),
+        };
+    }
+
+    // 背景色とポイントカラーを続けて選べるよう、別ダイアログで編集して OK のときだけ反映する。
+    private void OpenCustomColorDialog()
+    {
+        // ピッカーは最前面に出しているので、ダイアログを隠さないよう先に閉じる。
+        if (_colorPopup != null) _colorPopup.IsOpen = false;
+        var current = CustomColorPreviewNote();
+        var dialog = new CustomColorDialog(this, current.CustomBackgroundColor!, current.CustomAccentColor!,
+            ViewModel.IsTitleBarHidden, Settings, () => _storage.SaveSettings(Settings));
+        if (dialog.ShowDialog() != true) return;
+        ViewModel.SetCustomColors(dialog.BackgroundColor, dialog.AccentColor);
+        ApplyColorChange(closePopup: false);
+    }
+
+    private void ApplyColorChange(bool closePopup)
+    {
+        if (!_isEditMode) LoadContent(ViewModel.Content);
+        if (closePopup && _colorPopup != null) _colorPopup.IsOpen = false;
+        RequestSave();
     }
 
     // ─── アイコンピッカー ────────────────────────────────────────
@@ -327,8 +395,11 @@ public partial class StickyNoteWindow
             {
                 if (_fontPopup == null) return;
                 ClosePickerPopups(except: _fontPopup);
-                _fontPopup.PlacementTarget = this;
-                _fontPopup.Placement = PlacementMode.MousePoint;
+                var (x, y) = PickerOffsetNearNote();
+                _fontPopup.PlacementTarget = RootBorder;
+                _fontPopup.Placement = PlacementMode.Relative;
+                _fontPopup.HorizontalOffset = x;
+                _fontPopup.VerticalOffset = y;
                 _fontPopup.IsOpen = true;
             }));
         fontButton.Width = 24;

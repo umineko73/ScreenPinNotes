@@ -46,6 +46,9 @@ public class StickyNote
     public string? Title { get; set; }
 
     public string ColorKey { get; set; } = "yellow";
+    // ColorKey が "custom" のときの背景色・アクセント色（"#RRGGBB"）。タイトルバーは背景色から作る。
+    public string? CustomBackgroundColor { get; set; }
+    public string? CustomAccentColor { get; set; }
     public string Icon { get; set; } = "";   // タイトルバーに表示する絵文字。空 = なし
     public string FontFamily { get; set; } = "Yu Gothic UI";
     public double FontSize { get; set; } = 13;

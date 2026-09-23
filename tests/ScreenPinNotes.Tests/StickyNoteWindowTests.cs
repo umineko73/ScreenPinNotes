@@ -3089,6 +3089,64 @@ public class StickyNoteWindowTests
         }
     }
 
+    // ポイントカラーはタイトルバーを隠したときにしか見えないので、タイトルバーがある間は押せない。
+    [WpfTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CustomColorDialog_ShowsSamplesAndMasksTheAccentWhileTheTitleBarIsShown(bool titleBarHidden)
+    {
+        EnsureApplication();
+        var dialog = new CustomColorDialog(null, "#102030", "#ffaa00", titleBarHidden, new AppSettings(), () => { });
+        try
+        {
+            Assert.Equal(("#102030", "#FFAA00"), (dialog.BackgroundColor, dialog.AccentColor));
+            Assert.Equal("#FF102030", ((SolidColorBrush)dialog.BackgroundSample.Background).Color.ToString());
+            Assert.Equal("#FFFFAA00", ((SolidColorBrush)dialog.AccentSample.Background).Color.ToString());
+            Assert.Equal(titleBarHidden, dialog.AccentRow.IsEnabled);
+            Assert.Equal(titleBarHidden ? 1.0 : 0.4, dialog.AccentRow.Opacity);
+
+            // 2色を続けて選び直しても、ダイアログを閉じるまで見本だけが変わる。
+            dialog.SetColors("#FFFFFF", null);
+            dialog.SetColors(null, "#000000");
+            Assert.Equal(("#FFFFFF", "#000000"), (dialog.BackgroundColor, dialog.AccentColor));
+            Assert.Equal("#FFFFFFFF", ((SolidColorBrush)dialog.BackgroundSample.Background).Color.ToString());
+        }
+        finally
+        {
+            dialog.Close();
+        }
+    }
+
+    // メニューから開くピッカーは、マウスが付箋から遠くても付箋の範囲の近くに出す。
+    [WpfFact]
+    public void PickersOpenedFromTheMenu_StayNearTheNote()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(new StickyNote { Content = "body", Width = 240, Height = 120 }, new AppSettings()),
+            new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var root = Assert.IsType<Border>(window.FindName("RootBorder"));
+
+            InvokePrivate(window, "OpenColorPickerAtMouse");
+            var colorPopup = GetPrivateField<Popup>(window, "_colorPopup");
+
+            Assert.True(colorPopup.IsOpen);
+            Assert.Same(root, colorPopup.PlacementTarget);
+            Assert.Equal(PlacementMode.Relative, colorPopup.Placement);
+            Assert.InRange(colorPopup.HorizontalOffset, 12, root.ActualWidth + 12);
+            Assert.InRange(colorPopup.VerticalOffset, 12, root.ActualHeight + 12);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [WpfFact]
     public void ColorAndIconButtons_ToggleTheirPalettes()
     {
