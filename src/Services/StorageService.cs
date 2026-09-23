@@ -61,6 +61,8 @@ public class StorageService
     private readonly string _settingsRoot;
     private readonly string _notesRoot;
     private readonly string _settingsPath;
+    private readonly NoteSaveCoordinator _saves;
+    private bool _settingsNeedBackup;
 
     public StorageService() : this(AppRoot) { }
 
@@ -71,6 +73,7 @@ public class StorageService
         _settingsRoot = Path.GetFullPath(settingsRoot);
         _notesRoot = Path.GetFullPath(notesRoot);
         _settingsPath = Path.Combine(_settingsRoot, "settings.json");
+        _saves = new NoteSaveCoordinator(WriteSnapshot);
     }
 
     public string NotesRoot => _notesRoot;
@@ -78,7 +81,7 @@ public class StorageService
     public sealed record ImportResult(int ImportedCount, int SkippedCount);
 
     public StorageService WithNotesRoot(string notesRoot)
-        => new(_settingsRoot, notesRoot);
+        => new(_settingsRoot, notesRoot) { _settingsNeedBackup = _settingsNeedBackup };
 
     public StorageService WithStorageRoot(string storageRoot)
         => WithNotesRoot(GetNotesRootFromStorageRoot(storageRoot));
@@ -152,71 +155,94 @@ public class StorageService
 
     // ─── アプリケーション設定 ───────────────────────────────────
 
-    public AppSettings LoadSettings()
-    {
-        if (!File.Exists(_settingsPath))
-        {
-            var defaults = AppSettings.CreateDefault();
-            defaults.Normalize();
-            return defaults;
-        }
+    public AppSettings LoadSettings() => LoadSettingsWithDiagnostics().Value;
 
+    public StorageLoadResult<AppSettings> LoadSettingsWithDiagnostics()
+    {
         try
         {
             var settings = JsonSerializer.Deserialize<AppSettings>(
                 File.ReadAllText(_settingsPath, Encoding.UTF8), JsonOptions)
-                ?? AppSettings.CreateDefault();
+                ?? throw new JsonException("Settings must contain an object.");
             settings.Normalize();
-            return settings;
+            _settingsNeedBackup = false;
+            return new(settings, []);
         }
-        catch
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
         {
-            var defaults = AppSettings.CreateDefault();
-            defaults.Normalize();
-            return defaults;
+            return new(CreateDefaultSettings(), []);
         }
+        catch (Exception ex)
+        {
+            _settingsNeedBackup = true;
+            ErrorReporter.ReportNonFatal("Load settings", ex);
+            return new(CreateDefaultSettings(), [StorageLoadIssue.From(_settingsPath, ex)]);
+        }
+    }
+
+    private static AppSettings CreateDefaultSettings()
+    {
+        var defaults = AppSettings.CreateDefault();
+        defaults.Normalize();
+        return defaults;
     }
 
     public void SaveSettings(AppSettings settings)
     {
         settings.Normalize();
         Directory.CreateDirectory(_settingsRoot);
+        if (_settingsNeedBackup)
+        {
+            // If preservation fails, abort the save instead of destroying the original.
+            var backup = _settingsPath + ".corrupt-" + Guid.NewGuid().ToString("N") + ".bak";
+            File.Copy(_settingsPath, backup);
+            _settingsNeedBackup = false;
+        }
         AtomicWrite(_settingsPath, JsonSerializer.Serialize(settings, JsonOptions));
     }
 
     // ─── 読み込み ────────────────────────────────────────────────
 
     public List<StickyNote> Load(int externalTailLineCount = DefaultExternalTailLineCount)
+        => LoadWithDiagnostics(externalTailLineCount).Value;
+
+    public StorageLoadResult<List<StickyNote>> LoadWithDiagnostics(
+        int externalTailLineCount = DefaultExternalTailLineCount, bool refreshExternalContent = true)
     {
-
-        if (!Directory.Exists(_notesRoot)) return [];
-
         var notes = new List<StickyNote>();
-        foreach (var dir in Directory.GetDirectories(_notesRoot))
+        var issues = new List<StorageLoadIssue>();
+        string[] directories;
+        try { directories = Directory.GetDirectories(_notesRoot); }
+        catch (DirectoryNotFoundException) { return new(notes, issues); }
+        catch (Exception ex)
+        {
+            ErrorReporter.ReportNonFatal("Load notes directory", ex);
+            return new(notes, [StorageLoadIssue.From(_notesRoot, ex)]);
+        }
+        foreach (var dir in directories)
         {
             // インポートの作業用フォルダ（.import-* / .backup-*）は付箋ではない。
             // 後片付けに失敗して残っても、古い付箋が2枚目として出てこないようにする。
             if (Path.GetFileName(dir).StartsWith('.')) continue;
             var metaPath = Path.Combine(dir, "meta.json");
-            if (!File.Exists(metaPath)) continue;
             try
             {
                 var note = JsonSerializer.Deserialize<StickyNote>(
                     File.ReadAllText(metaPath, Encoding.UTF8), JsonOptions);
-                if (note == null) continue;
+                if (note == null) throw new JsonException("Note metadata must contain an object.");
 
                 var noteId = Path.GetFileName(dir);
                 if (!IsSafeNoteId(noteId))
-                    continue;
+                    throw new JsonException("Invalid note directory name.");
                 note.Id = noteId;
 
                 var contentPath = Path.Combine(dir, "content.md");
-                note.Content = File.Exists(contentPath)
-                    ? File.ReadAllText(contentPath, Encoding.UTF8)
-                    : "";
+                try { note.Content = File.ReadAllText(contentPath, Encoding.UTF8); }
+                catch (FileNotFoundException) { note.Content = ""; }
+                _saves.Remember(NoteSnapshot.Capture(note));
                 // 外部ファイルが一時的に読めない場合は content.md のキャッシュを
                 // エラー文言で潰さず、直前の内容を保持する。
-                if (note.IsExternalContent && TryReadExternalContentForDisplay(note, externalTailLineCount, out var externalContent))
+                if (refreshExternalContent && note.IsExternalContent && TryReadExternalContentForDisplay(note, externalTailLineCount, out var externalContent))
                     note.Content = externalContent;
                 // この機能追加より前に保存されたリマインダーは ShowAlert を持たない
                 // （null）。従来どおりアラートを出す side に固定して書き戻す。
@@ -226,12 +252,20 @@ public class StorageService
                     reminder.ShowAlert = true;
                 notes.Add(note);
             }
-            catch { /* 壊れたノートはスキップ */ }
+            catch (FileNotFoundException ex) when (ex.FileName == metaPath)
+            {
+                // Asset-only directories can exist before the first save.
+            }
+            catch (Exception ex)
+            {
+                ErrorReporter.ReportNonFatal($"Load note {dir}", ex);
+                issues.Add(StorageLoadIssue.From(dir, ex));
+            }
         }
 
         // 作成日時順に並べて返す
         notes.Sort((a, b) => a.CreatedAt.CompareTo(b.CreatedAt));
-        return notes;
+        return new(notes, issues);
     }
 
     // ─── 保存（全件） ────────────────────────────────────────────
@@ -243,13 +277,18 @@ public class StorageService
     public void Save(IEnumerable<StickyNote> notes)
     {
         Directory.CreateDirectory(_notesRoot);
-        foreach (var note in notes)
-            WriteNote(note);
+        NoteSaveCoordinator.SaveAll(notes.Select<StickyNote, Action>(note => () => SaveNote(note)));
     }
 
     // ─── 保存（1件） ─────────────────────────────────────────────
 
-    public void SaveNote(StickyNote note) => WriteNote(note);
+    public void SaveNote(StickyNote note)
+    {
+        var dir = GetNoteDirectoryPath(note.Id);
+        if (!File.Exists(Path.Combine(dir, "meta.json")) || !File.Exists(Path.Combine(dir, "content.md")))
+            _saves.Forget(note.Id);
+        _saves.Save(note);
+    }
 
     // ─── 削除（1件） ─────────────────────────────────────────────
 
@@ -259,6 +298,7 @@ public class StorageService
             return;
         if (Directory.Exists(dir))
             Directory.Delete(dir, recursive: true);
+        _saves.Forget(id);
     }
 
     public void ExportNotesToZip(string zipPath)
@@ -356,6 +396,7 @@ public class StorageService
                         if (overwrite) Directory.Move(backup, targetDir);
                         throw;
                     }
+                    _saves.Forget(note.Id);
                     imported++;
                     TryDeleteDirectory(backup);
                 }
@@ -377,15 +418,12 @@ public class StorageService
 
     // ─── 内部：ファイル書き込み（アトミック） ───────────────────
 
-    private void WriteNote(StickyNote note)
+    private void WriteSnapshot(NoteSnapshot snapshot)
     {
-        var dir = GetNoteDirectoryPath(note.Id);
+        var dir = GetNoteDirectoryPath(snapshot.Id);
         Directory.CreateDirectory(dir);
-
-        WriteNoteMetaOnly(dir, note);
-
-        // content.md
-        AtomicWrite(Path.Combine(dir, "content.md"), note.Content);
+        AtomicWrite(Path.Combine(dir, "meta.json"), snapshot.Metadata);
+        AtomicWrite(Path.Combine(dir, "content.md"), snapshot.Content);
     }
 
     private static void WriteNoteMetaOnly(string dir, StickyNote note)
@@ -398,180 +436,16 @@ public class StorageService
     }
 
     /// <summary>tail 表示が設定を持たない呼び出しで使う既定の行数。</summary>
-    public const int DefaultExternalTailLineCount = 200;
+    public const int DefaultExternalTailLineCount = ExternalContentReader.DefaultExternalTailLineCount;
 
     public static string ReadExternalContent(StickyNote note, int tailLineCount = DefaultExternalTailLineCount)
-    {
-        var path = note.ExternalContentPath;
-        if (string.IsNullOrWhiteSpace(path))
-            return note.Content;
+        => ExternalContentReader.ReadExternalContent(note, tailLineCount);
 
-        try
-        {
-            var fullPath = Path.GetFullPath(path);
-            if (!File.Exists(fullPath))
-                return $"External file not found:\n{fullPath}";
-
-            return note.ExternalTailMode
-                ? ReadTail(fullPath, Math.Max(1, tailLineCount))
-                : ReadAllSharedText(fullPath);
-        }
-        catch (Exception ex)
-        {
-            return $"External file could not be read:\n{path}\n\n{ex.Message}";
-        }
-    }
-
-    // 読み込みに失敗しても直前のキャッシュを壊さないための Try 版。
-    // 一時的にファイルが読めない場合でも content.md 上のキャッシュを
-    // エラー文言で上書きしないよう、呼び出し側は成功時のみ内容を反映する。
     public static bool TryReadExternalContent(StickyNote note, out string content)
-    {
-        var path = note.ExternalContentPath;
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            content = "";
-            return false;
-        }
+        => ExternalContentReader.TryReadExternalContent(note, out content);
 
-        try
-        {
-            var fullPath = Path.GetFullPath(path);
-            if (!File.Exists(fullPath))
-            {
-                content = "";
-                return false;
-            }
-
-            content = ReadAllSharedText(fullPath);
-            return true;
-        }
-        catch
-        {
-            content = "";
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// 外部ファイルの全文を、書き手と共有したまま読む。ログのように別のプロセスが
-    /// 開いたまま追記しているファイルは、<see cref="File.ReadAllText(string)"/>
-    /// （FileShare.Read で開く）では「別のプロセスが使用中」となり読めない。
-    /// </summary>
-    private static string ReadAllSharedText(string path)
-    {
-        using var stream = new FileStream(
-            path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-        using var reader = new StreamReader(stream, Encoding.UTF8);
-        return reader.ReadToEnd();
-    }
-
-    // tail 表示のときは末尾の行数だけを読む Try 版。ノートの ExternalTailMode に
-    // 応じて全文/tail のどちらを読むかを切り替えたい呼び出し側はこちらを使う。
     public static bool TryReadExternalContentForDisplay(StickyNote note, int tailLineCount, out string content)
-        => note.ExternalTailMode
-            ? TryReadExternalContentTail(note, tailLineCount, out content)
-            : TryReadExternalContent(note, out content);
-
-    private static bool TryReadExternalContentTail(StickyNote note, int tailLineCount, out string content)
-    {
-        var path = note.ExternalContentPath;
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            content = "";
-            return false;
-        }
-
-        try
-        {
-            var fullPath = Path.GetFullPath(path);
-            if (!File.Exists(fullPath))
-            {
-                content = "";
-                return false;
-            }
-
-            content = ReadTail(fullPath, Math.Max(1, tailLineCount));
-            return true;
-        }
-        catch
-        {
-            content = "";
-            return false;
-        }
-    }
-
-    private const int TailReadChunkBytes = 64 * 1024;
-
-    /// <summary>
-    /// ファイル末尾の <paramref name="lineCount"/> 行だけを読む。育ち続けるログは
-    /// 数百MBになり得るため、全文を読んでから split するのではなく末尾から
-    /// チャンク単位で遡って改行を数え、必要な範囲が分かった時点でそこだけ返す。
-    /// 改行 (0x0A) は UTF-8 の継続バイト（0x80-0xBF）にも先頭バイトにも現れないので、
-    /// デコード前のバイト列を直接走査してよい。
-    /// </summary>
-    private static string ReadTail(string path, int lineCount)
-    {
-        // ログはローテーションで消されることもあるので、削除も妨げないで開く。
-        using var stream = new FileStream(
-            path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-        var length = stream.Length;
-        if (length == 0)
-            return "";
-
-        var buffer = new byte[TailReadChunkBytes];
-        var newlinesNeeded = lineCount;
-        var position = length;
-        var foundBoundary = false;
-
-        while (position > 0)
-        {
-            var chunkSize = (int)Math.Min(TailReadChunkBytes, position);
-            position -= chunkSize;
-            stream.Seek(position, SeekOrigin.Begin);
-            var read = ReadExact(stream, buffer, chunkSize);
-            for (var i = read - 1; i >= 0; i--)
-            {
-                if (buffer[i] != (byte)'\n')
-                    continue;
-                // ファイル末尾ちょうどの改行は最終行の終端でしかないので、
-                // 区切りとしては数えない（数えると空行が1行増えて見える）。
-                if (position + i == length - 1)
-                    continue;
-
-                if (--newlinesNeeded <= 0)
-                {
-                    position += i + 1;
-                    foundBoundary = true;
-                    break;
-                }
-            }
-            if (foundBoundary)
-                break;
-        }
-
-        var resultLength = (int)(length - position);
-        var result = new byte[resultLength];
-        stream.Seek(position, SeekOrigin.Begin);
-        ReadExact(stream, result, resultLength);
-        // Strip the UTF-8 preamble only when the selected tail starts at byte 0.
-        var offset = position == 0 && result.AsSpan().StartsWith(Encoding.UTF8.Preamble) ? 3 : 0;
-        return Encoding.UTF8.GetString(result, offset, result.Length - offset);
-    }
-
-    private static int ReadExact(Stream stream, byte[] buffer, int count)
-    {
-        var totalRead = 0;
-        while (totalRead < count)
-        {
-            var read = stream.Read(buffer, totalRead, count - totalRead);
-            if (read == 0)
-                throw new EndOfStreamException("External log was truncated while reading its tail.");
-            totalRead += read;
-        }
-
-        return totalRead;
-    }
+        => ExternalContentReader.TryReadExternalContentForDisplay(note, tailLineCount, out content);
 
     private static void AtomicWrite(string path, string content)
     {

@@ -856,4 +856,6 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="FoldedGhostTooltip" xml:space="preserve">
     <value>The note returns here when collapsed&#xA;Click: collapse it here&#xA;Drag: move the collapsed position</value>
   </data>
+  <data name="StorageSettingsLoadFailed" xml:space="preserve"><value>Settings could not be read. The original file was backed up before saving defaults. See the application log for details.</value></data>
+  <data name="StorageNotesLoadFailed" xml:space="preserve"><value>Some notes could not be read. Their files have been preserved. See the application log for details.</value></data>
 </root>

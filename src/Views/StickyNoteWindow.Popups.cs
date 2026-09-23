@@ -189,13 +189,13 @@ public partial class StickyNoteWindow
         };
     }
 
-    private static void ZoomIconButton(UIElement button, ScaleTransform scale, double to)
+    private void ZoomIconButton(UIElement button, ScaleTransform scale, double to)
     {
         // 拡大中は手前に出す。WrapPanel は後の要素が上に描画されるため、
         // ZIndex を上げないと右隣・下隣のアイコンに欠けて見える。
         System.Windows.Controls.Panel.SetZIndex(button, to > 1 ? 1 : 0);
 
-        var anim = new DoubleAnimation(to, TimeSpan.FromMilliseconds(App.Current.Settings.Timings.ToolbarFadeMs))
+        var anim = new DoubleAnimation(to, TimeSpan.FromMilliseconds(Settings.Timings.ToolbarFadeMs))
         {
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
         };

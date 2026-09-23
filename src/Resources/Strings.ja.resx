@@ -856,4 +856,6 @@
   <data name="FoldedGhostTooltip" xml:space="preserve">
     <value>折りたたむとこの位置に戻ります&#xA;クリック: ここに折りたたむ&#xA;ドラッグ: 折りたたみ時の位置を動かす</value>
   </data>
+  <data name="StorageSettingsLoadFailed" xml:space="preserve"><value>設定を読み込めませんでした。元のファイルを退避して既定値を保存しました。詳細はアプリのログを確認してください。</value></data>
+  <data name="StorageNotesLoadFailed" xml:space="preserve"><value>一部の付箋を読み込めませんでした。元のファイルは保持されています。詳細はアプリのログを確認してください。</value></data>
 </root>

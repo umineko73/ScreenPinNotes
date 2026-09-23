@@ -27,13 +27,16 @@ using ScreenPinNotes.Views;
 
 namespace ScreenPinNotes;
 
-public partial class App : System.Windows.Application
+public partial class App : System.Windows.Application, INoteWindowHost
 {
     public new static App Current => (App)System.Windows.Application.Current;
 
     private StorageService _storage = new();
     private readonly List<StickyNoteWindow> _windows = [];
     private AppSettings _settings = new();
+    private NoteWorkspace? _workspace;
+    private NoteWorkspace Workspace => _workspace ??= new(_windows, () => _storage, CreateNoteWindow);
+    void INoteWindowHost.NoteTouched(StickyNoteWindow window) => NoteTouched(window);
     private NotifyIcon? _trayIcon;
     private NoteManagerWindow? _noteManagerWindow;
     private readonly DispatcherTimer _reminderTimer = new();
@@ -142,7 +145,8 @@ public partial class App : System.Windows.Application
             FlushAndSave();
         };
 
-        _settings = _storage.LoadSettings();
+        var settingsLoad = _storage.LoadSettingsWithDiagnostics();
+        _settings = settingsLoad.Value;
         DiagnosticTrace.Enabled = _settings.EnableDiagnosticTrace ||
             Environment.GetEnvironmentVariable(DiagnosticTrace.EnvVar) == "1";
         TraceEnvironment();
@@ -161,12 +165,9 @@ public partial class App : System.Windows.Application
         if (!newNoteHotkeyApplied || !clipboardNoteHotkeyApplied)
             _trayIcon?.ShowBalloonTip(5000, "ScreenPinNotes", LocalizationService.T("HotkeyUnavailable"), ToolTipIcon.Warning);
 
-        var notes = _storage.Load(_settings.ExternalFile.TailLineCount);
-        if (notes.Count == 0)
-        {
-            notes = SampleNoteFactory.CreateInitialNotes(_settings, _storage);
-            _storage.Save(notes);
-        }
+        var notes = LoadOrCreateInitialNotes(showEmptyStorageMessage: false);
+        if (settingsLoad.HasErrors)
+            ShowTrayNotice(LocalizationService.T("StorageSettingsLoadFailed"));
 
         // 「起動時に表示しない」ときも付箋ごとの非表示は書き換えない。トレイの
         // 「すべて表示」や二重起動時の全表示で、普段どおりに出てくる。
@@ -1103,17 +1104,20 @@ public partial class App : System.Windows.Application
     /// <param name="show">false なら作るだけで表示しない（起動時に表示しない設定）。</param>
     private StickyNoteWindow OpenNoteWindow(StickyNote note, bool show = true)
     {
-        var vm  = new StickyNoteViewModel(note, _settings);
-        var win = new StickyNoteWindow(vm, _storage);
-        _windows.Add(win);
-        win.ViewModel.PropertyChanged += (_, e) =>
+        var window = Workspace.Open(note, show);
+        QueueLayerOrder();
+        return window;
+    }
+
+    private StickyNoteWindow CreateNoteWindow(StickyNote note)
+    {
+        var vm = new StickyNoteViewModel(note, _settings);
+        var window = new StickyNoteWindow(vm, _storage, this);
+        vm.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(StickyNoteViewModel.IsTopmost)) QueueLayerOrder();
         };
-        QueueLayerOrder();
-        if (show && !note.IsHidden)
-            win.Show();
-        return win;
+        return window;
     }
 
     /// <summary>
@@ -1137,12 +1141,7 @@ public partial class App : System.Windows.Application
 
     public void HideNote(string id)
     {
-        var win = _windows.FirstOrDefault(w => w.ViewModel.Model.Id == id);
-        if (win == null)
-            return;
-
-        win.ViewModel.Model.IsHidden = true;
-        win.Hide();
+        if (!Workspace.Hide(id)) return;
         SaveAll();
         RefreshTrayMenu();
         _noteManagerWindow?.RefreshNotes();
@@ -1153,13 +1152,7 @@ public partial class App : System.Windows.Application
 
     public void ShowNote(string id)
     {
-        var win = _windows.FirstOrDefault(w => w.ViewModel.Model.Id == id);
-        if (win == null)
-            return;
-
-        win.ViewModel.Model.IsHidden = false;
-        win.Show();
-        win.Activate();
+        if (!Workspace.Show(id)) return;
         ApplyLayerOrder(bringToFront: true);
         SaveAll();
         RefreshTrayMenu();
@@ -1212,10 +1205,7 @@ public partial class App : System.Windows.Application
 
     private void ReloadNoteWindowsFromStorage(bool showEmptyStorageMessage = true)
     {
-        var oldWindows = _windows.ToList();
-        _windows.Clear();
-        foreach (var win in oldWindows)
-            win.Close();
+        Workspace.CloseAll();
 
         var notes = LoadOrCreateInitialNotes(showEmptyStorageMessage);
 
@@ -1226,9 +1216,15 @@ public partial class App : System.Windows.Application
 
     private List<StickyNote> LoadOrCreateInitialNotes(bool showEmptyStorageMessage = true)
     {
-        var notes = _storage.Load(_settings.ExternalFile.TailLineCount);
-        if (notes.Count > 0)
-            return notes;
+        var loaded = _storage.LoadWithDiagnostics(_settings.ExternalFile.TailLineCount,
+            refreshExternalContent: false);
+        var notes = loaded.Value;
+        if (loaded.HasErrors)
+        {
+            ShowTrayNotice(LocalizationService.T("StorageNotesLoadFailed"));
+            return notes; // A failed load is not an empty, first-run storage folder.
+        }
+        if (notes.Count > 0) return notes;
 
         if (showEmptyStorageMessage && !IsDefaultStorageRoot())
             ShowEmptyStorageInitializationMessage();
@@ -1251,34 +1247,13 @@ public partial class App : System.Windows.Application
             Path.GetFullPath(StorageService.DefaultStorageRoot),
             StringComparison.OrdinalIgnoreCase);
 
-    public bool RemoveNote(string id)
+    public bool RemoveNote(string id) => RemoveNoteCore(id, closeWindow: false);
+
+    public bool RemoveNoteFromManager(string id) => RemoveNoteCore(id, closeWindow: true);
+
+    private bool RemoveNoteCore(string id, bool closeWindow)
     {
-        var window = _windows.FirstOrDefault(w => w.ViewModel.Model.Id == id);
-        var note = window?.ViewModel.Model;
-        if (note?.IsReadOnly == true && !note.IsExternalContent)
-            return false;
-
-        _storage.DeleteNote(id);   // 削除はここだけで行う
-        window?.DisableSaving();
-        _windows.RemoveAll(w => w.ViewModel.Model.Id == id);
-        SaveAll();
-        RefreshTrayMenu();
-        _noteManagerWindow?.RefreshNotes();
-        return true;
-    }
-
-    public bool RemoveNoteFromManager(string id)
-    {
-        var win = _windows.FirstOrDefault(w => w.ViewModel.Model.Id == id);
-        if (win == null)
-            return false;
-        if (win.ViewModel.Model.IsReadOnly && !win.ViewModel.Model.IsExternalContent)
-            return false;
-
-        _storage.DeleteNote(id);
-        win.DisableSaving();
-        _windows.Remove(win);
-        win.Close();
+        if (!Workspace.Remove(id, closeWindow)) return false;
         SaveAll();
         RefreshTrayMenu();
         _noteManagerWindow?.RefreshNotes();
@@ -1297,8 +1272,7 @@ public partial class App : System.Windows.Application
 
     public void SaveAll()
     {
-        foreach (var window in _windows)
-            window.SaveNote();
+        Workspace.SaveAll();
     }
 
     private void StartReminderTimer()

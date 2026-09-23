@@ -123,7 +123,7 @@ public partial class StickyNoteWindow
         {
             _taskbarUnfoldQueued = false;
             if (_isClosed || !ShowInTaskbar || !IsActive || !ViewModel.IsFolded) return;
-            TransitionTo(DisplayMode.View);
+            TransitionTo(NoteDisplayMode.View);
         }, DispatcherPriority.Background);
     }
 

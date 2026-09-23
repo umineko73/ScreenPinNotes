@@ -408,7 +408,7 @@ public class StickyNoteWindowTests
             window.UpdateLayout();
             Assert.Equal(1, completions);
             Assert.True(note.IsFolded);
-            Assert.False(GetPrivateField<bool>(window, "_isEditMode"));
+            Assert.False(window.DisplayMode is NoteDisplayMode.BodyEdit or NoteDisplayMode.TitleEdit);
             Assert.False(GetPrivateField<bool>(window, "_isFoldAnimationRunning"));
             Assert.Equal(320, note.Height);
             Assert.Equal("日本語の本文", note.Content);
@@ -527,11 +527,11 @@ public class StickyNoteWindowTests
             var imeKey = new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, Key.ImeProcessed) { RoutedEvent = Keyboard.PreviewKeyDownEvent };
             InvokePrivate(window, "ContentBox_PreviewKeyDown", editor, imeKey);
             Assert.False(imeKey.Handled);
-            Assert.True(GetPrivateField<bool>(window, "_isEditMode"));
+            Assert.True(window.DisplayMode is NoteDisplayMode.BodyEdit or NoteDisplayMode.TitleEdit);
             var finish = new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, titleOnly ? Key.Enter : Key.Escape) { RoutedEvent = Keyboard.PreviewKeyDownEvent };
             InvokePrivate(window, "ContentBox_PreviewKeyDown", editor, finish);
             Assert.True(finish.Handled);
-            Assert.False(GetPrivateField<bool>(window, "_isEditMode"));
+            Assert.False(window.DisplayMode is NoteDisplayMode.BodyEdit or NoteDisplayMode.TitleEdit);
             Assert.Equal(edited, titleOnly ? note.Title : note.Content);
             Assert.Equal(hidden, note.IsTitleBarHidden);
         }
@@ -1565,7 +1565,7 @@ public class StickyNoteWindowTests
     }
 
     [WpfFact]
-    public void ReloadExternalContent_FromBackgroundThread_UpdatesOnlyThroughUiDispatcher()
+    public async Task ReloadExternalContent_FromBackgroundThread_UpdatesOnlyThroughUiDispatcher()
     {
         EnsureApplication();
         using var temp = new TempDataDirectory();
@@ -1584,7 +1584,7 @@ public class StickyNoteWindowTests
         var window = new StickyNoteWindow(vm, storage);
         try
         {
-            Task.Run(window.ReloadExternalContent).GetAwaiter().GetResult();
+            await Task.Run(window.ReloadExternalContentAsync);
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
 
             Assert.Equal("updated externally", vm.Content);
@@ -1596,7 +1596,7 @@ public class StickyNoteWindowTests
     }
 
     [WpfFact]
-    public void ReloadExternalContent_NonTailMode_PreservesScrollAndCaretPosition()
+    public async Task ReloadExternalContent_NonTailMode_PreservesScrollAndCaretPosition()
     {
         EnsureApplication();
         using var temp = new TempDataDirectory();
@@ -1634,7 +1634,7 @@ public class StickyNoteWindowTests
             // A watcher-driven reload (appending a line at the very end) should not
             // reset where the reader was looking.
             File.AppendAllText(externalPath, "\nline 201");
-            Task.Run(window.ReloadExternalContent).GetAwaiter().GetResult();
+            await Task.Run(window.ReloadExternalContentAsync);
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
             window.UpdateLayout();
 
@@ -1748,7 +1748,7 @@ public class StickyNoteWindowTests
     }
 
     [WpfFact]
-    public void ReloadExternalContent_WhenNoteIsInactive_FlashesTheUpdateBorder()
+    public async Task ReloadExternalContent_WhenNoteIsInactive_FlashesTheUpdateBorder()
     {
         EnsureApplication();
         using var temp = new TempDataDirectory();
@@ -1772,7 +1772,7 @@ public class StickyNoteWindowTests
             Assert.False(border.HasAnimatedProperties);
 
             File.AppendAllText(externalPath, "second line\n");
-            Task.Run(window.ReloadExternalContent).GetAwaiter().GetResult();
+            await Task.Run(window.ReloadExternalContentAsync);
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
 
             Assert.Contains("second line", vm.Content);
@@ -1839,7 +1839,7 @@ public class StickyNoteWindowTests
     // 追記の速いログでは更新が立て続けに届く。そのたびに明滅を始めから
     // やり直すと、光りきる前に振り出しへ戻って光って見えなくなる。
     [WpfFact]
-    public void ReloadExternalContent_RapidUpdates_DoNotRestartTheFlashMidPulse()
+    public async Task ReloadExternalContent_RapidUpdates_DoNotRestartTheFlashMidPulse()
     {
         var app = (App)WpfApplicationFixture.Ensure();
         var previousInterval = app.Settings.ExternalFile.MinRefreshIntervalMs;
@@ -1871,7 +1871,7 @@ public class StickyNoteWindowTests
 
             var border = (Border)window.FindName("UpdateFlashBorder")!;
             File.AppendAllText(externalPath, "line 2\n");
-            window.Dispatcher.Invoke(window.ReloadExternalContent);
+            await window.ReloadExternalContentAsync();
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
             Assert.True((bool)flashRunning.GetValue(window)!);
 
@@ -1887,7 +1887,7 @@ public class StickyNoteWindowTests
 
             // ここで次の更新が届いても、明滅は振り出しに戻らない。
             File.AppendAllText(externalPath, "line 3\n");
-            window.Dispatcher.Invoke(window.ReloadExternalContent);
+            await window.ReloadExternalContentAsync();
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
 
             Assert.Contains("line 3", vm.Content);
@@ -1906,7 +1906,7 @@ public class StickyNoteWindowTests
     private static extern IntPtr GetForegroundWindow();
 
     [WpfFact]
-    public void ReloadExternalContent_WhileNoteIsActive_DoesNotFlash()
+    public async Task ReloadExternalContent_WhileNoteIsActive_DoesNotFlash()
     {
         EnsureApplication();
         using var temp = new TempDataDirectory();
@@ -1929,7 +1929,7 @@ public class StickyNoteWindowTests
             if (GetForegroundWindow() != new System.Windows.Interop.WindowInteropHelper(window).Handle) return;
 
             File.AppendAllText(externalPath, "second line\n");
-            Task.Run(window.ReloadExternalContent).GetAwaiter().GetResult();
+            await Task.Run(window.ReloadExternalContentAsync);
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
 
             // 見ている本人には更新が届いているので、光らせる必要はない。
@@ -1943,7 +1943,7 @@ public class StickyNoteWindowTests
     }
 
     [WpfFact]
-    public void ReloadExternalContent_WhenFileContentIsUnchanged_DoesNothing()
+    public async Task ReloadExternalContent_WhenFileContentIsUnchanged_DoesNothing()
     {
         EnsureApplication();
         using var temp = new TempDataDirectory();
@@ -1967,7 +1967,7 @@ public class StickyNoteWindowTests
 
             // 中身が変わらない監視イベント（更新日時だけ触る保存など）を模す。
             File.SetLastWriteTimeUtc(externalPath, DateTime.UtcNow);
-            Task.Run(window.ReloadExternalContent).GetAwaiter().GetResult();
+            await Task.Run(window.ReloadExternalContentAsync);
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
 
             Assert.Equal(new DateTime(2024, 1, 1, 0, 0, 0), note.UpdatedAt);
@@ -2173,7 +2173,7 @@ public class StickyNoteWindowTests
     [InlineData("[INFO]  still fine", "#FF40C4FF")]
     [InlineData("[ERROR] upload rejected", "#FFFF5252")]
     [InlineData("[FATAL] worker pool exhausted", "#FFFF5252")]
-    public void ReloadExternalContent_FlashIsRedWhenAnErrorArrives(string appended, string expected)
+    public async Task ReloadExternalContent_FlashIsRedWhenAnErrorArrives(string appended, string expected)
     {
         EnsureApplication();
         using var temp = new TempDataDirectory();
@@ -2200,7 +2200,7 @@ public class StickyNoteWindowTests
             Assert.False(window.IsActive);
 
             File.AppendAllText(externalPath, $"09:12:20 {appended}\n");
-            Task.Run(window.ReloadExternalContent).GetAwaiter().GetResult();
+            await Task.Run(window.ReloadExternalContentAsync);
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
 
             var border = (Border)window.FindName("UpdateFlashBorder")!;
@@ -2215,7 +2215,7 @@ public class StickyNoteWindowTests
     }
 
     [WpfFact]
-    public void ReloadExternalContent_TailMode_RendersAsPlainTextInsteadOfMarkdown()
+    public async Task ReloadExternalContent_TailMode_RendersAsPlainTextInsteadOfMarkdown()
     {
         EnsureApplication();
         using var temp = new TempDataDirectory();
@@ -2235,7 +2235,7 @@ public class StickyNoteWindowTests
         var window = new StickyNoteWindow(vm, storage);
         try
         {
-            Task.Run(window.ReloadExternalContent).GetAwaiter().GetResult();
+            await Task.Run(window.ReloadExternalContentAsync);
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
 
             var contentBox = (RichTextBox)window.FindName("ContentBox")!;
@@ -2252,7 +2252,7 @@ public class StickyNoteWindowTests
     }
 
     [WpfFact]
-    public void ReloadExternalContent_RapidChangesWithinMinRefreshInterval_ThrottleToLatestContent()
+    public async Task ReloadExternalContent_RapidChangesWithinMinRefreshInterval_ThrottleToLatestContent()
     {
         var app = (App)WpfApplicationFixture.Ensure();
         var previousInterval = app.Settings.ExternalFile.MinRefreshIntervalMs;
@@ -2274,7 +2274,7 @@ public class StickyNoteWindowTests
         {
             app.Settings.ExternalFile.MinRefreshIntervalMs = 500;
 
-            Task.Run(window.ReloadExternalContent).GetAwaiter().GetResult();
+            await Task.Run(window.ReloadExternalContentAsync);
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
             Assert.Equal("version 1", vm.Content);
 
@@ -3712,17 +3712,18 @@ public class StickyNoteWindowTests
     public void NoteIcon_FollowsTheMonochromeSetting()
     {
         EnsureApplication();
+        var settings = new AppSettings();
         using var temp = new TempDataDirectory();
-        var previous = App.Current.Settings.MonochromeIcons;
+        var previous = settings.MonochromeIcons;
         var window = new StickyNoteWindow(
-            new StickyNoteViewModel(new StickyNote { Icon = "🔴" }, new AppSettings()), new StorageService(temp.Path));
+            new StickyNoteViewModel(new StickyNote { Icon = "🔴" }, settings), new StorageService(temp.Path));
         try
         {
             window.Show();
             var icon = Assert.IsType<Image>(window.FindName("IconImage"));
             var colour = icon.Source;
 
-            App.Current.Settings.MonochromeIcons = true;
+            settings.MonochromeIcons = true;
             window.RefreshSettings();
             window.UpdateLayout();
 
@@ -3731,7 +3732,7 @@ public class StickyNoteWindowTests
         }
         finally
         {
-            App.Current.Settings.MonochromeIcons = previous;
+            settings.MonochromeIcons = previous;
             window.Close();
         }
     }
@@ -5057,10 +5058,11 @@ public class StickyNoteWindowTests
     public void ShouldToggleView_Default_TogglesOnSecondMouseDown()
     {
         EnsureApplication();
-        App.Current.Settings.DoubleClickToToggleView = true;
+        var settings = new AppSettings();
+        settings.DoubleClickToToggleView = true;
         using var temp = new TempDataDirectory();
         var storage = new StorageService(temp.Path);
-        var vm = new StickyNoteViewModel(new StickyNote(), new AppSettings());
+        var vm = new StickyNoteViewModel(new StickyNote(), settings);
         var window = new StickyNoteWindow(vm, storage);
         try
         {
@@ -5078,10 +5080,11 @@ public class StickyNoteWindowTests
     public void ShouldToggleViewForClick_WhenSingleClickConfigured_UsesSingleClick()
     {
         EnsureApplication();
-        App.Current.Settings.DoubleClickToToggleView = false;
+        var settings = new AppSettings();
+        settings.DoubleClickToToggleView = false;
         using var temp = new TempDataDirectory();
         var storage = new StorageService(temp.Path);
-        var vm = new StickyNoteViewModel(new StickyNote(), new AppSettings());
+        var vm = new StickyNoteViewModel(new StickyNote(), settings);
         var window = new StickyNoteWindow(vm, storage);
         try
         {
@@ -5091,7 +5094,7 @@ public class StickyNoteWindowTests
         }
         finally
         {
-            App.Current.Settings.DoubleClickToToggleView = true;
+            settings.DoubleClickToToggleView = true;
             window.Close();
         }
     }
@@ -5100,10 +5103,11 @@ public class StickyNoteWindowTests
     public void CanAcceptNoteContent_RejectsNewContentOverConfiguredLimit()
     {
         EnsureApplication();
-        App.Current.Settings.MaxNoteContentBytes = 12;
+        var settings = new AppSettings();
+        settings.MaxNoteContentBytes = 12;
         using var temp = new TempDataDirectory();
         var storage = new StorageService(temp.Path);
-        var vm = new StickyNoteViewModel(new StickyNote { Content = "short" }, new AppSettings());
+        var vm = new StickyNoteViewModel(new StickyNote { Content = "short" }, settings);
         var window = new StickyNoteWindow(vm, storage);
         try
         {
@@ -5112,7 +5116,7 @@ public class StickyNoteWindowTests
         }
         finally
         {
-            App.Current.Settings.MaxNoteContentBytes = 1024 * 1024;
+            settings.MaxNoteContentBytes = 1024 * 1024;
             window.Close();
         }
     }
@@ -5121,10 +5125,11 @@ public class StickyNoteWindowTests
     public void CanAcceptNoteContent_AllowsShrinkingExistingOversizedContent()
     {
         EnsureApplication();
-        App.Current.Settings.MaxNoteContentBytes = 12;
+        var settings = new AppSettings();
+        settings.MaxNoteContentBytes = 12;
         using var temp = new TempDataDirectory();
         var storage = new StorageService(temp.Path);
-        var vm = new StickyNoteViewModel(new StickyNote { Content = "123456789012345" }, new AppSettings());
+        var vm = new StickyNoteViewModel(new StickyNote { Content = "123456789012345" }, settings);
         var window = new StickyNoteWindow(vm, storage);
         try
         {
@@ -5133,7 +5138,7 @@ public class StickyNoteWindowTests
         }
         finally
         {
-            App.Current.Settings.MaxNoteContentBytes = 1024 * 1024;
+            settings.MaxNoteContentBytes = 1024 * 1024;
             window.Close();
         }
     }

@@ -145,7 +145,7 @@ public partial class StickyNoteWindow
         cm.Items.Add(new Separator());
         cm.Items.Add(BuildDuplicateNoteMenuItem());
         var hideItem = new MenuItem { Header = LocalizationService.T("HideNote") };
-        hideItem.Click += (_, _) => App.Current.HideNote(ViewModel.Model.Id);
+        hideItem.Click += (_, _) => _host?.HideNote(ViewModel.Model.Id);
         cm.Items.Add(hideItem);
         cm.Items.Add(deleteItem);
         cm.Opened += (_, _) =>
@@ -186,7 +186,7 @@ public partial class StickyNoteWindow
 
         pasteItem.Click += (_, _) => PasteFromClipboard();
         pasteMarkdownLinkItem.Click += PasteMarkdownLink_Click;
-        hideItem.Click += (_, _) => App.Current.HideNote(ViewModel.Model.Id);
+        hideItem.Click += (_, _) => _host?.HideNote(ViewModel.Model.Id);
         deleteItem.Click += Close_Click;
 
         MarkdownLinkEditor.Link? selectedLink = null;
@@ -317,7 +317,7 @@ public partial class StickyNoteWindow
         };
         pasteItem.Click += (_, _) => TitleEditBox.Paste();
         selectAllItem.Click += (_, _) => TitleEditBox.SelectAll();
-        hideItem.Click += (_, _) => App.Current.HideNote(ViewModel.Model.Id);
+        hideItem.Click += (_, _) => _host?.HideNote(ViewModel.Model.Id);
         deleteItem.Click += Close_Click;
 
         var quickRow = BuildQuickActionsRow(out var quickIconButton);
@@ -391,7 +391,7 @@ public partial class StickyNoteWindow
     private MenuItem BuildDuplicateNoteMenuItem()
     {
         var item = new MenuItem { Header = LocalizationService.T("DuplicateNote") };
-        item.Click += (_, _) => App.Current.DuplicateNote(this);
+        item.Click += (_, _) => _host?.DuplicateNote(this);
         return item;
     }
 
@@ -415,8 +415,8 @@ public partial class StickyNoteWindow
         var item = new MenuItem { Header = LocalizationService.T("ZOrder") };
         var bringToFrontItem = new MenuItem { Header = LocalizationService.T("BringToFront") };
         var sendToBackItem = new MenuItem { Header = LocalizationService.T("SendToBack") };
-        bringToFrontItem.Click += (_, _) => App.Current.MoveNoteLayers(new HashSet<string> { ViewModel.Model.Id }, LayerMove.Top);
-        sendToBackItem.Click += (_, _) => App.Current.MoveNoteLayers(new HashSet<string> { ViewModel.Model.Id }, LayerMove.Bottom);
+        bringToFrontItem.Click += (_, _) => _host?.MoveNoteLayers(new HashSet<string> { ViewModel.Model.Id }, LayerMove.Top);
+        sendToBackItem.Click += (_, _) => _host?.MoveNoteLayers(new HashSet<string> { ViewModel.Model.Id }, LayerMove.Bottom);
         item.Items.Add(bringToFrontItem);
         item.Items.Add(sendToBackItem);
         return item;
@@ -547,7 +547,7 @@ public partial class StickyNoteWindow
             return;
 
         var nextAt = result.ClearRequested ? null : result.NextAt;
-        App.Current.SetReminder(ViewModel.Model.Id, nextAt, result.Settings);
+        _host?.SetReminder(ViewModel.Model.Id, nextAt, result.Settings);
         ShowSizeOverlay(nextAt == null
             ? LocalizationService.T("ReminderCleared")
             : string.Format(LocalizationService.T("ReminderSetMessage"), nextAt.Value.ToString("yyyy/MM/dd HH:mm")));

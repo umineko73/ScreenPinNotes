@@ -20,25 +20,24 @@ namespace ScreenPinNotes.Views;
 
 public partial class StickyNoteWindow
 {
-    private enum DisplayMode { Folded, View, BodyEdit, TitleEdit }
 
     // All mode requests settle the previous transition before reading bounds or
     // applying edit sizes. The core methods only apply their own presentation.
-    private void TransitionTo(DisplayMode target, Action? onUnfolded = null)
+    private void TransitionTo(NoteDisplayMode target, Action? onUnfolded = null)
     {
-        if (_isClosed) return;
+        var permission = NoteDisplayState.CheckRequest(target, _isClosed, IsMouseSizingGesture, IsContentReadOnly());
+        if (permission == NoteTransitionPermission.Busy) return;
         if (DiagnosticTrace.Enabled)
             Trace($"TransitionTo {target} blocked={IsMouseSizingGesture} caller={DiagnosticTrace.Caller()}");
         // 辺をドラッグしている最中は切り替えない（IsMouseSizingGesture 参照）。
-        if (IsMouseSizingGesture) return;
-        if ((target is DisplayMode.BodyEdit or DisplayMode.TitleEdit) && IsContentReadOnly())
+        if (permission == NoteTransitionPermission.ReadOnly)
         {
             ShowSizeOverlay(LocalizationService.T("EditLockNotice"));
             return;
         }
 
         CompleteFoldAnimation();
-        if (target == DisplayMode.Folded)
+        if (target == NoteDisplayMode.Folded)
         {
             if (!ViewModel.IsFolded) ApplyFoldState(true);
             return;
@@ -49,7 +48,7 @@ public partial class StickyNoteWindow
             ApplyFoldState(false, () =>
             {
                 if (_isClosed) return;
-                if (target is DisplayMode.BodyEdit or DisplayMode.TitleEdit)
+                if (target is NoteDisplayMode.BodyEdit or NoteDisplayMode.TitleEdit)
                     TransitionTo(target);
                 onUnfolded?.Invoke();
             });
@@ -58,20 +57,20 @@ public partial class StickyNoteWindow
 
         switch (target)
         {
-            case DisplayMode.BodyEdit: EnterEditModeCore(); break;
-            case DisplayMode.TitleEdit: EnterTitleEditModeCore(); break;
-            case DisplayMode.View: EnterViewModeCore(); break;
+            case NoteDisplayMode.BodyEdit: EnterEditModeCore(); break;
+            case NoteDisplayMode.TitleEdit: EnterTitleEditModeCore(); break;
+            case NoteDisplayMode.View: EnterViewModeCore(); break;
         }
         onUnfolded?.Invoke();
     }
 
     private void ToggleFold(Action? onUnfolded = null)
-        => TransitionTo(ViewModel.IsFolded ? DisplayMode.View : DisplayMode.Folded, onUnfolded);
+        => TransitionTo(ViewModel.IsFolded ? NoteDisplayMode.View : NoteDisplayMode.Folded, onUnfolded);
 
-    private void EnterEditMode() => TransitionTo(DisplayMode.BodyEdit);
-    private void EnterTitleEditMode() => TransitionTo(DisplayMode.TitleEdit);
+    private void EnterEditMode() => TransitionTo(NoteDisplayMode.BodyEdit);
+    private void EnterTitleEditMode() => TransitionTo(NoteDisplayMode.TitleEdit);
     private void EnterViewMode()
     {
-        if (_isEditMode && !_suppressViewMode) TransitionTo(DisplayMode.View);
+        if (_isEditMode && !_suppressViewMode) TransitionTo(NoteDisplayMode.View);
     }
 }

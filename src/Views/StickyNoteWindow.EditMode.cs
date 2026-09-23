@@ -72,7 +72,7 @@ public partial class StickyNoteWindow
         {
             if (_isClosed || !IsVisible) return;
             Activate();
-            App.Current?.NoteTouched(this);
+            _host?.NoteTouched(this);
         }));
     }
 
@@ -80,7 +80,7 @@ public partial class StickyNoteWindow
     {
         if (_isEditMode && BodyEditBox.Visibility == Visibility.Visible) return;
         var startingEdit = !_isEditMode;
-        _isEditMode = true;
+        _displayState.BeginBodyEdit();
         EditingBadge.Visibility = Visibility.Visible;
         DoneEditingButton.Visibility = Visibility.Visible;
         if (startingEdit) ApplyEditingSize(true);
@@ -113,7 +113,7 @@ public partial class StickyNoteWindow
     }
 
     private bool IsBodyEditing()
-        => _isEditMode && BodyEditBox.Visibility == Visibility.Visible;
+        => _displayState.Mode == NoteDisplayMode.BodyEdit;
 
     private void ApplyEditingSize(bool editing)
     {
@@ -154,7 +154,7 @@ public partial class StickyNoteWindow
         ViewModel.SetForceOpaque(true);
         if (!_isEditMode)
         {
-            _isEditMode = true;
+            _displayState.BeginTitleEdit();
             // タイトルだけ直すときも、確定はここから。ツールバーには置いていない。
             DoneEditingButton.Visibility = Visibility.Visible;
             ApplyEditingSize(true);
@@ -197,7 +197,7 @@ public partial class StickyNoteWindow
             return;
         FlushPendingSave();
 
-        _isEditMode = false;
+        _displayState.EndEditing(ViewModel.IsFolded);
         EditingBadge.Visibility = Visibility.Collapsed;
         DoneEditingButton.Visibility = Visibility.Collapsed;
         ApplyEditingSize(false);
@@ -431,7 +431,7 @@ public partial class StickyNoteWindow
     {
         // 触った付箋を覚えてもらう。直後に走る重なり順の並べ直しで、
         // せっかく前に出たこの付箋を奥へ送り返さないようにするため。
-        App.Current?.NoteTouched(this);
+        _host?.NoteTouched(this);
         WakeExternalContentMonitor();
         if (EditToolbarPopup != null) ShowEditToolbar();
     }

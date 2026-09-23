@@ -47,7 +47,9 @@ namespace ScreenPinNotes.Views;
 
 public partial class StickyNoteWindow : Window
 {
-    private AppSettings Settings => App.Current.Settings;
+    private readonly AppSettings _settings;
+    private AppSettings Settings => _settings;
+    private readonly INoteWindowHost? _host;
 
     /// <summary>
     /// 折りたたんだときのウィンドウ高さ（枠線込み）。通常はタイトルバーだけを残すが、
@@ -96,7 +98,9 @@ public partial class StickyNoteWindow : Window
     private System.Drawing.Point _dragStartCursor; // ドラッグ開始時のカーソル位置（しきい値判定用）
     private bool       _suppressTextChange;
     private bool       _suppressWindowBoundsSave;
-    private bool       _isEditMode;
+    private readonly NoteDisplayState _displayState;
+    private bool _isEditMode => _displayState.IsEditing;
+    public NoteDisplayMode DisplayMode => _displayState.Mode;
     private bool       _suppressViewMode;
     private bool       _isTaskCheckboxUpdatePending;
     private bool       _isContentContextMenuOpen;
@@ -158,7 +162,7 @@ public partial class StickyNoteWindow : Window
     public StickyNoteViewModel ViewModel => (StickyNoteViewModel)DataContext;
 
     public System.Windows.Media.Brush ToolbarBackground =>
-        string.Equals(App.Current.Settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase)
+        string.Equals(Settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase)
             ? new WpfSolidBrush(WpfColor.FromRgb(31, 41, 55))
             : new WpfSolidBrush(WpfColor.FromRgb(255, 255, 255));
 
@@ -171,8 +175,11 @@ public partial class StickyNoteWindow : Window
 
     private sealed record ContentUndoEntry(string Before, string After);
 
-    public StickyNoteWindow(StickyNoteViewModel vm, StorageService? storage = null)
+    public StickyNoteWindow(StickyNoteViewModel vm, StorageService? storage = null, INoteWindowHost? host = null)
     {
+        _settings = vm.Settings;
+        _host = host ?? System.Windows.Application.Current as INoteWindowHost;
+        _displayState = new NoteDisplayState(vm.IsFolded);
         _geometry = new NoteGeometryState(vm.Model, CurrentPositionContext);
         InitializeComponent();
         SetFontSizeButtonContent(FontLargerButton, "A", 1);
@@ -186,8 +193,12 @@ public partial class StickyNoteWindow : Window
         FoldedPreviewHost.SizeChanged += (_, _) => UpdateImagePathPreview();
         TitleText.SizeChanged += (_, _) => UpdateImagePathPreview();
         _storage = storage ?? new StorageService();
+        _deferredSave = new DeferredNoteSave(() => _storage.SaveNote(ViewModel.Model),
+            () => Settings.Timings.SaveDebounceMs, Dispatcher);
         vm.PropertyChanged += (_, e) =>
         {
+            if (e.PropertyName is nameof(StickyNoteViewModel.IsFolded) or null)
+                _displayState.SetFolded(vm.IsFolded);
             InvalidateTaskbarPreview();
             if (e.PropertyName is nameof(StickyNoteViewModel.Icon) or null)
             {
@@ -313,6 +324,7 @@ public partial class StickyNoteWindow : Window
         {
             StopFlashes();
             _isClosed = true;
+            _deferredSave.Dispose();
             CloseFoldedGhost();
             DisposeExternalContentWatcher();
             DisposeReferencedFileWatches();
@@ -534,7 +546,7 @@ public partial class StickyNoteWindow : Window
         ApplyTitleBarVisibility();   // タイトル編集のために出していた場合に戻す
         ContentBox.ToolTip = GetContentBoxTooltip();
         HideEditToolbar();
-        _isEditMode = false;
+        _displayState.EndEditing(ViewModel.IsFolded);
         DoneEditingButton.Visibility = Visibility.Collapsed;
         ViewModel.SetForceOpaque(false);
         LoadContent(ViewModel.Content);
@@ -570,8 +582,8 @@ public partial class StickyNoteWindow : Window
     }
 
     // 絵文字の画像化は設定画面とも共有する。実装は Services/EmojiRenderer.cs。
-    private static ImageSource? RenderEmoji(string icon)
-        => EmojiRenderer.Render(icon, App.Current.Settings.MonochromeIcons);
+    private ImageSource? RenderEmoji(string icon)
+        => EmojiRenderer.Render(icon, Settings.MonochromeIcons);
 
     // ─── ウィンドウイベント ──────────────────────────────────────
 
@@ -683,67 +695,23 @@ public partial class StickyNoteWindow : Window
         // タスクバーの×や Alt+F4 のように、アプリを通さずウィンドウだけ閉じられた
         // ときは、付箋を削除せず非表示にして閉じるのを取りやめる。閉じてしまうと
         // 一覧には残るのに Show() できない状態になり、全表示で例外になる。
-        if (App.Current.HideNoteOnWindowClose(this))
+        if (_host?.HideNoteOnWindowClose(this) == true)
             e.Cancel = true;
     }
 
     // ─── 自動保存（デバウンス） ──────────────────────────────────
 
-    private System.Windows.Threading.DispatcherTimer? _saveTimer;
-    private bool _savePending;
-    private bool _savingDisabled;
-    private long _savePendingSince;
+    private readonly DeferredNoteSave _deferredSave;
 
     private void RequestSave()
     {
         InvalidateTaskbarPreview();
-        if (_savingDisabled || _isClosed) return;
-        if (!_savePending) _savePendingSince = Environment.TickCount64;
-        _savePending = true;
-        if (_saveTimer == null)
-        {
-            _saveTimer = new System.Windows.Threading.DispatcherTimer();
-            _saveTimer.Tick += (_, _) =>
-            {
-                try { FlushPendingSave(); }
-                catch (Exception ex)
-                {
-                    ErrorReporter.ReportNonFatal("Deferred save", ex);
-                }
-            };
-        }
-        _saveTimer.Stop();
-        // Keep saving during continuous typing, without modifying the editor or its undo history.
-        var remaining = Math.Max(0, 5000 - (Environment.TickCount64 - _savePendingSince));
-        _saveTimer.Interval = TimeSpan.FromMilliseconds(Math.Min(Settings.Timings.SaveDebounceMs, remaining));
-        _saveTimer.Start();
+        if (!_isClosed) _deferredSave.Request();
     }
 
-    /// <summary>
-    /// 保留中の保存をただちに実行する。
-    /// 終了・ログオフ・ウィンドウを閉じたときに、デバウンス待ちの
-    /// 変更が失われないようにするために呼ぶ。
-    /// </summary>
-    public void FlushPendingSave()
-    {
-        if (!_savePending) return;
-        SaveNote();
-    }
+    public void FlushPendingSave() => _deferredSave.Flush();
 
-    // Both automatic saves and application-wide saves use the injected store.
-    internal void SaveNote()
-    {
-        if (_savingDisabled) return;
-        _storage.SaveNote(ViewModel.Model);
-        _saveTimer?.Stop();
-        _savePending = false;
-    }
+    internal void SaveNote() => _deferredSave.Save();
 
-    internal void DisableSaving()
-    {
-        _savingDisabled = true;
-        _saveTimer?.Stop();
-        _savePending = false;
-    }
-
+    internal void DisableSaving() => _deferredSave.Dispose();
 }
