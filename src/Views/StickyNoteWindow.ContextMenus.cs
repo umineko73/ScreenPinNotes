@@ -622,18 +622,45 @@ public partial class StickyNoteWindow
         RequestSave();
     }
 
+    /// <summary>入力先を移さずに表示する。まとめて出し直すときに使う。</summary>
+    public void ShowWithoutActivation()
+    {
+        var previous = ShowActivated;
+        ShowActivated = false;
+        try { Show(); }
+        finally { ShowActivated = previous; }
+    }
+
     public void ChangeZOrder(bool bringToFront) => MoveInZOrder(bringToFront ? HwndTop : HwndBottom);
 
     /// <summary>
     /// <paramref name="above"/> のすぐ後ろへ置く。一番上へ置き直すのと違い、
     /// アプリが前面にあっても他のアプリの窓より前へは出ない。
     /// 常に最前面かどうかが違う付箋の後ろへ置くと最前面の扱いが移るので、同じ帯の付箋だけに使う。
+    /// すでに <paramref name="above"/> より奥にあるなら動かさない。すぐ後ろへ付け直すと、
+    /// 間にある他のアプリの窓を越えて持ち上がってしまう（ショートカットで作った付箋が
+    /// 一番上に出たとき、他の付箋が全部その直後へ引き上げられていた）。
     /// </summary>
     public void PlaceBelow(StickyNoteWindow above)
     {
         var handle = new WindowInteropHelper(above).Handle;
-        if (handle != IntPtr.Zero && above.Topmost == Topmost)
+        var own = new WindowInteropHelper(this).Handle;
+        if (handle != IntPtr.Zero && own != IntPtr.Zero && above.Topmost == Topmost &&
+            !IsBelowInZOrder(own, handle))
             MoveInZOrder(handle);
+    }
+
+    private const uint GwHwndNext = 2;
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+
+    /// <summary><paramref name="window"/> が <paramref name="upper"/> より奥にあるか。</summary>
+    private static bool IsBelowInZOrder(IntPtr window, IntPtr upper)
+    {
+        for (var h = GetWindow(upper, GwHwndNext); h != IntPtr.Zero; h = GetWindow(h, GwHwndNext))
+            if (h == window) return true;
+        return false;
     }
 
     private void MoveInZOrder(IntPtr insertAfter)

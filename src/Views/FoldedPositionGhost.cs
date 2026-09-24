@@ -173,8 +173,32 @@ internal sealed class FoldedPositionGhost : Window
             if (Math.Abs(dx) < threshold && Math.Abs(dy) < threshold) return;
             _moved = true;
         }
+        var target = SnapToEdges(new System.Drawing.Rectangle(_pressRect.Left + dx, _pressRect.Top + dy,
+            _pressRect.Right - _pressRect.Left, _pressRect.Bottom - _pressRect.Top));
         SetWindowPos(new WindowInteropHelper(this).Handle, IntPtr.Zero,
-            _pressRect.Left + dx, _pressRect.Top + dy, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+            target.X, target.Y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+    }
+
+    /// <summary>
+    /// 付箋本体のドラッグと同じく、作業領域の端と見えている付箋（自分の本体も含む）へ吸着させる。
+    /// 影は拡大率の違うモニタをまたいで動くので、論理ピクセルではなく物理ピクセルで比べる。
+    /// Alt を押している間は吸着しない。
+    /// </summary>
+    private System.Drawing.Point SnapToEdges(System.Drawing.Rectangle moving)
+    {
+        if ((GetAsyncKeyState(VK_MENU) & 0x8000) != 0) return moving.Location;
+        var workArea = System.Windows.Forms.Screen.FromRectangle(moving).WorkingArea;
+        var others = new List<System.Drawing.Rectangle>();
+        foreach (var window in App.Current.NoteWindows)
+        {
+            if (!window.IsVisible) continue;
+            var handle = new WindowInteropHelper(window).Handle;
+            if (handle != IntPtr.Zero && GetWindowRect(handle, out var r))
+                others.Add(System.Drawing.Rectangle.FromLTRB(r.Left, r.Top, r.Right, r.Bottom));
+        }
+        var scale = VisualTreeHelper.GetDpi(this).DpiScaleX;
+        var distance = (int)Math.Round(App.Current.Settings.Interaction.SnapDistance * scale);
+        return EdgeSnap.Snap(moving, workArea, others, distance);
     }
 
     private void OnRelease(object sender, MouseButtonEventArgs e)
@@ -232,6 +256,11 @@ internal sealed class FoldedPositionGhost : Window
 
     [DllImport("user32.dll")]
     private static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
+
+    private const int VK_MENU = 0x12;
+
+    [DllImport("user32.dll")]
+    private static extern short GetAsyncKeyState(int vKey);
 
     [DllImport("user32.dll")]
     private static extern bool SetWindowPos(IntPtr hwnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
