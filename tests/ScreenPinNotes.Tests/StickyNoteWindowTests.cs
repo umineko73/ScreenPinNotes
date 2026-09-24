@@ -5559,7 +5559,7 @@ public class StickyNoteWindowTests
             // 実際のクリップボードは共有の場所なので、渡す中身だけを見る。
             var picture = (DataObject)InvokePrivateResult(window, "BuildImageDataObject",
                 typeof(System.Windows.Media.Imaging.BitmapSource),
-                InvokePrivateResult(window, "GetOrLoadNormalizedImage", typeof(string), image))!;
+                InvokePrivateResult(window, "GetOrLoadNormalizedImage", typeof(string), image)!)!;
             Assert.True(picture.ContainsImage());
             // 透明を保てる形も添えておく。
             Assert.True(picture.GetDataPresent("PNG"));
