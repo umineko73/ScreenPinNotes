@@ -178,7 +178,7 @@ public class NoteScreenPlacementTests
             window.Left = 180;
             window.Top = 170;
             StoreCurrentPosition(window);
-            Assert.Equal((180d, 170d), (note.X, note.Y));
+            DevicePixelAssert.Near((180, 170), (note.X, note.Y), window);
             Assert.Equal(signature, note.PositionLayout);
             Assert.True(note.PositionScale > 0);
 
@@ -187,18 +187,19 @@ public class NoteScreenPlacementTests
             window.Left = 240;
             window.Top = 230;
             StoreCurrentPosition(window);
-            Assert.Equal((180d, 170d), (note.X, note.Y));
+            DevicePixelAssert.Near((180, 170), (note.X, note.Y), window);
             Assert.Equal("other-layout", note.PositionLayout);
 
             // ただし自分でドラッグして置き直したときは、その構成を引き受ける。
             // 解像度を変えたまま使い続けても、並べ直した位置を覚える。
             Invoke(window, "AdoptCurrentLayoutAsHome");
             StoreCurrentPosition(window);
-            Assert.Equal((240d, 230d), (note.X, note.Y));
+            DevicePixelAssert.Near((240, 230), (note.X, note.Y), window);
             Assert.Equal(signature, note.PositionLayout);
             // 元の構成での位置は捨てずに残る。その構成に戻れば帰れるように。
             var kept = Assert.Single(note.OtherLayoutPositions);
-            Assert.Equal(("other-layout", 180d, 170d), (kept.Layout, kept.X, kept.Y));
+            Assert.Equal("other-layout", kept.Layout);
+            DevicePixelAssert.Near((180, 170), (kept.X, kept.Y), window);
         }
         finally { window.Close(); }
     }

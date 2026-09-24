@@ -113,6 +113,11 @@ public class FitWindowToImageTests
         WpfApplicationFixture.Ensure();
         var storage = new StorageService(Path.Combine(Path.GetTempPath(), "ScreenPinNotes.Tests", Guid.NewGuid().ToString()));
         var note = NoteWithImage(storage, 600, 600, hiddenTitleBar);
+        // 100% 表示の画像が付箋からはみ出してスクロールバーが出ている状態から始める。
+        // 600px の画像は 125% では 480、200% では 300 の論理ピクセルなので、
+        // 既定の 400x500 のままだと拡大率によっては収まってしまう。
+        note.Width = 240;
+        note.Height = 260;
         var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), storage);
         try
         {
