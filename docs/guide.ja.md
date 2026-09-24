@@ -237,4 +237,4 @@ dotnet test
 
 配布zipの作成：`powershell -ExecutionPolicy Bypass -File scripts/publish.ps1`（出力先：`artifacts/`）。翻訳の追加は [ローカライズ手順](localization.md) を参照してください。
 
-[GNU General Public License v3.0 or later](../LICENSE) · Copyright (C) 2026 umineko73
+[GNU General Public License v3.0](../LICENSE) · Copyright (C) 2026 umineko73

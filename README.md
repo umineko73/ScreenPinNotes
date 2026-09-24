@@ -102,4 +102,4 @@ Build release zips with `powershell -ExecutionPolicy Bypass -File scripts/publis
 
 ## License
 
-[GNU General Public License v3.0 or later](LICENSE) · Copyright (C) 2026 umineko73
+[GNU General Public License v3.0](LICENSE) · Copyright (C) 2026 umineko73

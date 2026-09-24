@@ -1,5 +1,5 @@
 // ScreenPinNotes - Copyright (C) 2026 umineko73
-// Licensed under GPL-3.0-or-later.
+// Licensed under GPL-3.0-only.
 using System.Globalization;
 using System.IO;
 using System.Resources;

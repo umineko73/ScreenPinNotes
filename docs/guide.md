@@ -237,4 +237,4 @@ dotnet test
 
 Build release zips with `powershell -ExecutionPolicy Bypass -File scripts/publish.ps1` (output: `artifacts/`). See [localization instructions](localization.md) for translations.
 
-[GNU General Public License v3.0 or later](../LICENSE) · Copyright (C) 2026 umineko73
+[GNU General Public License v3.0](../LICENSE) · Copyright (C) 2026 umineko73

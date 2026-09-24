@@ -271,7 +271,7 @@ No: create initial notes in the selected folder. The current notes folder will r
     <value>A desktop sticky notes app for Windows 11.</value>
   </data>
   <data name="AboutLicense" xml:space="preserve">
-    <value>License: GNU General Public License v3.0 or later</value>
+    <value>License: GNU General Public License v3.0</value>
   </data>
   <data name="Close" xml:space="preserve">
     <value>Close</value>
