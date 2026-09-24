@@ -18,7 +18,7 @@
     <Product>ScreenPinNotes</Product>
     <Description>Windows 11 向けのデスクトップ付箋アプリ</Description>
     <Copyright>Copyright (C) 2026 umineko73</Copyright>
-    <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+    <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/umineko73/ScreenPinNotes</RepositoryUrl>
   </PropertyGroup>
 

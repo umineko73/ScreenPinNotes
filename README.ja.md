@@ -102,4 +102,4 @@ dotnet test
 
 ## ライセンス
 
-[GNU General Public License v3.0以降](LICENSE) · Copyright (C) 2026 umineko73
+[GNU General Public License v3.0](LICENSE) · Copyright (C) 2026 umineko73

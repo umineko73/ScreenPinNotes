@@ -271,7 +271,7 @@
     <value>Windows 11 向けのデスクトップ付箋アプリです。</value>
   </data>
   <data name="AboutLicense" xml:space="preserve">
-    <value>ライセンス: GNU General Public License v3.0 以降</value>
+    <value>ライセンス: GNU General Public License v3.0</value>
   </data>
   <data name="Close" xml:space="preserve">
     <value>閉じる</value>
