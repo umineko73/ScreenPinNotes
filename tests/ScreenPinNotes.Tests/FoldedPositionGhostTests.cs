@@ -92,7 +92,8 @@ public class FoldedPositionGhostTests
 
         Assert.Equal(500, scope.Note.FoldedX!.Value, 3);
         Assert.Equal(380, scope.Note.FoldedY!.Value, 3);
-        Assert.Equal((140d, 130d), (scope.Note.X, scope.Note.Y));
+        // 開いた位置は窓から読み戻して記録し直すので、物理ピクセルに丸まった値になる。
+        DevicePixelAssert.Near((140, 130), (scope.Note.X, scope.Note.Y), scope.Window);
         Assert.True(scope.Note.IsPositionSeparated);
         var ghost = scope.GhostLocation();
         Assert.Equal((x, y), (ghost!.Value.X, ghost.Value.Y));

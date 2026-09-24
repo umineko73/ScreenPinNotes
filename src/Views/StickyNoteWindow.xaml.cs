@@ -189,6 +189,7 @@ public partial class StickyNoteWindow : Window
         _uiDispatcher = Dispatcher;
         DataContext = vm;
         InitializeFormatToolbar();
+        InitializeViewModeCopy();
         ContentBox.SizeChanged += (_, _) => UpdateImagePathPreview();
         FoldedPreviewHost.SizeChanged += (_, _) => UpdateImagePathPreview();
         TitleText.SizeChanged += (_, _) => UpdateImagePathPreview();

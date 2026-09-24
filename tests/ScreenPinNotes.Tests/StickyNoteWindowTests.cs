@@ -370,10 +370,9 @@ public class StickyNoteWindowTests
             AssertWindowCoordinate(initiallyFolded ? 100 : 180, window.Top, window, vertical: true);
             if (initiallyFolded) Assert.InRange(window.Width, window.MinWidth, 420);
             else AssertWindowCoordinate(420, window.Width, window);
-            Assert.Equal(180, note.X);
-            Assert.Equal(180, note.Y);
-            Assert.Equal(90, note.FoldedX);
-            Assert.Equal(100, note.FoldedY);
+            // 位置は窓から読み戻して保存するので、物理ピクセルに丸まった値になる。
+            DevicePixelAssert.Near((180, 180), (note.X, note.Y), window);
+            DevicePixelAssert.Near((90, 100), (note.FoldedX!.Value, note.FoldedY!.Value), window);
             Assert.Equal(420, note.Width);
             Assert.InRange(note.FoldedWidth!.Value, window.MinWidth, 420);
             Assert.False(GetPrivateField<bool>(window, "_isFoldAnimationRunning"));

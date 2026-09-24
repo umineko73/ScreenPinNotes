@@ -170,6 +170,59 @@ public class NoteLayerRaiseTests
         }
     }
 
+    // ショートカットで作った付箋は活性化して一番上に出る。そのあとの並べ直しで、
+    // 他のアプリの後ろにある付箋をその直後へ付け直すと、全部が他のアプリを越えて前に出ていた。
+    [WpfFact]
+    public void AutomaticReorderDoesNotPullNotesUpBehindARaisedNote()
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var field = typeof(App).GetField("_windows",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        var windows = (List<StickyNoteWindow>)field.GetValue(app)!;
+        var previous = windows.ToList();
+        var root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ScreenPinNotes.Tests", Guid.NewGuid().ToString("N"));
+        var storage = new StorageService(root);
+        var created = new StickyNoteWindow(new StickyNoteViewModel(new StickyNote { LayerOrder = 0 }, app.Settings), storage);
+        var back = new StickyNoteWindow(new StickyNoteViewModel(new StickyNote { LayerOrder = 1 }, app.Settings), storage);
+        var other = new System.Windows.Window { Width = 200, Height = 200, ShowInTaskbar = false, ShowActivated = false };
+        try
+        {
+            windows.Clear();
+            windows.AddRange([created, back]);
+            back.Show();
+            other.Show();
+            created.Show();
+            app.ForgetLastActiveNote();
+            var createdHandle = new System.Windows.Interop.WindowInteropHelper(created).Handle;
+            var backHandle = new System.Windows.Interop.WindowInteropHelper(back).Handle;
+            var otherHandle = new System.Windows.Interop.WindowInteropHelper(other).Handle;
+            bool IsAbove(IntPtr upper, IntPtr lower)
+            {
+                for (var h = GetWindow(lower, GwHwndPrev); h != IntPtr.Zero; h = GetWindow(h, GwHwndPrev))
+                    if (h == upper) return true;
+                return false;
+            }
+
+            back.ChangeZOrder(false);
+            created.ChangeZOrder(true);
+            Assert.True(IsAbove(createdHandle, otherHandle) && IsAbove(otherHandle, backHandle), "setup");
+
+            app.ApplyLayerOrder();
+            Assert.True(IsAbove(createdHandle, backHandle), "layer order holds");
+            Assert.True(IsAbove(otherHandle, backHandle), "the back note stays behind the other window");
+        }
+        finally
+        {
+            windows.Clear();
+            other.Close();
+            created.Close();
+            back.Close();
+            windows.AddRange(previous);
+            app.ForgetLastActiveNote();
+            if (System.IO.Directory.Exists(root)) System.IO.Directory.Delete(root, true);
+        }
+    }
+
     [WpfFact]
     public void ClickedNoteStaysInFrontUntilAnotherNoteIsClicked()
     {

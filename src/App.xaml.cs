@@ -875,10 +875,13 @@ public partial class App : System.Windows.Application, INoteWindowHost
 
     public void ShowAllNotes()
     {
+        // 活性化せずに出す。トレイのアイコンはタスクバーの中にあるので、そこから
+        // 操作した直後に最後に出した付箋が活性化すると、タスクバーで選ばれたものと
+        // 見分けがつかず、閉じた表示の付箋が開いてしまう。前へ出すのは下の並べ直しで行う。
         foreach (var win in _windows)
         {
             if (!win.ViewModel.Model.IsHidden)
-                win.Show();
+                win.ShowWithoutActivation();
         }
         ForgetLastActiveNote();
         ApplyLayerOrder(bringToFront: true);

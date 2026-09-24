@@ -48,6 +48,46 @@ namespace ScreenPinNotes.Views;
 
 public partial class StickyNoteWindow
 {
+    // ─── 表示モードの本文のコピー ──────────────────────────────
+
+    private void InitializeViewModeCopy()
+        => CommandManager.AddPreviewExecutedHandler(ContentBox, ContentBox_PreviewExecuted);
+
+    private void ContentBox_PreviewExecuted(object sender, ExecutedRoutedEventArgs e)
+    {
+        if (e.Command != ApplicationCommands.Copy) return;
+        e.Handled = true;
+        CopyViewModeSelection();
+    }
+
+    /// <summary>
+    /// 表示モードで選んだ範囲をコピーする。RichTextBox のコピーは書式を RTF にも
+    /// 変換するが、その変換が使うコードページの読み込みに失敗すると例外になり、
+    /// 型の初期化の失敗なのでアプリを再起動するまで毎回失敗する（.NET を更新して
+    /// 古いランタイムのフォルダが消えた、など、起動中の環境が変わったとき）。
+    /// そのときは文字だけでもコピーする。
+    /// </summary>
+    internal void CopyViewModeSelection()
+    {
+        if (ContentBox.Selection.IsEmpty) return;
+        try
+        {
+            ContentBox.Copy();
+        }
+        catch (Exception ex) when (ex is TypeInitializationException or IOException)
+        {
+            ErrorReporter.ReportNonFatal("Copy rich text", ex);
+            try
+            {
+                System.Windows.Clipboard.SetText(ContentBox.Selection.Text);
+            }
+            catch (Exception clipboardError) when (clipboardError is ExternalException)
+            {
+                ErrorReporter.ReportNonFatal("Copy plain text", clipboardError);
+            }
+        }
+    }
+
     // ─── 貼り付け（リンク検出付き） ──────────────────────────────
 
     private void OnPaste(object sender, DataObjectPastingEventArgs e)
