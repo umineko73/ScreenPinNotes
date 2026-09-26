@@ -85,11 +85,11 @@ public class NoteReminderTooltipTests
         try
         {
             var body = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
-            Assert.Equal(4000, ToolTipService.GetShowDuration(body));
+            Assert.Equal(2000, ToolTipService.GetShowDuration(body));
 
-            settings.Timings.ContentTooltipDurationMs = 2500;
+            settings.Timings.ContentTooltipDurationMs = 3500;
             window.RefreshSettings();
-            Assert.Equal(2500, ToolTipService.GetShowDuration(body));
+            Assert.Equal(3500, ToolTipService.GetShowDuration(body));
         }
         finally
         {
