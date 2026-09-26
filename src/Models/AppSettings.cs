@@ -219,6 +219,7 @@ public sealed class AppSettings
         Timings.SizeOverlayFadeMs = Math.Max(0, Timings.SizeOverlayFadeMs);
         Timings.ToolbarFadeMs = Math.Max(0, Timings.ToolbarFadeMs);
         Timings.SaveDebounceMs = Math.Max(0, Timings.SaveDebounceMs);
+        Timings.ContentTooltipDurationMs = Math.Max(500, Timings.ContentTooltipDurationMs);
 
         // 0 は「間隔を空けず毎回反映」を意味する。上限は、更新の取りこぼしが
         // 目に見えて気になり始める程度（1分）に置く。
@@ -300,6 +301,11 @@ public sealed class TimingSettings
     public int SizeOverlayFadeMs { get; set; } = 350;
     public int ToolbarFadeMs { get; set; } = 110;
     public int SaveDebounceMs { get; set; } = 800;
+    /// <summary>
+    /// 本文のツールチップ（「ダブルクリックして編集」）を出しておく時間。WPF の既定では
+    /// マウスが本文の上にある間ずっと出たままになり、読んでいる文字を隠してしまう。
+    /// </summary>
+    public int ContentTooltipDurationMs { get; set; } = 4000;
 }
 
 public sealed class InteractionSettings

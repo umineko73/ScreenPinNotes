@@ -71,6 +71,33 @@ public class NoteReminderTooltipTests
         finally { window.Close(); }
     }
 
+    // 「ダブルクリックして編集」は、WPF の既定のままだとマウスが本文の上にある間ずっと出ていて、
+    // 読んでいる文字を隠す。数秒で消える。設定を変えれば開き直さなくても変わる。
+    [WpfFact]
+    public void BodyTooltipDisappearsAfterAFewSeconds()
+    {
+        WpfApplicationFixture.Ensure();
+        using var temp = new TempDataDirectory();
+        var settings = App.Current.Settings;
+        var previous = settings.Timings.ContentTooltipDurationMs;
+        var window = new StickyNoteWindow(
+            new StickyNoteViewModel(new StickyNote { Content = "本文" }, settings), new StorageService(temp.Path));
+        try
+        {
+            var body = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            Assert.Equal(4000, ToolTipService.GetShowDuration(body));
+
+            settings.Timings.ContentTooltipDurationMs = 2500;
+            window.RefreshSettings();
+            Assert.Equal(2500, ToolTipService.GetShowDuration(body));
+        }
+        finally
+        {
+            settings.Timings.ContentTooltipDurationMs = previous;
+            window.Close();
+        }
+    }
+
     private sealed class TempDataDirectory : IDisposable
     {
         public string Path { get; } = System.IO.Path.Combine(
