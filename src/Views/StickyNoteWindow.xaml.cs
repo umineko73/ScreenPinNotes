@@ -501,6 +501,7 @@ public partial class StickyNoteWindow : Window
         PinButton.ToolTip = LocalizationService.T("TopmostTooltip");
         FoldButton.ToolTip = LocalizationService.T("FoldTooltip");
         ContentBox.ToolTip = GetContentBoxTooltip();
+        ToolTipService.SetShowDuration(ContentBox, Settings.Timings.ContentTooltipDurationMs);
         UpdateToolbarTooltips();
     }
 
