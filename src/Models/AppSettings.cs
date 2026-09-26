@@ -305,7 +305,7 @@ public sealed class TimingSettings
     /// 本文のツールチップ（「ダブルクリックして編集」）を出しておく時間。WPF の既定では
     /// マウスが本文の上にある間ずっと出たままになり、読んでいる文字を隠してしまう。
     /// </summary>
-    public int ContentTooltipDurationMs { get; set; } = 4000;
+    public int ContentTooltipDurationMs { get; set; } = 2000;
 }
 
 public sealed class InteractionSettings
