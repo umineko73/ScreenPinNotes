@@ -774,6 +774,11 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="SettingsTheme" xml:space="preserve"><value>Theme</value></data>
   <data name="SettingsReminder" xml:space="preserve"><value>Reminders</value></data>
   <data name="SettingsBringReminderNoteToFront" xml:space="preserve"><value>Bring a flashing reminder note to the front</value></data>
+  <data name="SettingsReminderSound" xml:space="preserve"><value>Reminder sound</value></data>
+  <data name="SettingsReminderSoundPreview" xml:space="preserve"><value>Play</value></data>
+  <data name="SettingsReminderSoundHint" xml:space="preserve"><value>Choose from the Windows sounds. Whether a sound plays is set per reminder.</value></data>
+  <data name="SettingsReminderAlertSeconds" xml:space="preserve"><value>Flash and sound length (seconds)</value></data>
+  <data name="SettingsReminderAlertSecondsHint" xml:space="preserve"><value>Clicking the note or pressing a key stops the flashing and the sound right away.</value></data>
   <data name="SettingsStartup" xml:space="preserve"><value>Startup</value></data>
   <data name="SettingsFolding" xml:space="preserve"><value>Fold / expand</value></data>
   <data name="SettingsExternalFiles" xml:space="preserve"><value>External files</value></data>
@@ -838,7 +843,8 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="SettingsClipboardNoteHotkey" xml:space="preserve"><value>New note from clipboard shortcut</value></data>
   <data name="ClipboardHotkeyHint" xml:space="preserve"><value>Creates a note from the text, image, or image files on the clipboard. Keys are set the same way as above. Default: Ctrl+Alt+Shift+N.</value></data>
   <data name="ClipboardNoteEmpty" xml:space="preserve"><value>The clipboard has no text or image to make a note from.</value></data>
-  <data name="ReminderFlashNote" xml:space="preserve"><value>Flash the note for 10 seconds (shows hidden notes)</value></data>
+  <data name="ReminderFlashNote" xml:space="preserve"><value>Flash the note for {0} seconds (shows hidden notes)</value></data>
+  <data name="ReminderPlaySound" xml:space="preserve"><value>Repeat a sound for {0} seconds (chosen in Settings)</value></data>
   <data name="UndoTooltip" xml:space="preserve"><value>Undo (Ctrl+Z)</value></data>
   <data name="RedoTooltip" xml:space="preserve"><value>Redo (Ctrl+Y)</value></data>
   <data name="MarkdownProperties" xml:space="preserve"><value>Properties</value></data>
@@ -860,6 +866,7 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="ReminderMethodNotification" xml:space="preserve"><value>Windows notification</value></data>
   <data name="ReminderMethodAlert" xml:space="preserve"><value>Alert window</value></data>
   <data name="ReminderMethodFlash" xml:space="preserve"><value>Flash the note</value></data>
+  <data name="ReminderMethodSound" xml:space="preserve"><value>Sound</value></data>
   <data name="SettingsShowFoldedPositionGhost" xml:space="preserve">
     <value>Show where a note with separate positions collapses to while it is expanded</value>
   </data>

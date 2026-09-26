@@ -249,6 +249,9 @@ public class StorageService
                 // チェックボックスの見た目どおり false が書き込まれてしまう。
                 if (note.Reminder is { ShowAlert: null } reminder)
                     reminder.ShowAlert = true;
+                // 音も同じ理由で、読み込んだ時点の振る舞い（通知ウィンドウのときだけ鳴る）に固定する。
+                if (note.Reminder is { PlaySound: null } soundless)
+                    soundless.PlaySound = soundless.PlaysSound;
                 notes.Add(note);
             }
             catch (FileNotFoundException ex) when (ex.FileName == metaPath)

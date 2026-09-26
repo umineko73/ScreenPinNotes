@@ -80,6 +80,7 @@ public static class ReminderSummary
         // null = この項目より前に保存された設定。TriggerReminder と同じく「出す」として扱う。
         if (settings.ShowAlert != false) methods.Add(T("ReminderMethodAlert", language));
         if (settings.FlashNote) methods.Add(T("ReminderMethodFlash", language));
+        if (settings.PlaysSound) methods.Add(T("ReminderMethodSound", language));
         return methods;
     }
 

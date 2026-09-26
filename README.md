@@ -35,7 +35,7 @@ A darker palette for your desktop, including notes without title bars and notes 
 | Appearance | Choose colors, fonts, icons, opacity, corners, borders, and title bar visibility |
 | Placement | Pin notes on top, collapse them, snap to screen edges or other notes, and save stacking order |
 | Multiple monitors | Notes that a resolution change or an unplugged monitor would leave off-screen move to a monitor that can show them, and return to their own place once that layout is back |
-| Reminders | Schedule once, daily, weekly (including chosen weeks of the month), or monthly (including the last day); flash the note and snooze alerts |
+| Reminders | Schedule once, daily, weekly (including chosen weeks of the month), or monthly (including the last day); flash the note, play a Windows sound, and snooze alerts |
 | Note list | Search notes, show or hide them, and manage stacking order and reminders |
 | External files | Open `.md` / `.txt` / `.log` files as read-only notes that follow file changes (including logs a program keeps open while appending), with a configurable minimum refresh interval; `.log` files default to tail mode, showing only the last N lines as plain text and auto-scrolling to the newest line |
 | Local storage | Markdown bodies and JSON settings, with zip backup export and import |

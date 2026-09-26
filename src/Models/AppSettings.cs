@@ -80,6 +80,17 @@ public sealed class AppSettings
     /// 外部ファイルの更新を知らせる点滅では前に出さない。
     /// </summary>
     public bool BringReminderNoteToFront { get; set; } = true;
+    /// <summary>
+    /// リマインダーで鳴らす音。Windows のサウンド（%WINDIR%\Media の .wav）のファイル名か、
+    /// settings.json に直接書いた .wav の絶対パス。鳴らすかどうかはリマインダーごとに決める。
+    /// </summary>
+    public string ReminderSound { get; set; } = ScreenPinNotes.Services.ReminderSound.DefaultSound;
+    /// <summary>
+    /// リマインダーで付箋を点滅させ、音を繰り返す長さ（秒）。付箋のクリックやキー入力で途中で止まる。
+    /// </summary>
+    public int ReminderAlertSeconds { get; set; } = DefaultReminderAlertSeconds;
+    public const int DefaultReminderAlertSeconds = 30;
+    public const int MaxReminderAlertSeconds = 600;
 
     public const string NoteBorderNone = "None";
     public const string NoteBorderGray = "Gray";
@@ -190,6 +201,7 @@ public sealed class AppSettings
         ColorDialogCustomColors ??= [];
         StorageRoot = StorageRoot?.Trim() ?? "";
         NotesRoot = NotesRoot?.Trim() ?? "";
+        ReminderSound = string.IsNullOrWhiteSpace(ReminderSound) ? ScreenPinNotes.Services.ReminderSound.DefaultSound : ReminderSound.Trim();
 
         Timings ??= new TimingSettings();
         Interaction ??= new InteractionSettings();
@@ -232,6 +244,8 @@ public sealed class AppSettings
         ExternalFile.PollStopAfterMs = Math.Clamp(ExternalFile.PollStopAfterMs, 1000, 3_600_000);
 
         HoverOpacityBoostPercent = Math.Clamp(HoverOpacityBoostPercent, 0, 90);
+        // 0 だと点滅も音も一瞬で終わり、気付けない。上限は止め忘れても鳴り続けない程度の10分。
+        ReminderAlertSeconds = Math.Clamp(ReminderAlertSeconds, 1, MaxReminderAlertSeconds);
         MaxNoteContentBytes = Math.Max(1024, MaxNoteContentBytes);
 
         Interaction.SnapDistance = Math.Max(0, Interaction.SnapDistance);

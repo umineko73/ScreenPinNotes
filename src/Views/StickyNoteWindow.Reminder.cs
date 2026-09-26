@@ -16,6 +16,7 @@
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using ScreenPinNotes.Services;
 using Brush = System.Windows.Media.Brush;
 using Color = System.Windows.Media.Color;
 using ColorConverter = System.Windows.Media.ColorConverter;
@@ -41,13 +42,17 @@ public partial class StickyNoteWindow
         Topmost = false;
     }
 
-    public void FlashForReminder()
+    /// <summary>
+    /// リマインダーで付箋全体を <paramref name="duration"/> のあいだ点滅させる（既定は
+    /// <see cref="Models.AppSettings.DefaultReminderAlertSeconds"/> 秒）。クリック・キー入力・非表示で止まる。
+    /// </summary>
+    public void FlashForReminder(TimeSpan? duration = null)
     {
         if (_isClosed || !IsVisible) return;
         var pulse = new DoubleAnimation(0, 1, TimeSpan.FromSeconds(0.5))
         {
             AutoReverse = true,
-            RepeatBehavior = new RepeatBehavior(10),
+            RepeatBehavior = new RepeatBehavior(duration ?? TimeSpan.FromSeconds(Models.AppSettings.DefaultReminderAlertSeconds)),
             FillBehavior = FillBehavior.Stop,
         };
         ReminderFlashBorder.BeginAnimation(UIElement.OpacityProperty, pulse);
@@ -179,8 +184,11 @@ public partial class StickyNoteWindow
         return animation;
     }
 
+    // リマインダーの音もこの付箋が鳴らしているものなら一緒に止める。点滅なしで音だけの
+    // リマインダーでも、付箋のクリックで止められるように。
     private void StopFlashes()
     {
+        ReminderSound.StopFor(this);
         ReminderFlashBorder.BeginAnimation(UIElement.OpacityProperty, null);
         UpdateFlashBorder.BeginAnimation(UIElement.OpacityProperty, null);
         RootBorder.BeginAnimation(System.Windows.Controls.Border.BackgroundProperty, null);

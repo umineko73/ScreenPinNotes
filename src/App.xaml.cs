@@ -1318,11 +1318,15 @@ public partial class App : System.Windows.Application, INoteWindowHost
         {
             win.ViewModel.RefreshReminder();
             SaveAll();
+            var alertDuration = TimeSpan.FromSeconds(_settings.ReminderAlertSeconds);
             if (reminder.FlashNote)
             {
                 RevealForReminder(win, _settings.BringReminderNoteToFront);
-                win.FlashForReminder();
+                win.FlashForReminder(alertDuration);
             }
+            // 付箋を出してから鳴らす。表示の切り替えで止まる扱いにならないように。
+            if (reminder.PlaysSound)
+                ReminderSound.PlayForReminder(_settings.ReminderSound, alertDuration, win);
             // null（この機能追加より前に保存されたリマインダー）は従来どおり
             // アラートを出す側として扱う。明示的に false のときだけスキップする。
             if (reminder.ShowAlert == false)
@@ -1332,9 +1336,10 @@ public partial class App : System.Windows.Application, INoteWindowHost
             }
             // 通知ウィンドウを出すときは、どの付箋の知らせか分かるよう常にその付箋を前に出す。
             RevealForReminder(win, bringToFront: true);
-            System.Media.SystemSounds.Exclamation.Play();
 
             var result = ReminderAlertWindow.ShowFor(win, win.ViewModel.DisplayTitle, dueAt);
+            // 通知ウィンドウの間は付箋を押せないので、閉じた時点で音を止める。
+            ReminderSound.StopFor(win);
             if (result.Snoozed && result.SnoozeDelay is TimeSpan delay)
             {
                 reminder.NextAt = DateTime.Now.Add(delay);

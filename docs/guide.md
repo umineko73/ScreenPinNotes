@@ -159,9 +159,13 @@ Configure a reminder from a note's context menu or the **Note list**. Choose a d
 
 Click a Windows notification to open the note list. Simultaneous reminders share a notification. Optionally enable the alert window for 5-, 15-, or 60-minute snooze. Snoozing preserves the recurring time.
 
-**Flash the note for 10 seconds** is enabled by default. It shows hidden notes and slowly pulses the whole note in orange (the text stays readable through it). The flashing note comes in front of other apps' windows; turn this off under **Settings → Behavior → Reminders**. Other notes stay where they are. Clicking, typing, or hiding the note stops the effect. Windows notifications, snooze alerts, and flashing can be combined; flashing alone is also supported.
+**Flash the note for 30 seconds** is enabled by default. It shows hidden notes and slowly pulses the whole note in orange (the text stays readable through it). The flashing note comes in front of other apps' windows; turn this off under **Settings → Behavior → Reminders**. Other notes stay where they are. Clicking, typing, or hiding the note stops the effect. Windows notifications, snooze alerts, flashing, and a sound can be combined; flashing alone or a sound alone is also supported.
 
-The app must be running in the tray. Missed reminders are delivered once on restart or resume. Windows notification settings control banners and sound.
+**Repeat a sound for 30 seconds** is on by default for new reminders. Pick the sound under **Settings → Behavior → Reminder sound** from the Windows sounds (the .wav files in `C:\Windows\Media`), and use **Play** to hear it.
+
+Change how long the flashing and the sound last under **Settings → Behavior → Flash and sound length (seconds)** (30 by default, 1-600). Clicking the note or pressing a key stops both right away. When the alert window is shown, closing it stops the sound.
+
+The app must be running in the tray. Missed reminders are delivered once on restart or resume. Windows notification settings control the notification banner and its own sound.
 
 ## Tray, settings, and external files
 

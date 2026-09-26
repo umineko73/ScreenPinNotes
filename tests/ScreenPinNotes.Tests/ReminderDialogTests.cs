@@ -216,6 +216,36 @@ public class ReminderDialogTests
         finally { reopened.Close(); }
     }
 
+    // 音だけでも通知方法として足りる。新しいリマインダーは音を鳴らす側で開く。
+    [WpfFact]
+    public void SoundAloneIsAValidMethodAndIsRestored()
+    {
+        WpfApplicationFixture.Ensure();
+        var dialog = new ReminderDialog(DateTime.Now.AddDays(1));
+        RunModal(dialog, () =>
+        {
+            Assert.True(Field<CheckBox>(dialog, "_sound").IsChecked);
+            // 何秒続くかは設定画面の値を出す。
+            var seconds = App.Current.Settings.ReminderAlertSeconds;
+            Assert.Equal(string.Format(LocalizationService.T("ReminderPlaySound"), seconds), Field<CheckBox>(dialog, "_sound").Content);
+            Assert.Equal(string.Format(LocalizationService.T("ReminderFlashNote"), seconds), Field<CheckBox>(dialog, "_flash").Content);
+            Field<CheckBox>(dialog, "_windows").IsChecked = false;
+            Field<CheckBox>(dialog, "_alert").IsChecked = false;
+            Field<CheckBox>(dialog, "_flash").IsChecked = false;
+            Invoke(dialog, "Accept");
+        });
+        Assert.True(dialog.Result.Accepted);
+        var settings = dialog.Result.Settings!;
+        Assert.Equal(true, settings.PlaySound);
+
+        settings.PlaySound = false;
+        settings.FlashNote = true;
+        var ctor = typeof(ReminderDialog).GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic, [typeof(DateTime?), typeof(ScreenPinNotes.Models.ReminderSettings)])!;
+        var reopened = (ReminderDialog)ctor.Invoke([settings.NextAt, settings]);
+        try { Assert.False(Field<CheckBox>(reopened, "_sound").IsChecked); }
+        finally { reopened.Close(); }
+    }
+
     // Accept は DialogResult を設定するので、モーダル表示中に操作する。
     private static void RunModal(ReminderDialog dialog, Action action)
     {
@@ -257,6 +287,7 @@ public class ReminderDialogTests
             Field<CheckBox>("_windows").IsChecked = false;
             Field<CheckBox>("_alert").IsChecked = false;
             Field<CheckBox>("_flash").IsChecked = false;
+            Field<CheckBox>("_sound").IsChecked = false;
             typeof(ReminderDialog).GetMethod("Accept", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(dialog, null);
             Assert.False(string.IsNullOrEmpty(Field<TextBlock>("_errorText").Text));
             Assert.False(dialog.Result.Accepted);
