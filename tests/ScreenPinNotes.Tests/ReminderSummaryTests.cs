@@ -92,6 +92,16 @@ public class ReminderSummaryTests
         Assert.Contains("繰り返し: 毎月 最終日", ReminderSummary.Describe(settings, "ja"));
     }
 
+    [Fact]
+    public void Describe_ListsTheSound()
+    {
+        var settings = Settings();
+        settings.PlaySound = true;
+
+        Assert.EndsWith("通知: Windowsの通知・付箋を点滅・サウンド", ReminderSummary.Describe(settings, "ja"));
+        Assert.EndsWith("Notify: Windows notification, Flash the note, Sound", ReminderSummary.Describe(settings, "en"));
+    }
+
     // 通知方法が1つも残っていない古い設定でも、見出しだけの行を作らない。
     [Fact]
     public void Describe_WithoutAnyMethod_LeavesOutTheNotifyLine()

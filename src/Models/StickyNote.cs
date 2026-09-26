@@ -132,9 +132,17 @@ public sealed class ReminderSettings
     // TriggerReminder 側は null を「従来どおりアラートを出す」として扱う。
     public bool? ShowAlert { get; set; }
     public bool FlashNote { get; set; } = true;
+    // null = 未設定（この機能追加より前に保存されたリマインダー）。当時は通知ウィンドウを
+    // 出すときだけ音が鳴ったので、それに合わせて <see cref="PlaysSound"/> で読み替える。
+    // 鳴らす音そのものは付箋ごとではなく AppSettings.ReminderSound で選ぶ。
+    public bool? PlaySound { get; set; }
     public DateTime? NextAt { get; set; }
     public string Recurrence { get; set; } = "None";
     public DateTime? LastTriggeredAt { get; set; }
+
+    /// <summary>届いたときに音を鳴らすか。未設定なら旧版と同じく通知ウィンドウの有無に従う。</summary>
+    [JsonIgnore]
+    public bool PlaysSound => PlaySound ?? ShowAlert != false;
 }
 
 /// <summary>ある1つのモニタ構成での位置。値の意味は <see cref="StickyNote"/> の同名の項目と同じ。</summary>

@@ -247,6 +247,59 @@ public class AppNoteWindowTests
         Assert.Equal(label, LocalizationService.T("SettingsBringReminderNoteToFront", language));
     }
 
+    // 点滅と音は設定の秒数だけ続き、付箋をクリックするとどちらも止まる。
+    [WpfFact]
+    public void DueReminderSoundAndFlashStopWhenTheNoteIsClicked()
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var tempRoot = Path.Combine(Path.GetTempPath(), "ScreenPinNotes.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempRoot);
+        var windowsField = typeof(App).GetField("_windows", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var storageField = typeof(App).GetField("_storage", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var windows = (List<StickyNoteWindow>)windowsField.GetValue(app)!;
+        var previous = windows.ToList();
+        var previousStorage = storageField.GetValue(app);
+        var previousSound = app.Settings.ReminderSound;
+        var previousSeconds = app.Settings.ReminderAlertSeconds;
+        var storage = new StorageService(tempRoot);
+        var due = DateTime.Now.AddMinutes(-1);
+        var note = new StickyNote { Reminder = new ReminderSettings { NextAt = due, FlashNote = true, PlaySound = true, ShowAlert = false, WindowsNotification = false } };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, app.Settings), storage);
+        try
+        {
+            app.Settings.ReminderSound = ReminderSoundTests.SilentWav(Path.Combine(tempRoot, "silent.wav"));
+            app.Settings.ReminderAlertSeconds = 45;
+            windows.Clear();
+            windows.Add(window);
+            storageField.SetValue(app, storage);
+            typeof(App).GetMethod("TriggerReminder", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(app, [window, due]);
+
+            var overlay = (System.Windows.Controls.Border)window.FindName("ReminderFlashBorder");
+            Assert.True(overlay.HasAnimatedProperties);
+            Assert.True(ReminderSound.IsPlayingFor(window));
+
+            window.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(
+                System.Windows.Input.Mouse.PrimaryDevice, 0, System.Windows.Input.MouseButton.Left)
+            {
+                RoutedEvent = System.Windows.UIElement.PreviewMouseDownEvent,
+            });
+
+            Assert.False(overlay.HasAnimatedProperties);
+            Assert.False(ReminderSound.IsPlayingFor(window));
+        }
+        finally
+        {
+            ReminderSound.Stop();
+            app.Settings.ReminderSound = previousSound;
+            app.Settings.ReminderAlertSeconds = previousSeconds;
+            windows.Clear();
+            window.Close();
+            windows.AddRange(previous);
+            storageField.SetValue(app, previousStorage);
+            if (Directory.Exists(tempRoot)) Directory.Delete(tempRoot, true);
+        }
+    }
+
     [WpfTheory]
     [InlineData(false)]
     [InlineData(true)]

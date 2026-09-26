@@ -50,6 +50,30 @@ public class SettingsWindowTests
         finally { window.Close(); }
     }
 
+    // 選択欄は今の設定を選んだ状態で開く。一覧に無い音（settings.json に書いたパスなど）も消さずに見せる。
+    [WpfTheory]
+    [InlineData(ReminderSound.DefaultSound)]
+    [InlineData(@"C:\nowhere\custom.wav")]
+    public void ReminderSoundPicker_ShowsTheCurrentSound(string sound)
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var settings = new AppSettings { ReminderSound = sound };
+        var window = new SettingsWindow(settings, app);
+        try
+        {
+            window.Show();
+            ExpandCategories(window);
+            window.UpdateLayout();
+            var picker = Descendants<ComboBox>(window).Single(c => c.Name == "ReminderSoundPicker");
+            Assert.Equal(sound, ((ComboBoxItem)picker.SelectedItem).Tag);
+            Assert.Equal(ReminderSound.DisplayName(sound), ((ComboBoxItem)picker.SelectedItem).Content);
+            Assert.True(picker.ActualWidth > 0);
+            Assert.Contains(Descendants<Button>(window),
+                b => Equals(b.Content, LocalizationService.T("SettingsReminderSoundPreview")));
+        }
+        finally { window.Close(); }
+    }
+
     [WpfTheory]
     [InlineData("Light")]
     [InlineData("Dark")]
@@ -98,7 +122,7 @@ public class SettingsWindowTests
             ExpandCategories(window);
             window.UpdateLayout();
             var pickers = Descendants<ComboBox>(window).ToArray();
-            Assert.Equal(12, pickers.Length);
+            Assert.Equal(13, pickers.Length);
             var left = pickers[0].TranslatePoint(new Point(), window).X;
             foreach (var picker in pickers)
             {
@@ -112,7 +136,7 @@ public class SettingsWindowTests
                      {
                          "SettingsTitleBar", "SettingsTheme", "SettingsStartup", "SettingsTaskbar",
                          "SettingsTrayClick", "SettingsFolding", "SettingsBackup",
-                         "SettingsStartHidden", "SettingsClipboardNoteHotkey",
+                         "SettingsStartHidden", "SettingsClipboardNoteHotkey", "SettingsReminderSound",
                      })
                 Assert.NotEqual(key, LocalizationService.T(key, language));
 

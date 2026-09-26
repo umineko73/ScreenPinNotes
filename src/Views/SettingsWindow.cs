@@ -608,6 +608,18 @@ public sealed class SettingsWindow : Window
         panel.Children.Add(LabeledRow("SettingsStartup", startup));
         panel.Children.Add(LabeledRow("SettingsReminder", Toggle("SettingsBringReminderNoteToFront",
             () => _settings.BringReminderNoteToFront, v => _settings.BringReminderNoteToFront = v)));
+        panel.Children.Add(LabeledRow("SettingsReminderSound", BuildReminderSoundPicker()));
+        var alertLength = new StackPanel();
+        alertLength.Children.Add(NumberBox(
+            () => _settings.ReminderAlertSeconds, v => _settings.ReminderAlertSeconds = v,
+            min: 1, max: AppSettings.MaxReminderAlertSeconds));
+        alertLength.Children.Add(new WpfTextBlock
+        {
+            Text = LocalizationService.T("SettingsReminderAlertSecondsHint"),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 6, 0, 0),
+        });
+        panel.Children.Add(LabeledRow("SettingsReminderAlertSeconds", alertLength));
         panel.Children.Add(LabeledRow("SettingsTaskbar", Toggle("TrayShowInTaskbar",
             () => _settings.ShowNotesInTaskbar, v => _settings.ShowNotesInTaskbar = v)));
 
@@ -653,6 +665,62 @@ public sealed class SettingsWindow : Window
             v => _settings.ExternalFile.TailLineCount = v,
             min: 1, max: 100_000)));
         panel.Children.Add(LabeledRow("SettingsExternalFiles", externalFiles));
+        return panel;
+    }
+
+    /// <summary>
+    /// リマインダーで鳴らす音の選択欄。選び直すたびに一度鳴らし、試聴ボタンでも確かめられる。
+    /// </summary>
+    private StackPanel BuildReminderSoundPicker()
+    {
+        var combo = Picker(240);
+        combo.Name = "ReminderSoundPicker";
+        foreach (var sound in ReminderSound.ListSystemSounds())
+            combo.Items.Add(new WpfComboBoxItem { Content = ReminderSound.DisplayName(sound), Tag = sound });
+        // settings.json に直接書いたパスや、この PC に無い音も、そのまま選ばれた状態で見せる。
+        if (!SelectByTag(combo, _settings.ReminderSound))
+        {
+            combo.Items.Insert(0, new WpfComboBoxItem
+            {
+                Content = ReminderSound.DisplayName(_settings.ReminderSound), Tag = _settings.ReminderSound,
+            });
+            combo.SelectedIndex = 0;
+        }
+        combo.SelectionChanged += (_, _) =>
+        {
+            if (_loading || combo.SelectedItem is not WpfComboBoxItem { Tag: string sound }) return;
+            if (string.Equals(sound, _settings.ReminderSound, StringComparison.OrdinalIgnoreCase)) return;
+            _settings.ReminderSound = sound;
+            Save();
+            ReminderSound.Play(sound);
+        };
+
+        var preview = new WpfButton
+        {
+            Content = LocalizationService.T("SettingsReminderSoundPreview"),
+            MinHeight = 32,
+            Padding = new Thickness(12, 0, 12, 0),
+            Margin = new Thickness(8, 0, 0, 0),
+        };
+        preview.Click += (_, _) => ReminderSound.Play(_settings.ReminderSound);
+
+        // 欄は幅いっぱいまで（上限 240px）、試聴ボタンはそのすぐ右。狭い窓では欄の方が縮む。
+        var row = new WpfGrid();
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1000, GridUnitType.Star), MaxWidth = 240 });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        Grid.SetColumn(preview, 1);
+        row.Children.Add(combo);
+        row.Children.Add(preview);
+
+        var panel = new StackPanel();
+        panel.Children.Add(row);
+        panel.Children.Add(new WpfTextBlock
+        {
+            Text = LocalizationService.T("SettingsReminderSoundHint"),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 6, 0, 0),
+        });
         return panel;
     }
 

@@ -32,6 +32,7 @@ public sealed class ReminderDialog : Window
     private readonly System.Windows.Controls.CheckBox _windows = new() { IsChecked = true };
     private readonly System.Windows.Controls.CheckBox _alert = new();
     private readonly System.Windows.Controls.CheckBox _flash = new();
+    private readonly System.Windows.Controls.CheckBox _sound = new();
     private ReminderSettings? _resultSettings;
     // 開いた時点で保存されている設定。画面の上に「現在の設定」として出すためだけに持つ。
     private readonly ReminderSettings? _current;
@@ -137,8 +138,11 @@ public sealed class ReminderDialog : Window
         _windows.IsChecked = current?.WindowsNotification ?? true;
         _alert.Content = LocalizationService.T("ReminderShowAlert");
         _alert.IsChecked = current?.ShowAlert ?? false;
-        _flash.Content = LocalizationService.T("ReminderFlashNote");
+        var alertSeconds = App.Current.Settings.ReminderAlertSeconds;
+        _flash.Content = string.Format(LocalizationService.T("ReminderFlashNote"), alertSeconds);
         _flash.IsChecked = current?.FlashNote ?? true;
+        _sound.Content = string.Format(LocalizationService.T("ReminderPlaySound"), alertSeconds);
+        _sound.IsChecked = current?.PlaysSound ?? true;
 
         Content = BuildContent();
     }
@@ -227,6 +231,8 @@ public sealed class ReminderDialog : Window
         root.Children.Add(_alert);
         _flash.Margin = new Thickness(0, 0, 0, 10);
         root.Children.Add(_flash);
+        _sound.Margin = new Thickness(0, 0, 0, 10);
+        root.Children.Add(_sound);
         root.Children.Add(new TextBlock { Text = LocalizationService.T("ReminderRunningHint"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 16), Foreground = System.Windows.Media.Brushes.Gray });
 
         _errorText.Foreground = System.Windows.Media.Brushes.Firebrick;
@@ -417,8 +423,9 @@ public sealed class ReminderDialog : Window
             WindowsNotification = _windows.IsChecked == true,
             ShowAlert = _alert.IsChecked == true,
             FlashNote = _flash.IsChecked == true,
+            PlaySound = _sound.IsChecked == true,
         };
-        if ((!settings.WindowsNotification && settings.ShowAlert != true && !settings.FlashNote) || (settings.Recurrence == "Weekly" && settings.WeekDays.Count == 0))
+        if ((!settings.WindowsNotification && settings.ShowAlert != true && !settings.FlashNote && settings.PlaySound != true) || (settings.Recurrence == "Weekly" && settings.WeekDays.Count == 0))
         {
             _errorText.Text = LocalizationService.T("ReminderChooseOptions");
             return;

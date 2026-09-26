@@ -208,6 +208,27 @@ public sealed class StorageServiceTests : IDisposable
 
         Assert.NotNull(loadedNote.Reminder);
         Assert.Equal(true, loadedNote.Reminder.ShowAlert);
+        // 当時は通知ウィンドウと一緒に音が鳴っていたので、音も鳴らす側に固定する。
+        Assert.Equal(true, loadedNote.Reminder.PlaySound);
+    }
+
+    // 音の項目より前に保存された、通知ウィンドウを出さないリマインダーは当時どおり鳴らさない。
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public void Load_ReminderWithoutPlaySoundField_FollowsTheAlertWindow(bool showAlert, bool expected)
+    {
+        var noteId = Guid.NewGuid().ToString();
+        var noteDir = Path.Combine(_tempRoot, "notes", noteId);
+        Directory.CreateDirectory(noteDir);
+        var alert = showAlert ? "true" : "false";
+        File.WriteAllText(Path.Combine(noteDir, "meta.json"),
+            "{ \"Reminder\": { \"NextAt\": \"2026-08-31T14:30:00\", \"Recurrence\": \"None\", \"ShowAlert\": " + alert + " } }");
+        File.WriteAllText(Path.Combine(noteDir, "content.md"), "");
+
+        var loadedNote = Assert.Single(_storage.Load());
+
+        Assert.Equal(expected, loadedNote.Reminder!.PlaySound);
     }
 
     [Fact]
