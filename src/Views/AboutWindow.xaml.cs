@@ -60,6 +60,7 @@ public partial class AboutWindow : Window
 
     private void RepoLink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
     {
+        UserEnvironment.Refresh();
         Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
     }
 

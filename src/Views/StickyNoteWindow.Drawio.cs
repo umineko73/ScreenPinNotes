@@ -45,6 +45,7 @@ public partial class StickyNoteWindow
 
         try
         {
+            UserEnvironment.Refresh();
             Process.Start(new ProcessStartInfo(executable, $"\"{fullPath}\"") { UseShellExecute = false });
         }
         catch (Exception ex)

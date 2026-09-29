@@ -1525,6 +1525,7 @@ public partial class StickyNoteWindow
     {
         try
         {
+            UserEnvironment.Refresh();
             if (LinkDetector.IsFolder(target))
                 Process.Start("explorer.exe", $"\"{target}\"");
             else

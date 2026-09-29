@@ -38,8 +38,10 @@ public sealed class ExternalFileMonitor : IDisposable
     private readonly Action _changed;
     private readonly ExternalFilePoller _poller;
     private readonly bool _usePolling;
-    private readonly FileSystemWatcher? _watcher;
     private readonly object _gate = new();
+    private FileSystemWatcher? _watcher;
+    private Timer? _rewatchTimer;
+    private bool _watchFailureReported;
     private FileSignature _last;
     private long _lastActivity;
     private bool _writerHoldsOpen;
@@ -57,7 +59,7 @@ public sealed class ExternalFileMonitor : IDisposable
         if (_usePolling) _last = FileSignature.Read(_path);
 
         if (useWatcher)
-            _watcher = TryCreateWatcher();
+            StartWatching(notifyOnSuccess: false);
 
         // 開いた直後は書き手が動いている最中のことが多いので、確認から始める。
         Wake();
@@ -71,6 +73,41 @@ public sealed class ExternalFileMonitor : IDisposable
     /// </summary>
     public bool WriterHoldsOpen { get { lock (_gate) return _writerHoldsOpen; } }
 
+    /// <summary>今、変更の監視が動いているか。</summary>
+    public bool IsWatching { get { lock (_gate) return _watcher != null; } }
+
+    /// <summary>
+    /// 監視を始める。始められなければ <see cref="ExternalFileSettings.WatcherRetryMs"/> 後にやり直す。
+    /// 作り直しで始められたときは、止まっていた間の変更を取りこぼしているかもしれないので
+    /// 一度知らせる（<paramref name="notifyOnSuccess"/>）。
+    /// </summary>
+    private void StartWatching(bool notifyOnSuccess)
+    {
+        var watcher = TryCreateWatcher();
+        lock (_gate)
+        {
+            if (_disposed)
+            {
+                watcher?.Dispose();
+                return;
+            }
+            _watcher = watcher;
+            if (watcher == null)
+            {
+                ScheduleRewatch(_settings().WatcherRetryMs);
+                return;
+            }
+        }
+        if (notifyOnSuccess) OnWatcherEvent();
+    }
+
+    private void ScheduleRewatch(int delayMs)
+    {
+        // _gate の中から呼ぶ。
+        _rewatchTimer ??= new Timer(_ => StartWatching(notifyOnSuccess: true));
+        _rewatchTimer.Change(TimeSpan.FromMilliseconds(delayMs), Timeout.InfiniteTimeSpan);
+    }
+
     private FileSystemWatcher? TryCreateWatcher()
     {
         try
@@ -83,20 +120,64 @@ public sealed class ExternalFileMonitor : IDisposable
             var watcher = new FileSystemWatcher(directory, fileName)
             {
                 NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size,
+                // OS 側のバッファにはフォルダ内の全ファイルの通知が入る（名前での絞り込みは受け取った後）。
+                // 既定の 8KB では、ほかのアプリがログを書き続けるフォルダなどですぐあふれる。
+                // 64KB はネットワーク越しの監視で使える上限。
+                InternalBufferSize = 64 * 1024,
             };
             watcher.Changed += (_, _) => OnWatcherEvent();
             watcher.Created += (_, _) => OnWatcherEvent();
             watcher.Renamed += (_, _) => OnWatcherEvent();
             watcher.Deleted += (_, _) => OnWatcherEvent();
+            watcher.Error += (_, e) => OnWatcherError(watcher, e.GetException());
             watcher.EnableRaisingEvents = true;
+            lock (_gate) _watchFailureReported = false;
             return watcher;
         }
         catch (Exception ex)
         {
             // ログのポーリングが有効なら、監視できない場所でも定期確認は続ける。
-            ErrorReporter.ReportNonFatal("Watch external content", ex);
+            // やり直しのたびに同じ失敗を記録しないよう、続けて失敗している間は1回だけ。
+            bool report;
+            lock (_gate)
+            {
+                report = !_watchFailureReported;
+                _watchFailureReported = true;
+            }
+            if (report) ErrorReporter.ReportNonFatal("Watch external content", ex);
             return null;
         }
+    }
+
+    /// <summary>
+    /// 監視が止まった。通知があふれたとき、ネットワークドライブが切れたとき、
+    /// 監視していたフォルダが消えたときなどに届き、この監視はそれ以降何も知らせない。
+    /// 以前はこれを受けておらず、以後の更新に気付けなくなっていた。作り直す。
+    /// </summary>
+    private void OnWatcherError(FileSystemWatcher watcher, Exception? error)
+    {
+        var overflow = error is InternalBufferOverflowException;
+        lock (_gate)
+        {
+            if (_disposed || _watcher != watcher) return;
+            _watcher = null;
+            // あふれただけならフォルダは見えているので、すぐに作り直す。
+            ScheduleRewatch(overflow ? 0 : _settings().WatcherRetryMs);
+        }
+        // 自分のイベントの中で Dispose しないよう、作り直しとは別のスレッドで片付ける。
+        ThreadPool.QueueUserWorkItem(_ => watcher.Dispose());
+        if (!overflow && error != null)
+            ErrorReporter.ReportNonFatal("External file watcher stopped", error);
+        // あふれたときは、その間の通知が失われている。
+        if (overflow) OnWatcherEvent();
+    }
+
+    /// <summary>テスト用。監視が止まったときと同じ経路をたどる。</summary>
+    internal void SimulateWatcherError(Exception error)
+    {
+        FileSystemWatcher? watcher;
+        lock (_gate) watcher = _watcher;
+        if (watcher != null) OnWatcherError(watcher, error);
     }
 
     private void OnWatcherEvent()
@@ -219,7 +300,15 @@ public sealed class ExternalFileMonitor : IDisposable
             _disposed = true;
         }
         _poller.Remove(this);
-        _watcher?.Dispose();
+        FileSystemWatcher? watcher;
+        lock (_gate)
+        {
+            watcher = _watcher;
+            _watcher = null;
+            _rewatchTimer?.Dispose();
+            _rewatchTimer = null;
+        }
+        watcher?.Dispose();
     }
 }
 

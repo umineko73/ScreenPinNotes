@@ -606,6 +606,90 @@ public class ExternalFileMonitorTests
         Assert.True(settings.PollWhileWriterHoldsOpen);
     }
 
+    private static readonly ExternalFileSettings QuickRewatch = new() { WatcherRetryMs = 300 };
+
+    // 監視が止まると FileSystemWatcher はそれ以降何も知らせない。以前はそれを受けておらず、
+    // ネットワークドライブが切れた後などに更新が表示されなくなっていた。
+    [Theory]
+    [InlineData(true)]   // 通知があふれた（すぐ作り直す）
+    [InlineData(false)]  // フォルダが見えなくなった（時間を置いて作り直す）
+    public void WatcherThatStops_IsRecreatedAndReportsMissedChanges(bool overflow)
+    {
+        var dir = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(dir, "note.md");
+            File.WriteAllText(path, "first");
+            var notifications = 0;
+            using var monitor = new ExternalFileMonitor(path, () => QuickRewatch,
+                () => Interlocked.Increment(ref notifications), usePolling: false);
+            Assert.True(monitor.IsWatching);
+
+            monitor.SimulateWatcherError(overflow
+                ? new InternalBufferOverflowException()
+                : new IOException("The specified network name is no longer available."));
+
+            // 止まっていた間の変更を取りこぼしているかもしれないので、作り直したら一度知らせる。
+            Assert.True(WaitUntil(() => monitor.IsWatching && Volatile.Read(ref notifications) > 0,
+                TimeSpan.FromSeconds(5)));
+
+            // 作り直した監視で、その後の変更にも気付く。
+            var before = Volatile.Read(ref notifications);
+            File.WriteAllText(path, "second");
+            Assert.True(WaitUntil(() => Volatile.Read(ref notifications) > before, TimeSpan.FromSeconds(5)));
+        }
+        finally { DeleteTempDirectory(dir); }
+    }
+
+    // 付箋を開いた時点でフォルダが見えない（ネットワークドライブがまだつながっていないなど）と、
+    // 以前は監視を作れないまま、開き直すまで更新に気付かなかった。
+    [Fact]
+    public void WatcherForAMissingFolder_StartsOnceTheFolderAppears()
+    {
+        var dir = CreateTempDirectory();
+        try
+        {
+            var folder = Path.Combine(dir, "later");
+            var path = Path.Combine(folder, "note.md");
+            var notifications = 0;
+            using var monitor = new ExternalFileMonitor(path, () => QuickRewatch,
+                () => Interlocked.Increment(ref notifications), usePolling: false);
+            Assert.False(monitor.IsWatching);
+
+            Directory.CreateDirectory(folder);
+            File.WriteAllText(path, "first");
+
+            Assert.True(WaitUntil(() => monitor.IsWatching && Volatile.Read(ref notifications) > 0,
+                TimeSpan.FromSeconds(5)));
+            var before = Volatile.Read(ref notifications);
+            File.WriteAllText(path, "second");
+            Assert.True(WaitUntil(() => Volatile.Read(ref notifications) > before, TimeSpan.FromSeconds(5)));
+        }
+        finally { DeleteTempDirectory(dir); }
+    }
+
+    [Fact]
+    public void Dispose_StopsRetryingToWatch()
+    {
+        var dir = CreateTempDirectory();
+        try
+        {
+            var folder = Path.Combine(dir, "later");
+            var notifications = 0;
+            var monitor = new ExternalFileMonitor(Path.Combine(folder, "note.md"), () => QuickRewatch,
+                () => Interlocked.Increment(ref notifications), usePolling: false);
+            monitor.Dispose();
+
+            Directory.CreateDirectory(folder);
+            File.WriteAllText(Path.Combine(folder, "note.md"), "x");
+            Thread.Sleep(900);
+
+            Assert.False(monitor.IsWatching);
+            Assert.Equal(0, Volatile.Read(ref notifications));
+        }
+        finally { DeleteTempDirectory(dir); }
+    }
+
     private static bool WaitUntil(Func<bool> condition, TimeSpan timeout)
     {
         var until = Environment.TickCount64 + (long)timeout.TotalMilliseconds;

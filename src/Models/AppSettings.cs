@@ -242,6 +242,7 @@ public sealed class AppSettings
         ExternalFile.PollIntervalMs = Math.Clamp(ExternalFile.PollIntervalMs, 200, 60_000);
         // 確認を止めるまでの時間。短すぎると追記の合間ごとに止まってしまう。
         ExternalFile.PollStopAfterMs = Math.Clamp(ExternalFile.PollStopAfterMs, 1000, 3_600_000);
+        ExternalFile.WatcherRetryMs = Math.Clamp(ExternalFile.WatcherRetryMs, 500, 600_000);
 
         HoverOpacityBoostPercent = Math.Clamp(HoverOpacityBoostPercent, 0, 90);
         // 0 だと点滅も音も一瞬で終わり、気付けない。上限は止め忘れても鳴り続けない程度の10分。
@@ -358,6 +359,11 @@ public sealed class ExternalFileSettings
     /// （<see cref="ScreenPinNotes.Services.FileHolders"/>）。
     /// </summary>
     public bool PollWhileWriterHoldsOpen { get; set; } = true;
+    /// <summary>
+    /// 変更の監視が止まったとき（通知があふれた、ネットワークドライブが切れた、
+    /// フォルダが無い・消えたなど）に、監視を作り直すまで待つ時間。作り直せるまで繰り返す。
+    /// </summary>
+    public int WatcherRetryMs { get; set; } = 5000;
 }
 
 public sealed class LayoutSettings

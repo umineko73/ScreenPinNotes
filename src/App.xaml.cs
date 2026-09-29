@@ -119,6 +119,8 @@ public partial class App : System.Windows.Application, INoteWindowHost
     {
         base.OnStartup(e);
         ConfigureExceptionHandling();
+        // 付箋から開くアプリへ、常駐中に変えた環境変数も渡せるように、起動時の値を覚えておく。
+        UserEnvironment.CaptureBaseline();
 
         var instanceKey = ResolveInstanceKey();
         var mutexName = "ScreenPinNotes.SingleInstance." + instanceKey;
