@@ -253,6 +253,7 @@ public partial class StickyNoteWindow
             // OpenAs_RunDLL はコマンドラインの残り全部をパスとして読むので、
             // 空白を含む場所もそのまま渡せる。
             // 開くアプリは本人が選ぶので、実行できる種類でも確認は挟まない。
+            UserEnvironment.Refresh();
             Process.Start(new ProcessStartInfo("rundll32.exe", $"shell32.dll,OpenAs_RunDLL {path}")
             {
                 UseShellExecute = false,
