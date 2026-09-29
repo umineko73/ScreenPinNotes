@@ -690,6 +690,126 @@ public class ExternalFileMonitorTests
         finally { DeleteTempDirectory(dir); }
     }
 
+    // tail でない付箋の定期確認。変更通知が届かない場所（通知に対応していない
+    // ネットワーク共有など）でも、長さと更新日時で更新に気付く。監視を切って確かめる。
+    [Fact]
+    public void BackgroundCheck_NoticesChangesWithoutAWatcherOrPolling()
+    {
+        var dir = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(dir, "note.md");
+            File.WriteAllText(path, "first");
+            var poller = new ExternalFilePoller();
+            var settings = new ExternalFileSettings { BackgroundCheckIntervalMs = 300 };
+            var notifications = 0;
+            using var monitor = new ExternalFileMonitor(path, () => settings,
+                () => Interlocked.Increment(ref notifications),
+                useWatcher: false, poller: poller, usePolling: false, backgroundCheck: true);
+
+            File.WriteAllText(path, "second, longer");
+            Assert.True(WaitUntil(() => Volatile.Read(ref notifications) > 0, TimeSpan.FromSeconds(5)));
+            // 共有タイマー（tail 用の頻繁な確認）は使わない。
+            Assert.False(poller.IsRunning);
+
+            // 変わらなければ知らせない。
+            var settled = Volatile.Read(ref notifications);
+            Thread.Sleep(1000);
+            Assert.Equal(settled, Volatile.Read(ref notifications));
+        }
+        finally { DeleteTempDirectory(dir); }
+    }
+
+    [Fact]
+    public void BackgroundCheck_ZeroIntervalTurnsItOff()
+    {
+        var dir = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(dir, "note.md");
+            File.WriteAllText(path, "first");
+            var settings = new ExternalFileSettings { BackgroundCheckIntervalMs = 0 };
+            var notifications = 0;
+            using var monitor = new ExternalFileMonitor(path, () => settings,
+                () => Interlocked.Increment(ref notifications),
+                useWatcher: false, usePolling: false, backgroundCheck: true);
+            Thread.Sleep(1100);
+
+            File.WriteAllText(path, "second, longer");
+            monitor.Wake();
+            Thread.Sleep(1000);
+
+            Assert.Equal(0, Volatile.Read(ref notifications));
+        }
+        finally { DeleteTempDirectory(dir); }
+    }
+
+    // 付箋にマウスを乗せた・選んだときは、次の定期確認を待たずに確かめる。
+    [Fact]
+    public void BackgroundCheck_WakeChecksRightAway()
+    {
+        var dir = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(dir, "note.md");
+            File.WriteAllText(path, "first");
+            var settings = new ExternalFileSettings { BackgroundCheckIntervalMs = 600_000 };
+            var notifications = 0;
+            using var monitor = new ExternalFileMonitor(path, () => settings,
+                () => Interlocked.Increment(ref notifications),
+                useWatcher: false, usePolling: false, backgroundCheck: true);
+            // ホバーのたびに確かめないよう、前回から1秒は空ける。
+            Thread.Sleep(1100);
+
+            File.WriteAllText(path, "second, longer");
+            monitor.Wake();
+
+            Assert.True(WaitUntil(() => Volatile.Read(ref notifications) > 0, TimeSpan.FromSeconds(3)));
+        }
+        finally { DeleteTempDirectory(dir); }
+    }
+
+    // 監視で知らせた変更を、定期確認でもう一度知らせない。
+    [Fact]
+    public void BackgroundCheck_DoesNotRepeatAChangeTheWatcherReported()
+    {
+        var dir = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(dir, "note.md");
+            File.WriteAllText(path, "first");
+            var settings = new ExternalFileSettings { BackgroundCheckIntervalMs = 600_000 };
+            var notifications = 0;
+            using var monitor = new ExternalFileMonitor(path, () => settings,
+                () => Interlocked.Increment(ref notifications), usePolling: false, backgroundCheck: true);
+
+            File.WriteAllText(path, "second, longer");
+            Assert.True(WaitUntil(() => Volatile.Read(ref notifications) > 0, TimeSpan.FromSeconds(5)));
+            Thread.Sleep(300);
+            var settled = Volatile.Read(ref notifications);
+
+            monitor.CheckInBackgroundNow();
+
+            Assert.Equal(settled, Volatile.Read(ref notifications));
+        }
+        finally { DeleteTempDirectory(dir); }
+    }
+
+    [Fact]
+    public void BackgroundCheckInterval_DefaultsToThirtySecondsAndIsClamped()
+    {
+        Assert.Equal(30_000, new ExternalFileSettings().BackgroundCheckIntervalMs);
+
+        var settings = new AppSettings();
+        settings.ExternalFile.BackgroundCheckIntervalMs = 10;
+        settings.Normalize();
+        Assert.Equal(1000, settings.ExternalFile.BackgroundCheckIntervalMs);
+
+        settings.ExternalFile.BackgroundCheckIntervalMs = -5;
+        settings.Normalize();
+        Assert.Equal(0, settings.ExternalFile.BackgroundCheckIntervalMs);
+    }
+
     private static bool WaitUntil(Func<bool> condition, TimeSpan timeout)
     {
         var until = Environment.TickCount64 + (long)timeout.TotalMilliseconds;

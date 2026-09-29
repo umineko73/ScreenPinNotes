@@ -147,6 +147,8 @@ public class LocalizationServiceTests
     [InlineData("SettingsExternalFileMinRefreshInterval",
         "Minimum refresh interval (ms)", "最短更新間隔（ミリ秒）")]
     [InlineData("SettingsExternalFileTailLineCount", "Tail line count", "末尾表示行数")]
+    [InlineData("SettingsExternalFileBackgroundCheckInterval",
+        "Periodic check interval (ms, 0 = off)", "定期確認の間隔（ミリ秒、0で無効）")]
     public void ExternalFileWatchStringsAreInTheCatalog(string key, string english, string japanese)
     {
         Assert.Equal(english, LocalizationService.T(key, "en"));

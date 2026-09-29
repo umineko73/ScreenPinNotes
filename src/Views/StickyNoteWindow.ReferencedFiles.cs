@@ -28,10 +28,17 @@ public partial class StickyNoteWindow
 
     // 描画で参照したファイルは、起動した編集アプリに関係なく通知だけで監視する。
     // 同じファイルが本文に何度現れても、この付箋では1つの監視にまとめる。
+    // 監視は AppSettings.WatchReferencedFiles で有効にしたときだけ。ただし絵として貼った
+    // draw.io の図（PNG）は設定に関係なく監視する。「draw.io で編集」して保存したら
+    // 絵が入れ替わるのが前提の機能なので。.drawio などは札として並ぶだけで、
+    // 描き直しても見た目は変わらないので監視しない。
     private void WatchReferencedFile(string path)
     {
         if (_isClosed) return;
         var fullPath = Path.GetFullPath(path);
+        if (!_referencedFileWatches.ContainsKey(fullPath) &&
+            !Settings.WatchReferencedFiles && !IsDrawioPicture(fullPath))
+            return;
         _referencedFilesInRender.Add(fullPath);
         if (_referencedFileWatches.ContainsKey(fullPath)) return;
         try
@@ -44,6 +51,9 @@ public partial class StickyNoteWindow
             ErrorReporter.ReportNonFatal("Watch a referenced file", ex);
         }
     }
+
+    private static bool IsDrawioPicture(string path)
+        => path.EndsWith(".png", StringComparison.OrdinalIgnoreCase) && DrawioFiles.IsDiagram(path);
 
     private void PruneReferencedFileWatches()
     {

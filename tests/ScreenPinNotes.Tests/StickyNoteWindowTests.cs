@@ -5480,7 +5480,7 @@ public class StickyNoteWindowTests
         Directory.CreateDirectory(assetsDir);
         var diagram = System.IO.Path.Combine(assetsDir, "zu.png");
         SavePng(diagram, CreateBitmapSource());
-        var vm = new StickyNoteViewModel(note, new AppSettings());
+        var vm = new StickyNoteViewModel(note, new AppSettings { WatchReferencedFiles = true });
         var window = new StickyNoteWindow(vm, storage);
         try
         {
@@ -5512,6 +5512,120 @@ public class StickyNoteWindowTests
         finally
         {
             window.Close();
+        }
+    }
+
+    /// <summary>
+    /// 画像やファイルの札が指すファイルは、既定では監視しない（settings.json の
+    /// WatchReferencedFiles で有効にしたときだけ）。
+    /// </summary>
+    [WpfFact]
+    public void ReferencedFiles_AreNotWatchedByDefault()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote { Content = "![zu](assets/zu.png)" };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        SavePng(System.IO.Path.Combine(assetsDir, "zu.png"), CreateBitmapSource());
+        var settings = new AppSettings();
+        Assert.False(settings.WatchReferencedFiles);
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, settings), storage);
+        try
+        {
+            window.Show();
+            InvokePrivate(window, "LoadContent", note.Content);
+            var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            Assert.Single(EnumerateImages(contentBox.Document));
+            Assert.Empty(GetPrivateField<Dictionary<string, ExternalFileMonitor>>(window, "_referencedFileWatches"));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>
+    /// 絵として貼った draw.io の図（PNG）は、画像の監視を切ってあっても（既定）監視し、
+    /// 保存し直したら貼り直す。同じ付箋のふつうの画像と、札として並ぶだけの .drawio は監視しない。
+    /// </summary>
+    [WpfFact]
+    public void DrawioDiagram_RedrawsOnSaveEvenWhenReferencedFilesAreNotWatched()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote
+        {
+            Content = "![zu](assets/zu.png)\n![photo](assets/photo.png)\n![plan](assets/plan.drawio)",
+        };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        var diagram = System.IO.Path.Combine(assetsDir, "zu.png");
+        var photo = System.IO.Path.Combine(assetsDir, "photo.png");
+        SaveDrawioPng(diagram, CreateBitmapSource(5));
+        SavePng(photo, CreateBitmapSource());
+        File.WriteAllText(System.IO.Path.Combine(assetsDir, "plan.drawio"), "<mxfile></mxfile>");
+        var settings = new AppSettings();
+        Assert.False(settings.WatchReferencedFiles);
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, settings), storage);
+        try
+        {
+            window.Show();
+            InvokePrivate(window, "LoadContent", note.Content);
+            var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            Assert.Equal(2, EnumerateImages(contentBox.Document).Count());
+
+            var watches = GetPrivateField<Dictionary<string, ExternalFileMonitor>>(window, "_referencedFileWatches");
+            Assert.Equal(diagram, Assert.Single(watches.Keys), StringComparer.OrdinalIgnoreCase);
+
+            // draw.io が保存し直したつもりで、大きさの違う図に入れ替える。
+            SaveDrawioPng(diagram, CreateBitmapSource(12));
+            Assert.True(WaitForDispatcher(window, () =>
+                EnumerateImages(contentBox.Document).Any(image =>
+                    ((System.Windows.Media.Imaging.BitmapSource)image.Source).PixelWidth == 12),
+                TimeSpan.FromSeconds(15)));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>draw.io が書き出すのと同じく、IHDR の直後に図の入った tEXt を挟んだ PNG を書く。</summary>
+    private static void SaveDrawioPng(string path, System.Windows.Media.Imaging.BitmapSource bitmap)
+    {
+        using var encoded = new MemoryStream();
+        var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+        encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+        encoder.Save(encoded);
+        var png = encoded.ToArray();
+        const int afterHeader = 8 + 4 + 4 + 13 + 4; // シグネチャ + IHDR
+        var payload = System.Text.Encoding.ASCII.GetBytes("mxfile\0<mxfile></mxfile>");
+        var typeAndData = System.Text.Encoding.ASCII.GetBytes("tEXt").Concat(payload).ToArray();
+        var chunk = new List<byte>();
+        chunk.AddRange(BigEndian((uint)payload.Length));
+        chunk.AddRange(typeAndData);
+        chunk.AddRange(BigEndian(Crc32(typeAndData)));
+        using var file = File.Create(path);
+        file.Write(png, 0, afterHeader);
+        file.Write(chunk.ToArray());
+        file.Write(png, afterHeader, png.Length - afterHeader);
+
+        static byte[] BigEndian(uint value)
+            => [(byte)(value >> 24), (byte)(value >> 16), (byte)(value >> 8), (byte)value];
+
+        static uint Crc32(byte[] data)
+        {
+            var crc = 0xFFFFFFFFu;
+            foreach (var b in data)
+            {
+                crc ^= b;
+                for (var i = 0; i < 8; i++)
+                    crc = (crc & 1) != 0 ? (crc >> 1) ^ 0xEDB88320u : crc >> 1;
+            }
+            return ~crc;
         }
     }
 

@@ -663,6 +663,10 @@ public sealed class SettingsWindow : Window
             () => _settings.ExternalFile.TailLineCount,
             v => _settings.ExternalFile.TailLineCount = v,
             min: 1, max: 100_000)));
+        externalFiles.Children.Add(LabeledRow("SettingsExternalFileBackgroundCheckInterval", NumberBox(
+            () => _settings.ExternalFile.BackgroundCheckIntervalMs,
+            v => _settings.ExternalFile.BackgroundCheckIntervalMs = v,
+            min: 0, max: 3_600_000)));
         panel.Children.Add(LabeledRow("SettingsExternalFiles", externalFiles));
         return panel;
     }

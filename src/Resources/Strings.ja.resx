@@ -784,6 +784,7 @@
   <data name="SettingsExternalFiles" xml:space="preserve"><value>外部ファイル</value></data>
   <data name="SettingsExternalFileMinRefreshInterval" xml:space="preserve"><value>最短更新間隔（ミリ秒）</value></data>
   <data name="SettingsExternalFileTailLineCount" xml:space="preserve"><value>末尾表示行数</value></data>
+  <data name="SettingsExternalFileBackgroundCheckInterval" xml:space="preserve"><value>定期確認の間隔（ミリ秒、0で無効）</value></data>
   <data name="SettingsBackup" xml:space="preserve"><value>バックアップ</value></data>
   <data name="ReminderRepeat" xml:space="preserve"><value>繰り返し</value></data>
   <data name="ReminderRepeatNone" xml:space="preserve"><value>1回のみ</value></data>
