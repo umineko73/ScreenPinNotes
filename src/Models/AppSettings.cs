@@ -32,6 +32,14 @@ public sealed class AppSettings
     /// 灰色の影を出すか。影はクリックでその場所へ畳み、ドラッグで畳んだ位置を動かせる。
     /// </summary>
     public bool ShowFoldedPositionGhost { get; set; } = true;
+
+    /// <summary>
+    /// 付箋に置いた画像やファイルの札が指すファイルを、変更通知で監視するか（settings.json のみ）。
+    /// true ならほかのアプリで保存し直した絵がすぐに貼り直される。既定では監視しない
+    /// （付箋を開き直すか、表示し直したときに読み直す）。外部ファイルの付箋と
+    /// 絵として貼った draw.io の図（PNG）は、この設定に関係なく常に監視する。
+    /// </summary>
+    public bool WatchReferencedFiles { get; set; }
     /// <summary>タイトルバーを隠している付箋の左端に、見分けのための帯を出すかどうか。</summary>
     public bool ShowTitleBarHiddenSpine { get; set; } = true;
     /// <summary>
@@ -243,6 +251,8 @@ public sealed class AppSettings
         // 確認を止めるまでの時間。短すぎると追記の合間ごとに止まってしまう。
         ExternalFile.PollStopAfterMs = Math.Clamp(ExternalFile.PollStopAfterMs, 1000, 3_600_000);
         ExternalFile.WatcherRetryMs = Math.Clamp(ExternalFile.WatcherRetryMs, 500, 600_000);
+        ExternalFile.BackgroundCheckIntervalMs = ExternalFile.BackgroundCheckIntervalMs <= 0
+            ? 0 : Math.Clamp(ExternalFile.BackgroundCheckIntervalMs, 1000, 3_600_000);
 
         HoverOpacityBoostPercent = Math.Clamp(HoverOpacityBoostPercent, 0, 90);
         // 0 だと点滅も音も一瞬で終わり、気付けない。上限は止め忘れても鳴り続けない程度の10分。
@@ -364,6 +374,12 @@ public sealed class ExternalFileSettings
     /// フォルダが無い・消えたなど）に、監視を作り直すまで待つ時間。作り直せるまで繰り返す。
     /// </summary>
     public int WatcherRetryMs { get; set; } = 5000;
+    /// <summary>
+    /// tail 表示でない外部ファイルも、この間隔で長さと更新日時を確かめる（0 で確かめない）。
+    /// 変更通知に対応していないネットワーク共有などでは、監視だけでは更新に気付けないため。
+    /// ファイルは開かずにディレクトリの情報だけを読むので、書き手の邪魔をしない。
+    /// </summary>
+    public int BackgroundCheckIntervalMs { get; set; } = 30_000;
 }
 
 public sealed class LayoutSettings

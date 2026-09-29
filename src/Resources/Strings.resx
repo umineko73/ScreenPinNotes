@@ -784,6 +784,7 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="SettingsExternalFiles" xml:space="preserve"><value>External files</value></data>
   <data name="SettingsExternalFileMinRefreshInterval" xml:space="preserve"><value>Minimum refresh interval (ms)</value></data>
   <data name="SettingsExternalFileTailLineCount" xml:space="preserve"><value>Tail line count</value></data>
+  <data name="SettingsExternalFileBackgroundCheckInterval" xml:space="preserve"><value>Periodic check interval (ms, 0 = off)</value></data>
   <data name="SettingsBackup" xml:space="preserve"><value>Backup</value></data>
   <data name="ReminderRepeat" xml:space="preserve"><value>Repeat</value></data>
   <data name="ReminderRepeatNone" xml:space="preserve"><value>Once</value></data>

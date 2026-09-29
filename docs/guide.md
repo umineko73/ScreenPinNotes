@@ -126,7 +126,7 @@ Use the mini toolbar for colors, fonts, and icons. Unavailable actions are disab
 - A chip whose file is gone is shown with a line through its name.
 - Copy an image from its context menu. **Copy image** hands over the picture itself, ready to paste into Word or a chat (transparency included), while **Copy image file** hands over the file, ready to paste into Explorer or attach to mail.
 - Resize images between 20% and 200% using their context menu or `Ctrl` + wheel.
-- A diagram drawn in draw.io (a PNG with the diagram embedded in it) gets **Edit in draw.io** at the top of its context menu. Saving in draw.io redraws the picture in the note straight away, with the note left open. A chip holding a `.drawio` file offers the same item. draw.io is located automatically; set `DrawioPath` in `settings.json` if it is somewhere unusual.
+- A diagram drawn in draw.io (a PNG with the diagram embedded in it) gets **Edit in draw.io** at the top of its context menu. Saving in draw.io redraws the picture in the note straight away, with the note left open. Other images and chips are not watched by default (the new picture appears the next time the note is shown); set `"WatchReferencedFiles": true` in `settings.json` to watch them too. A chip holding a `.drawio` file offers the same item. draw.io is located automatically; set `DrawioPath` in `settings.json` if it is somewhere unusual.
 - Use the context menu to paste/copy Excel tables. Pasting images is also supported.
 - Very large documents or deeply nested formatting fall back to source text without discarding content.
 
@@ -178,7 +178,7 @@ The app must be running in the tray. Missed reminders are delivered once on rest
 | Note list | Search titles, bodies, external paths, and more; manage visibility, reminders, and deletion |
 | Hidden notes | Restore individually hidden notes; Show all does not restore them |
 | Settings | New-note defaults, theme, language, note appearance, startup (including starting with notes hidden in the tray), taskbar/tray behavior, external file refresh/tail behavior, and storage |
-| Open external file as note | Display `.md` / `.txt` / `.log` read-only and follow file changes (minimum refresh interval configurable in Settings) |
+| Open external file as note | Display `.md` / `.txt` / `.log` read-only and follow file changes (minimum refresh interval and periodic check interval configurable in Settings; the periodic check also catches changes on network shares that send no change notifications) |
 | New note from clipboard | Create a note from the clipboard's text, image, or copied image files (images are copied into the note) |
 
 ![The settings window](settings-en.png)

@@ -42,14 +42,24 @@ public sealed class ExternalFileMonitor : IDisposable
     private FileSystemWatcher? _watcher;
     private Timer? _rewatchTimer;
     private bool _watchFailureReported;
+    private readonly bool _backgroundCheck;
+    private Timer? _backgroundTimer;
+    private FileSignature _backgroundLast;
+    private long _backgroundCheckedAt;
+    private int _backgroundChecking;
     private FileSignature _last;
     private long _lastActivity;
     private bool _writerHoldsOpen;
     private long _holdCheckedAt;
     private bool _disposed;
 
+    /// <param name="backgroundCheck">
+    /// 監視とは別に、<see cref="ExternalFileSettings.BackgroundCheckIntervalMs"/> ごとに
+    /// 長さと更新日時を確かめる（ファイルは開かない）。ポーリングしない付箋の取りこぼし対策。
+    /// </param>
     public ExternalFileMonitor(string path, Func<ExternalFileSettings> settings, Action changed,
-        bool useWatcher = true, ExternalFilePoller? poller = null, bool usePolling = true)
+        bool useWatcher = true, ExternalFilePoller? poller = null, bool usePolling = true,
+        bool backgroundCheck = false)
     {
         _path = Path.GetFullPath(path);
         _settings = settings;
@@ -57,6 +67,15 @@ public sealed class ExternalFileMonitor : IDisposable
         _poller = poller ?? ExternalFilePoller.Shared;
         _usePolling = usePolling;
         if (_usePolling) _last = FileSignature.Read(_path);
+
+        _backgroundCheck = backgroundCheck && !usePolling;
+        if (_backgroundCheck)
+        {
+            _backgroundLast = FileSignature.ReadMetadata(_path);
+            _backgroundCheckedAt = Environment.TickCount64;
+            _backgroundTimer = new Timer(_ => OnBackgroundTimer());
+            ScheduleBackgroundCheck();
+        }
 
         if (useWatcher)
             StartWatching(notifyOnSuccess: false);
@@ -187,13 +206,77 @@ public sealed class ExternalFileMonitor : IDisposable
             if (_disposed) return;
             if (_usePolling) _last = FileSignature.Read(_path);
         }
+        // 監視で知らせた変更を、次の定期確認でもう一度知らせないように。
+        if (_backgroundCheck) CheckInBackground(notify: false);
         Wake();
         _changed();
     }
 
+    // 設定の間隔を毎回読み直す。0（確かめない）の間も、設定が戻されたときのために時々見る。
+    private const int DisabledBackgroundRecheckMs = 60_000;
+
+    private void ScheduleBackgroundCheck()
+    {
+        var interval = _settings().BackgroundCheckIntervalMs;
+        lock (_gate)
+        {
+            if (_disposed || _backgroundTimer == null) return;
+            _backgroundTimer.Change(
+                TimeSpan.FromMilliseconds(interval > 0 ? interval : DisabledBackgroundRecheckMs),
+                Timeout.InfiniteTimeSpan);
+        }
+    }
+
+    private void OnBackgroundTimer()
+    {
+        if (_settings().BackgroundCheckIntervalMs > 0) CheckInBackground(notify: true);
+        ScheduleBackgroundCheck();
+    }
+
+    /// <summary>
+    /// 長さと更新日時を確かめ、変わっていれば知らせる。ネットワーク上のファイルでは
+    /// 待たされることがあるので、UI スレッドからは呼ばない。重ねては走らせない。
+    /// </summary>
+    private void CheckInBackground(bool notify)
+    {
+        if (Interlocked.Exchange(ref _backgroundChecking, 1) == 1) return;
+        bool changed;
+        try
+        {
+            var current = FileSignature.ReadMetadata(_path);
+            lock (_gate)
+            {
+                if (_disposed) return;
+                changed = current != _backgroundLast;
+                _backgroundLast = current;
+                _backgroundCheckedAt = Environment.TickCount64;
+            }
+        }
+        finally
+        {
+            Volatile.Write(ref _backgroundChecking, 0);
+        }
+        if (changed && notify) _changed();
+    }
+
+    // 付箋に触れたときの確認は、この間隔より詰めない（ホバーのたびに呼ばれるため）。
+    private const int WakeCheckMinIntervalMs = 1000;
+
+    /// <summary>テスト用。定期確認の1回分をすぐに行う。</summary>
+    internal void CheckInBackgroundNow() => CheckInBackground(notify: true);
+
     /// <summary>確認を（止まっていれば）再開し、止めるまでの時間を数え直す。</summary>
     public void Wake()
     {
+        if (_backgroundCheck)
+        {
+            // ポーリングしない付箋は、見に来たついでに1回だけ確かめる（UI スレッドの外で）。
+            bool due;
+            lock (_gate)
+                due = !_disposed && Environment.TickCount64 - _backgroundCheckedAt >= WakeCheckMinIntervalMs;
+            if (due && _settings().BackgroundCheckIntervalMs > 0)
+                ThreadPool.QueueUserWorkItem(_ => CheckInBackground(notify: true));
+        }
         if (!_usePolling) return;
         // 先に時刻を進めてから登録する。確認側が止める直前に時刻を読み直すので、
         // この順なら再開の要求を取りこぼさない。
@@ -307,6 +390,8 @@ public sealed class ExternalFileMonitor : IDisposable
             _watcher = null;
             _rewatchTimer?.Dispose();
             _rewatchTimer = null;
+            _backgroundTimer?.Dispose();
+            _backgroundTimer = null;
         }
         watcher?.Dispose();
     }
@@ -412,6 +497,23 @@ public sealed class ExternalFilePoller
 /// <summary>更新の有無を見分けるための、ファイルの長さと更新日時。</summary>
 public readonly record struct FileSignature(bool Exists, long Length, DateTime LastWriteTimeUtc)
 {
+    /// <summary>
+    /// ファイルを開かずに、ディレクトリの情報だけで読む。開くと、ファイルを排他で開き直す
+    /// 書き手の邪魔になりうるので、定期確認はこちらを使う。
+    /// </summary>
+    public static FileSignature ReadMetadata(string path)
+    {
+        try
+        {
+            var info = new FileInfo(path);
+            return info.Exists ? new FileSignature(true, info.Length, info.LastWriteTimeUtc) : default;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return default;
+        }
+    }
+
     public static FileSignature Read(string path)
     {
         try

@@ -1546,12 +1546,14 @@ public partial class StickyNoteWindow
 
         try
         {
-            // 通常の外部参照は変更通知のみ。tail 表示のログだけは、開いたままの
+            // 通常の外部参照は変更通知と、間隔の長い定期確認。tail 表示のログは、開いたままの
             // 追記に備えて共有タイマーで長さ・更新日時の確認も併用する。
             var settings = Settings;
             _externalContentMonitor = new ExternalFileMonitor(
                 ViewModel.Model.ExternalContentPath, () => settings.ExternalFile, ReloadExternalContent,
-                usePolling: ViewModel.Model.ExternalTailMode);
+                usePolling: ViewModel.Model.ExternalTailMode,
+                // tail でない付箋も、変更通知が届かない場所に備えて時々確かめる。
+                backgroundCheck: !ViewModel.Model.ExternalTailMode);
             _externalContentMonitor.Polled += OnExternalContentPolled;
             _externalContentMonitor.PollingStopped += OnExternalContentPollingStopped;
             // 起動時の読み込みから初回表示までの変更も、監視開始後に拾う。
