@@ -40,3 +40,7 @@ $RECYCLE.BIN/
 
 # Claude Code のローカル設定
 .claude/settings.local.json
+
+# ローカル作業指示（共有版をリポジトリへ公開しない）
+/AGENTS.md
+/CLAUDE.md
