@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Project knowledge
+
+The shared project knowledge lives at `N:\Workspace\20_Projects\ScreenPinNotes` (UNC: `\\green\ai\Workspace\20_Projects\ScreenPinNotes`). Read its `AGENTS.md` and `STATUS.md` when starting work, along with the shared Workspace root instructions. See the repository's `AGENTS.md` for access guidance.
+
 ## Commands
 
 ```bash
