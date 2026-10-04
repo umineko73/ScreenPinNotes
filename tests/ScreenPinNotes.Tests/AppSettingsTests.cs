@@ -216,10 +216,10 @@ public class AppSettingsTests
         Assert.Equal(200, settings.Layout.DefaultNoteWidth);
     }
 
-    // 旧既定値 260 のまま保存された settings.json は新しい既定値 520 に移る。
+    // 旧既定値 260 のまま保存された settings.json は新しい既定値 540 に移る。
     // 利用者が変えた幅と、移行済みの 260 は残す。
     [Theory]
-    [InlineData(260, 0, 520)]
+    [InlineData(260, 0, 540)]
     [InlineData(300, 0, 300)]
     [InlineData(260, 1, 260)]
     public void Normalize_OldDefaultNoteWidth_MigratedOnce(double saved, int version, double expected)
