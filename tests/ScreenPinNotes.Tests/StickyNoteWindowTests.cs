@@ -31,6 +31,50 @@ namespace ScreenPinNotes.Tests;
 
 public class StickyNoteWindowTests
 {
+    [WpfFact]
+    public void IconFavorites_EditPersistsWithoutChangingNote_ThenSelectsNormally()
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var settings = App.Current.Settings;
+        var originalFavorites = settings.FavoriteIcons;
+        settings.FavoriteIcons = ["🐱"];
+        var window = new StickyNoteWindow(new StickyNoteViewModel(
+            new StickyNote { Icon = "📝" }, settings), storage);
+        try
+        {
+            var popup = (Popup)typeof(StickyNoteWindow).GetField("_iconPopup",
+                BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
+            var content = (StackPanel)((Border)popup.Child).Child;
+            var edit = (CheckBox)content.Children[0];
+            var panel = (WrapPanel)((ScrollViewer)content.Children[2]).Content;
+            Button Find(string icon) => panel.Children.OfType<Button>().First(b => (string)b.Tag == icon);
+            void Click(string icon) => Find(icon).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+            Assert.Equal("🐱", panel.Children.OfType<Button>().First().Tag);
+            edit.IsChecked = true;
+            Assert.False(Find("").IsEnabled);
+            Click("🐱");
+            Assert.Empty(settings.FavoriteIcons);
+            Assert.Empty(storage.LoadSettings().FavoriteIcons);
+            Click("🐧");
+            Click("⭐");
+            Assert.Equal(["🐧", "⭐"], storage.LoadSettings().FavoriteIcons);
+            Assert.Equal("📝", window.ViewModel.Icon);
+
+            edit.IsChecked = false;
+            Click("🐧");
+            Assert.Equal("🐧", window.ViewModel.Icon);
+            Assert.Equal(["🐧", "⭐"], settings.FavoriteIcons);
+        }
+        finally
+        {
+            window.Close();
+            settings.FavoriteIcons = originalFavorites;
+        }
+    }
+
     [WpfTheory]
     [InlineData(false)]
     [InlineData(true)]
