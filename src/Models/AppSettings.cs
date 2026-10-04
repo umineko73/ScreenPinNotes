@@ -276,6 +276,14 @@ public sealed class AppSettings
         // 上限は付箋の高さが最小のとき（畳んだ1行）でも輪郭が破綻しない範囲。
         Layout.NoteCornerRadius = Math.Clamp(Layout.NoteCornerRadius, 0, 16);
         NoteBorderColor = NormalizeNoteBorderColor(NoteBorderColor);
+        // 新規付箋の幅の既定値を 260 から 520 に広げた。settings.json には旧既定値も
+        // 保存されているので、手を入れていない 260 だけを新しい既定値へ移す。
+        if (Layout.DefaultsVersion < 1)
+        {
+            if (Layout.DefaultNoteWidth == 260)
+                Layout.DefaultNoteWidth = 520;
+            Layout.DefaultsVersion = 1;
+        }
         Layout.DefaultNoteWidth = Math.Max(Layout.UnfoldedMinWidth, Layout.DefaultNoteWidth);
         Layout.DefaultNoteHeight = Math.Max(80, Layout.DefaultNoteHeight);
 
@@ -401,6 +409,8 @@ public sealed class LayoutSettings
     public double NewNoteBaseY { get; set; } = 150;
     public double NewNoteCascadeStep { get; set; } = 20;
     public double NewNoteNearCursorOffset { get; set; } = 12;
-    public double DefaultNoteWidth { get; set; } = 260;
+    public double DefaultNoteWidth { get; set; } = 520;
+    /// <summary>既定値を変えたとき、保存済みの旧既定値を新しい値へ移すための版数。</summary>
+    public int DefaultsVersion { get; set; }
     public double DefaultNoteHeight { get; set; } = 220;
 }
