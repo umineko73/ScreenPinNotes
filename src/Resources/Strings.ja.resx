@@ -15,6 +15,24 @@
   <data name="InvalidLinkTarget" xml:space="preserve">
     <value>改行や山括弧を含まない有効なリンクを入力してください。</value>
   </data>
+  <data name="IconFavorites" xml:space="preserve">
+    <value>よく使う</value>
+  </data>
+  <data name="IconAll" xml:space="preserve">
+    <value>すべてのアイコン</value>
+  </data>
+  <data name="IconEditFavorites" xml:space="preserve">
+    <value>よく使うを編集</value>
+  </data>
+  <data name="IconFavoritesHint" xml:space="preserve">
+    <value>アイコンを押すと登録・解除できます。金色の枠は登録済みです。</value>
+  </data>
+  <data name="IconAddFavorite" xml:space="preserve">
+    <value>よく使うに登録</value>
+  </data>
+  <data name="IconRemoveFavorite" xml:space="preserve">
+    <value>よく使うから解除</value>
+  </data>
   <data name="IconColors" xml:space="preserve">
     <value>色・記号</value>
   </data>

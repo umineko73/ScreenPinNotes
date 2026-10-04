@@ -15,6 +15,24 @@
   <data name="InvalidLinkTarget" xml:space="preserve">
     <value>Enter a valid link without line breaks or angle brackets.</value>
   </data>
+  <data name="IconFavorites" xml:space="preserve">
+    <value>Favorites</value>
+  </data>
+  <data name="IconAll" xml:space="preserve">
+    <value>All icons</value>
+  </data>
+  <data name="IconEditFavorites" xml:space="preserve">
+    <value>Edit favorites</value>
+  </data>
+  <data name="IconFavoritesHint" xml:space="preserve">
+    <value>Click an icon to add or remove it. Gold borders mark favorites.</value>
+  </data>
+  <data name="IconAddFavorite" xml:space="preserve">
+    <value>Add to favorites</value>
+  </data>
+  <data name="IconRemoveFavorite" xml:space="preserve">
+    <value>Remove from favorites</value>
+  </data>
   <data name="IconColors" xml:space="preserve">
     <value>Colors &amp; shapes</value>
   </data>

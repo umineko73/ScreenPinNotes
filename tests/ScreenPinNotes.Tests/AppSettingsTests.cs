@@ -144,6 +144,27 @@ public class AppSettingsTests
         Assert.Equal(expected, settings.TrayClickAction);
     }
 
+    [Fact]
+    public void FavoriteIcons_OldSettingsGetDefaultsIncludingAnimals()
+    {
+        var settings = System.Text.Json.JsonSerializer.Deserialize<AppSettings>("{}")!;
+        settings.Normalize();
+        Assert.Equal(AppSettings.DefaultFavoriteIcons(), settings.FavoriteIcons);
+        Assert.Contains("🐱", settings.FavoriteIcons);
+        Assert.All(settings.FavoriteIcons, icon => Assert.Contains(icon, settings.IconPalette));
+    }
+
+    [Fact]
+    public void FavoriteIcons_NormalizePreservesOrderAndEmptyChoice()
+    {
+        var settings = new AppSettings { FavoriteIcons = ["🐧", "", "  ", "⭐", "🐧"] };
+        settings.Normalize();
+        Assert.Equal(["🐧", "⭐"], settings.FavoriteIcons);
+        settings.FavoriteIcons.Clear();
+        settings.Normalize();
+        Assert.Empty(settings.FavoriteIcons);
+    }
+
     // 動物を増やしたら、保存済みのパレットにも不足分が配られること。
     // IconPaletteVersion を上げ忘れると既存ユーザーには増えない。
     [Fact]

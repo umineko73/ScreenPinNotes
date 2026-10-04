@@ -125,6 +125,12 @@ public sealed class AppSettings
     public List<string> IconPalette { get; set; } = DefaultIconPalette();
     public int IconPaletteVersion { get; set; }
 
+    public List<string> FavoriteIcons { get; set; } = DefaultFavoriteIcons();
+
+    public static List<string> DefaultFavoriteIcons()
+        => ["📝", "❗", "⭐", "☐", "🔄", "⏳", "✅", "💡", "📅", "🔍", "🐛", "🏠",
+            "🐶", "🐱", "🐰", "🐧"];
+
     /// <summary>
     /// 外枠の色の設定を読める値にそろえる。決め打ちの3種類は表記ゆれを吸収し、
     /// それ以外は "#RRGGBB" 形式の色として通す（settings.json を直接書く人向け）。
@@ -208,6 +214,12 @@ public sealed class AppSettings
             IconPalette = IconPalette.Concat(IconGroups.Single(group => group.Key == "IconAnimals").Icons).Distinct().ToList();
             IconPaletteVersion = 2;
         }
+
+        // An empty list is intentional: do not restore removed favorites.
+        FavoriteIcons = (FavoriteIcons ?? DefaultFavoriteIcons())
+            .Where(icon => !string.IsNullOrWhiteSpace(icon))
+            .Select(icon => icon is "🔗" or "🔗️" ? "🌐" : icon)
+            .Distinct(StringComparer.Ordinal).ToList();
 
         Timings.TitlePreviewDelayMs = Math.Max(0, Timings.TitlePreviewDelayMs);
         Timings.ToolbarHideDelayMs = Math.Max(0, Timings.ToolbarHideDelayMs);

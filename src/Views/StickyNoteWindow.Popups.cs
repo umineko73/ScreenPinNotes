@@ -112,81 +112,129 @@ public partial class StickyNoteWindow
         var panel = new WrapPanel { Width = Columns * (Cell + Gap * 2) + 2 };
         _iconPanel = panel;
 
-        var available = IconList.Distinct().ToHashSet();
-        var ordered = new List<(string Icon, string? Heading)> { ("", null) };
-        foreach (var group in AppSettings.IconGroups)
+        var editFavorites = new WpfCheckBox
         {
-            var icons = group.Icons.Where(available.Contains).ToArray();
-            if (icons.Length == 0) continue;
-            ordered.AddRange(icons.Select((icon, index) => (icon, index == 0 ? group.Key : null)));
-        }
-        var known = AppSettings.IconGroups.SelectMany(group => group.Icons).ToHashSet();
-        ordered.AddRange(available.Where(icon => icon.Length > 0 && !known.Contains(icon))
-            .Select((icon, index) => (icon, index == 0 ? "IconOther" : null)));
-        foreach (var (icon, heading) in ordered)
+            Content = LocalizationService.T("IconEditFavorites"),
+            Margin = new Thickness(3, 4, 3, 6), Foreground = PopupForegroundBrush(),
+        };
+        var hint = new TextBlock
         {
-            if (heading != null)
-                panel.Children.Add(new TextBlock
-                {
-                    Text = LocalizationService.T(heading), Width = panel.Width,
-                    Margin = new Thickness(3, 8, 0, 3), FontSize = 12,
-                    Foreground = IsDarkTheme() ? WpfBrushes.WhiteSmoke : WpfBrushes.DimGray,
-                    FontWeight = FontWeights.SemiBold,
-                });
-            bool isNone = icon.Length == 0;
-            var btn = new WpfButton
+            Text = LocalizationService.T("IconFavoritesHint"),
+            Width = panel.Width, TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(3, 0, 3, 4), Foreground = PopupForegroundBrush(),
+        };
+        void AddHeading(string key) => panel.Children.Add(new TextBlock
+        {
+            Text = LocalizationService.T(key), Width = panel.Width,
+            Margin = new Thickness(3, 8, 0, 3), FontSize = 12,
+            Foreground = PopupForegroundBrush(), FontWeight = FontWeights.SemiBold,
+        });
+        void Populate()
+        {
+            panel.Children.Clear();
+            bool editing = editFavorites.IsChecked == true;
+            hint.Visibility = editing ? Visibility.Visible : Visibility.Collapsed;
+            var available = IconList.Concat(Settings.FavoriteIcons).Distinct().ToHashSet();
+            var ordered = new List<(string Icon, string? Heading)>();
+            AddHeading("IconFavorites");
+            ordered.AddRange(Settings.FavoriteIcons.Select(icon => (icon, (string?)null)));
+            ordered.Add(("", "IconAll"));
+            foreach (var group in AppSettings.IconGroups)
             {
-                Width = Cell, Height = Cell, Margin = new Thickness(Gap),
-                Padding    = new Thickness(0),
-                Content    = isNone
-                    ? new TextBlock
+                var icons = group.Icons.Where(available.Contains).ToArray();
+                if (icons.Length == 0) continue;
+                ordered.AddRange(icons.Select((icon, index) => (icon, index == 0 ? group.Key : null)));
+            }
+            var known = AppSettings.IconGroups.SelectMany(group => group.Icons).ToHashSet();
+            ordered.AddRange(available.Where(icon => icon.Length > 0 && !known.Contains(icon))
+                .Select((icon, index) => (icon, index == 0 ? "IconOther" : null)));
+            foreach (var (icon, heading) in ordered)
+            {
+                if (heading != null) AddHeading(heading);
+                bool isNone = icon.Length == 0;
+                var btn = new WpfButton
+                {
+                    Width = Cell, Height = Cell, Margin = new Thickness(Gap),
+                    Padding    = new Thickness(0),
+                    Content    = isNone
+                        ? new TextBlock
+                        {
+                            Text = UiIcons.Cancel, FontFamily = UiIcons.Font, FontSize = 11, Foreground = WpfBrushes.Gray,
+                            HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+                            VerticalAlignment = System.Windows.VerticalAlignment.Center,
+                        }
+                        : new System.Windows.Controls.Image
+                        {
+                            Source = RenderEmoji(icon), Width = 20, Height = 20,
+                            Stretch = Stretch.Uniform,
+                        },
+                    Tag        = icon,
+                    ToolTip    = isNone ? LocalizationService.T("NoIconTooltip")
+                        : editing ? LocalizationService.T(Settings.FavoriteIcons.Contains(icon)
+                            ? "IconRemoveFavorite" : "IconAddFavorite") : icon,
+                    IsEnabled = !editing || !isNone,
+                    Cursor     = WpfCursors.Hand,
+                };
+
+                // マウスが乗ったときだけ拡大する。RenderTransform なのでレイアウトは
+                // 動かず、隣のアイコンを押しのけずに手前で大きくなる。
+                var scale = new ScaleTransform(1, 1);
+                btn.RenderTransform       = scale;
+                btn.RenderTransformOrigin = new System.Windows.Point(0.5, 0.5);
+                btn.MouseEnter += (s, _) => ZoomIconButton((UIElement)s, scale, 1.6);
+                btn.MouseLeave += (s, _) => ZoomIconButton((UIElement)s, scale, 1.0);
+                btn.Click += (s, _) =>
+                {
+                    if (s is WpfButton b && b.Tag is string k)
                     {
-                        Text = UiIcons.Cancel, FontFamily = UiIcons.Font, FontSize = 11, Foreground = WpfBrushes.Gray,
-                        HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
-                        VerticalAlignment = System.Windows.VerticalAlignment.Center,
+                        if (editFavorites.IsChecked == true)
+                        {
+                            if (!Settings.FavoriteIcons.Remove(k)) Settings.FavoriteIcons.Add(k);
+                            _storage.SaveSettings(Settings);
+                            Populate();
+                            return;
+                        }
+                        ViewModel.Icon = k;
+                        if (_iconPopup != null) _iconPopup.IsOpen = false;
+                        RequestSave();
                     }
-                    : new System.Windows.Controls.Image
-                    {
-                        Source = RenderEmoji(icon), Width = 20, Height = 20,
-                        Stretch = Stretch.Uniform,
-                    },
-                Tag        = icon,
-                ToolTip    = isNone ? LocalizationService.T("NoIconTooltip") : null,
-                Cursor     = WpfCursors.Hand,
-            };
-
-            // マウスが乗ったときだけ拡大する。RenderTransform なのでレイアウトは
-            // 動かず、隣のアイコンを押しのけずに手前で大きくなる。
-            var scale = new ScaleTransform(1, 1);
-            btn.RenderTransform       = scale;
-            btn.RenderTransformOrigin = new System.Windows.Point(0.5, 0.5);
-            btn.MouseEnter += (s, _) => ZoomIconButton((UIElement)s, scale, 1.6);
-            btn.MouseLeave += (s, _) => ZoomIconButton((UIElement)s, scale, 1.0);
-            btn.Click += (s, _) =>
-            {
-                if (s is WpfButton b && b.Tag is string k)
+                };
+                if (editing && Settings.FavoriteIcons.Contains(icon))
                 {
-                    ViewModel.Icon = k;
-                    if (_iconPopup != null) _iconPopup.IsOpen = false;
-                    RequestSave();
+                    btn.BorderBrush = WpfBrushes.Goldenrod;
+                    btn.BorderThickness = new Thickness(2);
                 }
-            };
-            panel.Children.Add(btn);
+                panel.Children.Add(btn);
+            }
+            if (!editing) UpdateIconSelection();
         }
+        editFavorites.Checked += (_, _) => Populate();
+        editFavorites.Unchecked += (_, _) => Populate();
+        var content = new StackPanel();
+        content.Children.Add(editFavorites);
+        content.Children.Add(hint);
+        content.Children.Add(new ScrollViewer
+        {
+            MaxHeight = 400, VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Content = panel,
+        });
+        Populate();
 
-        return new Popup
+        var popup = new Popup
         {
             Child = new Border
             {
                 Background = PopupBackgroundBrush(), BorderBrush = PopupBorderBrush(),
-                BorderThickness = new Thickness(1), Padding = new Thickness(4), Child = new ScrollViewer
-                {
-                    MaxHeight = 440, VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Content = panel,
-                },
+                BorderThickness = new Thickness(1), Padding = new Thickness(4), Child = content,
             },
             Placement = PlacementMode.Bottom, StaysOpen = false,
         };
+        popup.Opened += (_, _) =>
+        {
+            editFavorites.IsChecked = false;
+            Populate(); // Other note windows share the same settings.
+        };
+        return popup;
     }
 
     private static void ZoomIconButton(UIElement button, ScaleTransform scale, double to)
