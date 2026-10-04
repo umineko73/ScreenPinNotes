@@ -235,8 +235,8 @@ public class AppSettingsTests
     }
 
     [Fact]
-    public void DefaultNoteWidth_Is520()
-        => Assert.Equal(520, new AppSettings().Layout.DefaultNoteWidth);
+    public void DefaultNoteWidth_Is540()
+        => Assert.Equal(540, new AppSettings().Layout.DefaultNoteWidth);
 
     // 目印は既定で出す。設定を持たない古い settings.json でも出るようにする。
     [Fact]

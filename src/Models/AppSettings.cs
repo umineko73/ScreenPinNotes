@@ -409,7 +409,7 @@ public sealed class LayoutSettings
     public double NewNoteBaseY { get; set; } = 150;
     public double NewNoteCascadeStep { get; set; } = 20;
     public double NewNoteNearCursorOffset { get; set; } = 12;
-    public double DefaultNoteWidth { get; set; } = 520;
+    public double DefaultNoteWidth { get; set; } = 540;
     /// <summary>既定値を変えたとき、保存済みの旧既定値を新しい値へ移すための版数。</summary>
     public int DefaultsVersion { get; set; }
     public double DefaultNoteHeight { get; set; } = 220;
