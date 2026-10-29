@@ -12,15 +12,15 @@ Use colors and icons to tell notes apart, and pin the ones you need on top. Hide
 
 ### Light mode
 
-Schedules, checklists, Markdown tables, and photos in the English interface. Each note picks from 11 light and 11 dark colors regardless of the app theme, or a custom background and accent color. Switching the app between light and dark mode swaps every note to the paired color in the same palette column (custom colors are left alone).
+A Markdown note, a checklist with attached files, photos, a draw.io diagram, and a live log in the English interface. Each note picks from 11 light and 11 dark colors regardless of the app theme, or a custom background and accent color. Switching the app between light and dark mode swaps every note to the paired color in the same palette column (custom colors are left alone).
 
-![English light mode with schedules, checklists, Markdown, collapsed notes, translucent notes, and photos](docs/note_light_en.png)
+![English light mode with a Markdown note, a checklist with attached files, photos, a draw.io diagram, collapsed notes, translucent notes, and a live log](docs/note_light_en.png)
 
 ### Dark mode
 
-A darker palette for your desktop, including notes without title bars and notes that display only an image. Change the theme and interface language in Settings.
+A darker palette for your desktop, including notes that display only an image. Notes switch to their paired dark colors, while the draw.io diagram keeps a light color so the drawing stays readable. Change the theme and interface language in Settings.
 
-![English dark mode showing the same notes with dark backgrounds and light text](docs/note_dark_en.png)
+![English dark mode showing the same notes in dark colors with light text, and the draw.io diagram note kept light](docs/note_dark_en.png)
 
 ## Features
 
