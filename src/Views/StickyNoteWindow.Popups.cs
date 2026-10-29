@@ -54,13 +54,14 @@ public partial class StickyNoteWindow
 
     private Popup BuildColorPopup()
     {
-        const int Columns = 10;
+        const int Columns = 11;
 
         // 端数で列が折り返さないよう僅かに余裕を持たせる
         var panel = new WrapPanel { Width = Columns * (ColorSwatch + ColorSwatchGap * 2) + 2 };
         _colorPanel = panel;
 
-        // 1行目がライト、2行目がダーク。アプリのテーマに関係なく同じ10色ずつを並べる。
+        // 1行目がライト、2行目がダーク。アプリのテーマに関係なく同じ11色ずつを並べる。
+        // 同じ列の色がテーマ切り替えで入れ替わる対（NoteAppearance.ThemeCounterpart）。
         foreach (var key in NoteAppearance.LightPresetKeys) panel.Children.Add(BuildColorSwatch(key));
         foreach (var key in NoteAppearance.DarkPresetKeys) panel.Children.Add(BuildColorSwatch(key));
 
@@ -158,6 +159,18 @@ public partial class StickyNoteWindow
             ViewModel.IsTitleBarHidden, Settings, () => _storage.SaveSettings(Settings));
         if (dialog.ShowDialog() != true) return;
         ViewModel.SetCustomColors(dialog.BackgroundColor, dialog.AccentColor);
+        ApplyColorChange(closePopup: false);
+    }
+
+    /// <summary>
+    /// アプリのテーマが切り替わったとき、対になる色へ書き換える（ダークならライト色をダーク色に、
+    /// ライトならダーク色をライト色に）。カスタムなど対のない色はそのまま。
+    /// </summary>
+    public void SwitchColorForTheme(bool darkTheme)
+    {
+        var key = NoteAppearance.ColorKeyForTheme(ViewModel.ColorKey, darkTheme);
+        if (key == ViewModel.ColorKey) return;
+        ViewModel.ColorKey = key;
         ApplyColorChange(closePopup: false);
     }
 

@@ -29,15 +29,16 @@ public sealed class NoteAppearance
     public const string CustomColorKey = "custom";
 
     // 背景とヘッダー（アクセント）の組。アプリのライト/ダークテーマとは無関係に、
-    // ライト10色・ダーク10色をこのままの色で描く。キーが "dark-" で始まるものがダーク。
+    // ライト11色・ダーク11色をこのままの色で描く。キーが "dark-" で始まるものがダーク。
     // 既存ノートの互換のため yellow/blue/green/pink/purple/gray のキーは変更しない。
     public static IReadOnlyDictionary<string, (string Bg, string Header)> Presets { get; } =
         new System.Collections.ObjectModel.ReadOnlyDictionary<string, (string Bg, string Header)>(
         new Dictionary<string, (string Bg, string Header)>()
     {
-        // ライト
+        // ライト。ダークと同じ順に並べる（ThemeCounterpart が同じ位置の色を対にする）。
         ["yellow"]  = ("#FFFDE7", "#F9A825"),
         ["orange"]  = ("#FFEDD5", "#C2410C"),
+        ["brown"]   = ("#EFEBE9", "#6D4C41"),
         ["red"]     = ("#FEE2E2", "#B91C1C"),
         ["pink"]    = ("#FCE7F3", "#BE185D"),
         ["purple"]  = ("#EEECFB", "#6D28D9"),
@@ -49,13 +50,14 @@ public sealed class NoteAppearance
         // ダーク
         ["dark-olive"]    = ("#32321E", "#9C9A4E"),
         ["dark-rust"]     = ("#3D2A1E", "#C07A48"),
+        ["dark-coffee"]   = ("#352D25", "#A0825F"),
         ["dark-wine"]     = ("#3F252D", "#AC657B"),
         ["dark-plum"]     = ("#35283F", "#946AAC"),
         ["dark-indigo"]   = ("#262744", "#7275C4"),
         ["dark-navy"]     = ("#1E293B", "#5277AC"),
+        ["dark-sky"]      = ("#183240", "#4B94B8"),
         ["dark-teal"]     = ("#193631", "#43877B"),
         ["dark-forest"]   = ("#1F3322", "#5E9A5A"),
-        ["dark-coffee"]   = ("#352D25", "#A0825F"),
         ["dark-charcoal"] = ("#252A32", "#667085"),
     });
 
@@ -72,7 +74,6 @@ public sealed class NoteAppearance
         ["emerald"] = ("#D1FAE5", "#047857"),
         ["lime"]    = ("#EBF8CF", "#4D7C0F"),
         ["olive"]   = ("#F7F7DC", "#827717"),
-        ["brown"]   = ("#EFEBE9", "#6D4C41"),
         ["stone"]   = ("#F5F5F4", "#57534E"),
         ["slate"]   = ("#F1F5F9", "#334155"),
         ["white"]   = ("#FFFFFF", "#9CA3AF"),
@@ -82,6 +83,28 @@ public sealed class NoteAppearance
     public static IEnumerable<string> LightPresetKeys => Presets.Keys.Where(k => !IsDarkPresetKey(k));
     public static IEnumerable<string> DarkPresetKeys => Presets.Keys.Where(IsDarkPresetKey);
     private static bool IsDarkPresetKey(string key) => key.StartsWith("dark-", StringComparison.Ordinal);
+
+    /// <summary>
+    /// ライトとダークの対になる色。パレットの同じ列（ライトとダークの並びの同じ位置）の色で、
+    /// カスタム・旧パレットの色・未知のキーは対がないので null。
+    /// </summary>
+    public static string? ThemeCounterpart(string key)
+    {
+        var light = LightPresetKeys.ToList();
+        var dark = DarkPresetKeys.ToList();
+        var index = light.IndexOf(key);
+        if (index >= 0) return dark[index];
+        index = dark.IndexOf(key);
+        return index >= 0 ? light[index] : null;
+    }
+
+    /// <summary>
+    /// アプリのテーマを切り替えたときの色。ダークへ切り替えるとライトの色は対のダークに、
+    /// ライトへ切り替えるとダークの色は対のライトになる。それ以外（すでにテーマ側の色、
+    /// カスタム、対のない色）はそのまま。
+    /// </summary>
+    public static string ColorKeyForTheme(string key, bool darkTheme)
+        => IsDarkPresetKey(key) != darkTheme && ThemeCounterpart(key) is { } counterpart ? counterpart : key;
 
     /// <summary>付箋の背景色とアクセント色。未知のキーや壊れたカスタム色は黄色にする。</summary>
     public static (WpfColor Background, WpfColor Accent) ResolveColors(StickyNote note)

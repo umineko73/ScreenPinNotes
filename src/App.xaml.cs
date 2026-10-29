@@ -33,6 +33,8 @@ public partial class App : System.Windows.Application, INoteWindowHost
     private StorageService _storage = new();
     private readonly List<StickyNoteWindow> _windows = [];
     private AppSettings _settings = new();
+    // 最後に付箋の色へ反映したテーマ。起動時の設定で初期化し、切り替えを検出する。
+    private bool _appliedDarkTheme;
     private NoteWorkspace? _workspace;
     private NoteWorkspace Workspace => _workspace ??= new(_windows, () => _storage, CreateNoteWindow);
     void INoteWindowHost.NoteTouched(StickyNoteWindow window) => NoteTouched(window);
@@ -148,6 +150,7 @@ public partial class App : System.Windows.Application, INoteWindowHost
 
         var settingsLoad = _storage.LoadSettingsWithDiagnostics();
         _settings = settingsLoad.Value;
+        _appliedDarkTheme = string.Equals(_settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase);
         DiagnosticTrace.Enabled = _settings.EnableDiagnosticTrace ||
             Environment.GetEnvironmentVariable(DiagnosticTrace.EnvVar) == "1";
         TraceEnvironment();
@@ -624,6 +627,7 @@ public partial class App : System.Windows.Application, INoteWindowHost
     private void ApplySettingsChange()
     {
         _settings.Normalize();
+        SwitchNoteColorsForTheme();
         _storage.SaveSettings(_settings);
         RefreshTrayMenu();
         RefreshSettingsWindowNotesRoot();
@@ -635,6 +639,20 @@ public partial class App : System.Windows.Application, INoteWindowHost
         }
         foreach (var win in _windows)
             win.RefreshSettings();
+    }
+
+    /// <summary>
+    /// テーマ（ライト/ダーク）が変わったとき、付箋と新しい付箋の既定色を対になる色へ書き換える。
+    /// </summary>
+    private void SwitchNoteColorsForTheme()
+    {
+        var dark = _settings.Theme == "Dark";
+        if (dark == _appliedDarkTheme) return;
+        _appliedDarkTheme = dark;
+
+        _settings.NoteDefaults.ColorKey = NoteAppearance.ColorKeyForTheme(_settings.NoteDefaults.ColorKey, dark);
+        foreach (var win in _windows)
+            win.SwitchColorForTheme(dark);
     }
 
     private void RefreshTrayMenu()

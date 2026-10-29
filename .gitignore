@@ -44,3 +44,9 @@ $RECYCLE.BIN/
 # ローカル作業指示（共有版をリポジトリへ公開しない）
 /AGENTS.md
 /CLAUDE.md
+
+# spec-kit のローカル生成物とスキル
+/.specify/
+/.agents/
+/.claude/skills/
+/.claude/worktrees/
