@@ -52,14 +52,68 @@ public class NoteAppearanceTests
     }
 
     [Fact]
-    public void PaletteHasTenLightAndTenDarkColors()
+    public void PaletteHasElevenLightAndElevenDarkColors()
     {
-        Assert.Equal(10, NoteAppearance.LightPresetKeys.Count());
-        Assert.Equal(10, NoteAppearance.DarkPresetKeys.Count());
+        Assert.Equal(11, NoteAppearance.LightPresetKeys.Count());
+        Assert.Equal(11, NoteAppearance.DarkPresetKeys.Count());
         foreach (var key in NoteAppearance.LightPresetKeys)
             Assert.False(NoteAppearance.UsesDarkColors(new StickyNote { ColorKey = key }), key);
         foreach (var key in NoteAppearance.DarkPresetKeys)
             Assert.True(NoteAppearance.UsesDarkColors(new StickyNote { ColorKey = key }), key);
+    }
+
+    // パレットの同じ列の色がテーマ切り替えの対になる。
+    [Theory]
+    [InlineData("yellow", "dark-olive")]
+    [InlineData("orange", "dark-rust")]
+    [InlineData("brown", "dark-coffee")]
+    [InlineData("red", "dark-wine")]
+    [InlineData("pink", "dark-plum")]
+    [InlineData("purple", "dark-indigo")]
+    [InlineData("blue", "dark-navy")]
+    [InlineData("sky", "dark-sky")]
+    [InlineData("teal", "dark-teal")]
+    [InlineData("green", "dark-forest")]
+    [InlineData("gray", "dark-charcoal")]
+    public void ThemeCounterpart_PairsTheSameColumnOfThePalette(string light, string dark)
+    {
+        Assert.Equal(dark, NoteAppearance.ThemeCounterpart(light));
+        Assert.Equal(light, NoteAppearance.ThemeCounterpart(dark));
+    }
+
+    [Fact]
+    public void ThemeCounterpart_IsAOneToOneMappingOverTheWholePalette()
+    {
+        foreach (var key in NoteAppearance.Presets.Keys)
+        {
+            var other = NoteAppearance.ThemeCounterpart(key);
+            Assert.NotNull(other);
+            Assert.Equal(key, NoteAppearance.ThemeCounterpart(other!));
+        }
+    }
+
+    [Theory]
+    [InlineData("yellow", true, "dark-olive")]
+    [InlineData("dark-olive", true, "dark-olive")]
+    [InlineData("dark-olive", false, "yellow")]
+    [InlineData("yellow", false, "yellow")]
+    [InlineData("custom", true, "custom")]
+    [InlineData("custom", false, "custom")]
+    [InlineData("amber", true, "amber")]
+    [InlineData("unknown", false, "unknown")]
+    public void ColorKeyForTheme_ConvertsOnlyPaletteColorsOfTheOtherTone(string key, bool darkTheme, string expected)
+        => Assert.Equal(expected, NoteAppearance.ColorKeyForTheme(key, darkTheme));
+
+    [Fact]
+    public void ColorKeyForTheme_RoundTripsEveryPaletteColor()
+    {
+        foreach (var key in NoteAppearance.Presets.Keys)
+        {
+            var dark = NoteAppearance.ColorKeyForTheme(key, darkTheme: true);
+            Assert.True(NoteAppearance.UsesDarkColors(new StickyNote { ColorKey = dark }), key);
+            var back = NoteAppearance.ColorKeyForTheme(dark, darkTheme: false);
+            Assert.False(NoteAppearance.UsesDarkColors(new StickyNote { ColorKey = back }), key);
+        }
     }
 
     // ライトの色はアプリをダークテーマにしても暗く塗り替えない。

@@ -12,7 +12,7 @@ Use colors and icons to tell notes apart, and pin the ones you need on top. Hide
 
 ### Light mode
 
-Schedules, checklists, Markdown tables, and photos in the English interface. Each note picks from 10 light and 10 dark colors regardless of the app theme, or a custom background and accent color.
+Schedules, checklists, Markdown tables, and photos in the English interface. Each note picks from 11 light and 11 dark colors regardless of the app theme, or a custom background and accent color. Switching the app between light and dark mode swaps every note to the paired color in the same palette column (custom colors are left alone).
 
 ![English light mode with schedules, checklists, Markdown, collapsed notes, translucent notes, and photos](docs/note_light_en.png)
 
