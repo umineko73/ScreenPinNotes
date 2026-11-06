@@ -628,7 +628,23 @@ public partial class StickyNoteWindow
         ShowActivated = false;
         try { Show(); }
         finally { ShowActivated = previous; }
+
+        // 「デスクトップの表示」などで最小化されていると Show() では戻らない。
+        // WindowState を変えると活性化するので、活性化しない復元を直接頼む。
+        if (WindowState == WindowState.Minimized)
+        {
+            var handle = new WindowInteropHelper(this).Handle;
+            if (handle != IntPtr.Zero) ShowWindow(handle, SwShowNoActivate);
+        }
     }
+
+    private const int SwShowNoActivate = 4;
+
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    /// <summary>画面に見えている状態か。最小化（デスクトップの表示）された窓は含めない。</summary>
+    public bool IsShownOnScreen => IsVisible && WindowState != WindowState.Minimized;
 
     public void ChangeZOrder(bool bringToFront) => MoveInZOrder(bringToFront ? HwndTop : HwndBottom);
 

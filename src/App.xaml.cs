@@ -914,7 +914,8 @@ public partial class App : System.Windows.Application, INoteWindowHost
 
     private void ToggleAllNotes()
     {
-        bool anyVisible = _windows.Any(w => w.IsVisible);
+        // デスクトップの表示で最小化された付箋は「見えていない」扱いにして、クリックで戻す。
+        bool anyVisible = _windows.Any(w => w.IsShownOnScreen);
         if (anyVisible) HideAllNotes(); else ShowAllNotes();
     }
 
