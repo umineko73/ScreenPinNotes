@@ -148,7 +148,12 @@ public sealed class AppSettings
 
     public List<string> FavoriteIcons { get; set; } = DefaultFavoriteIcons();
 
+    /// <summary>アイコンピッカーを開いてすぐ選べる、よく使うアイコンの初期値（1列に収まる10個）。</summary>
     public static List<string> DefaultFavoriteIcons()
+        => ["📌", "📝", "⭐", "❗", "✅", "⏳", "💡", "📅", "🔥", "🐱"];
+
+    /// <summary>1列のクイックバーになる前の初期値。手を付けていない人だけ新しい初期値へ移す。</summary>
+    private static List<string> LegacyFavoriteIcons()
         => ["📝", "❗", "⭐", "☐", "🔄", "⏳", "✅", "💡", "📅", "🔍", "🐛", "🏠",
             "🐶", "🐱", "🐰", "🐧"];
 
@@ -239,6 +244,8 @@ public sealed class AppSettings
         }
 
         // An empty list is intentional: do not restore removed favorites.
+        if (FavoriteIcons != null && FavoriteIcons.SequenceEqual(LegacyFavoriteIcons()))
+            FavoriteIcons = DefaultFavoriteIcons();
         FavoriteIcons = (FavoriteIcons ?? DefaultFavoriteIcons())
             .Where(icon => !string.IsNullOrWhiteSpace(icon))
             .Select(icon => icon is "🔗" or "🔗️" ? "🌐" : icon)

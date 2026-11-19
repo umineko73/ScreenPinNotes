@@ -48,4 +48,6 @@ public static class UiIcons
     public const string Copy = "\uE8C8";
     public const string Paste = "\uE77F";
     public const string Cancel = "\uE711";
+    /// <summary>\u925B\u7B46\u3002\u30AB\u30B9\u30BF\u30E0\u914D\u8272\u306E\u7DE8\u96C6\u306A\u3069\u3002</summary>
+    public const string Edit = "\uE70F";
 }

@@ -18,14 +18,20 @@
   <data name="IconFavorites" xml:space="preserve">
     <value>Favorites</value>
   </data>
-  <data name="IconAll" xml:space="preserve">
-    <value>All icons</value>
-  </data>
   <data name="IconEditFavorites" xml:space="preserve">
     <value>Edit favorites</value>
   </data>
+  <data name="IconEditDone" xml:space="preserve">
+    <value>Done</value>
+  </data>
   <data name="IconFavoritesHint" xml:space="preserve">
-    <value>Click an icon to add or remove it. Gold borders mark favorites.</value>
+    <value>Click an icon to add it to or remove it from the top row (favorites).</value>
+  </data>
+  <data name="IconMore" xml:space="preserve">
+    <value>More icons</value>
+  </data>
+  <data name="IconFewer" xml:space="preserve">
+    <value>Show fewer</value>
   </data>
   <data name="IconAddFavorite" xml:space="preserve">
     <value>Add to favorites</value>

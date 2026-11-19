@@ -126,12 +126,7 @@ public partial class StickyNoteWindow : Window
         new();
     private readonly System.Windows.Threading.DispatcherTimer _titlePreviewTimer =
         new();
-    private WrapPanel? _iconPanel;
     private Popup?     _iconPopup;
-
-    // タイトルバーに付けられるアイコン。先頭の "" は「アイコンなし」で固定。
-    // それ以降は settings.json の IconPalette で差し替えられる。
-    private IEnumerable<string> IconList => new[] { "" }.Concat(Settings.IconPalette);
     private string?   _contextMenuLinkTarget;
     private MenuItem   _openLinkItem  = new();
     private MenuItem   _copyLinkItem  = new();
@@ -395,9 +390,12 @@ public partial class StickyNoteWindow : Window
         foreach (var popup in new[] { _colorPopup, _iconPopup })
         {
             if (popup?.IsOpen != true) continue;
-            if (popup.Child is FrameworkElement child &&
-                new Rect(child.RenderSize).Contains(mouse.GetPosition(child))) continue;
-            if (popup.PlacementTarget is WpfButton button &&
+            // 影の余白ではなくカード本体で内外を判断する（付箋の上に重ねて開くので、
+            // カードのすぐ横を押したら閉じてほしい）。
+            if (PickerCard(popup) is { } card &&
+                new Rect(card.RenderSize).Contains(mouse.GetPosition(card))) continue;
+            // 開いたボタンを押したときは、そのボタンの Click が閉じる。
+            if (popup.Tag is WpfButton button &&
                 new Rect(button.RenderSize).Contains(mouse.GetPosition(button))) continue;
             popup.IsOpen = false;
         }

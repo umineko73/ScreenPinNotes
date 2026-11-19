@@ -44,29 +44,44 @@ public class StickyNoteWindowTests
             new StickyNote { Icon = "📝" }, settings), storage);
         try
         {
-            var popup = (Popup)typeof(StickyNoteWindow).GetField("_iconPopup",
-                BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
-            var content = (StackPanel)((Border)popup.Child).Child;
-            var edit = (CheckBox)content.Children[0];
-            var panel = (WrapPanel)((ScrollViewer)content.Children[2]).Content;
-            Button Find(string icon) => panel.Children.OfType<Button>().First(b => (string)b.Tag == icon);
-            void Click(string icon) => Find(icon).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var parts = typeof(StickyNoteWindow).GetField("_iconPicker", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
+            T Part<T>(string name) => (T)parts.GetType().GetProperty(name)!.GetValue(parts)!;
+            var quick = Part<WrapPanel>("Quick");
+            var sections = Part<StackPanel>("Sections");
+            Button Find(Panel panel, string icon) => panel.Children.OfType<Button>().First(b => (string)b.Tag == icon);
+            Button FindInList(string icon) => sections.Children.OfType<WrapPanel>()
+                .SelectMany(p => p.Children.OfType<Button>()).First(b => (string)b.Tag == icon);
+            void Click(Button button) => button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
-            Assert.Equal("🐱", panel.Children.OfType<Button>().First().Tag);
-            edit.IsChecked = true;
-            Assert.False(Find("").IsEnabled);
-            Click("🐱");
+            // 開いた直後は、よく使うの1列だけで一覧は作らない。
+            Assert.Equal("🐱", quick.Children.OfType<Button>().Single().Tag);
+            Assert.Empty(sections.Children);
+
+            Click(Part<Button>("More"));
+            Assert.True(Part<bool>("Expanded"));
+            Assert.NotEmpty(sections.Children);
+            Click(Part<Button>("Edit"));
+            Assert.True(Part<bool>("Editing"));
+            Assert.False(Part<Button>("None").IsEnabled);
+            Click(Find(quick, "🐱"));
             Assert.Empty(settings.FavoriteIcons);
             Assert.Empty(storage.LoadSettings().FavoriteIcons);
-            Click("🐧");
-            Click("⭐");
+            Click(FindInList("🐧"));
+            Click(FindInList("⭐"));
             Assert.Equal(["🐧", "⭐"], storage.LoadSettings().FavoriteIcons);
+            Assert.Equal(["🐧", "⭐"], quick.Children.OfType<Button>().Select(b => (string)b.Tag));
             Assert.Equal("📝", window.ViewModel.Icon);
 
-            edit.IsChecked = false;
-            Click("🐧");
+            Click(Part<Button>("Edit"));
+            Assert.False(Part<bool>("Editing"));
+            Click(Find(quick, "🐧"));
             Assert.Equal("🐧", window.ViewModel.Icon);
             Assert.Equal(["🐧", "⭐"], settings.FavoriteIcons);
+
+            // 一覧からも選べる。
+            InvokePrivate(window, "SetIconPickerExpanded", true);
+            Click(FindInList("🦊"));
+            Assert.Equal("🦊", window.ViewModel.Icon);
         }
         finally
         {
@@ -3161,7 +3176,7 @@ public class StickyNoteWindowTests
 
     // メニューから開くピッカーは、マウスが付箋から遠くても付箋の範囲の近くに出す。
     [WpfFact]
-    public void PickersOpenedFromTheMenu_StayNearTheNote()
+    public void PickersOpenedFromTheMenu_OverlapTheNote()
     {
         EnsureApplication();
         using var temp = new TempDataDirectory();
@@ -3173,15 +3188,22 @@ public class StickyNoteWindowTests
             window.Show();
             window.UpdateLayout();
             var root = Assert.IsType<Border>(window.FindName("RootBorder"));
+            const double ShadowMargin = 12;
 
-            InvokePrivate(window, "OpenColorPickerAtMouse");
-            var colorPopup = GetPrivateField<Popup>(window, "_colorPopup");
+            foreach (var (open, field) in new[] { ("OpenColorPickerAtMouse", "_colorPopup"), ("OpenIconPickerAtMouse", "_iconPopup") })
+            {
+                InvokePrivate(window, open);
+                var popup = GetPrivateField<Popup>(window, field);
 
-            Assert.True(colorPopup.IsOpen);
-            Assert.Same(root, colorPopup.PlacementTarget);
-            Assert.Equal(PlacementMode.Relative, colorPopup.Placement);
-            Assert.InRange(colorPopup.HorizontalOffset, 12, root.ActualWidth + 12);
-            Assert.InRange(colorPopup.VerticalOffset, 12, root.ActualHeight + 12);
+                Assert.True(popup.IsOpen);
+                Assert.Same(root, popup.PlacementTarget);
+                Assert.Equal(PlacementMode.Relative, popup.Placement);
+                // マウスが付箋から離れていても、カード（影の余白の内側）は付箋の下端に
+                // 上側だけ重ねて出る。左端は付箋の内側に来る。
+                Assert.InRange(popup.HorizontalOffset + ShadowMargin, 8, root.ActualWidth);
+                Assert.Equal(root.ActualHeight - 24, popup.VerticalOffset + ShadowMargin, 3);
+                popup.IsOpen = false;
+            }
         }
         finally
         {

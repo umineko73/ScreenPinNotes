@@ -29,6 +29,7 @@ The first edit uses the normal note size. Resizing during editing remembers a se
 ## Colors, icons, and fonts
 
 - The palette has 11 light and 11 dark colors, and each keeps its look in either app mode. When you switch the app between light and dark mode, notes change to the paired color in the same palette column (light to dark, dark to light). Custom colors stay as they are.
+- The icon picker opens as one row of favorite icons (10 by default). The chevron at its end expands every icon, grouped as below, with tabs to jump between groups; **Edit favorites** there adds or removes icons from that row.
 - Icons are grouped into colors/shapes, urgency/priority, status/progress, notes/documents, ideas/research, schedule/communication, work/development, daily life, and animals. Choices include 🔥, colored circles/squares, and 19 animals. 🔗 is reserved for external-file status; use 🌐 for Web notes.
 - Installed fonts use Japanese display names when available. Confirmed symbol-only fonts are excluded; unknown fonts remain available. Names load on first opening, with a retry action on failure.
 - Up to five frequently used fonts appear at the top with `★`. Selection counts are shared across notes and survive restarts.
