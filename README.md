@@ -33,7 +33,7 @@ A darker palette for your desktop, including notes that display only an image. N
 | Files | Drop a file that is not an image to place it as a chip with Explorer's own icon; click to open it. Hold Shift to link to it where it is instead of copying |
 | Excel tables | Paste tables from Excel and copy Markdown tables back to Excel |
 | Appearance | Choose colors, fonts, icons, opacity, corners, borders, and title bar visibility |
-| Favorite icons | Keep a fixed favorites list at the top of the icon picker. Turn on **Edit favorites** and click icons to add or remove them; animal icons are included |
+| Favorite icons | The icon picker opens as a single row of favorites (10 by default). The chevron at the end expands the full list, with tabs to jump between categories; choose **Edit favorites** there and click icons to add or remove them |
 | Placement | Pin notes on top, collapse them, snap to screen edges or other notes, and save stacking order |
 | Multiple monitors | Notes that a resolution change or an unplugged monitor would leave off-screen move to a monitor that can show them, and return to their own place once that layout is back |
 | Reminders | Schedule once, daily, weekly (including chosen weeks of the month), or monthly (including the last day); flash the note, play a Windows sound, and snooze alerts |

@@ -154,6 +154,24 @@ public class AppSettingsTests
     }
 
     [Fact]
+    public void FavoriteIcons_DefaultFitsTheQuickBar_AndUntouchedOldDefaultsMove()
+    {
+        Assert.Equal(10, AppSettings.DefaultFavoriteIcons().Count);
+
+        var untouched = new AppSettings
+        {
+            FavoriteIcons = ["📝", "❗", "⭐", "☐", "🔄", "⏳", "✅", "💡", "📅", "🔍", "🐛", "🏠", "🐶", "🐱", "🐰", "🐧"],
+        };
+        untouched.Normalize();
+        Assert.Equal(AppSettings.DefaultFavoriteIcons(), untouched.FavoriteIcons);
+
+        // 自分で並べ替えた・減らしたものはそのまま残す。
+        var customized = new AppSettings { FavoriteIcons = ["🐧", "📝", "❗"] };
+        customized.Normalize();
+        Assert.Equal(["🐧", "📝", "❗"], customized.FavoriteIcons);
+    }
+
+    [Fact]
     public void FavoriteIcons_NormalizePreservesOrderAndEmptyChoice()
     {
         var settings = new AppSettings { FavoriteIcons = ["🐧", "", "  ", "⭐", "🐧"] };

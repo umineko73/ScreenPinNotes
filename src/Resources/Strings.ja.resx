@@ -18,14 +18,20 @@
   <data name="IconFavorites" xml:space="preserve">
     <value>よく使う</value>
   </data>
-  <data name="IconAll" xml:space="preserve">
-    <value>すべてのアイコン</value>
-  </data>
   <data name="IconEditFavorites" xml:space="preserve">
     <value>よく使うを編集</value>
   </data>
+  <data name="IconEditDone" xml:space="preserve">
+    <value>完了</value>
+  </data>
   <data name="IconFavoritesHint" xml:space="preserve">
-    <value>アイコンを押すと登録・解除できます。金色の枠は登録済みです。</value>
+    <value>アイコンを押すと、上の列（よく使う）に追加・削除できます。</value>
+  </data>
+  <data name="IconMore" xml:space="preserve">
+    <value>その他のアイコン</value>
+  </data>
+  <data name="IconFewer" xml:space="preserve">
+    <value>一覧を閉じる</value>
   </data>
   <data name="IconAddFavorite" xml:space="preserve">
     <value>よく使うに登録</value>

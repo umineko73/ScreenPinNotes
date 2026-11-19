@@ -237,14 +237,15 @@ public partial class StickyNoteWindow
     private void Color_Click(object sender, RoutedEventArgs e)
         => OpenColorPicker((UIElement)sender);
 
-    private void OpenColorPicker(UIElement placementTarget)
-        => OpenColorPicker(placementTarget, PlacementMode.Bottom, 0, 0);
+    private void OpenColorPicker(UIElement trigger)
+        => OpenColorPicker(AnchorBelow(trigger), trigger as WpfButton);
 
     private void OpenColorPickerAtMouse()
-    {
-        var (x, y) = PickerOffsetNearNote();
-        OpenColorPicker(null, PlacementMode.Relative, x, y);
-    }
+        => OpenColorPicker(CursorOnScreen(), null);
+
+    /// <summary>押したボタンの下。まだ画面に出ていない（試験などで直接呼ばれた）ときはマウスの位置。</summary>
+    private static System.Windows.Point AnchorBelow(UIElement trigger)
+        => PresentationSource.FromVisual(trigger) != null ? BottomLeftOnScreen(trigger) : CursorOnScreen();
 
     /// <summary>
     /// メニューから開くピッカーの位置（RootBorder 基準）。マウスはメニュー上にあり、
@@ -261,7 +262,7 @@ public partial class StickyNoteWindow
             Math.Clamp(point.Y, 0, Math.Max(0, RootBorder.ActualHeight)) + Offset);
     }
 
-    private void OpenColorPicker(UIElement? placementTarget, PlacementMode placement, double horizontalOffset, double verticalOffset)
+    private void OpenColorPicker(System.Windows.Point anchorOnScreen, WpfButton? trigger)
     {
         if (_colorPopup == null) return;
 
@@ -273,11 +274,7 @@ public partial class StickyNoteWindow
 
         ClosePickerPopups(except: _colorPopup);
         UpdateColorSelection();
-        _colorPopup.PlacementTarget = placementTarget ?? RootBorder;
-        _colorPopup.Placement = placement;
-        _colorPopup.HorizontalOffset = horizontalOffset;
-        _colorPopup.VerticalOffset = verticalOffset;
-        _colorPopup.IsOpen = true;
+        OpenPickerOverNote(_colorPopup, anchorOnScreen, trigger);
     }
 
     private void Icon_Click(object sender, RoutedEventArgs e)
@@ -293,16 +290,13 @@ public partial class StickyNoteWindow
                 openPicker();
         });
 
-    private void OpenIconPicker(UIElement placementTarget)
-        => OpenIconPicker(placementTarget, PlacementMode.Bottom, 0, 0);
+    private void OpenIconPicker(UIElement trigger)
+        => OpenIconPicker(AnchorBelow(trigger), trigger as WpfButton);
 
     private void OpenIconPickerAtMouse()
-    {
-        var (x, y) = PickerOffsetNearNote();
-        OpenIconPicker(null, PlacementMode.Relative, x, y);
-    }
+        => OpenIconPicker(CursorOnScreen(), null);
 
-    private void OpenIconPicker(UIElement? placementTarget, PlacementMode placement, double horizontalOffset, double verticalOffset)
+    private void OpenIconPicker(System.Windows.Point anchorOnScreen, WpfButton? trigger)
     {
         if (ViewModel.Model.IsExternalContent)
             return;
@@ -317,11 +311,7 @@ public partial class StickyNoteWindow
 
         ClosePickerPopups(except: _iconPopup);
         UpdateIconSelection();
-        _iconPopup.PlacementTarget = placementTarget ?? RootBorder;
-        _iconPopup.Placement = placement;
-        _iconPopup.HorizontalOffset = horizontalOffset;
-        _iconPopup.VerticalOffset = verticalOffset;
-        _iconPopup.IsOpen = true;
+        OpenPickerOverNote(_iconPopup, anchorOnScreen, trigger);
     }
 
     private void ClosePickerPopups(Popup? except = null)

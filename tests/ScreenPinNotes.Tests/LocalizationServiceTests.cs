@@ -155,6 +155,21 @@ public class LocalizationServiceTests
         Assert.Equal(japanese, LocalizationService.T(key, "ja"));
     }
 
+    // アイコンピッカーを「よく使うの1列＋詳細」に作り直したときのキー。
+    [Theory]
+    [InlineData("IconMore", "More icons", "その他のアイコン")]
+    [InlineData("IconFewer", "Show fewer", "一覧を閉じる")]
+    [InlineData("IconEditFavorites", "Edit favorites", "よく使うを編集")]
+    [InlineData("IconEditDone", "Done", "完了")]
+    [InlineData("IconFavoritesHint",
+        "Click an icon to add it to or remove it from the top row (favorites).",
+        "アイコンを押すと、上の列（よく使う）に追加・削除できます。")]
+    public void IconPickerStringsAreInTheCatalog(string key, string english, string japanese)
+    {
+        Assert.Equal(english, LocalizationService.T(key, "en"));
+        Assert.Equal(japanese, LocalizationService.T(key, "ja"));
+    }
+
     [Fact]
     public void ExternalNoteFileFilterAcceptsLogFiles()
     {
