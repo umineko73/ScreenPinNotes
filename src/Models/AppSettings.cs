@@ -436,11 +436,11 @@ public sealed class LayoutSettings
     /// <summary>タイトルバーを隠している付箋の左端に出す帯の太さ。</summary>
     public double TitleBarHiddenSpineWidth { get; set; } = 3;
     /// <summary>
-    /// 帯を付箋の左端から何ピクセル離すか。既定の3pxは、外枠(1px)と本文の
-    /// 左余白(8px)のちょうど中ほどに3px幅の帯が収まる位置。
+    /// 帯を付箋の左端から何ピクセル離すか。帯から本文までも同じだけ空け、帯を左右の
+    /// 真ん中に置く。既定の8pxは、帯の無い付箋の本文の余白と同じ。
     /// <see cref="AppSettings.SpineStyleInset"/> のときだけ使う。
     /// </summary>
-    public double TitleBarHiddenSpineInset { get; set; } = 3;
+    public double TitleBarHiddenSpineInset { get; set; } = 8;
     /// <summary>
     /// 付箋の四隅の丸み。0 なら角のままにする。既定は Windows 11 の窓に合わせて 8。
     /// 透明な窓なので DWM の角丸と影は使えず、RootBorder の角丸で描く。

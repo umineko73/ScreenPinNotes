@@ -407,9 +407,11 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         }
     }
 
-    /// <summary>本文の手前まで、帯と左右の余白をまとめて持ち手にする。</summary>
+    /// <summary>本文の文字の手前まで、帯と左右の余白をまとめて持ち手にする。</summary>
     public double TitleSpineHandleWidth =>
-        Math.Max(SpineExtent, UsesTightImageLayout ? NoteContentPadding.Left : NoteTextPadding.Left);
+        Math.Max(SpineExtent, UsesTightImageLayout
+            ? NoteContentPadding.Left
+            : NoteTextPadding.Left + (UsesInsetSpine ? TextInnerMargin : 0));
 
     private bool UsesInsetSpine =>
         !string.Equals(_settings.TitleBarHiddenSpineStyle, AppSettings.SpineStyleEdge,
@@ -486,8 +488,25 @@ public class StickyNoteViewModel : INotifyPropertyChanged
     /// 本文が文字のときの余白。画像以外の本文、編集中、畳んだ1行表示で使う。
     /// </summary>
     public Thickness NoteTextPadding => new(
-        SpineExtent + DefaultContentPadding,
+        SpineExtent + SpineTextGap,
         DefaultContentPadding, DefaultContentPadding, DefaultContentPadding);
+
+    /// <summary>
+    /// 帯から本文の欄までの間隔。端から離す置き方では、見た目で「付箋の端から帯まで」と
+    /// 「帯から文字まで」が同じになるようにする。本文の文字は欄の内側にさらに
+    /// <see cref="TextInnerMargin"/> 入って描かれるので、そのぶんを引く。
+    /// 端に付ける置き方と帯が無いときは、ふだんの余白。
+    /// </summary>
+    private double SpineTextGap =>
+        SpineExtent > 0 && UsesInsetSpine
+            ? Math.Max(0, SpineInset - TextInnerMargin)
+            : DefaultContentPadding;
+
+    /// <summary>
+    /// 本文の欄の内側の余白。表示中の文書の PagePadding（StickyNoteWindow の
+    /// DefaultDocumentPagePadding）と、畳んだ1行の文字の Margin に合わせてある。
+    /// </summary>
+    private const double TextInnerMargin = 5;
 
     /// <summary>
     /// 編集欄の余白。編集中は画像も生の Markdown 文字列なので、本文が画像1枚でも

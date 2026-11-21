@@ -294,7 +294,7 @@ public class AppSettingsTests
         var settings = new AppSettings();
 
         Assert.Equal(AppSettings.SpineStyleInset, settings.TitleBarHiddenSpineStyle);
-        Assert.Equal(3, settings.Layout.TitleBarHiddenSpineInset);
+        Assert.Equal(8, settings.Layout.TitleBarHiddenSpineInset);
         // 画像だけの付箋でも、既定では帯の居場所を残す。
         Assert.Equal(AppSettings.ImageSpineGutter, settings.ImageOnlySpineStyle);
     }
