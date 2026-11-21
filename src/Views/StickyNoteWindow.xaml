@@ -492,7 +492,7 @@
                     HorizontalAlignment="Left"
                     Margin="0"
                     Width="{Binding TitleSpineHandleWidth}"
-                    ToolTip="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=MoveNoteTooltip}"
+                    ToolTip="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=SpineHandleTooltip}"
                     MouseLeftButtonDown="SpineHandle_MouseLeftButtonDown"
                     MouseMove="SpineHandle_MouseMove"
                     MouseLeftButtonUp="SpineHandle_MouseLeftButtonUp"
@@ -509,6 +509,38 @@
                        RadiusX="{Binding TitleSpineCornerRadius}"
                        RadiusY="{Binding TitleSpineCornerRadius}"
                        Fill="{Binding HeaderBrush}"/>
+
+            <!-- 帯にマウスが乗ったら、帯の上に点を並べたつまみを出す。帯は細い線なので、
+                 それだけでは掴める所に見えない。ふだんは出さず、帯の見た目は変えない。
+                 つまみは帯の色、点は付箋の地の色で、穴が開いたように見せる。
+                 高さは最大 28。畳んだ1行の付箋では、帯と同じ上下の余白を残して縮む。 -->
+            <Border x:Name="TitleBarHiddenSpineGrip"
+                    Grid.Row="0" Grid.RowSpan="2"
+                    Panel.ZIndex="16"
+                    IsHitTestVisible="False"
+                    HorizontalAlignment="Left"
+                    Width="8" MaxHeight="28"
+                    Margin="{Binding TitleSpineGripMargin}"
+                    CornerRadius="4"
+                    Background="{Binding HeaderBrush}">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding IsMouseOver, ElementName=TitleBarHiddenSpineHandle}" Value="True"/>
+                                    <Condition Binding="{Binding Visibility, ElementName=TitleBarHiddenSpineHandle}" Value="Visible"/>
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </MultiDataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <Path Data="M0,0h1.6v1.6h-1.6z M3,0h1.6v1.6h-1.6z M0,3.4h1.6v1.6h-1.6z M3,3.4h1.6v1.6h-1.6z M0,6.8h1.6v1.6h-1.6z M3,6.8h1.6v1.6h-1.6z"
+                      Fill="{Binding BackgroundBrush}"
+                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
 
             <!-- リマインダーは付箋全体を点滅させる。塗りは半透明にして、本文が透けて読めるようにする。 -->
             <Border x:Name="ReminderFlashBorder" Grid.RowSpan="2" Panel.ZIndex="100"

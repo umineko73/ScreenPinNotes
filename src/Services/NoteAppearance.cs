@@ -28,38 +28,117 @@ public sealed class NoteAppearance
     /// <summary>ユーザーが背景色とアクセント色を選ぶ配色のキー。色は StickyNote.Custom*Color に持つ。</summary>
     public const string CustomColorKey = "custom";
 
-    // 背景とヘッダー（アクセント）の組。アプリのライト/ダークテーマとは無関係に、
-    // ライト11色・ダーク11色をこのままの色で描く。キーが "dark-" で始まるものがダーク。
-    // 既存ノートの互換のため yellow/blue/green/pink/purple/gray のキーは変更しない。
+    /// <summary>
+    /// 色のパレット。ライト11色とダーク11色を同じ色相の順（黄・橙・茶・赤・桃・紫・青・空・青緑・緑・灰）に
+    /// 並べ、同じ位置の色をテーマ切り替えの対にする（<see cref="ThemeCounterpart"/>）。
+    /// 設定で選んだパレットだけをピッカーに出すが、どのパレットの色も常に描けるよう、
+    /// キーはパレットごとに別にする（<see cref="Presets"/> にすべて入る）。
+    /// </summary>
+    public sealed record Palette(string Id, string NameKey,
+        IReadOnlyList<(string Key, string Bg, string Header)> Light,
+        IReadOnlyList<(string Key, string Bg, string Header)> Dark);
+
+    public const string PaletteClassic = "Classic";
+    public const string PaletteModern = "Modern";
+    public const string PaletteSoft = "Soft";
+
+    public static IReadOnlyList<Palette> Palettes { get; } =
+    [
+        // 付箋: 色の付いた紙。既存ノートの互換のため yellow/blue/green/pink/purple/gray のキーは変更しない。
+        new(PaletteClassic, "ColorPaletteClassic",
+        [
+            ("yellow", "#FFFDE7", "#F9A825"),
+            ("orange", "#FFEDD5", "#C2410C"),
+            ("brown",  "#EFEBE9", "#6D4C41"),
+            ("red",    "#FEE2E2", "#B91C1C"),
+            ("pink",   "#FCE7F3", "#BE185D"),
+            ("purple", "#EEECFB", "#6D28D9"),
+            ("blue",   "#DBEAFE", "#1D4ED8"),
+            ("sky",    "#E0F2FE", "#0369A1"),
+            ("teal",   "#D0F7EF", "#0F766E"),
+            ("green",  "#DEFAE8", "#15803D"),
+            ("gray",   "#F3F4F6", "#4B5563"),
+        ],
+        [
+            ("dark-olive",    "#32321E", "#9C9A4E"),
+            ("dark-rust",     "#3D2A1E", "#C07A48"),
+            ("dark-coffee",   "#352D25", "#A0825F"),
+            ("dark-wine",     "#3F252D", "#AC657B"),
+            ("dark-plum",     "#35283F", "#946AAC"),
+            ("dark-indigo",   "#262744", "#7275C4"),
+            ("dark-navy",     "#1E293B", "#5277AC"),
+            ("dark-sky",      "#183240", "#4B94B8"),
+            ("dark-teal",     "#193631", "#43877B"),
+            ("dark-forest",   "#1F3322", "#5E9A5A"),
+            ("dark-charcoal", "#252A32", "#667085"),
+        ]),
+        // モダン: 白に近い地に、鮮やかな帯。地はごく薄く色を差すだけにして、色はほぼ帯で見分ける。
+        new(PaletteModern, "ColorPaletteModern",
+        [
+            ("modern-yellow", "#FFFDF4", "#EAB308"),
+            ("modern-orange", "#FFFAF5", "#F97316"),
+            ("modern-brown",  "#FCFAF8", "#A16207"),
+            ("modern-red",    "#FFF8F8", "#EF4444"),
+            ("modern-pink",   "#FFF7FB", "#EC4899"),
+            ("modern-purple", "#FAF8FF", "#8B5CF6"),
+            ("modern-blue",   "#F7FAFF", "#3B82F6"),
+            ("modern-sky",    "#F5FBFF", "#0EA5E9"),
+            ("modern-teal",   "#F4FCFB", "#14B8A6"),
+            ("modern-green",  "#F5FCF7", "#22C55E"),
+            ("modern-gray",   "#FAFAFA", "#71717A"),
+        ],
+        [
+            ("modern-dark-yellow", "#232220", "#FACC15"),
+            ("modern-dark-orange", "#24211F", "#FB923C"),
+            ("modern-dark-brown",  "#232120", "#D29A5C"),
+            ("modern-dark-red",    "#241F20", "#F87171"),
+            ("modern-dark-pink",   "#241F22", "#F472B6"),
+            ("modern-dark-purple", "#211F25", "#A78BFA"),
+            ("modern-dark-blue",   "#1F2125", "#60A5FA"),
+            ("modern-dark-sky",    "#1E2225", "#38BDF8"),
+            ("modern-dark-teal",   "#1E2322", "#2DD4BF"),
+            ("modern-dark-green",  "#1F2320", "#4ADE80"),
+            ("modern-dark-gray",   "#212124", "#A1A1AA"),
+        ]),
+        // ソフト: 紙のような生成りの地に、彩度を落としたくすみ色。
+        new(PaletteSoft, "ColorPaletteSoft",
+        [
+            ("soft-yellow", "#FBF6E9", "#C29B2E"),
+            ("soft-orange", "#FBEFE6", "#C2774A"),
+            ("soft-brown",  "#F4EEE8", "#8C6E5D"),
+            ("soft-red",    "#F8EAE8", "#B5615A"),
+            ("soft-pink",   "#F8ECF0", "#B06C87"),
+            ("soft-purple", "#F0ECF5", "#8672A6"),
+            ("soft-blue",   "#E9EEF6", "#5A78A6"),
+            ("soft-sky",    "#E8F2F5", "#4C8BA2"),
+            ("soft-teal",   "#E6F2EF", "#4B897D"),
+            ("soft-green",  "#EAF2E6", "#67895A"),
+            ("soft-gray",   "#EFEFEC", "#77776F"),
+        ],
+        [
+            ("soft-dark-yellow", "#2E2A22", "#BFA45A"),
+            ("soft-dark-orange", "#2F2722", "#C28B66"),
+            ("soft-dark-brown",  "#2B2622", "#A08A78"),
+            ("soft-dark-red",    "#2F2424", "#BE7D78"),
+            ("soft-dark-pink",   "#2E2429", "#BC8AA0"),
+            ("soft-dark-purple", "#29252F", "#9D8DBA"),
+            ("soft-dark-blue",   "#22272F", "#7F9BC2"),
+            ("soft-dark-sky",    "#212A2E", "#76A9BC"),
+            ("soft-dark-teal",   "#212B29", "#74A99D"),
+            ("soft-dark-green",  "#252B22", "#8BAA7C"),
+            ("soft-dark-gray",   "#282826", "#9A9A92"),
+        ]),
+    ];
+
+    /// <summary>設定のパレット名から選ぶ。知らない名前は「付箋」。</summary>
+    public static Palette PaletteFor(string? id)
+        => Palettes.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase)) ?? Palettes[0];
+
+    /// <summary>すべてのパレットの色。保存済みの付箋は、今どのパレットを選んでいても元の色で描く。</summary>
     public static IReadOnlyDictionary<string, (string Bg, string Header)> Presets { get; } =
         new System.Collections.ObjectModel.ReadOnlyDictionary<string, (string Bg, string Header)>(
-        new Dictionary<string, (string Bg, string Header)>()
-    {
-        // ライト。ダークと同じ順に並べる（ThemeCounterpart が同じ位置の色を対にする）。
-        ["yellow"]  = ("#FFFDE7", "#F9A825"),
-        ["orange"]  = ("#FFEDD5", "#C2410C"),
-        ["brown"]   = ("#EFEBE9", "#6D4C41"),
-        ["red"]     = ("#FEE2E2", "#B91C1C"),
-        ["pink"]    = ("#FCE7F3", "#BE185D"),
-        ["purple"]  = ("#EEECFB", "#6D28D9"),
-        ["blue"]    = ("#DBEAFE", "#1D4ED8"),
-        ["sky"]     = ("#E0F2FE", "#0369A1"),
-        ["teal"]    = ("#D0F7EF", "#0F766E"),
-        ["green"]   = ("#DEFAE8", "#15803D"),
-        ["gray"]    = ("#F3F4F6", "#4B5563"),
-        // ダーク
-        ["dark-olive"]    = ("#32321E", "#9C9A4E"),
-        ["dark-rust"]     = ("#3D2A1E", "#C07A48"),
-        ["dark-coffee"]   = ("#352D25", "#A0825F"),
-        ["dark-wine"]     = ("#3F252D", "#AC657B"),
-        ["dark-plum"]     = ("#35283F", "#946AAC"),
-        ["dark-indigo"]   = ("#262744", "#7275C4"),
-        ["dark-navy"]     = ("#1E293B", "#5277AC"),
-        ["dark-sky"]      = ("#183240", "#4B94B8"),
-        ["dark-teal"]     = ("#193631", "#43877B"),
-        ["dark-forest"]   = ("#1F3322", "#5E9A5A"),
-        ["dark-charcoal"] = ("#252A32", "#667085"),
-    });
+            Palettes.SelectMany(p => p.Light.Concat(p.Dark))
+                .ToDictionary(c => c.Key, c => (c.Bg, c.Header)));
 
     // 以前のパレットにあった色。選択肢からは外したが、保存済みの付箋は元の色のまま描く。
     private static readonly IReadOnlyDictionary<string, (string Bg, string Header)> LegacyPresets =
@@ -80,23 +159,30 @@ public sealed class NoteAppearance
         ["dark"]    = ("#E5E7EB", "#111827"),
     };
 
-    public static IEnumerable<string> LightPresetKeys => Presets.Keys.Where(k => !IsDarkPresetKey(k));
-    public static IEnumerable<string> DarkPresetKeys => Presets.Keys.Where(IsDarkPresetKey);
-    private static bool IsDarkPresetKey(string key) => key.StartsWith("dark-", StringComparison.Ordinal);
+    /// <summary>パレットのライトの色（既定は「付箋」）。</summary>
+    public static IEnumerable<string> LightPresetKeys(string? palette = null) => PaletteFor(palette).Light.Select(c => c.Key);
+    /// <summary>パレットのダークの色（既定は「付箋」）。</summary>
+    public static IEnumerable<string> DarkPresetKeys(string? palette = null) => PaletteFor(palette).Dark.Select(c => c.Key);
+
+    /// <summary>色がどのパレットの、ダークの段か・何番目か。パレットに無い色は null。</summary>
+    private static (Palette Palette, bool Dark, int Index)? Locate(string key)
+    {
+        foreach (var palette in Palettes)
+        {
+            for (var i = 0; i < palette.Light.Count; i++)
+                if (palette.Light[i].Key == key) return (palette, false, i);
+            for (var i = 0; i < palette.Dark.Count; i++)
+                if (palette.Dark[i].Key == key) return (palette, true, i);
+        }
+        return null;
+    }
 
     /// <summary>
-    /// ライトとダークの対になる色。パレットの同じ列（ライトとダークの並びの同じ位置）の色で、
+    /// ライトとダークの対になる色。同じパレットの同じ列（ライトとダークの並びの同じ位置）の色で、
     /// カスタム・旧パレットの色・未知のキーは対がないので null。
     /// </summary>
     public static string? ThemeCounterpart(string key)
-    {
-        var light = LightPresetKeys.ToList();
-        var dark = DarkPresetKeys.ToList();
-        var index = light.IndexOf(key);
-        if (index >= 0) return dark[index];
-        index = dark.IndexOf(key);
-        return index >= 0 ? light[index] : null;
-    }
+        => Locate(key) is { } at ? (at.Dark ? at.Palette.Light : at.Palette.Dark)[at.Index].Key : null;
 
     /// <summary>
     /// アプリのテーマを切り替えたときの色。ダークへ切り替えるとライトの色は対のダークに、
@@ -104,7 +190,18 @@ public sealed class NoteAppearance
     /// カスタム、対のない色）はそのまま。
     /// </summary>
     public static string ColorKeyForTheme(string key, bool darkTheme)
-        => IsDarkPresetKey(key) != darkTheme && ThemeCounterpart(key) is { } counterpart ? counterpart : key;
+        => Locate(key) is { } at && at.Dark != darkTheme && ThemeCounterpart(key) is { } counterpart ? counterpart : key;
+
+    /// <summary>
+    /// パレットを切り替えたときの色。別のパレットの色なら、切り替え先の同じ段・同じ列の色
+    /// （同じ色相）にする。カスタムや旧パレットの色はそのまま。
+    /// </summary>
+    public static string ColorKeyForPalette(string key, string? palette)
+    {
+        if (Locate(key) is not { } at) return key;
+        var target = PaletteFor(palette);
+        return (at.Dark ? target.Dark : target.Light)[at.Index].Key;
+    }
 
     /// <summary>付箋の背景色とアクセント色。未知のキーや壊れたカスタム色は黄色にする。</summary>
     public static (WpfColor Background, WpfColor Accent) ResolveColors(StickyNote note)
@@ -233,6 +330,28 @@ public sealed class NoteAppearance
         byte Lerp(byte a, byte b) => (byte)Math.Round(a + (b - a) * amount);
         return WpfColor.FromRgb(Lerp(from.R, to.R), Lerp(from.G, to.G), Lerp(from.B, to.B));
     }
+
+    /// <summary>
+    /// 色見本の塗り。左に帯（アクセント）、残りを地の色にして、付箋の見た目をそのまま縮めて見せる。
+    /// 地がほぼ白いモダンのパレットでも、帯の色で見分けが付く。
+    /// </summary>
+    public static WpfBrush SwatchBrush(WpfColor background, WpfColor accent)
+    {
+        var brush = new System.Windows.Media.LinearGradientBrush
+        {
+            StartPoint = new System.Windows.Point(0, 0.5),
+            EndPoint = new System.Windows.Point(1, 0.5),
+        };
+        brush.GradientStops.Add(new System.Windows.Media.GradientStop(accent, 0));
+        brush.GradientStops.Add(new System.Windows.Media.GradientStop(accent, SwatchSpineRatio));
+        brush.GradientStops.Add(new System.Windows.Media.GradientStop(background, SwatchSpineRatio));
+        brush.GradientStops.Add(new System.Windows.Media.GradientStop(background, 1));
+        brush.Freeze();
+        return brush;
+    }
+
+    /// <summary>色見本の幅のうち、帯にあてる割合。</summary>
+    public const double SwatchSpineRatio = 0.2;
 
     public static string ToHex(WpfColor c) => $"#{c.R:X2}{c.G:X2}{c.B:X2}";
 

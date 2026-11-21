@@ -417,6 +417,11 @@
   <data name="ColorTooltip" xml:space="preserve">
     <value>色を変更</value>
   </data>
+  <data name="SettingsColorPalette" xml:space="preserve"><value>色のパレット</value></data>
+  <data name="SettingsColorPaletteHint" xml:space="preserve"><value>付箋の色ピッカーに並べる色の組み合わせ。塗ってある付箋の色は変わりません。</value></data>
+  <data name="ColorPaletteClassic" xml:space="preserve"><value>付箋</value></data>
+  <data name="ColorPaletteModern" xml:space="preserve"><value>モダン</value></data>
+  <data name="ColorPaletteSoft" xml:space="preserve"><value>ソフト</value></data>
   <data name="ColorPaletteCustom" xml:space="preserve"><value>カスタム</value></data>
   <data name="CustomColorTooltip" xml:space="preserve"><value>カスタム配色（タイトルバーは背景色を少し濃くした色）</value></data>
   <data name="CustomBackgroundColor" xml:space="preserve"><value>背景色</value></data>
@@ -534,6 +539,9 @@
   </data>
   <data name="SettingsNotesRoot" xml:space="preserve">
     <value>保存フォルダ</value>
+  </data>
+  <data name="SpineHandleTooltip" xml:space="preserve">
+    <value>タイトルバーを隠しています。ここをドラッグで移動</value>
   </data>
   <data name="MoveNoteTooltip" xml:space="preserve">
     <value>ドラッグで付箋を移動</value>

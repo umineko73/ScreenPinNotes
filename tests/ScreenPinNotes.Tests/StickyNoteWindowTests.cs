@@ -3708,6 +3708,42 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
+    // 帯にはふだん持ち手を出さない。持ち手は帯の中心に重なり、帯の上の当たり判定には
+    // 「タイトルバーを隠している」「ここで動かせる」と分かるツールチップが付く。
+    [WpfTheory]
+    [InlineData("Inset", 3, 3)]
+    [InlineData("Inset", 6, 0)]
+    [InlineData("Edge", 3, 3)]
+    public void TitleBarHiddenSpineGrip_IsCenteredOnTheSpineAndHiddenAtRest(string style, double width, double inset)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var settings = new AppSettings { TitleBarHiddenSpineStyle = style };
+        settings.Layout.TitleBarHiddenSpineWidth = width;
+        settings.Layout.TitleBarHiddenSpineInset = inset;
+        var note = new StickyNote { IsTitleBarHidden = true, Content = "body", Width = 240, Height = 160 };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var spine = Assert.IsType<System.Windows.Shapes.Rectangle>(window.FindName("TitleBarHiddenSpine"));
+            var grip = Assert.IsType<Border>(window.FindName("TitleBarHiddenSpineGrip"));
+            var handle = Assert.IsType<Border>(window.FindName("TitleBarHiddenSpineHandle"));
+            Assert.Equal(Visibility.Collapsed, grip.Visibility);
+            Assert.False(grip.IsHitTestVisible);
+            var spineCenter = spine.Margin.Left + (spine.ActualWidth / 2);
+            var gripCenter = grip.Margin.Left + (StickyNoteViewModel.SpineGripWidth / 2);
+            if (spineCenter >= StickyNoteViewModel.SpineGripWidth / 2)
+                Assert.Equal(spineCenter, gripCenter, 3);
+            else
+                Assert.Equal(0, grip.Margin.Left);
+            Assert.Equal(StickyNoteViewModel.SpineGripWidth, grip.Width);
+            Assert.Equal(LocalizationService.T("SpineHandleTooltip"), handle.ToolTip);
+        }
+        finally { window.Close(); }
+    }
+
     [WpfFact]
     public void TitleBarHiddenSpine_FollowsTheTitleBarToggle()
     {
@@ -3836,7 +3872,7 @@ public class StickyNoteWindowTests
             window.Show();
             window.UpdateLayout();
             var root = Assert.IsType<Border>(window.FindName("RootBorder"));
-            Assert.Equal(0, Assert.IsType<RectangleGeometry>(root.Clip).RadiusX);
+            Assert.Equal(8, Assert.IsType<RectangleGeometry>(root.Clip).RadiusX);
 
             settings.Layout.NoteCornerRadius = 12;
             window.RefreshSettings();
@@ -3955,17 +3991,20 @@ public class StickyNoteWindowTests
             window.Show();
             window.UpdateLayout();
             var spine = Assert.IsType<System.Windows.Shapes.Rectangle>(window.FindName("TitleBarHiddenSpine"));
-            Assert.Equal(3, spine.Margin.Left);
-            Assert.Equal(3, spine.Margin.Top);
-            Assert.Equal(3, spine.Margin.Bottom);
+            Assert.Equal(8, spine.Margin.Left);
+            Assert.Equal(8, spine.Margin.Top);
+            Assert.Equal(8, spine.Margin.Bottom);
 
-            // 掴むための透明な板が右へはみ出す先は本文の左余白の中まで。
-            // 端からの距離 + 板の幅 が、本文の文字が始まる位置
-            // （ContentBox の Padding.Left）を越えないこと。
+            // 掴むための透明な板が右へはみ出す先は、本文の文字の手前まで。
+            // 端からの距離 + 板の幅 が、文字が始まる位置（ContentBox の Padding.Left
+            // に文書の PagePadding.Left を足した位置）を越えないこと。
             var handle = Assert.IsType<Border>(window.FindName("TitleBarHiddenSpineHandle"));
             var box = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
-            Assert.True(handle.Margin.Left + handle.ActualWidth <= box.Padding.Left,
-                $"grab handle reaches {handle.Margin.Left + handle.ActualWidth}px, text starts at {box.Padding.Left}px");
+            var textStart = box.Padding.Left + box.Document.PagePadding.Left;
+            Assert.True(handle.Margin.Left + handle.ActualWidth <= textStart,
+                $"grab handle reaches {handle.Margin.Left + handle.ActualWidth}px, text starts at {textStart}px");
+            // 端から帯までと、帯から文字までが同じ。
+            Assert.Equal(spine.Margin.Left, textStart - (spine.Margin.Left + spine.ActualWidth), 6);
         }
         finally { window.Close(); }
     }
@@ -4059,11 +4098,12 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
-    // 本文は帯を避けて始まる。帯のすぐ隣から文字が始まると、目印ではなく
-    // 本文の飾り罫のように見えてしまう。
+    // 本文は帯を避けて始まる。帯から文字までは、端から帯までと同じだけ空ける。
+    // 文字は欄の内側にさらに5px（PagePadding）入るので、欄の余白はそのぶん少ない。
     [WpfTheory]
-    [InlineData(true, 3.0, 3.0, 14.0)]    // 端からの距離3px + 帯3px + 本来の余白8px
-    [InlineData(true, 6.0, 8.0, 22.0)]
+    [InlineData(true, 8.0, 3.0, 14.0)]    // 端から8px + 帯3px + 3px（文字までは 3 + 5 = 8px）
+    [InlineData(true, 6.0, 8.0, 15.0)]
+    [InlineData(true, 3.0, 3.0, 6.0)]     // 5px より近づけると、文字の手前の5pxだけ残る
     [InlineData(false, 3.0, 3.0, 8.0)]    // 帯を出さないなら広げる理由がない
     public void NoteContentPadding_KeepsTheBodyClearOfTheSpine(
         bool showSpine, double inset, double spineWidth, double expectedLeft)
@@ -4093,7 +4133,7 @@ public class StickyNoteWindowTests
     // 画像1枚だけの付箋は、付箋を画像の額縁として使うことが多い。文字と違って
     // 余白の中で読むものではないので、帯の場所以外は詰めて画像を目一杯見せる。
     [WpfTheory]
-    [InlineData(true, 9.0)]    // 端からの距離3px + 帯3px + 帯の右にも3px
+    [InlineData(true, 19.0)]   // 端からの距離8px + 帯3px + 帯の右にも8px
     [InlineData(false, 0.0)]   // 帯が無ければ避けるものが無い
     public void NoteContentPadding_TightensForAnImageOnlyNote(bool showSpine, double expectedLeft)
     {
@@ -4177,7 +4217,7 @@ public class StickyNoteWindowTests
             // 開くと画像が出るので、そこで初めて詰める。
             imageNote.ViewModel.IsFolded = false;
             imageNote.UpdateLayout();
-            Assert.Equal(new Thickness(9, 0, 0, 0), imageBox.Padding);
+            Assert.Equal(new Thickness(19, 0, 0, 0), imageBox.Padding);
         }
         finally { imageNote.Close(); textNote.Close(); }
     }
@@ -4446,7 +4486,7 @@ public class StickyNoteWindowTests
     // 画像だけの付箋で帯をどう置くかは設定で選べる。「並べる」だけが場所を空け、
     // 「重ねる」「出さない」は画像を縁まで広げる。
     [WpfTheory]
-    [InlineData(AppSettings.ImageSpineGutter, 9.0, true)]
+    [InlineData(AppSettings.ImageSpineGutter, 19.0, true)]
     [InlineData(AppSettings.ImageSpineOverlay, 0.0, true)]
     [InlineData(AppSettings.ImageSpineHidden, 0.0, false)]
     public void ImageOnlyNote_PlacesTheSpineAsConfigured(
@@ -4616,10 +4656,10 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
-    // 左右の余白を含め、本文の手前までを持ち手にする。
+    // 左右の余白を含め、本文の文字の手前までを持ち手にする。
     [WpfTheory]
-    [InlineData(3.0, 14.0)]
-    [InlineData(0.0, 11.0)]
+    [InlineData(3.0, 11.0)]
+    [InlineData(0.0, 8.0)]
     [InlineData(8.0, 19.0)]
     public void TitleBarHiddenSpineHandle_LeavesRoomToGrab(double inset, double expectedWidth)
     {
@@ -4737,7 +4777,7 @@ public class StickyNoteWindowTests
             window.Show();
             window.UpdateLayout();
             var spine = Assert.IsType<System.Windows.Shapes.Rectangle>(window.FindName("TitleBarHiddenSpine"));
-            Assert.Equal(3, spine.Margin.Left);
+            Assert.Equal(8, spine.Margin.Left);
 
             settings.Layout.TitleBarHiddenSpineInset = 6;
             window.RefreshSettings();

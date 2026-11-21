@@ -51,15 +51,52 @@ public class NoteAppearanceTests
             Assert.IsType<SolidColorBrush>(unknown.BackgroundBrush).Color);
     }
 
-    [Fact]
-    public void PaletteHasElevenLightAndElevenDarkColors()
+    // どのパレットもライト11色・ダーク11色で、ライトの地は明るく、ダークの地は暗い。
+    [Theory]
+    [InlineData(NoteAppearance.PaletteClassic)]
+    [InlineData(NoteAppearance.PaletteModern)]
+    [InlineData(NoteAppearance.PaletteSoft)]
+    public void PaletteHasElevenLightAndElevenDarkColors(string palette)
     {
-        Assert.Equal(11, NoteAppearance.LightPresetKeys.Count());
-        Assert.Equal(11, NoteAppearance.DarkPresetKeys.Count());
-        foreach (var key in NoteAppearance.LightPresetKeys)
+        Assert.Equal(11, NoteAppearance.LightPresetKeys(palette).Count());
+        Assert.Equal(11, NoteAppearance.DarkPresetKeys(palette).Count());
+        foreach (var key in NoteAppearance.LightPresetKeys(palette))
             Assert.False(NoteAppearance.UsesDarkColors(new StickyNote { ColorKey = key }), key);
-        foreach (var key in NoteAppearance.DarkPresetKeys)
+        foreach (var key in NoteAppearance.DarkPresetKeys(palette))
             Assert.True(NoteAppearance.UsesDarkColors(new StickyNote { ColorKey = key }), key);
+    }
+
+    // パレットどうしで色のキーが重ならない（どのパレットの色も、選び直さずに描ける）。
+    [Fact]
+    public void PaletteKeysAreUniqueAcrossPalettes()
+    {
+        var all = NoteAppearance.Palettes.SelectMany(p => p.Light.Concat(p.Dark)).Select(c => c.Key).ToList();
+        Assert.Equal(all.Count, all.Distinct().Count());
+        Assert.Equal(all.Count, NoteAppearance.Presets.Count);
+        Assert.Equal(NoteAppearance.PaletteClassic, NoteAppearance.PaletteFor("unknown").Id);
+        Assert.Equal(NoteAppearance.PaletteModern, NoteAppearance.PaletteFor("modern").Id);
+    }
+
+    // パレットを切り替えると、同じ段・同じ列（同じ色相）の色になる。カスタムや旧パレットの色はそのまま。
+    [Theory]
+    [InlineData("yellow", NoteAppearance.PaletteModern, "modern-yellow")]
+    [InlineData("dark-forest", NoteAppearance.PaletteSoft, "soft-dark-green")]
+    [InlineData("modern-green", NoteAppearance.PaletteClassic, "green")]
+    [InlineData("soft-dark-blue", NoteAppearance.PaletteModern, "modern-dark-blue")]
+    [InlineData("custom", NoteAppearance.PaletteModern, "custom")]
+    [InlineData("amber", NoteAppearance.PaletteSoft, "amber")]
+    public void ColorKeyForPalette_KeepsTheHueAndTone(string key, string palette, string expected)
+        => Assert.Equal(expected, NoteAppearance.ColorKeyForPalette(key, palette));
+
+    // 新しいパレットでも、ライト・ダークの対はそのパレットの中で取る。
+    [Theory]
+    [InlineData("modern-green", "modern-dark-green")]
+    [InlineData("soft-gray", "soft-dark-gray")]
+    public void ThemeCounterpart_StaysWithinThePalette(string light, string dark)
+    {
+        Assert.Equal(dark, NoteAppearance.ThemeCounterpart(light));
+        Assert.Equal(light, NoteAppearance.ThemeCounterpart(dark));
+        Assert.Equal(dark, NoteAppearance.ColorKeyForTheme(light, darkTheme: true));
     }
 
     // パレットの同じ列の色がテーマ切り替えの対になる。
@@ -120,7 +157,7 @@ public class NoteAppearanceTests
     [Fact]
     public void LightPresetsKeepTheirColorsUnderTheDarkTheme()
     {
-        foreach (var key in NoteAppearance.LightPresetKeys)
+        foreach (var key in NoteAppearance.Palettes.SelectMany(p => p.Light).Select(c => c.Key))
         {
             var note = new StickyNote { ColorKey = key };
             var light = new NoteAppearance(note, new AppSettings { Theme = "Light" });

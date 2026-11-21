@@ -166,6 +166,7 @@ public partial class StickyNoteWindow : Window
     public string PositionSeparatedTooltip => LocalizationService.T("PositionSeparatedTooltip");
 
     public string MoveNoteTooltip => LocalizationService.T("MoveNoteTooltip");
+    public string SpineHandleTooltip => LocalizationService.T("SpineHandleTooltip");
 
     private sealed record ContentUndoEntry(string Before, string After);
 

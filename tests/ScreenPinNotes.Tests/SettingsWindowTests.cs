@@ -108,11 +108,43 @@ public class SettingsWindowTests
             ExpandCategories(window);
             var swatches = Descendants<StackPanel>(window).Single(p => p.Name == "DefaultColorSwatches");
             var buttons = Descendants<Button>(swatches).ToArray();
-            Assert.Equal(NoteAppearance.Presets.Count, buttons.Length);
+            Assert.Equal(22, buttons.Length);
             var selected = Assert.Single(buttons, b => ((TextBlock)b.Content).Visibility == Visibility.Visible);
             Assert.Equal("blue", selected.Tag);
             foreach (var text in Descendants<TextBlock>(window))
                 Assert.DoesNotContain(text.Text, NoteAppearance.Presets.Keys);
+        }
+        finally { window.Close(); }
+    }
+
+    // パレットを切り替えると、既定色の見本がそのパレットの色に入れ替わり、既定色も同じ色相の色になる。
+    [WpfFact]
+    public void ColorPalettePicker_SwapsTheSwatchesAndKeepsTheHue()
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var settings = new AppSettings();
+        settings.NoteDefaults.ColorKey = "green";
+        var window = new SettingsWindow(settings, app);
+        try
+        {
+            window.Show();
+            ExpandCategories(window);
+            var picker = Descendants<ComboBox>(window).Single(c => c.Name == "ColorPalettePicker");
+            Assert.Equal(NoteAppearance.Palettes.Count, picker.Items.Count);
+            Assert.Equal(NoteAppearance.PaletteClassic, ((ComboBoxItem)picker.SelectedItem).Tag);
+
+            picker.SelectedItem = picker.Items.Cast<ComboBoxItem>().Single(i => Equals(i.Tag, NoteAppearance.PaletteModern));
+            window.UpdateLayout();
+
+            Assert.Equal(NoteAppearance.PaletteModern, settings.ColorPalette);
+            Assert.Equal("modern-green", settings.NoteDefaults.ColorKey);
+            var swatches = Descendants<StackPanel>(window).Single(p => p.Name == "DefaultColorSwatches");
+            var buttons = Descendants<Button>(swatches).ToArray();
+            Assert.Equal(NoteAppearance.LightPresetKeys(NoteAppearance.PaletteModern)
+                    .Concat(NoteAppearance.DarkPresetKeys(NoteAppearance.PaletteModern)),
+                buttons.Select(b => (string)b.Tag));
+            var selected = Assert.Single(buttons, b => ((TextBlock)b.Content).Visibility == Visibility.Visible);
+            Assert.Equal("modern-green", selected.Tag);
         }
         finally { window.Close(); }
     }
@@ -203,7 +235,7 @@ public class SettingsWindowTests
             ExpandCategories(window);
             window.UpdateLayout();
             var pickers = Descendants<ComboBox>(window).ToArray();
-            Assert.Equal(12, pickers.Length);
+            Assert.Equal(13, pickers.Length);
 
             // 操作部品はカードの右端にそろう。欄の幅は2種類だけ。
             double Right(FrameworkElement e) => e.TranslatePoint(new Point(e.ActualWidth, 0), window).X;

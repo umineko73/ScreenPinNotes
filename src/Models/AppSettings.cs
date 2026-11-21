@@ -120,6 +120,12 @@ public sealed class AppSettings
     /// <summary>"Light"・"Dark"・"System"（Windows のアプリの色に合わせる）。</summary>
     public string Theme { get; set; } = "Light";
 
+    /// <summary>
+    /// 色のパレット（<see cref="ScreenPinNotes.Services.NoteAppearance.Palettes"/> の Id）。
+    /// 付箋の色ピッカーと新しい付箋の既定色の見本に、このパレットの色を並べる。
+    /// </summary>
+    public string ColorPalette { get; set; } = ScreenPinNotes.Services.NoteAppearance.PaletteClassic;
+
     public const string ThemeLight = "Light";
     public const string ThemeDark = "Dark";
     public const string ThemeSystem = "System";
@@ -232,6 +238,7 @@ public sealed class AppSettings
     public void Normalize()
     {
         Language = ScreenPinNotes.Services.LocalizationService.ResolveLanguage(Language, "ja");
+        ColorPalette = ScreenPinNotes.Services.NoteAppearance.PaletteFor(ColorPalette).Id;
         Theme = string.Equals(Theme, ThemeDark, StringComparison.OrdinalIgnoreCase) ? ThemeDark
             : string.Equals(Theme, ThemeSystem, StringComparison.OrdinalIgnoreCase) ? ThemeSystem
             : ThemeLight;
@@ -436,13 +443,16 @@ public sealed class LayoutSettings
     /// <summary>タイトルバーを隠している付箋の左端に出す帯の太さ。</summary>
     public double TitleBarHiddenSpineWidth { get; set; } = 3;
     /// <summary>
-    /// 帯を付箋の左端から何ピクセル離すか。既定の3pxは、外枠(1px)と本文の
-    /// 左余白(8px)のちょうど中ほどに3px幅の帯が収まる位置。
+    /// 帯を付箋の左端から何ピクセル離すか。帯から本文までも同じだけ空け、帯を左右の
+    /// 真ん中に置く。既定の8pxは、帯の無い付箋の本文の余白と同じ。
     /// <see cref="AppSettings.SpineStyleInset"/> のときだけ使う。
     /// </summary>
-    public double TitleBarHiddenSpineInset { get; set; } = 3;
-    /// <summary>付箋の四隅の丸み。0 なら角のままにする。</summary>
-    public double NoteCornerRadius { get; set; }
+    public double TitleBarHiddenSpineInset { get; set; } = 8;
+    /// <summary>
+    /// 付箋の四隅の丸み。0 なら角のままにする。既定は Windows 11 の窓に合わせて 8。
+    /// 透明な窓なので DWM の角丸と影は使えず、RootBorder の角丸で描く。
+    /// </summary>
+    public double NoteCornerRadius { get; set; } = 8;
     public double NewNoteBaseX { get; set; } = 150;
     public double NewNoteBaseY { get; set; } = 150;
     public double NewNoteCascadeStep { get; set; } = 20;

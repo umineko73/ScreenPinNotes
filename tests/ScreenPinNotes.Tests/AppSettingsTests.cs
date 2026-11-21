@@ -294,18 +294,18 @@ public class AppSettingsTests
         var settings = new AppSettings();
 
         Assert.Equal(AppSettings.SpineStyleInset, settings.TitleBarHiddenSpineStyle);
-        Assert.Equal(3, settings.Layout.TitleBarHiddenSpineInset);
+        Assert.Equal(8, settings.Layout.TitleBarHiddenSpineInset);
         // 画像だけの付箋でも、既定では帯の居場所を残す。
         Assert.Equal(AppSettings.ImageSpineGutter, settings.ImageOnlySpineStyle);
     }
 
-    // 既定は角のまま・枠なし。設定を持たない settings.json もこの見た目になる。
+    // 既定は角を 8 丸め・枠なし。設定を持たない settings.json もこの見た目になる。
     [Fact]
-    public void Defaults_NoteFrame_IsSquareAndBorderless()
+    public void Defaults_NoteFrame_IsRoundedAndBorderless()
     {
         var settings = new AppSettings();
 
-        Assert.Equal(0, settings.Layout.NoteCornerRadius);
+        Assert.Equal(8, settings.Layout.NoteCornerRadius);
         Assert.Equal(AppSettings.NoteBorderNone, settings.NoteBorderColor);
         Assert.False(settings.MonochromeIcons);
     }
