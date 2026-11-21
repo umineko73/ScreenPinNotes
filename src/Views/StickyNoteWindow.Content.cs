@@ -1425,11 +1425,9 @@ public partial class StickyNoteWindow
 
         if (!IsImageFileInNoteAssets(target))
         {
-            System.Windows.MessageBox.Show(
+            ConfirmationDialog.Inform(this,
                 LocalizationService.T("DeleteExternalImageFileBlocked"),
-                LocalizationService.T("DeleteImageFileConfirmTitle"),
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+                LocalizationService.T("DeleteImageFileConfirmTitle"));
             return false;
         }
 

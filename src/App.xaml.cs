@@ -390,20 +390,17 @@ public partial class App : System.Windows.Application, INoteWindowHost
         try
         {
             await Task.Run(() => _storage.ExportNotesToZip(dialog.FileName));
-            System.Windows.MessageBox.Show(
+            ConfirmationDialog.Inform(DialogOwner,
                 LocalizationService.T("ExportNotesCompletedMessage"),
-                LocalizationService.T("ExportNotesCompletedTitle"),
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+                LocalizationService.T("ExportNotesCompletedTitle"));
         }
         catch (Exception ex)
         {
             ErrorReporter.ReportNonFatal("Export notes", ex);
-            System.Windows.MessageBox.Show(
+            ConfirmationDialog.Inform(DialogOwner,
                 LocalizationService.T("ExportNotesFailedMessage"),
                 LocalizationService.T("ExportNotesFailedTitle"),
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+                DialogKind.Error);
         }
         finally
         {
@@ -424,12 +421,10 @@ public partial class App : System.Windows.Application, INoteWindowHost
         if (dialog.ShowDialog() != DialogResult.OK)
             return;
 
-        var result = System.Windows.MessageBox.Show(
-            LocalizationService.T("ImportNotesConfirmMessage"),
-            LocalizationService.T("ImportNotesConfirmTitle"),
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-        if (result != MessageBoxResult.Yes)
+        if (!ConfirmationDialog.Confirm(DialogOwner,
+                LocalizationService.T("ImportNotesConfirmMessage"),
+                LocalizationService.T("ImportNotesConfirmTitle"),
+                LocalizationService.T("ImportNotesConfirmButton")))
             return;
 
         FlushAndSave();
@@ -448,23 +443,20 @@ public partial class App : System.Windows.Application, INoteWindowHost
             ReloadNoteWindowsFromStorage(showEmptyStorageMessage: false);
             RefreshTrayMenu();
 
-            System.Windows.MessageBox.Show(
+            ConfirmationDialog.Inform(DialogOwner,
                 string.Format(
                     LocalizationService.T("ImportNotesCompletedMessage"),
                     importResult.ImportedCount,
                     importResult.SkippedCount),
-                LocalizationService.T("ImportNotesCompletedTitle"),
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+                LocalizationService.T("ImportNotesCompletedTitle"));
         }
         catch (Exception ex)
         {
             ErrorReporter.ReportNonFatal("Import notes", ex);
-            System.Windows.MessageBox.Show(
+            ConfirmationDialog.Inform(DialogOwner,
                 LocalizationService.T("ImportNotesFailedMessage"),
                 LocalizationService.T("ImportNotesFailedTitle"),
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+                DialogKind.Error);
             ReloadNoteWindowsFromStorage(showEmptyStorageMessage: false);
         }
     }
@@ -505,11 +497,9 @@ public partial class App : System.Windows.Application, INoteWindowHost
         ReloadNoteWindowsFromStorage(showEmptyStorageMessage: !targetNotesMissing || movedNotes);
         RefreshTrayMenu();
 
-        System.Windows.MessageBox.Show(
+        ConfirmationDialog.Inform(DialogOwner,
             LocalizationService.T("SelectNotesRootChangedMessage"),
-            LocalizationService.T("SelectNotesRootChangedTitle"),
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
+            LocalizationService.T("SelectNotesRootChangedTitle"));
     }
 
     // 大きな notes フォルダの移動はディスク I/O が伴うため、UI スレッドを
@@ -527,12 +517,11 @@ public partial class App : System.Windows.Application, INoteWindowHost
         if (Directory.Exists(target))
             return (true, false);
 
-        var result = System.Windows.MessageBox.Show(
-            LocalizationService.T("MoveNotesConfirmMessage"),
-            LocalizationService.T("MoveNotesConfirmTitle"),
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-        if (result != MessageBoxResult.Yes)
+        if (!ConfirmationDialog.Confirm(DialogOwner,
+                LocalizationService.T("MoveNotesConfirmMessage"),
+                LocalizationService.T("MoveNotesConfirmTitle"),
+                LocalizationService.T("MoveNotesConfirmButton"),
+                cancelLabel: LocalizationService.T("MoveNotesDeclineButton")))
             return (true, false);
 
         try
@@ -543,11 +532,10 @@ public partial class App : System.Windows.Application, INoteWindowHost
         catch (Exception ex)
         {
             ErrorReporter.ReportNonFatal("Move notes folder", ex);
-            System.Windows.MessageBox.Show(
+            ConfirmationDialog.Inform(DialogOwner,
                 LocalizationService.T("MoveNotesFailedMessage"),
                 LocalizationService.T("MoveNotesFailedTitle"),
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+                DialogKind.Error);
             return (false, false);
         }
     }
@@ -1106,11 +1094,10 @@ public partial class App : System.Windows.Application, INoteWindowHost
         var info = new FileInfo(fullPath);
         if (!isLogFile && info.Exists && info.Length > MaxExternalNoteFileSizeBytes)
         {
-            System.Windows.MessageBox.Show(
+            ConfirmationDialog.Inform(DialogOwner,
                 LocalizationService.T("ExternalNoteFileTooLargeMessage"),
                 LocalizationService.T("ExternalNoteFileTooLargeTitle"),
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+                DialogKind.Warning);
             return;
         }
 
@@ -1272,12 +1259,16 @@ public partial class App : System.Windows.Application, INoteWindowHost
         return notes;
     }
 
-    private static void ShowEmptyStorageInitializationMessage()
-        => System.Windows.MessageBox.Show(
+    private void ShowEmptyStorageInitializationMessage()
+        => ConfirmationDialog.Inform(DialogOwner,
             LocalizationService.T("InitializeEmptyStorageMessage"),
-            LocalizationService.T("InitializeEmptyStorageTitle"),
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
+            LocalizationService.T("InitializeEmptyStorageTitle"));
+
+    /// <summary>
+    /// トレイや設定画面からの操作で出すダイアログの所有者。設定画面が開いていればその上に、
+    /// なければ画面の中央に出す。
+    /// </summary>
+    private Window? DialogOwner => _settingsWindow is { IsLoaded: true, IsVisible: true } ? _settingsWindow : null;
 
     private bool IsDefaultStorageRoot()
         => string.Equals(

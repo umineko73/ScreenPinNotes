@@ -355,12 +355,9 @@ public partial class StickyNoteWindow
     {
         if (ViewModel.IsReadOnly && !ViewModel.Model.IsExternalContent)
         {
-            System.Windows.MessageBox.Show(
-                this,
+            ConfirmationDialog.Inform(this,
                 LocalizationService.T("EditLockDeleteBlockedMessage"),
-                LocalizationService.T("EditLockDeleteBlockedTitle"),
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+                LocalizationService.T("EditLockDeleteBlockedTitle"));
             return;
         }
 

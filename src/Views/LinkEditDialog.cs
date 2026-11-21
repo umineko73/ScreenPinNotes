@@ -57,7 +57,7 @@ public sealed class LinkEditDialog : Window
         {
             if (string.IsNullOrWhiteSpace(LinkTarget) || LinkTarget.IndexOfAny(['\r', '\n', '<', '>']) >= 0 || !LinkDetector.IsLink(LinkTarget))
             {
-                System.Windows.MessageBox.Show(this, LocalizationService.T("InvalidLinkTarget"), Title);
+                ConfirmationDialog.Inform(this, LocalizationService.T("InvalidLinkTarget"), Title, DialogKind.Warning);
                 _url.Focus();
                 return;
             }

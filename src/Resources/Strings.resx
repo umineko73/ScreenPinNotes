@@ -681,7 +681,7 @@ No: create initial notes in the selected folder. The current notes folder will r
     <value>Delete image file too</value>
   </data>
   <data name="DeleteImageFileConfirmTitle" xml:space="preserve">
-    <value>Confirm</value>
+    <value>Delete image file</value>
   </data>
   <data name="DeleteImageFileConfirmMessage" xml:space="preserve">
     <value>Remove this image from the note and delete the image file?</value>
@@ -762,7 +762,7 @@ No: create initial notes in the selected folder. The current notes folder will r
     <value>Select a note first.</value>
   </data>
   <data name="DeleteConfirmTitle" xml:space="preserve">
-    <value>Confirm</value>
+    <value>Delete note</value>
   </data>
   <data name="DeleteConfirmMessage" xml:space="preserve">
     <value>Delete this note?</value>
@@ -903,4 +903,10 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="SettingsThemeLight" xml:space="preserve"><value>Light</value></data>
   <data name="SettingsThemeDark" xml:space="preserve"><value>Dark</value></data>
   <data name="SettingsThemeSystem" xml:space="preserve"><value>Use system setting</value></data>
+  <data name="OK" xml:space="preserve"><value>OK</value></data>
+  <data name="ImportNotesConfirmButton" xml:space="preserve"><value>Import</value></data>
+  <data name="MoveNotesConfirmButton" xml:space="preserve"><value>Move</value></data>
+  <data name="MoveNotesDeclineButton" xml:space="preserve"><value>Don't move</value></data>
+  <data name="FileChipOpenButton" xml:space="preserve"><value>Open</value></data>
+  <data name="DeleteButton" xml:space="preserve"><value>Delete</value></data>
 </root>

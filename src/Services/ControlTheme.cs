@@ -55,6 +55,13 @@ public static class ControlTheme
         window.Resources["SettingsBorder"] = Brush(dark ? "#555555" : "#CCCCCC");
         window.Resources["SettingsHover"] = hover;
         window.Resources["ControlThumb"] = Brush(dark ? "#929292" : "#777777");
+        window.Resources["SettingsMuted"] = Brush(dark ? "#ABABAB" : "#616161");
+        window.Resources["SettingsDivider"] = Brush(dark ? "#3A3A3A" : "#EAEAEA");
+        window.Resources["SettingsFooter"] = Brush(dark ? "#1C1C1C" : "#F3F3F3");
+        window.Resources["SettingsCard"] = Brush(dark ? "#2B2B2B" : "#FFFFFF");
+        window.Resources["SettingsAccent"] = Brush(dark ? "#4CC2FF" : "#005FB8");
+        window.Resources["SettingsOnAccent"] = Brush(dark ? "#000000" : "#FFFFFF");
+        window.Resources["SettingsDanger"] = Brush(dark ? "#D13438" : "#C42B1C");
         // Default list selection and the ScrollViewer corner also use system resources.
         foreach (var key in new[] { SystemColors.ControlBrushKey, SystemColors.WindowBrushKey, SystemColors.ScrollBarBrushKey })
             window.Resources[key] = surface;

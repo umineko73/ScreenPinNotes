@@ -17,7 +17,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using ScreenPinNotes.Services;
-using WpfMessageBox = System.Windows.MessageBox;
 
 namespace ScreenPinNotes.Views;
 
@@ -36,10 +35,9 @@ public partial class StickyNoteWindow
         var executable = DrawioFiles.FindExecutable(Settings.DrawioPath);
         if (executable == null)
         {
-            WpfMessageBox.Show(this,
+            ConfirmationDialog.Inform(this,
                 LocalizationService.T("DrawioNotFound"),
-                LocalizationService.T("EditInDrawio"),
-                MessageBoxButton.OK, MessageBoxImage.Information);
+                LocalizationService.T("EditInDrawio"));
             return;
         }
 

@@ -16,7 +16,6 @@ using WpfListView = System.Windows.Controls.ListView;
 using WpfPanel = System.Windows.Controls.Panel;
 using WpfTextBox = System.Windows.Controls.TextBox;
 using WpfBinding = System.Windows.Data.Binding;
-using WpfMessageBox = System.Windows.MessageBox;
 using WpfOrientation = System.Windows.Controls.Orientation;
 
 namespace ScreenPinNotes.Views;
@@ -336,13 +335,9 @@ public sealed class NoteManagerWindow : Window
         if (_listView.SelectedItem is not NoteRow row)
             return;
 
-        var result = WpfMessageBox.Show(
-            this,
-            LocalizationService.T(row.IsExternal ? "UnlinkExternalConfirmMessage" : "DeleteConfirmMessage"),
-            LocalizationService.T("DeleteConfirmTitle"),
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-        if (result != MessageBoxResult.Yes)
+        if (!ConfirmationDialog.ShowFor(this,
+                LocalizationService.T(row.IsExternal ? "UnlinkExternalConfirmMessage" : "DeleteConfirmMessage"),
+                LocalizationService.T("DeleteConfirmTitle")))
             return;
 
         App.Current.RemoveNoteFromManager(row.Id);

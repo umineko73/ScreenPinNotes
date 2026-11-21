@@ -681,7 +681,7 @@
     <value>画像ファイルごと削除</value>
   </data>
   <data name="DeleteImageFileConfirmTitle" xml:space="preserve">
-    <value>確認</value>
+    <value>画像ファイルを削除</value>
   </data>
   <data name="DeleteImageFileConfirmMessage" xml:space="preserve">
     <value>この画像を付箋から外し、画像ファイルも削除しますか？</value>
@@ -762,7 +762,7 @@
     <value>付箋を選択してください。</value>
   </data>
   <data name="DeleteConfirmTitle" xml:space="preserve">
-    <value>確認</value>
+    <value>付箋を削除</value>
   </data>
   <data name="DeleteConfirmMessage" xml:space="preserve">
     <value>この付箋を削除しますか？</value>
@@ -903,4 +903,10 @@
   <data name="SettingsThemeLight" xml:space="preserve"><value>ライト</value></data>
   <data name="SettingsThemeDark" xml:space="preserve"><value>ダーク</value></data>
   <data name="SettingsThemeSystem" xml:space="preserve"><value>システムに合わせる</value></data>
+  <data name="OK" xml:space="preserve"><value>OK</value></data>
+  <data name="ImportNotesConfirmButton" xml:space="preserve"><value>取り込む</value></data>
+  <data name="MoveNotesConfirmButton" xml:space="preserve"><value>移動する</value></data>
+  <data name="MoveNotesDeclineButton" xml:space="preserve"><value>移動しない</value></data>
+  <data name="FileChipOpenButton" xml:space="preserve"><value>開く</value></data>
+  <data name="DeleteButton" xml:space="preserve"><value>削除</value></data>
 </root>
