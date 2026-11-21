@@ -6,5 +6,6 @@
   "Title": "操作ヘルプ",
   "ColorKey": "yellow",
   "Icon": "💡",
-  "IsReadOnly": true
+  "IsReadOnly": true,
+  "IsHidden": true
 }

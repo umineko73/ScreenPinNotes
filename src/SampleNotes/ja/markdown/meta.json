@@ -6,5 +6,6 @@
   "Title": "Markdown 書式一覧",
   "ColorKey": "sky",
   "Icon": "📝",
-  "IsReadOnly": true
+  "IsReadOnly": true,
+  "IsHidden": true
 }
