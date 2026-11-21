@@ -149,36 +149,35 @@ public partial class StickyNoteWindow
         RequestSave();
     }
 
+    /// <summary>
+    /// 文字の大きさを1つ変えるボタン。「A」に上下の矢印を付けた形は上付き・下付き文字に見えて
+    /// 意味が伝わらなかったので、何の大きさかは隣の文字（本文・タイトル）で示し、
+    /// ボタンは − と ＋ にする。
+    /// </summary>
     private static void SetFontSizeButtonContent(WpfButton button, string label, int delta)
     {
         button.Width = 24;
-        var face = new StackPanel
+        button.Content = new TextBlock
         {
-            Orientation = System.Windows.Controls.Orientation.Horizontal,
-            Height = 22,
+            Text = delta > 0 ? UiIcons.Add : UiIcons.Remove,
+            FontFamily = UiIcons.Font,
+            FontSize = 12,
+            HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
         };
-        face.Children.Add(new TextBlock
-        {
-            Text = label,
-            FontSize = delta > 0 ? 16 : 12,
-            VerticalAlignment = VerticalAlignment.Bottom,
-        });
-        var chevron = new System.Windows.Shapes.Path
-        {
-            Data = System.Windows.Media.Geometry.Parse(delta > 0 ? "M0,3 L3,0 L6,3" : "M0,0 L3,3 L6,0"),
-            StrokeThickness = 1.2,
-            StrokeStartLineCap = System.Windows.Media.PenLineCap.Round,
-            StrokeEndLineCap = System.Windows.Media.PenLineCap.Round,
-            StrokeLineJoin = System.Windows.Media.PenLineJoin.Round,
-            Width = 7, Height = 5,
-            Margin = new Thickness(1, 2, 0, 0),
-            VerticalAlignment = VerticalAlignment.Top,
-        };
-        chevron.SetBinding(System.Windows.Shapes.Shape.StrokeProperty,
-            new System.Windows.Data.Binding(nameof(WpfButton.Foreground)) { Source = button });
-        face.Children.Add(chevron);
-        button.Content = face;
     }
+
+    private TextBlock SizeGroupLabel(string key, double leftMargin) => new()
+    {
+        Text = LocalizationService.T(key),
+        Margin = new Thickness(leftMargin, 0, 2, 0),
+        FontSize = 11,
+        Opacity = 0.7,
+        Foreground = PopupForegroundBrush(),
+        VerticalAlignment = VerticalAlignment.Center,
+        IsHitTestVisible = false,
+        Focusable = false,
+    };
 
     // メニューと同じ Popup 内に置き、マウスキャプチャを共有する。
     private Border BuildQuickActionsRow(out WpfButton iconButton)
@@ -205,12 +204,14 @@ public partial class StickyNoteWindow
         var panel = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
         foreach (var (label, key, title, delta) in new[]
         {
-            ("A", "FontLargerTooltip", false, 1),
             ("A", "FontSmallerTooltip", false, -1),
-            ("T", "TitleLargerTooltip", true, 1),
+            ("A", "FontLargerTooltip", false, 1),
             ("T", "TitleSmallerTooltip", true, -1),
+            ("T", "TitleLargerTooltip", true, 1),
         })
         {
+            if (delta < 0)
+                panel.Children.Add(SizeGroupLabel(title ? "SizeGroupTitle" : "SizeGroupBody", title ? 2 : 4));
             var button = MakeButton(label, "", () =>
             {
                 if (title) SetTitleFontSize(ViewModel.TitleFontSize + delta);
@@ -221,19 +222,17 @@ public partial class StickyNoteWindow
             {
                 Source = ViewModel, StringFormat = LocalizationService.T(key),
             });
-            panel.Children.Add(button);
-            if (delta > 0)
+            if (delta < 0)
             {
+                panel.Children.Add(button);
                 // Plain, non-interactive text distinguishes the current size from buttons.
                 var size = new TextBlock
                 {
-                    MinWidth = 22,
-                    Margin = new Thickness(2, 0, 2, 0),
+                    MinWidth = 20,
                     VerticalAlignment = VerticalAlignment.Center,
                     TextAlignment = TextAlignment.Center,
                     FontSize = 12,
                     Foreground = PopupForegroundBrush(),
-                    Opacity = 0.75,
                     IsHitTestVisible = false,
                     Focusable = false,
                 };
@@ -245,6 +244,7 @@ public partial class StickyNoteWindow
             }
             else
             {
+                panel.Children.Add(button);
                 panel.Children.Add(new Border
                 {
                     Width = 1, Height = 16,
@@ -256,17 +256,7 @@ public partial class StickyNoteWindow
             }
         }
         var fontButton = MakeButton("Aa", LocalizationService.T("FontTooltip"),
-            () => RunQuickAction(() =>
-            {
-                if (_fontPopup == null) return;
-                ClosePickerPopups(except: _fontPopup);
-                var (x, y) = PickerOffsetNearNote();
-                _fontPopup.PlacementTarget = RootBorder;
-                _fontPopup.Placement = PlacementMode.Relative;
-                _fontPopup.HorizontalOffset = x;
-                _fontPopup.VerticalOffset = y;
-                _fontPopup.IsOpen = true;
-            }));
+            () => RunQuickAction(() => OpenFontPicker(CursorOnScreen())));
         fontButton.Width = 24;
         panel.Children.Add(fontButton);
         iconButton = MakeButton(UiIcons.Emoji, LocalizationService.T("IconTooltip"),

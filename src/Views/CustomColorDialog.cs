@@ -64,7 +64,7 @@ public sealed class CustomColorDialog : Window
         BackgroundColor = NoteAppearance.NormalizeHex(backgroundColor) ?? NoteAppearance.Presets["yellow"].Bg;
         AccentColor = NoteAppearance.NormalizeHex(accentColor) ?? NoteAppearance.Presets["yellow"].Header;
 
-        ControlTheme.Apply(this, settings.Theme == "Dark", dialog: true);
+        ControlTheme.Apply(this, settings.IsDarkTheme, dialog: true);
         Title = LocalizationService.T("CustomColorDialogTitle");
         SizeToContent = SizeToContent.WidthAndHeight;
         ResizeMode = ResizeMode.NoResize;

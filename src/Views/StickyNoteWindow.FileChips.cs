@@ -23,7 +23,6 @@ using System.Windows.Media;
 using ScreenPinNotes.Services;
 using WpfImage = System.Windows.Controls.Image;
 using WpfCursors = System.Windows.Input.Cursors;
-using WpfMessageBox = System.Windows.MessageBox;
 using WpfOrientation = System.Windows.Controls.Orientation;
 
 namespace ScreenPinNotes.Views;
@@ -237,10 +236,10 @@ public partial class StickyNoteWindow
     {
         if (!File.Exists(path))
         {
-            WpfMessageBox.Show(this,
+            ConfirmationDialog.Inform(this,
                 string.Format(LocalizationService.T("FileChipMissingMessage"), path),
                 LocalizationService.T("FileChipOpenTitle"),
-                MessageBoxButton.OK, MessageBoxImage.Information);
+                DialogKind.Warning);
             return;
         }
 
@@ -288,20 +287,21 @@ public partial class StickyNoteWindow
     {
         if (!isFolder && !File.Exists(path))
         {
-            WpfMessageBox.Show(this,
+            ConfirmationDialog.Inform(this,
                 string.Format(LocalizationService.T("FileChipMissingMessage"), path),
                 LocalizationService.T("FileChipOpenTitle"),
-                MessageBoxButton.OK, MessageBoxImage.Information);
+                DialogKind.Warning);
             return;
         }
 
         // 付箋の中身は同期フォルダーや外部ファイルから来ることもある。
         // 実行されうるものだけは、開く前に本人の意思を確かめる。
         if (!isFolder && ExecutableExtensions.Contains(Path.GetExtension(path)) &&
-            WpfMessageBox.Show(this,
+            !ConfirmationDialog.Confirm(this,
                 string.Format(LocalizationService.T("FileChipExecutableConfirm"), path),
                 LocalizationService.T("FileChipOpenTitle"),
-                MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
+                LocalizationService.T("FileChipOpenButton"),
+                DialogKind.Warning))
         {
             return;
         }

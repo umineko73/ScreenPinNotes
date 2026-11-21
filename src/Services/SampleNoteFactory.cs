@@ -35,7 +35,7 @@ public static class SampleNoteFactory
         var lang = LocalizationService.ResolveLanguage(settings.Language);
         var notes = new List<StickyNote>();
 
-        foreach (var name in new[] { "markdown", "usage" })
+        foreach (var name in new[] { "welcome", "markdown", "usage" })
         {
             var sampleLanguage = lang;
             if (!TryLoadSample(sampleLanguage, name, out var note))

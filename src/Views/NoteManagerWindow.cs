@@ -10,163 +10,124 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Threading;
 using ScreenPinNotes.Services;
 using WpfButton = System.Windows.Controls.Button;
 using WpfListView = System.Windows.Controls.ListView;
-using WpfPanel = System.Windows.Controls.Panel;
-using WpfTextBox = System.Windows.Controls.TextBox;
 using WpfBinding = System.Windows.Data.Binding;
-using WpfMessageBox = System.Windows.MessageBox;
 using WpfOrientation = System.Windows.Controls.Orientation;
+using WpfBrush = System.Windows.Media.Brush;
+using WpfSolidBrush = System.Windows.Media.SolidColorBrush;
+using WpfImage = System.Windows.Controls.Image;
 
 namespace ScreenPinNotes.Views;
 
+/// <summary>
+/// 付箋の一覧。よく使う操作（表示・非表示・重なり順・削除）だけを一覧の上に並べ、
+/// ほかは「…」と行の右クリックメニューに置く。行の先頭には付箋の色とアイコンを出し、
+/// 状態（非表示・ロック・最前面・リマインダー・外部ファイル）はアイコンで示す。
+/// 付箋が変わると一覧も自動で更新する。
+/// </summary>
 public sealed class NoteManagerWindow : Window
 {
     private readonly System.Windows.Controls.ComboBox _searchBox = new() { IsEditable = true, IsTextSearchEnabled = false };
+    private readonly TextBlock _searchPlaceholder = new();
     private readonly WpfListView _listView = new();
-    private readonly WpfButton _showHideButton = new();
+    private readonly TextBlock _emptyText = new();
+    private readonly WpfButton _showButton = new();
     private readonly WpfButton _hideButton = new();
     private readonly WpfButton _frontButton = new();
     private readonly WpfButton _backButton = new();
     private readonly WpfButton _upButton = new();
     private readonly WpfButton _downButton = new();
+    private readonly WpfButton _deleteButton = new();
+    private readonly WpfButton _moreButton = new();
     private string _sortProperty = nameof(NoteRow.Layer);
     private bool _sortDescending;
     private readonly List<(GridViewColumnHeader Header, string Label, string Property)> _sortHeaders = [];
     private readonly System.Windows.Controls.ComboBox _searchMode = new();
     private readonly TextBlock _searchError = new();
-    private readonly WpfButton _deleteButton = new();
-    private readonly WpfButton _openExternalButton = new();
-    private readonly WpfButton _openFolderButton = new();
-    private readonly WpfButton _convertButton = new();
-    private readonly WpfButton _reminderButton = new();
+    private readonly DispatcherTimer _refreshTimer = new() { Interval = TimeSpan.FromSeconds(1.5) };
     private List<NoteRow> _allRows = [];
+    private string _signature = "";
+    private readonly bool _dark;
 
     public NoteManagerWindow()
     {
         Title = LocalizationService.T("NoteManagerTitle");
-        Width = 920;
-        Height = 520;
+        Width = 980;
+        Height = 560;
         MinWidth = 720;
         MinHeight = 360;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
 
         FontFamily = new System.Windows.Media.FontFamily("Yu Gothic UI");
         FontSize = 13;
-        var dark = App.Current.Settings.Theme == "Dark";
-        System.Windows.Media.Brush Brush(string color) => new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(color));
-        Background = Brush(dark ? "#202020" : "#F5F7FA");
-        Foreground = Brush(dark ? "#EEEEEE" : "#242424");
-        Resources["SettingsText"] = Foreground;
-        Resources["SettingsSurface"] = Brush(dark ? "#303030" : "#FFFFFF");
-        Resources["SettingsBorder"] = Brush(dark ? "#555555" : "#D6DCE5");
-        Resources["SettingsHover"] = Brush(dark ? "#444444" : "#EAF0F8");
+        _dark = App.Current.Settings.IsDarkTheme;
+        Background = Brush(_dark ? "#202020" : "#F3F3F3");
+        Foreground = Brush(_dark ? "#EEEEEE" : "#1B1B1B");
         Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/ScreenPinNotes;component/Resources/SettingsStyles.xaml") });
+        ControlTheme.Apply(this, _dark);
+        Resources["SettingsText"] = Foreground;
+        Resources["SettingsSurface"] = Brush(_dark ? "#2B2B2B" : "#FFFFFF");
+        Resources["SettingsBorder"] = Brush(_dark ? "#3A3A3A" : "#E0E0E0");
+        Resources["SettingsHover"] = Brush(_dark ? "#3A3A3A" : "#F0F0F0");
         Content = BuildContent();
-        ControlTheme.Apply(this, dark);
         RefreshNotes();
         Closing += (_, _) => RememberSearch();
+
+        // 付箋の側で何か変わったら一覧にも出す。ほかの画面から変えたときも追いつくよう、
+        // 開いている間だけ軽く見比べ、変わったときだけ作り直す。
+        _refreshTimer.Tick += (_, _) => RefreshIfChanged();
+        IsVisibleChanged += (_, _) => { if (IsVisible) _refreshTimer.Start(); else _refreshTimer.Stop(); };
+        Activated += (_, _) => RefreshIfChanged();
+        Closed += (_, _) => _refreshTimer.Stop();
     }
+
+    private static WpfSolidBrush Brush(string color)
+        => new((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(color));
 
     private UIElement BuildContent()
     {
-        var root = new DockPanel { Margin = new Thickness(20) };
+        var root = new DockPanel { Margin = new Thickness(20, 16, 20, 20) };
 
-        var heading = new TextBlock { Text = Title, FontSize = 24, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 16) };
-        DockPanel.SetDock(heading, Dock.Top);
-        root.Children.Add(heading);
-        var searchPanel = new DockPanel { Margin = new Thickness(0, 0, 0, 8) };
-        DockPanel.SetDock(searchPanel, Dock.Top);
-        root.Children.Add(searchPanel);
+        // 見出しの右に、付箋を増やす操作。
+        var header = new DockPanel { Margin = new Thickness(0, 0, 0, 14) };
+        DockPanel.SetDock(header, Dock.Top);
+        var actions = new StackPanel { Orientation = WpfOrientation.Horizontal, VerticalAlignment = System.Windows.VerticalAlignment.Center };
+        var newNote = CommandButton(UiIcons.Add, LocalizationService.T("TrayNewNote"), () => { App.Current.AddNewNote(); RefreshNotes(); });
+        newNote.SetResourceReference(StyleProperty, "AccentButton");
+        actions.Children.Add(newNote);
+        var openExternal = CommandButton(UiIcons.OpenFile, LocalizationService.T("TrayOpenExternalNote"), OpenExternalNoteFromDialog);
+        openExternal.Margin = new Thickness(8, 0, 0, 0);
+        actions.Children.Add(openExternal);
+        DockPanel.SetDock(actions, Dock.Right);
+        header.Children.Add(actions);
+        header.Children.Add(new TextBlock { Text = Title, FontSize = 24, FontWeight = FontWeights.SemiBold, VerticalAlignment = System.Windows.VerticalAlignment.Center });
+        root.Children.Add(header);
 
-        var searchLabel = new TextBlock
-        {
-            Text = LocalizationService.T("NoteManagerSearch"),
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, 0, 8, 0),
-        };
-        DockPanel.SetDock(searchLabel, Dock.Left);
-        searchPanel.Children.Add(searchLabel);
-
-        _searchMode.ItemsSource = new[] { LocalizationService.T("SearchPlain"), LocalizationService.T("SearchWildcard"), LocalizationService.T("SearchRegex") };
-        _searchMode.SelectedIndex = 0;
-        _searchMode.Width = 150;
-        _searchMode.Margin = new Thickness(8, 0, 0, 0);
-        _searchMode.SelectionChanged += (_, _) => ApplyFilter();
-        DockPanel.SetDock(_searchMode, Dock.Right);
-        searchPanel.Children.Add(_searchMode);
-        var clearSearch = new WpfButton
-        {
-            Content = LocalizationService.T("NoteManagerClearSearch"),
-            Margin = new Thickness(8, 0, 0, 0),
-            Padding = new Thickness(12, 4, 12, 4),
-        };
-        clearSearch.Click += (_, _) =>
-        {
-            _searchBox.IsDropDownOpen = false;
-            _searchBox.SelectedIndex = -1;
-            _searchBox.Text = "";
-            ApplyFilter();
-            _searchBox.Focus();
-        };
-        DockPanel.SetDock(clearSearch, Dock.Right);
-        searchPanel.Children.Add(clearSearch);
-        _searchBox.MinHeight = 34;
-        _searchBox.Padding = new Thickness(8, 4, 8, 4);
-        _searchBox.ToolTip = LocalizationService.T("SearchHistoryHint");
-        _searchBox.ItemsSource = App.Current.Settings.SearchHistory.ToArray();
-        _searchBox.AddHandler(System.Windows.Controls.Primitives.TextBoxBase.TextChangedEvent,
-            new TextChangedEventHandler((_, _) => ApplyFilter()));
-        _searchBox.KeyDown += (_, e) => { if (e.Key == Key.Enter) { RememberSearch(); e.Handled = true; } };
-        _searchBox.LostKeyboardFocus += (_, _) => { if (!_searchBox.IsKeyboardFocusWithin) RememberSearch(); };
-        _searchBox.DropDownOpened += (_, _) =>
-        {
-            var query = _searchBox.Text;
-            _searchBox.ItemsSource = App.Current.Settings.SearchHistory.ToArray();
-            _searchBox.Text = query;
-        };
-        searchPanel.Children.Add(_searchBox);
-
-        var sortHint = new TextBlock { Text = LocalizationService.T("LayerSortHint"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) };
-        DockPanel.SetDock(sortHint, Dock.Top);
-        root.Children.Add(sortHint);
+        root.Children.Add(BuildSearchRow());
 
         _searchError.Foreground = System.Windows.Media.Brushes.IndianRed;
         _searchError.TextWrapping = TextWrapping.Wrap;
+        _searchError.Margin = new Thickness(0, 0, 0, 6);
         DockPanel.SetDock(_searchError, Dock.Top);
         root.Children.Add(_searchError);
-        var hint = new TextBlock { Text = LocalizationService.T("NoteManagerSelectionHint"), Margin = new Thickness(0, 8, 0, 0) };
-        DockPanel.SetDock(hint, Dock.Bottom);
-        root.Children.Add(hint);
-        var buttons = new WrapPanel
-        {
-            Orientation = WpfOrientation.Horizontal,
-            Margin = new Thickness(0, 8, 0, 0),
-        };
-        DockPanel.SetDock(buttons, Dock.Bottom);
-        root.Children.Add(buttons);
 
-        AddButton(buttons, _showHideButton, LocalizationService.T("NoteManagerShow"), (_, _) => SetSelectedVisibility(true));
-        AddButton(buttons, _hideButton, LocalizationService.T("NoteManagerHide"), (_, _) => SetSelectedVisibility(false));
-        AddButton(buttons, _frontButton, LocalizationService.T("BringToFront"), (_, _) => ChangeSelectedZOrder(LayerMove.Top));
-        AddButton(buttons, _upButton, LocalizationService.T("LayerUp"), (_, _) => ChangeSelectedZOrder(LayerMove.Up));
-        AddButton(buttons, _downButton, LocalizationService.T("LayerDown"), (_, _) => ChangeSelectedZOrder(LayerMove.Down));
-        AddButton(buttons, _backButton, LocalizationService.T("SendToBack"), (_, _) => ChangeSelectedZOrder(LayerMove.Bottom));
-        AddButton(buttons, _deleteButton, LocalizationService.T("NoteManagerDelete"), (_, _) => DeleteSelected());
-        AddButton(buttons, _openExternalButton, LocalizationService.T("OpenExternalFile"), (_, _) => SelectedWindow()?.OpenExternalFile());
-        AddButton(buttons, _openFolderButton, LocalizationService.T("OpenExternalFolder"), (_, _) => SelectedWindow()?.OpenExternalFolder());
-        AddButton(buttons, _convertButton, LocalizationService.T("ConvertExternalToNormal"), (_, _) => ConvertSelectedExternalNote());
-        AddButton(buttons, _reminderButton, LocalizationService.T("ReminderMenu"), (_, _) => SetSelectedReminder());
-        AddButton(buttons, new WpfButton(), LocalizationService.T("TrayOpenExternalNote"), (_, _) => OpenExternalNoteFromDialog());
-        AddButton(buttons, new WpfButton(), LocalizationService.T("NoteManagerRefresh"), (_, _) => RefreshNotes());
+        root.Children.Add(BuildCommandBar());
 
         _listView.SelectionMode = System.Windows.Controls.SelectionMode.Extended;
-        _listView.Background = (System.Windows.Media.Brush)Resources["SettingsSurface"];
+        _listView.Background = (WpfBrush)Resources["SettingsSurface"];
         _listView.Foreground = Foreground;
-        _listView.BorderBrush = (System.Windows.Media.Brush)Resources["SettingsBorder"];
+        _listView.BorderBrush = (WpfBrush)Resources["SettingsBorder"];
+        _listView.ToolTip = null;
         var rowStyle = new Style(typeof(System.Windows.Controls.ListViewItem));
-        rowStyle.Setters.Add(new Setter(System.Windows.Controls.Control.PaddingProperty, new Thickness(8, 7, 8, 7)));
+        rowStyle.Setters.Add(new Setter(System.Windows.Controls.Control.PaddingProperty, new Thickness(6, 5, 6, 5)));
+        // 非表示の付箋は薄く描き、表示中のものと見分けられるようにする。
+        var hiddenTrigger = new DataTrigger { Binding = new WpfBinding(nameof(NoteRow.IsHidden)), Value = true };
+        hiddenTrigger.Setters.Add(new Setter(OpacityProperty, 0.55));
+        rowStyle.Triggers.Add(hiddenTrigger);
         _listView.ItemContainerStyle = rowStyle;
         _listView.View = BuildGridView();
         _listView.MouseDoubleClick += (_, e) =>
@@ -176,41 +137,256 @@ public sealed class NoteManagerWindow : Window
                 ShowSelected();
         };
         _listView.SelectionChanged += (_, _) => UpdateButtons();
-        root.Children.Add(_listView);
+        _listView.KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Delete) { DeleteSelected(); e.Handled = true; }
+            else if (e.Key == Key.Enter) { ShowSelected(); e.Handled = true; }
+        };
+        _listView.ContextMenu = new ContextMenu();
+        _listView.ContextMenuOpening += (_, e) =>
+        {
+            if (_listView.SelectedItems.Count == 0) { e.Handled = true; return; }
+            _listView.ContextMenu = TrayMenu.Build(RowMenuEntries(), _dark);
+        };
 
+        _emptyText.HorizontalAlignment = System.Windows.HorizontalAlignment.Center;
+        _emptyText.VerticalAlignment = System.Windows.VerticalAlignment.Center;
+        _emptyText.IsHitTestVisible = false;
+        _emptyText.Opacity = 0.6;
+        var listHost = new Grid();
+        listHost.Children.Add(_listView);
+        listHost.Children.Add(_emptyText);
+        root.Children.Add(listHost);
         return root;
     }
 
-    private static void AddButton(WpfPanel panel, WpfButton button, string text, RoutedEventHandler click)
+    private UIElement BuildSearchRow()
     {
-        button.Content = text;
-        button.MinWidth = 92;
-        button.Margin = new Thickness(0, 0, 8, 8);
-        button.Padding = new Thickness(12, 7, 12, 7);
-        button.Click += click;
-        panel.Children.Add(button);
+        var searchPanel = new DockPanel { Margin = new Thickness(0, 0, 0, 10) };
+        DockPanel.SetDock(searchPanel, Dock.Top);
+
+        _searchMode.ItemsSource = new[] { LocalizationService.T("SearchPlain"), LocalizationService.T("SearchWildcard"), LocalizationService.T("SearchRegex") };
+        _searchMode.SelectedIndex = 0;
+        _searchMode.Width = 150;
+        _searchMode.Margin = new Thickness(8, 0, 0, 0);
+        _searchMode.SelectionChanged += (_, _) => ApplyFilter();
+        DockPanel.SetDock(_searchMode, Dock.Right);
+        searchPanel.Children.Add(_searchMode);
+
+        _searchBox.MinHeight = 34;
+        _searchBox.Padding = new Thickness(8, 4, 8, 4);
+        _searchBox.ToolTip = LocalizationService.T("SearchHistoryHint");
+        _searchBox.ItemsSource = App.Current.Settings.SearchHistory.ToArray();
+        _searchBox.AddHandler(System.Windows.Controls.Primitives.TextBoxBase.TextChangedEvent,
+            new TextChangedEventHandler((_, _) => ApplyFilter()));
+        _searchBox.KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Enter) { RememberSearch(); e.Handled = true; }
+            else if (e.Key == Key.Escape && _searchBox.Text.Length > 0) { ClearSearch(); e.Handled = true; }
+        };
+        _searchBox.LostKeyboardFocus += (_, _) => { if (!_searchBox.IsKeyboardFocusWithin) RememberSearch(); };
+        _searchBox.DropDownOpened += (_, _) =>
+        {
+            var query = _searchBox.Text;
+            _searchBox.ItemsSource = App.Current.Settings.SearchHistory.ToArray();
+            _searchBox.Text = query;
+        };
+
+        // 入力欄の中に「検索」と薄く出す（ラベルを外に置かない）。Esc でも消せる。
+        _searchPlaceholder.Text = LocalizationService.T("NoteManagerSearchPlaceholder");
+        _searchPlaceholder.IsHitTestVisible = false;
+        _searchPlaceholder.Opacity = 0.5;
+        _searchPlaceholder.Margin = new Thickness(12, 0, 0, 0);
+        _searchPlaceholder.VerticalAlignment = System.Windows.VerticalAlignment.Center;
+        var clear = new WpfButton
+        {
+            Content = new TextBlock { Text = UiIcons.Cancel, FontFamily = UiIcons.Font, FontSize = 10 },
+            Width = 26, Height = 26, Margin = new Thickness(0, 0, 30, 0),
+            HorizontalAlignment = System.Windows.HorizontalAlignment.Right, VerticalAlignment = System.Windows.VerticalAlignment.Center,
+            ToolTip = LocalizationService.T("NoteManagerClearSearch"), Visibility = Visibility.Collapsed,
+            BorderThickness = new Thickness(0),
+        };
+        clear.Click += (_, _) => ClearSearch();
+        _searchBox.AddHandler(System.Windows.Controls.Primitives.TextBoxBase.TextChangedEvent,
+            new TextChangedEventHandler((_, _) =>
+            {
+                var empty = string.IsNullOrEmpty(_searchBox.Text);
+                _searchPlaceholder.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
+                clear.Visibility = empty ? Visibility.Collapsed : Visibility.Visible;
+            }));
+        var host = new Grid();
+        host.Children.Add(_searchBox);
+        host.Children.Add(_searchPlaceholder);
+        host.Children.Add(clear);
+        searchPanel.Children.Add(host);
+        return searchPanel;
+    }
+
+    private void ClearSearch()
+    {
+        _searchBox.IsDropDownOpen = false;
+        _searchBox.SelectedIndex = -1;
+        _searchBox.Text = "";
+        ApplyFilter();
+        _searchBox.Focus();
+    }
+
+    /// <summary>一覧の上の操作。アイコンと短い名前のボタンを、意味のまとまりごとに区切って並べる。</summary>
+    private UIElement BuildCommandBar()
+    {
+        var bar = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) };
+        DockPanel.SetDock(bar, Dock.Top);
+        void Add(WpfButton button, string glyph, string text, Action click, bool iconOnly = false)
+        {
+            SetCommandContent(button, glyph, iconOnly ? null : text);
+            button.ToolTip = text;
+            button.Margin = new Thickness(0, 0, 4, 4);
+            button.Click += (_, _) => click();
+            System.Windows.Automation.AutomationProperties.SetName(button, text);
+            bar.Children.Add(button);
+        }
+        void Divider() => bar.Children.Add(new Border
+        {
+            Width = 1, Height = 20, Margin = new Thickness(6, 0, 10, 4), VerticalAlignment = System.Windows.VerticalAlignment.Center,
+            Background = (WpfBrush)Resources["SettingsBorder"],
+        });
+
+        Add(_showButton, UiIcons.View, LocalizationService.T("NoteManagerShow"), () => SetSelectedVisibility(true));
+        Add(_hideButton, UiIcons.Hide, LocalizationService.T("NoteManagerHide"), () => SetSelectedVisibility(false));
+        Divider();
+        Add(_frontButton, UiIcons.ToEnd, LocalizationService.T("BringToFront"), () => ChangeSelectedZOrder(LayerMove.Top), iconOnly: true);
+        Add(_upButton, UiIcons.ArrowUp, LocalizationService.T("LayerUp"), () => ChangeSelectedZOrder(LayerMove.Up), iconOnly: true);
+        Add(_downButton, UiIcons.ArrowDown, LocalizationService.T("LayerDown"), () => ChangeSelectedZOrder(LayerMove.Down), iconOnly: true);
+        Add(_backButton, UiIcons.ToEnd, LocalizationService.T("SendToBack"), () => ChangeSelectedZOrder(LayerMove.Bottom), iconOnly: true);
+        // 「前面へ」は「末尾へ」の矢印を上下に返して使う。
+        if (_frontButton.Content is StackPanel { Children: [TextBlock frontGlyph, ..] })
+        {
+            frontGlyph.RenderTransformOrigin = new System.Windows.Point(0.5, 0.5);
+            frontGlyph.RenderTransform = new ScaleTransform(1, -1);
+        }
+        foreach (var layer in new[] { _frontButton, _upButton, _downButton, _backButton })
+            ToolTipService.SetShowOnDisabled(layer, true);
+        Divider();
+        Add(_deleteButton, UiIcons.Delete, LocalizationService.T("NoteManagerDelete"), DeleteSelected);
+        Add(_moreButton, UiIcons.More, LocalizationService.T("NoteManagerMore"), OpenMoreMenu, iconOnly: true);
+        return bar;
+    }
+
+    private static void SetCommandContent(WpfButton button, string glyph, string? text)
+    {
+        var face = new StackPanel { Orientation = WpfOrientation.Horizontal };
+        face.Children.Add(new TextBlock { Text = glyph, FontFamily = UiIcons.Font, FontSize = 14, VerticalAlignment = System.Windows.VerticalAlignment.Center });
+        if (text != null)
+            face.Children.Add(new TextBlock { Text = text, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = System.Windows.VerticalAlignment.Center });
+        button.Content = face;
+        button.Height = 32;
+        button.MinWidth = 32;
+        button.Padding = new Thickness(text == null ? 0 : 10, 0, text == null ? 0 : 12, 0);
+    }
+
+    private static WpfButton CommandButton(string glyph, string text, Action click)
+    {
+        var button = new WpfButton();
+        SetCommandContent(button, glyph, text);
+        button.Click += (_, _) => click();
+        return button;
+    }
+
+    /// <summary>選んでいる付箋に使える操作の一覧。「…」と行の右クリックで同じものを出す。</summary>
+    private IReadOnlyList<TrayMenuEntry> RowMenuEntries(bool includeCommon = true)
+    {
+        var rows = _listView.SelectedItems.Cast<NoteRow>().ToList();
+        var single = rows.Count == 1 ? rows[0] : null;
+        var external = single?.IsExternal == true;
+        var entries = new List<TrayMenuEntry>();
+        if (includeCommon)
+        {
+            entries.Add(new(LocalizationService.T("NoteManagerShow"), () => SetSelectedVisibility(true), UiIcons.View, Enabled: rows.Any(r => r.IsHidden)));
+            entries.Add(new(LocalizationService.T("NoteManagerHide"), () => SetSelectedVisibility(false), UiIcons.Hide, Enabled: rows.Any(r => !r.IsHidden)));
+            entries.Add(TrayMenuEntry.Separator);
+        }
+        entries.Add(new(LocalizationService.T("ReminderMenu"), SetSelectedReminder, UiIcons.Clock, Enabled: single != null));
+        entries.Add(new(LocalizationService.T("OpenExternalFile"), () => SelectedWindow()?.OpenExternalFile(), UiIcons.OpenFile, Enabled: external));
+        entries.Add(new(LocalizationService.T("OpenExternalFolder"), () => SelectedWindow()?.OpenExternalFolder(), UiIcons.Folder, Enabled: external));
+        entries.Add(new(LocalizationService.T("ConvertExternalToNormal"), ConvertSelectedExternalNote, UiIcons.Edit, Enabled: external));
+        if (includeCommon)
+        {
+            entries.Add(TrayMenuEntry.Separator);
+            entries.Add(new(DeleteLabel(), DeleteSelected, UiIcons.Delete, Enabled: CanDelete()));
+        }
+        return entries;
+    }
+
+    private void OpenMoreMenu()
+    {
+        var menu = TrayMenu.Build(RowMenuEntries(includeCommon: false), _dark);
+        menu.PlacementTarget = _moreButton;
+        menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+        menu.IsOpen = true;
     }
 
     private GridView BuildGridView()
     {
         var grid = new GridView();
-        AddColumn(grid, LocalizationService.T("ZOrder"), nameof(NoteRow.Layer), 70);
-        AddColumn(grid, LocalizationService.T("TopmostTooltip"), nameof(NoteRow.Pinned), 55);
-        AddColumn(grid, LocalizationService.T("NoteManagerStateColumn"), nameof(NoteRow.State), 70);
-        AddColumn(grid, LocalizationService.T("NoteManagerLockColumn"), nameof(NoteRow.LockState), 90);
-        AddColumn(grid, LocalizationService.T("NoteManagerTypeColumn"), nameof(NoteRow.Type), 70);
-        AddColumn(grid, LocalizationService.T("NoteManagerTitleColumn"), nameof(NoteRow.Title), 180);
-        AddColumn(grid, LocalizationService.T("NoteManagerSnippetColumn"), nameof(NoteRow.Snippet), 260);
+        AddSwatchColumn(grid);
+        AddColumn(grid, LocalizationService.T("NoteManagerTitleColumn"), nameof(NoteRow.Title), 220);
+        AddStatusColumn(grid);
+        AddColumn(grid, LocalizationService.T("NoteManagerSnippetColumn"), nameof(NoteRow.Snippet), 280);
         AddColumn(grid, LocalizationService.T("NoteManagerReminderColumn"), nameof(NoteRow.Reminder), 130);
         AddColumn(grid, LocalizationService.T("NoteManagerUpdatedColumn"), nameof(NoteRow.UpdatedAt), 130);
-        AddColumn(grid, LocalizationService.T("NoteManagerPathColumn"), nameof(NoteRow.Path), 260);
+        AddColumn(grid, LocalizationService.T("ZOrder"), nameof(NoteRow.Layer), 80);
+        AddColumn(grid, LocalizationService.T("NoteManagerPathColumn"), nameof(NoteRow.Path), 220);
         UpdateSortHeaders();
         return grid;
     }
 
-    private void AddColumn(GridView grid, string header, string property, double width)
+    /// <summary>行の先頭の色見本。付箋の地の色にアクセント色の縁を付け、アイコンを載せる。</summary>
+    private static void AddSwatchColumn(GridView grid)
     {
-        var columnHeader = new GridViewColumnHeader { Content = header, Tag = property, ToolTip = header, Padding = new Thickness(4, 5, 4, 5) };
+        var swatch = new FrameworkElementFactory(typeof(Border));
+        swatch.SetValue(WidthProperty, 24.0);
+        swatch.SetValue(HeightProperty, 24.0);
+        swatch.SetValue(Border.CornerRadiusProperty, new CornerRadius(5));
+        swatch.SetValue(Border.BorderThicknessProperty, new Thickness(1.5));
+        swatch.SetBinding(Border.BackgroundProperty, new WpfBinding(nameof(NoteRow.Background)));
+        swatch.SetBinding(Border.BorderBrushProperty, new WpfBinding(nameof(NoteRow.Accent)));
+        var icon = new FrameworkElementFactory(typeof(WpfImage));
+        icon.SetValue(WidthProperty, 16.0);
+        icon.SetValue(HeightProperty, 16.0);
+        icon.SetBinding(WpfImage.SourceProperty, new WpfBinding(nameof(NoteRow.Icon)));
+        swatch.AppendChild(icon);
+        grid.Columns.Add(new GridViewColumn
+        {
+            Header = new GridViewColumnHeader { Content = "", IsHitTestVisible = false },
+            Width = 44,
+            CellTemplate = new DataTemplate { VisualTree = swatch },
+        });
+    }
+
+    /// <summary>状態は文字ではなくアイコンで並べる。何の印かはツールチップで読める。</summary>
+    private void AddStatusColumn(GridView grid)
+    {
+        var header = LocalizationService.T("NoteManagerStateColumn");
+        var columnHeader = SortableHeader(header, nameof(NoteRow.State));
+        var cell = new FrameworkElementFactory(typeof(TextBlock));
+        cell.SetBinding(TextBlock.TextProperty, new WpfBinding(nameof(NoteRow.StatusGlyphs)));
+        cell.SetBinding(ToolTipProperty, new WpfBinding(nameof(NoteRow.StatusText)));
+        cell.SetValue(TextBlock.FontFamilyProperty, UiIcons.Font);
+        cell.SetValue(TextBlock.FontSizeProperty, 13.0);
+        grid.Columns.Add(new GridViewColumn
+        {
+            Header = columnHeader, Width = 110,
+            CellTemplate = new DataTemplate { VisualTree = cell },
+        });
+    }
+
+    private GridViewColumnHeader SortableHeader(string header, string property)
+    {
+        var columnHeader = new GridViewColumnHeader
+        {
+            Content = header, Tag = property, ToolTip = header, Padding = new Thickness(4, 5, 4, 5),
+            HorizontalContentAlignment = System.Windows.HorizontalAlignment.Left,
+        };
         columnHeader.Click += (_, _) =>
         {
             _sortDescending = property != nameof(NoteRow.Layer) && (_sortProperty == property ? !_sortDescending : property == nameof(NoteRow.UpdatedAt));
@@ -219,20 +395,17 @@ public sealed class NoteManagerWindow : Window
             ApplyFilter();
         };
         _sortHeaders.Add((columnHeader, header, property));
-        var column = new GridViewColumn { Header = columnHeader, Width = width };
-        if (property == nameof(NoteRow.Pinned))
+        return columnHeader;
+    }
+
+    private void AddColumn(GridView grid, string header, string property, double width)
+    {
+        grid.Columns.Add(new GridViewColumn
         {
-            // 最前面の印は線画アイコンの字なので、アイコンの書体で描く。
-            var cell = new FrameworkElementFactory(typeof(TextBlock));
-            cell.SetBinding(TextBlock.TextProperty, new WpfBinding(property));
-            cell.SetValue(TextBlock.FontFamilyProperty, UiIcons.Font);
-            column.CellTemplate = new DataTemplate { VisualTree = cell };
-        }
-        else
-        {
-            column.DisplayMemberBinding = new WpfBinding(property);
-        }
-        grid.Columns.Add(column);
+            Header = SortableHeader(header, property),
+            Width = width,
+            DisplayMemberBinding = new WpfBinding(property),
+        });
     }
 
     private void UpdateSortHeaders()
@@ -244,10 +417,7 @@ public sealed class NoteManagerWindow : Window
     private object SortValue(NoteRow row) => _sortProperty switch
     {
         nameof(NoteRow.Layer) => row.Layer,
-        nameof(NoteRow.Pinned) => row.Pinned,
-        nameof(NoteRow.State) => row.IsHidden,
-        nameof(NoteRow.LockState) => row.IsLocked,
-        nameof(NoteRow.Type) => row.IsExternal,
+        nameof(NoteRow.State) => row.StatusGlyphs,
         nameof(NoteRow.Title) => row.Title,
         nameof(NoteRow.Snippet) => row.Snippet,
         nameof(NoteRow.Reminder) => row.ReminderAtValue ?? DateTime.MinValue,
@@ -258,10 +428,29 @@ public sealed class NoteManagerWindow : Window
 
     public void RefreshNotes()
     {
-        var byId = App.Current.NoteWindows.ToDictionary(w => w.ViewModel.Model.Id);
-        _allRows = NoteLayers.Ordered(App.Current.NoteWindows.Select(w => w.ViewModel.Model))
-            .Select((note, index) => NoteRow.FromWindow(byId[note.Id]) with { Layer = index + 1, Pinned = note.IsTopmost ? UiIcons.Pin : "" }).ToList();
+        var windows = App.Current.NoteWindows;
+        var byId = windows.ToDictionary(w => w.ViewModel.Model.Id);
+        var monochrome = App.Current.Settings.MonochromeIcons;
+        _allRows = NoteLayers.Ordered(windows.Select(w => w.ViewModel.Model))
+            .Select((note, index) => NoteRow.FromWindow(byId[note.Id], monochrome) with { Layer = index + 1 }).ToList();
+        _signature = Signature();
         ApplyFilter();
+    }
+
+    /// <summary>一覧に出している内容が変わったかを見るための要約。変わったときだけ作り直す。</summary>
+    private static string Signature()
+    {
+        var builder = new System.Text.StringBuilder();
+        foreach (var note in NoteLayers.Ordered(App.Current.NoteWindows.Select(w => w.ViewModel.Model)))
+            builder.Append(note.Id).Append('|').Append(note.UpdatedAt.Ticks).Append('|').Append(note.IsHidden)
+                .Append(note.IsReadOnly).Append(note.IsTopmost).Append(note.ColorKey).Append(note.Icon)
+                .Append(note.Title).Append(note.Reminder?.NextAt?.Ticks).Append('\n');
+        return builder.ToString();
+    }
+
+    private void RefreshIfChanged()
+    {
+        if (Signature() != _signature) RefreshNotes();
     }
 
     private void RememberSearch()
@@ -285,12 +474,16 @@ public sealed class NoteManagerWindow : Window
             _listView.ItemsSource = rows;
             foreach (var row in rows.Where(r => selectedIds.Contains(r.Id))) _listView.SelectedItems.Add(row);
             _searchError.Text = "";
+            _emptyText.Text = rows.Count > 0 ? ""
+                : LocalizationService.T(_allRows.Count == 0 ? "NoteManagerEmpty" : "NoteManagerNoMatch");
         }
         catch (Exception ex) when (ex is ArgumentException or System.Text.RegularExpressions.RegexMatchTimeoutException)
         {
             _listView.ItemsSource = Array.Empty<NoteRow>();
             _searchError.Text = LocalizationService.T("SearchInvalid");
+            _emptyText.Text = "";
         }
+        _searchError.Visibility = _searchError.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         UpdateButtons();
     }
 
@@ -320,29 +513,39 @@ public sealed class NoteManagerWindow : Window
             else App.Current.HideNote(id);
         }
         RefreshNotes();
+        // 付箋を出すと付箋の重なりを並べ直し、隠すと Windows が次の窓を前へ出すので、
+        // 一覧が付箋や他のアプリの後ろへ回ってしまう。続けて操作できるよう一覧を前へ戻す。
+        Activate();
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, () => { if (IsVisible) Activate(); });
     }
+
+    private bool CanChangeLayers() => _sortProperty == nameof(NoteRow.Layer) && string.IsNullOrEmpty(_searchBox.Text);
 
     private void ChangeSelectedZOrder(LayerMove move)
     {
-        if (_sortProperty != nameof(NoteRow.Layer) || !string.IsNullOrEmpty(_searchBox.Text)) return;
+        if (!CanChangeLayers()) return;
         var ids = _listView.SelectedItems.Cast<NoteRow>().Select(r => r.Id).ToHashSet();
         App.Current.MoveNoteLayers(ids, move);
         RefreshNotes();
         if (_listView.SelectedItem is { } selected) _listView.ScrollIntoView(selected);
     }
 
+    private bool CanDelete()
+        => _listView.SelectedItems.Count == 1 && _listView.SelectedItem is NoteRow row && (!row.IsLocked || row.IsExternal);
+
+    private string DeleteLabel()
+        => _listView.SelectedItems.Count == 1 && _listView.SelectedItem is NoteRow { IsExternal: true }
+            ? LocalizationService.T("UnlinkExternalNote")
+            : LocalizationService.T("NoteManagerDelete");
+
     private void DeleteSelected()
     {
-        if (_listView.SelectedItem is not NoteRow row)
+        if (!CanDelete() || _listView.SelectedItem is not NoteRow row)
             return;
 
-        var result = WpfMessageBox.Show(
-            this,
-            LocalizationService.T(row.IsExternal ? "UnlinkExternalConfirmMessage" : "DeleteConfirmMessage"),
-            LocalizationService.T("DeleteConfirmTitle"),
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-        if (result != MessageBoxResult.Yes)
+        if (!ConfirmationDialog.ShowFor(this,
+                LocalizationService.T(row.IsExternal ? "UnlinkExternalConfirmMessage" : "DeleteConfirmMessage"),
+                LocalizationService.T("DeleteConfirmTitle")))
             return;
 
         App.Current.RemoveNoteFromManager(row.Id);
@@ -387,47 +590,44 @@ public sealed class NoteManagerWindow : Window
 
     private void UpdateButtons()
     {
-        var selected = _listView.SelectedItem as NoteRow;
-        var hasSelection = _listView.SelectedItems.Count == 1;
-        var external = hasSelection && selected?.IsExternal == true;
-        var canDelete = selected is { IsLocked: false } || external;
-
-        _showHideButton.IsEnabled = _listView.SelectedItems.Cast<NoteRow>().Any(r => r.IsHidden);
-        _hideButton.IsEnabled = _listView.SelectedItems.Cast<NoteRow>().Any(r => !r.IsHidden);
-        _frontButton.IsEnabled = _backButton.IsEnabled = _upButton.IsEnabled = _downButton.IsEnabled =
-            _listView.SelectedItems.Count > 0 && _sortProperty == nameof(NoteRow.Layer) && string.IsNullOrEmpty(_searchBox.Text);
-        _deleteButton.IsEnabled = hasSelection && canDelete;
-        _deleteButton.Content = external
-            ? LocalizationService.T("UnlinkExternalNote")
-            : LocalizationService.T("NoteManagerDelete");
-        _openExternalButton.IsEnabled = external;
-        _openFolderButton.IsEnabled = external;
-        _convertButton.IsEnabled = external;
-        _reminderButton.IsEnabled = hasSelection;
-
+        var rows = _listView.SelectedItems.Cast<NoteRow>().ToList();
+        _showButton.IsEnabled = rows.Any(r => r.IsHidden);
+        _hideButton.IsEnabled = rows.Any(r => !r.IsHidden);
+        var layers = rows.Count > 0 && CanChangeLayers();
+        _frontButton.IsEnabled = _backButton.IsEnabled = _upButton.IsEnabled = _downButton.IsEnabled = layers;
+        // 重なり順を変えられないときは、その理由（並べ替えか検索）をツールチップで伝える。
+        foreach (var (button, key) in new[] { (_frontButton, "BringToFront"), (_upButton, "LayerUp"), (_downButton, "LayerDown"), (_backButton, "SendToBack") })
+            button.ToolTip = rows.Count > 0 && !layers
+                ? LocalizationService.T(key) + "\n" + LocalizationService.T("NoteManagerLayerDisabledHint")
+                : LocalizationService.T(key);
+        _deleteButton.IsEnabled = CanDelete();
+        SetCommandContent(_deleteButton, UiIcons.Delete, DeleteLabel());
+        _moreButton.IsEnabled = rows.Count > 0;
     }
 
     private sealed record NoteRow(
         string Id,
-        string State,
-        string Type,
         string Title,
         string Snippet,
         string Reminder,
         string UpdatedAt,
         string Path,
-        DateTime CreatedAtValue,
         bool IsHidden,
         bool IsExternal,
         bool IsLocked,
         string SearchText)
     {
         public int Layer { get; init; }
-        public string Pinned { get; init; } = "";
-        public string LockState => LocalizationService.T(IsLocked ? "NoteManagerLocked" : "NoteManagerUnlocked");
+        public WpfBrush Background { get; init; } = System.Windows.Media.Brushes.White;
+        public WpfBrush Accent { get; init; } = System.Windows.Media.Brushes.Gray;
+        public ImageSource? Icon { get; init; }
+        public string StatusGlyphs { get; init; } = "";
+        public string? StatusText { get; init; }
+        public string State => StatusGlyphs;
         public DateTime UpdatedAtValue { get; init; }
         public DateTime? ReminderAtValue { get; init; }
-        public static NoteRow FromWindow(StickyNoteWindow window)
+
+        public static NoteRow FromWindow(StickyNoteWindow window, bool monochrome)
         {
             var note = window.ViewModel.Model;
             var content = note.Content.Replace("\r\n", "\n").Replace("\r", "\n");
@@ -437,21 +637,35 @@ public sealed class NoteManagerWindow : Window
             if (snippet.Length > 120)
                 snippet = snippet[..120] + "...";
 
+            var marks = new List<(string Glyph, string Text)>();
+            if (note.IsHidden) marks.Add((UiIcons.Hide, LocalizationService.T("NoteManagerHidden")));
+            if (note.IsTopmost) marks.Add((UiIcons.Pin, LocalizationService.T("TopmostTooltip")));
+            if (note.IsReadOnly) marks.Add((UiIcons.Lock, LocalizationService.T("NoteManagerLocked")));
+            if (note.Reminder?.NextAt != null) marks.Add((UiIcons.Clock, LocalizationService.T("NoteManagerReminderColumn")));
+            if (note.IsExternalContent) marks.Add((UiIcons.Link, LocalizationService.T("NoteManagerTypeExternal")));
+
+            var (background, accent) = NoteAppearance.ResolveColors(note);
             return new NoteRow(
                 note.Id,
-                note.IsHidden ? LocalizationService.T("NoteManagerHidden") : LocalizationService.T("NoteManagerVisible"),
-                note.IsExternalContent ? LocalizationService.T("NoteManagerTypeExternal") : LocalizationService.T("NoteManagerTypeNormal"),
                 window.ViewModel.DisplayTitle,
                 snippet,
                 note.Reminder?.NextAt?.ToString("yyyy/MM/dd HH:mm") ?? "",
                 note.UpdatedAt.ToString("yyyy/MM/dd HH:mm"),
                 note.ExternalContentPath ?? "",
-                note.CreatedAt,
                 note.IsHidden,
                 note.IsExternalContent,
                 note.IsReadOnly,
-                content) { UpdatedAtValue = note.UpdatedAt, ReminderAtValue = note.Reminder?.NextAt };
+                content)
+            {
+                UpdatedAtValue = note.UpdatedAt,
+                ReminderAtValue = note.Reminder?.NextAt,
+                Background = new WpfSolidBrush(background),
+                Accent = new WpfSolidBrush(accent),
+                Icon = string.IsNullOrEmpty(note.Icon) ? null : EmojiRenderer.Render(note.Icon, monochrome),
+                StatusGlyphs = string.Join("  ", marks.Select(m => m.Glyph)),
+                // 印が無い行は空のツールチップを出さない。
+                StatusText = marks.Count == 0 ? null : string.Join("\n", marks.Select(m => m.Text)),
+            };
         }
-
     }
 }

@@ -15,7 +15,9 @@
 
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
+using System.Windows.Media.Effects;
 using ScreenPinNotes.Models;
 using ScreenPinNotes.Services;
 using WpfBrushes = System.Windows.Media.Brushes;
@@ -42,9 +44,16 @@ namespace ScreenPinNotes.Views;
 /// 設定画面。タスクトレイのメニューに項目が増えすぎたので、一覧できる場所へ移した。
 /// 変更はその場で反映して保存する。トレイのチェック項目がそうだったので、
 /// OK / キャンセルは持たない。
+/// 見た目は Windows 11 の設定アプリにそろえ、1項目を1枚のカードにする。
+/// カードの左に見出しと1行の説明、右に操作部品を置く。
 /// </summary>
 public sealed class SettingsWindow : Window
 {
+    /// <summary>文字の選択肢を出す欄の幅。最も長い「全付箋の表示・非表示を切り替え」が切れない幅。</summary>
+    internal const double WidePickerWidth = 260;
+    /// <summary>数字だけを選ぶ欄の幅。</summary>
+    internal const double NarrowPickerWidth = 120;
+
     private readonly AppSettings _settings;
     private readonly App _app;
     private readonly WpfTextBox _notesRootBox = new();
@@ -58,9 +67,9 @@ public sealed class SettingsWindow : Window
         _app = app;
 
         Title = LocalizationService.T("SettingsTitle");
-        Width = 720;
+        Width = 760;
         Height = 820;
-        MinWidth = 540;
+        MinWidth = 560;
         MinHeight = 400;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         ShowInTaskbar = true;
@@ -77,8 +86,8 @@ public sealed class SettingsWindow : Window
         var panel = new StackPanel { Margin = new Thickness(28, 22, 28, 20) };
         panel.Children.Add(new WpfTextBlock
         {
-            Text = Title, FontSize = 23, FontWeight = FontWeights.SemiBold,
-            Margin = new Thickness(0, 0, 0, 20),
+            Text = Title, FontSize = 26, FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 0, 0, 18),
         });
         panel.Children.Add(Category("SettingsNoteDefaults", BuildNoteDefaultsSection(), true));
         panel.Children.Add(Category("SettingsAppearance", BuildAppearanceSection()));
@@ -102,7 +111,6 @@ public sealed class SettingsWindow : Window
         close.Click += (_, _) => Close();
         var footer = new WpfBorder
         {
-            Background = Brush("#FAFAFA"), BorderBrush = Brush("#E5E5E5"),
             BorderThickness = new Thickness(0, 1, 0, 0), Padding = new Thickness(20, 12, 20, 12),
             Child = close,
         };
@@ -126,14 +134,16 @@ public sealed class SettingsWindow : Window
 
     private static Expander Category(string key, StackPanel content, bool expanded = false)
     {
-        // The category header replaces the section's former inline heading.
-        content.Children.RemoveAt(0);
-        content.Margin = new Thickness(0, 12, 0, 12);
+        content.Margin = new Thickness(0, 8, 0, 8);
         var category = new Expander
         {
-            Header = LocalizationService.T(key), Content = content,
+            Header = new WpfTextBlock
+            {
+                Text = LocalizationService.T(key), FontSize = 15, FontWeight = FontWeights.SemiBold,
+            },
+            Content = content,
             IsExpanded = expanded, HorizontalContentAlignment = WpfHorizontalAlignment.Stretch,
-            Margin = new Thickness(0, 0, 0, 12),
+            Margin = new Thickness(0, 0, 0, 14),
         };
         category.SetResourceReference(ForegroundProperty, "SettingsText");
         return category;
@@ -141,71 +151,136 @@ public sealed class SettingsWindow : Window
 
     private void ApplyTheme()
     {
-        var dark = string.Equals(_settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase);
+        var dark = _settings.IsDarkTheme;
         ControlTheme.Apply(this, dark);
-        Resources["SettingsBackground"] = Brush(dark ? "#202020" : "#FFFFFF");
-        Resources["SettingsSurface"] = Brush(dark ? "#303030" : "#FFFFFF");
-        Resources["SettingsText"] = Brush(dark ? "#EEEEEE" : "#242424");
-        Resources["SettingsBorder"] = Brush(dark ? "#555555" : "#CCCCCC");
-        Resources["SettingsDivider"] = Brush(dark ? "#404040" : "#E5E5E5");
-        Resources["SettingsHover"] = Brush(dark ? "#444444" : "#EEEEEE");
-        Resources["SettingsFooter"] = Brush(dark ? "#252525" : "#FAFAFA");
-        Resources["SettingsMuted"] = Brush(dark ? "#AAAAAA" : "#737373");
+        // Windows 11 の設定と同じく、地を少し暗くしてカードを白く浮かせる。
+        Resources["SettingsBackground"] = Brush(dark ? "#202020" : "#F3F3F3");
+        Resources["SettingsCard"] = Brush(dark ? "#2B2B2B" : "#FFFFFF");
+        Resources["SettingsCardBorder"] = Brush(dark ? "#1D1D1D" : "#E5E5E5");
+        Resources["SettingsSurface"] = Brush(dark ? "#373737" : "#FBFBFB");
+        Resources["SettingsText"] = Brush(dark ? "#EEEEEE" : "#1B1B1B");
+        Resources["SettingsBorder"] = Brush(dark ? "#4A4A4A" : "#D1D1D1");
+        Resources["SettingsDivider"] = Brush(dark ? "#3A3A3A" : "#EAEAEA");
+        Resources["SettingsHover"] = Brush(dark ? "#444444" : "#F0F0F0");
+        Resources["SettingsFooter"] = Brush(dark ? "#1C1C1C" : "#EDEDED");
+        Resources["SettingsMuted"] = Brush(dark ? "#ABABAB" : "#616161");
+        Resources["SettingsAccent"] = Brush(dark ? "#4CC2FF" : "#005FB8");
+        Resources["SettingsOnAccent"] = Brush(dark ? "#000000" : "#FFFFFF");
+        Resources["SettingsSwitchOff"] = Brush(dark ? "#CFCFCF" : "#5D5D5D");
     }
 
-    private static WpfComboBox Picker(double width = 200) => new()
+    /// <summary>Windows のテーマが変わったとき（「システムに合わせる」のとき）に App から呼ぶ。</summary>
+    public void RefreshTheme() => ApplyTheme();
+
+    private static WpfComboBox Picker(double width = WidePickerWidth) => new()
     {
-        Height = 32, MaxWidth = width, HorizontalAlignment = WpfHorizontalAlignment.Stretch,
+        Height = 32, Width = width,
         VerticalContentAlignment = WpfVerticalAlignment.Center,
     };
 
-    private static WpfTextBlock SectionHeader(string key) => new()
+    private static WpfTextBlock MutedBlock(string text)
     {
-        Text = LocalizationService.T(key),
-        FontWeight = FontWeights.SemiBold,
-        FontSize = 14,
-        Margin = new Thickness(0, 0, 0, 12),
-    };
-
-    private static WpfGrid LabeledRow(string labelKey, UIElement control)
-    {
-        var grid = new WpfGrid { Margin = new Thickness(0, 0, 0, 8) };
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(152) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        var label = new WpfTextBlock
+        var block = new WpfTextBlock
         {
-            Text = LocalizationService.T(labelKey),
-            VerticalAlignment = WpfVerticalAlignment.Top,
-            Margin = new Thickness(0, 6, 12, 0),
-            TextWrapping = TextWrapping.Wrap,
+            Text = text, FontSize = 12, TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 2, 0, 0),
         };
-        // A left-aligned container caps picker widths while allowing narrow windows to shrink them.
-        var host = new WpfGrid { HorizontalAlignment = WpfHorizontalAlignment.Left };
-        if (control is WpfComboBox picker)
-        {
-            host.SetBinding(MaxWidthProperty, new System.Windows.Data.Binding("ActualWidth") { Source = grid,
-                Converter = new PickerAvailableWidthConverter() });
-            host.Width = picker.MaxWidth;
-        }
-        else host.HorizontalAlignment = WpfHorizontalAlignment.Stretch;
-        host.Children.Add(control);
-        Grid.SetColumn(label, 0);
-        Grid.SetColumn(host, 1);
-        grid.Children.Add(label);
-        grid.Children.Add(host);
-        return grid;
+        block.SetResourceReference(WpfTextBlock.ForegroundProperty, "SettingsMuted");
+        return block;
     }
 
-    private WpfCheckBox Toggle(string labelKey, Func<bool> read, Action<bool> write)
+    /// <summary>
+    /// 1項目のカード。左に見出しと説明、右に操作部品。<paramref name="below"/> は
+    /// カードの幅いっぱいに見出しの下へ置く（色見本・切り替えの並び・状態の文など）。
+    /// </summary>
+    private static WpfBorder Card(string titleKey, string? descriptionKey, UIElement? control, UIElement? below = null)
+        => CardWithText(LocalizationService.T(titleKey),
+            descriptionKey == null ? null : LocalizationService.T(descriptionKey), control, below);
+
+    private static WpfBorder CardWithText(string title, string? description, UIElement? control, UIElement? below = null)
+    {
+        var grid = new WpfGrid { MinHeight = 36 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var text = new StackPanel { VerticalAlignment = WpfVerticalAlignment.Center, Margin = new Thickness(0, 0, 16, 0) };
+        text.Children.Add(new WpfTextBlock { Text = title, TextWrapping = TextWrapping.Wrap });
+        if (!string.IsNullOrEmpty(description)) text.Children.Add(MutedBlock(description));
+        grid.Children.Add(text);
+
+        if (control is FrameworkElement element)
+        {
+            element.VerticalAlignment = WpfVerticalAlignment.Center;
+            element.HorizontalAlignment = WpfHorizontalAlignment.Right;
+            Grid.SetColumn(element, 1);
+            grid.Children.Add(element);
+        }
+        if (below is FrameworkElement extra)
+        {
+            Grid.SetRow(extra, 1);
+            Grid.SetColumnSpan(extra, 2);
+            grid.Children.Add(extra);
+        }
+
+        var card = new WpfBorder
+        {
+            CornerRadius = new CornerRadius(6), BorderThickness = new Thickness(1),
+            Padding = new Thickness(16, 10, 16, 10), Margin = new Thickness(0, 0, 0, 4),
+            Child = grid,
+        };
+        card.SetResourceReference(WpfBorder.BackgroundProperty, "SettingsCard");
+        card.SetResourceReference(WpfBorder.BorderBrushProperty, "SettingsCardBorder");
+        return card;
+    }
+
+    /// <summary>
+    /// 1枚のカードの中に並べる小項目（左に名前、右に操作部品）。区切り線で上と分ける。
+    /// </summary>
+    private static WpfBorder SubRow(string title, UIElement control)
+    {
+        var grid = new WpfGrid { MinHeight = 36 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var label = new WpfTextBlock
+        {
+            Text = title, TextWrapping = TextWrapping.Wrap, VerticalAlignment = WpfVerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 16, 0),
+        };
+        grid.Children.Add(label);
+        if (control is FrameworkElement element)
+        {
+            element.VerticalAlignment = WpfVerticalAlignment.Center;
+            element.HorizontalAlignment = WpfHorizontalAlignment.Right;
+        }
+        Grid.SetColumn(control, 1);
+        grid.Children.Add(control);
+        var row = new WpfBorder
+        {
+            BorderThickness = new Thickness(0, 1, 0, 0), Padding = new Thickness(0, 6, 0, 6),
+            Margin = new Thickness(0, 8, 0, 0), Child = grid,
+        };
+        row.SetResourceReference(WpfBorder.BorderBrushProperty, "SettingsDivider");
+        return row;
+    }
+
+    private static StackPanel SubRows(params UIElement[] rows)
+    {
+        var panel = new StackPanel { Margin = new Thickness(0, 2, 0, -6) };
+        foreach (var row in rows) panel.Children.Add(row);
+        return panel;
+    }
+
+    /// <summary>オン・オフのスイッチ。文字は読み上げとテスト用に Content に持ち、画面にはカードの見出しで出す。</summary>
+    private WpfCheckBox Switch(string labelKey, Func<bool> read, Action<bool> write)
     {
         var box = new WpfCheckBox
         {
-            Content = new WpfTextBlock { Text = LocalizationService.T(labelKey), TextWrapping = TextWrapping.Wrap },
+            Content = new WpfTextBlock { Text = LocalizationService.T(labelKey) },
             IsChecked = read(),
-            MinHeight = 30,
-            VerticalContentAlignment = WpfVerticalAlignment.Center,
-            Padding = new Thickness(4, 0, 0, 0),
         };
+        box.SetResourceReference(StyleProperty, "SettingsSwitch");
         void Apply(object? _, RoutedEventArgs __)
         {
             if (_loading) return;
@@ -217,19 +292,68 @@ public sealed class SettingsWindow : Window
         return box;
     }
 
+    /// <summary>見出しとスイッチだけのカード。説明はスイッチの文言を使う。</summary>
+    private WpfBorder SwitchCard(string titleKey, string switchKey, Func<bool> read, Action<bool> write)
+        => Card(titleKey, switchKey, Switch(switchKey, read, write));
+
+    /// <summary>カードの中で、スイッチの文言を左に、スイッチを右に置く小項目。</summary>
+    private WpfBorder SwitchRow(string switchKey, Func<bool> read, Action<bool> write)
+        => SubRow(LocalizationService.T(switchKey), Switch(switchKey, read, write));
+
     private void Save()
     {
         ApplyTheme();
         _app.ApplySettingsFromSettingsWindow();
     }
 
-    private sealed class PickerAvailableWidthConverter : System.Windows.Data.IValueConverter
+    private static WpfSolidBrush Brush(string hex)
+        => new((System.Windows.Media.Color)WpfColorConverter.ConvertFromString(hex));
+
+    private static bool SelectByTag(WpfComboBox combo, object value)
     {
-        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
-            => Math.Max(0, (double)value - 152);
-        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
-            => throw new NotSupportedException();
+        foreach (WpfComboBoxItem item in combo.Items)
+        {
+            if (Equals(item.Tag, value))
+            {
+                combo.SelectedItem = item;
+                return true;
+            }
+        }
+        return false;
     }
+
+    /// <summary>
+    /// 決まった選択肢の欄。今の値が選択肢に無い（settings.json に直接書いたなど）ときは、
+    /// その値を足して選んだ状態で見せ、選び直せるようにする。
+    /// </summary>
+    private WpfComboBox ChoicePicker<T>(double width, IEnumerable<(string Label, T Value)> choices,
+        Func<T> read, Action<T> write, Func<T, string>? describeUnknown = null, bool unknownLast = false)
+        where T : notnull
+    {
+        var combo = Picker(width);
+        foreach (var (label, value) in choices)
+            combo.Items.Add(new WpfComboBoxItem { Content = label, Tag = value });
+        if (!SelectByTag(combo, read()))
+        {
+            var item = new WpfComboBoxItem
+            {
+                Content = describeUnknown?.Invoke(read()) ?? read().ToString(), Tag = read(),
+            };
+            if (unknownLast) combo.Items.Add(item); else combo.Items.Insert(0, item);
+            combo.SelectedItem = item;
+        }
+        combo.SelectionChanged += (_, _) =>
+        {
+            if (_loading || combo.SelectedItem is not WpfComboBoxItem { Tag: T value }) return;
+            if (Equals(value, read())) return;
+            write(value);
+            Save();
+        };
+        return combo;
+    }
+
+    private static IEnumerable<(string, double)> Numbers(params int[] values)
+        => values.Select(v => (v.ToString(), (double)v));
 
     // ─── 新しい付箋の既定値 ──────────────────────────────────────
 
@@ -237,66 +361,105 @@ public sealed class SettingsWindow : Window
     {
         var defaults = _settings.NoteDefaults;
         var panel = new StackPanel();
-        panel.Children.Add(SectionHeader("SettingsNoteDefaults"));
-        var hint = new WpfTextBlock
-        {
-            Text = LocalizationService.T("SettingsNoteDefaultsHint"),
-            TextWrapping = TextWrapping.Wrap,
-            Foreground = WpfBrushes.Gray,
-            Margin = new Thickness(0, 0, 0, 10),
-        };
-        hint.SetResourceReference(WpfTextBlock.ForegroundProperty, "SettingsMuted");
+        var hint = MutedBlock(LocalizationService.T("SettingsNoteDefaultsHint"));
+        hint.Margin = new Thickness(2, 0, 0, 10);
         panel.Children.Add(hint);
 
-        panel.Children.Add(LabeledRow("SettingsDefaultColor", BuildColorPicker(defaults)));
-        panel.Children.Add(LabeledRow("SettingsDefaultFont", BuildFontPicker(defaults)));
-        panel.Children.Add(LabeledRow("SettingsDefaultFontSize", BuildFontSizePicker(defaults)));
-        panel.Children.Add(LabeledRow("SettingsDefaultIcon", BuildIconPicker(defaults)));
-        panel.Children.Add(LabeledRow("SettingsTitleBar", Toggle("SettingsDefaultTitleBarHidden",
-            () => defaults.TitleBarHidden, v => defaults.TitleBarHidden = v)));
+        panel.Children.Add(Card("SettingsDefaultColor", null, null, BuildColorSwatches(defaults)));
+        panel.Children.Add(Card("SettingsDefaultFont", null, BuildFontPicker(defaults)));
+        panel.Children.Add(Card("SettingsDefaultFontSize", null, ChoicePicker(NarrowPickerWidth,
+            Numbers(8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48),
+            () => defaults.FontSize, v => defaults.FontSize = v, v => v.ToString("0.#"))));
+        panel.Children.Add(Card("SettingsDefaultIcon", null, BuildIconPicker(defaults)));
+        panel.Children.Add(SwitchCard("SettingsTitleBar", "SettingsDefaultTitleBarHidden",
+            () => defaults.TitleBarHidden, v => defaults.TitleBarHidden = v));
         return panel;
     }
 
-    private WpfComboBox BuildColorPicker(NoteDefaultSettings defaults)
+    /// <summary>
+    /// 付箋の色パレットと同じ色見本。ライト11色とダーク11色を2段に並べ、選んだ色に印を付ける。
+    /// 内部の名前（yellow など）は画面に出さない。
+    /// </summary>
+    private FrameworkElement BuildColorSwatches(NoteDefaultSettings defaults)
     {
-        var combo = Picker();
-        foreach (var (key, preset) in NoteAppearance.Presets)
+        var panel = new StackPanel { Margin = new Thickness(0, 8, 0, 0), Name = "DefaultColorSwatches" };
+        var swatches = new List<WpfButton>();
+
+        void Refresh()
         {
-            var row = new StackPanel { Orientation = WpfOrientation.Horizontal };
-            row.Children.Add(new WpfBorder
+            foreach (var swatch in swatches)
             {
-                Width = 34,
-                Height = 14,
-                CornerRadius = new CornerRadius(3),
-                Background = Brush(preset.Bg),
-                BorderBrush = Brush(preset.Header),
-                BorderThickness = new Thickness(1),
-                Margin = new Thickness(0, 0, 8, 0),
-                VerticalAlignment = WpfVerticalAlignment.Center,
-            });
-            row.Children.Add(new WpfTextBlock { Text = key, VerticalAlignment = WpfVerticalAlignment.Center });
-            combo.Items.Add(new WpfComboBoxItem { Content = row, Tag = key });
+                var selected = Equals(swatch.Tag, defaults.ColorKey);
+                swatch.BorderThickness = new Thickness(selected ? 2 : 1);
+                ((WpfTextBlock)swatch.Content).Visibility = selected ? Visibility.Visible : Visibility.Hidden;
+            }
         }
-        SelectByTag(combo, defaults.ColorKey);
-        combo.SelectionChanged += (_, _) =>
+
+        WrapPanel Row(IEnumerable<string> keys)
         {
-            if (_loading || combo.SelectedItem is not WpfComboBoxItem { Tag: string key }) return;
-            defaults.ColorKey = key;
-            Save();
-        };
-        return combo;
+            var row = new WrapPanel();
+            foreach (var key in keys)
+            {
+                var (bg, header) = NoteAppearance.Presets[key];
+                var swatch = new WpfButton
+                {
+                    Template = SwatchTemplate,
+                    Width = 30, Height = 30, Margin = new Thickness(0, 0, 6, 6),
+                    Background = Brush(bg), BorderBrush = Brush(header),
+                    Content = new WpfTextBlock
+                    {
+                        Text = UiIcons.CheckMark, FontFamily = UiIcons.Font, FontSize = 13, Foreground = Brush(header),
+                        HorizontalAlignment = WpfHorizontalAlignment.Center, VerticalAlignment = WpfVerticalAlignment.Center,
+                    },
+                    Tag = key, Cursor = System.Windows.Input.Cursors.Hand,
+                };
+                System.Windows.Automation.AutomationProperties.SetName(swatch, key);
+                swatch.Click += (_, _) =>
+                {
+                    if (_loading || Equals(defaults.ColorKey, key)) return;
+                    defaults.ColorKey = key;
+                    Refresh();
+                    Save();
+                };
+                swatches.Add(swatch);
+                row.Children.Add(swatch);
+            }
+            return row;
+        }
+
+        panel.Children.Add(Row(NoteAppearance.LightPresetKeys));
+        panel.Children.Add(Row(NoteAppearance.DarkPresetKeys));
+        Refresh();
+        return panel;
     }
 
-    private static WpfSolidBrush Brush(string hex)
-        => new((System.Windows.Media.Color)WpfColorConverter.ConvertFromString(hex));
+    private static ControlTemplate? _swatchTemplate;
+
+    private static ControlTemplate SwatchTemplate => _swatchTemplate ??= (ControlTemplate)System.Windows.Markup.XamlReader.Parse("""
+        <ControlTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" TargetType="Button">
+          <Border x:Name="Face" CornerRadius="6"
+                  Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Face" Property="Opacity" Value="0.85"/></Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Face" Property="BorderThickness" Value="2"/></Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+        """);
 
     private WpfComboBox BuildFontPicker(NoteDefaultSettings defaults)
     {
-        var combo = Picker(260);
+        var combo = Picker();
         // 一覧の取得は時間がかかる。開いた直後は今の設定だけ見せ、揃ったら差し替える。
         combo.Items.Add(new WpfComboBoxItem { Content = defaults.FontFamily, Tag = defaults.FontFamily });
         combo.SelectedIndex = 0;
-        _ = LoadFontsAsync(combo, defaults);
+        combo.Name = "DefaultFontPicker";
+        // 一覧は一度読むと使い回すので、2回目以降はここで同期的に揃ってしまう。
+        // 窓が出る前だと閉じた窓と区別できずに捨てていたため、出てから詰める。
+        Loaded += (_, _) => _ = LoadFontsAsync(combo, defaults);
         combo.SelectionChanged += (_, _) =>
         {
             if (_loading || combo.SelectedItem is not WpfComboBoxItem { Tag: string source }) return;
@@ -315,7 +478,7 @@ public sealed class SettingsWindow : Window
             ErrorReporter.ReportNonFatal("Load fonts for the settings window", ex);
             return;
         }
-        if (!IsLoaded && !IsVisible) return;
+        if (!IsLoaded) return; // 読み終える前に閉じた
 
         var wasLoading = _loading;
         _loading = true;
@@ -334,68 +497,98 @@ public sealed class SettingsWindow : Window
         finally { _loading = wasLoading; }
     }
 
-    private WpfComboBox BuildFontSizePicker(NoteDefaultSettings defaults)
+    /// <summary>
+    /// アイコンの既定値。今のアイコンを見せるボタンを押すと、付箋のアイコンピッカーと同じく
+    /// 角の丸いカードに一覧が開く。先頭は「なし」。
+    /// </summary>
+    private WpfButton BuildIconPicker(NoteDefaultSettings defaults)
     {
-        var combo = Picker(84);
-        // 付箋側の A- / A+ と同じ 8〜48 の範囲から、よく使う刻みだけ出す。
-        foreach (var size in new[] { 8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48 })
-            combo.Items.Add(new WpfComboBoxItem { Content = size.ToString(), Tag = (double)size });
-        if (!SelectByTag(combo, defaults.FontSize))
+        var face = new StackPanel { Orientation = WpfOrientation.Horizontal };
+        var current = new WpfImage { Width = 20, Height = 20, Name = "DefaultIconImage" };
+        var none = new WpfTextBlock { Text = LocalizationService.T("SettingsDefaultIconNone"), VerticalAlignment = WpfVerticalAlignment.Center };
+        var chevron = new WpfTextBlock
         {
-            combo.Items.Insert(0, new WpfComboBoxItem { Content = defaults.FontSize.ToString("0.#"), Tag = defaults.FontSize });
-            combo.SelectedIndex = 0;
-        }
-        combo.SelectionChanged += (_, _) =>
-        {
-            if (_loading || combo.SelectedItem is not WpfComboBoxItem { Tag: double size }) return;
-            defaults.FontSize = size;
-            Save();
+            Text = UiIcons.ChevronDown, FontFamily = UiIcons.Font, FontSize = 10,
+            VerticalAlignment = WpfVerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0),
         };
-        return combo;
+        face.Children.Add(current);
+        face.Children.Add(none);
+        face.Children.Add(chevron);
+        var button = new WpfButton
+        {
+            Content = face, Height = 32, MinWidth = NarrowPickerWidth,
+            Padding = new Thickness(10, 0, 10, 0), Name = "DefaultIconPicker",
+        };
+
+        void ShowCurrent()
+        {
+            var source = string.IsNullOrEmpty(defaults.Icon) ? null : EmojiRenderer.Render(defaults.Icon, _settings.MonochromeIcons);
+            current.Source = source;
+            current.Visibility = source == null ? Visibility.Collapsed : Visibility.Visible;
+            none.Visibility = source == null ? Visibility.Visible : Visibility.Collapsed;
+        }
+        ShowCurrent();
+
+        Popup? popup = null;
+        button.Click += (_, _) =>
+        {
+            popup ??= BuildIconPopup(button, defaults, () => { ShowCurrent(); popup!.IsOpen = false; });
+            popup.IsOpen = !popup.IsOpen;
+        };
+        return button;
     }
 
-    private WpfComboBox BuildIconPicker(NoteDefaultSettings defaults)
+    private Popup BuildIconPopup(UIElement anchor, NoteDefaultSettings defaults, Action chosen)
     {
-        var combo = Picker();
-        var iconTemplate = new DataTemplate();
-        var imageFactory = new FrameworkElementFactory(typeof(WpfImage));
-        imageFactory.SetBinding(WpfImage.SourceProperty, new System.Windows.Data.Binding());
-        imageFactory.SetValue(WidthProperty, 18.0);
-        imageFactory.SetValue(HeightProperty, 18.0);
-        iconTemplate.VisualTree = imageFactory;
-        combo.Items.Add(new WpfComboBoxItem
-        {
-            Content = new WpfTextBlock { Text = LocalizationService.T("SettingsDefaultIconNone") },
-            Tag = "",
-        });
-        foreach (var icon in _settings.IconPalette.Append(defaults.Icon).Where(icon => !string.IsNullOrEmpty(icon)).Distinct())
-        {
-            combo.Items.Add(new WpfComboBoxItem
-            {
-                Content = EmojiRenderer.Render(icon), ContentTemplate = iconTemplate, Tag = icon,
-            });
-        }
-        SelectByTag(combo, defaults.Icon);
-        combo.SelectionChanged += (_, _) =>
-        {
-            if (_loading || combo.SelectedItem is not WpfComboBoxItem { Tag: string icon }) return;
-            defaults.Icon = icon;
-            Save();
-        };
-        return combo;
-    }
+        var grid = new UniformGrid { Columns = 10 };
 
-    private static bool SelectByTag(WpfComboBox combo, object value)
-    {
-        foreach (WpfComboBoxItem item in combo.Items)
+        WpfButton Cell(object content, string icon, string tooltip)
         {
-            if (Equals(item.Tag, value))
+            var cell = new WpfButton
             {
-                combo.SelectedItem = item;
-                return true;
-            }
+                Width = 34, Height = 34, Margin = new Thickness(1), Padding = new Thickness(0),
+                Content = content, ToolTip = tooltip, Tag = icon,
+            };
+            cell.Click += (_, _) =>
+            {
+                if (_loading) return;
+                if (defaults.Icon != icon)
+                {
+                    defaults.Icon = icon;
+                    Save();
+                }
+                chosen();
+            };
+            return cell;
         }
-        return false;
+
+        grid.Children.Add(Cell(new WpfTextBlock
+        {
+            Text = UiIcons.Cancel, FontFamily = UiIcons.Font, FontSize = 13,
+            HorizontalAlignment = WpfHorizontalAlignment.Center, VerticalAlignment = WpfVerticalAlignment.Center,
+        }, "", LocalizationService.T("SettingsDefaultIconNone")));
+        foreach (var icon in _settings.IconPalette.Append(defaults.Icon).Where(i => !string.IsNullOrEmpty(i)).Distinct())
+            grid.Children.Add(Cell(new WpfImage { Source = EmojiRenderer.Render(icon, _settings.MonochromeIcons), Width = 20, Height = 20 }, icon, icon));
+
+        var card = new WpfBorder
+        {
+            CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1), Padding = new Thickness(6),
+            Child = new WpfScrollViewer
+            {
+                Content = grid, MaxHeight = 300,
+                VerticalScrollBarVisibility = WpfScrollBarVisibility.Auto,
+            },
+            Effect = new DropShadowEffect { BlurRadius = 16, ShadowDepth = 3, Direction = 270, Opacity = 0.2, Color = Colors.Black },
+        };
+        card.SetResourceReference(WpfBorder.BackgroundProperty, "SettingsCard");
+        card.SetResourceReference(WpfBorder.BorderBrushProperty, "SettingsBorder");
+        return new Popup
+        {
+            Child = new WpfBorder { Padding = new Thickness(12), Child = card },
+            PlacementTarget = anchor, Placement = PlacementMode.Bottom,
+            HorizontalOffset = -12, VerticalOffset = -8,
+            AllowsTransparency = true, StaysOpen = false,
+        };
     }
 
     // ─── 表示 ────────────────────────────────────────────────────
@@ -403,163 +596,70 @@ public sealed class SettingsWindow : Window
     private StackPanel BuildAppearanceSection()
     {
         var panel = new StackPanel();
-        panel.Children.Add(SectionHeader("SettingsAppearance"));
-        panel.Children.Add(LabeledRow("SettingsTheme", Toggle("TrayDarkMode",
-            () => string.Equals(_settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase),
-            v => _settings.Theme = v ? "Dark" : "Light")));
+        panel.Children.Add(Card("SettingsTheme", null, ChoicePicker(WidePickerWidth,
+            [
+                (LocalizationService.T("SettingsThemeLight"), AppSettings.ThemeLight),
+                (LocalizationService.T("SettingsThemeDark"), AppSettings.ThemeDark),
+                (LocalizationService.T("SettingsThemeSystem"), AppSettings.ThemeSystem),
+            ],
+            () => _settings.Theme, v => _settings.Theme = v)));
 
-        var language = Picker();
-        foreach (var entry in LocalizationService.Languages)
-            language.Items.Add(new WpfComboBoxItem { Content = entry.NativeName, Tag = entry.Code });
-        SelectByTag(language, _settings.Language);
-        language.SelectionChanged += (_, _) =>
-        {
-            if (_loading || language.SelectedItem is not WpfComboBoxItem { Tag: string code }) return;
-            if (string.Equals(code, _settings.Language, StringComparison.OrdinalIgnoreCase)) return;
-            _settings.Language = code;
-            Save();
-        };
-        panel.Children.Add(LabeledRow("TrayLanguage", language));
-        panel.Children.Add(LabeledRow("SettingsNoteCorner", BuildNoteCornerPicker()));
-        panel.Children.Add(LabeledRow("SettingsNoteBorder", BuildNoteBorderPicker()));
-        panel.Children.Add(LabeledRow("SettingsIconColor", Toggle("SettingsMonochromeIcons",
-            () => _settings.MonochromeIcons, v => _settings.MonochromeIcons = v)));
-        AddTitleBarSpineRows(panel);
-        panel.Children.Add(LabeledRow("SettingsMarkdown", Toggle("SettingsJoinMarkdownLines",
-            () => _settings.JoinMarkdownLines, v => _settings.JoinMarkdownLines = v)));
+        panel.Children.Add(Card("TrayLanguage", null, ChoicePicker(WidePickerWidth,
+            LocalizationService.Languages.Select(entry => (entry.NativeName, entry.Code)),
+            () => _settings.Language, v => _settings.Language = v)));
+
+        // 0 は数字より「角のまま」と書いたほうが伝わる。
+        panel.Children.Add(Card("SettingsNoteCorner", null, ChoicePicker(NarrowPickerWidth,
+            new[] { 0, 2, 4, 6, 8, 12, 16 }.Select(r =>
+                (r == 0 ? LocalizationService.T("SettingsNoteCornerSquare") : r.ToString(), (double)r)),
+            () => _settings.Layout.NoteCornerRadius, v => _settings.Layout.NoteCornerRadius = v,
+            v => v.ToString("0.#"))));
+
+        // 決め打ちの3種類だけ並べる。settings.json に直接 "#RRGGBB" を書いた人は、
+        // その色を選択済みの項目として足し、選び直せるようにする。
+        panel.Children.Add(Card("SettingsNoteBorder", null, ChoicePicker(WidePickerWidth,
+            [
+                (LocalizationService.T("SettingsNoteBorderNone"), AppSettings.NoteBorderNone),
+                (LocalizationService.T("SettingsNoteBorderGray"), AppSettings.NoteBorderGray),
+                (LocalizationService.T("SettingsNoteBorderNoteColor"), AppSettings.NoteBorderNoteColor),
+            ],
+            () => _settings.NoteBorderColor, v => _settings.NoteBorderColor = v, unknownLast: true)));
+
+        panel.Children.Add(SwitchCard("SettingsIconColor", "SettingsMonochromeIcons",
+            () => _settings.MonochromeIcons, v => _settings.MonochromeIcons = v));
+        panel.Children.Add(BuildTitleBarSpineCard());
+        panel.Children.Add(SwitchCard("SettingsMarkdown", "SettingsJoinMarkdownLines",
+            () => _settings.JoinMarkdownLines, v => _settings.JoinMarkdownLines = v));
         return panel;
-    }
-
-    private WpfComboBox BuildNoteCornerPicker()
-    {
-        var combo = Picker(120);
-        foreach (var radius in new[] { 0, 2, 4, 6, 8, 12, 16 })
-            combo.Items.Add(new WpfComboBoxItem
-            {
-                // 0 は数字より「角のまま」と書いたほうが伝わる。
-                Content = radius == 0 ? LocalizationService.T("SettingsNoteCornerSquare") : radius.ToString(),
-                Tag = (double)radius,
-            });
-        if (!SelectByTag(combo, _settings.Layout.NoteCornerRadius))
-        {
-            combo.Items.Insert(0, new WpfComboBoxItem
-            {
-                Content = _settings.Layout.NoteCornerRadius.ToString("0.#"),
-                Tag = _settings.Layout.NoteCornerRadius,
-            });
-            combo.SelectedIndex = 0;
-        }
-        combo.SelectionChanged += (_, _) =>
-        {
-            if (_loading || combo.SelectedItem is not WpfComboBoxItem { Tag: double radius }) return;
-            _settings.Layout.NoteCornerRadius = radius;
-            Save();
-        };
-        return combo;
-    }
-
-    // 決め打ちの3種類だけ並べる。settings.json に直接 "#RRGGBB" を書いた人は、
-    // その色を選択済みの項目として足し、選び直せるようにする。
-    private WpfComboBox BuildNoteBorderPicker()
-    {
-        var combo = Picker(160);
-        foreach (var (key, value) in new[]
-                 {
-                     ("SettingsNoteBorderNone", AppSettings.NoteBorderNone),
-                     ("SettingsNoteBorderGray", AppSettings.NoteBorderGray),
-                     ("SettingsNoteBorderNoteColor", AppSettings.NoteBorderNoteColor),
-                 })
-            combo.Items.Add(new WpfComboBoxItem { Content = LocalizationService.T(key), Tag = value });
-        if (!SelectByTag(combo, _settings.NoteBorderColor))
-        {
-            combo.Items.Add(new WpfComboBoxItem
-            {
-                Content = _settings.NoteBorderColor,
-                Tag = _settings.NoteBorderColor,
-            });
-            combo.SelectedIndex = combo.Items.Count - 1;
-        }
-        combo.SelectionChanged += (_, _) =>
-        {
-            if (_loading || combo.SelectedItem is not WpfComboBoxItem { Tag: string value }) return;
-            _settings.NoteBorderColor = value;
-            Save();
-        };
-        return combo;
     }
 
     // タイトルバーを隠している付箋の左端に出す帯。太さと置き場所の選択は、
     // 帯そのものを出さない設定のときは触れないようにする（効かない欄が残ると迷う）。
     // 端からの距離はさらに、端に貼り付ける従来の置き方では意味を持たないので伏せる。
-    // 行を分けているのは、この画面の入力欄が1本の左端にそろえてあるため。
-    private void AddTitleBarSpineRows(StackPanel section)
+    private WpfBorder BuildTitleBarSpineCard()
     {
-        var width = Picker(84);
-        foreach (var size in new[] { 1, 2, 3, 4, 5, 6, 8, 10, 12 })
-            width.Items.Add(new WpfComboBoxItem { Content = size.ToString(), Tag = (double)size });
-        if (!SelectByTag(width, _settings.Layout.TitleBarHiddenSpineWidth))
-        {
-            width.Items.Insert(0, new WpfComboBoxItem
-            {
-                Content = _settings.Layout.TitleBarHiddenSpineWidth.ToString("0.#"),
-                Tag = _settings.Layout.TitleBarHiddenSpineWidth,
-            });
-            width.SelectedIndex = 0;
-        }
-        width.SelectionChanged += (_, _) =>
-        {
-            if (_loading || width.SelectedItem is not WpfComboBoxItem { Tag: double size }) return;
-            _settings.Layout.TitleBarHiddenSpineWidth = size;
-            Save();
-        };
-
-        var inset = Picker(84);
-        foreach (var gap in new[] { 0, 1, 2, 3, 4, 5, 6, 8, 10, 12 })
-            inset.Items.Add(new WpfComboBoxItem { Content = gap.ToString(), Tag = (double)gap });
-        if (!SelectByTag(inset, _settings.Layout.TitleBarHiddenSpineInset))
-        {
-            inset.Items.Insert(0, new WpfComboBoxItem
-            {
-                Content = _settings.Layout.TitleBarHiddenSpineInset.ToString("0.#"),
-                Tag = _settings.Layout.TitleBarHiddenSpineInset,
-            });
-            inset.SelectedIndex = 0;
-        }
-        inset.SelectionChanged += (_, _) =>
-        {
-            if (_loading || inset.SelectedItem is not WpfComboBoxItem { Tag: double gap }) return;
-            _settings.Layout.TitleBarHiddenSpineInset = gap;
-            Save();
-        };
-
-        var style = Picker(160);
-        foreach (var (key, value) in new[]
-                 {
-                     ("SettingsTitleBarSpineStyleInset", AppSettings.SpineStyleInset),
-                     ("SettingsTitleBarSpineStyleEdge", AppSettings.SpineStyleEdge),
-                 })
-            style.Items.Add(new WpfComboBoxItem { Content = LocalizationService.T(key), Tag = value });
-        SelectByTag(style, _settings.TitleBarHiddenSpineStyle);
-
+        var width = ChoicePicker(NarrowPickerWidth, Numbers(1, 2, 3, 4, 5, 6, 8, 10, 12),
+            () => _settings.Layout.TitleBarHiddenSpineWidth, v => _settings.Layout.TitleBarHiddenSpineWidth = v,
+            v => v.ToString("0.#"));
+        var inset = ChoicePicker(NarrowPickerWidth, Numbers(0, 1, 2, 3, 4, 5, 6, 8, 10, 12),
+            () => _settings.Layout.TitleBarHiddenSpineInset, v => _settings.Layout.TitleBarHiddenSpineInset = v,
+            v => v.ToString("0.#"));
+        var style = ChoicePicker(WidePickerWidth,
+            [
+                (LocalizationService.T("SettingsTitleBarSpineStyleInset"), AppSettings.SpineStyleInset),
+                (LocalizationService.T("SettingsTitleBarSpineStyleEdge"), AppSettings.SpineStyleEdge),
+            ],
+            () => _settings.TitleBarHiddenSpineStyle, v => _settings.TitleBarHiddenSpineStyle = v);
         // 画像1枚だけの付箋は縁まで画像を広げるので、帯の居場所が残らない。
-        var onImage = Picker(160);
-        foreach (var (key, value) in new[]
-                 {
-                     ("SettingsTitleBarSpineOnImageGutter", AppSettings.ImageSpineGutter),
-                     ("SettingsTitleBarSpineOnImageOverlay", AppSettings.ImageSpineOverlay),
-                     ("SettingsTitleBarSpineOnImageHidden", AppSettings.ImageSpineHidden),
-                 })
-            onImage.Items.Add(new WpfComboBoxItem { Content = LocalizationService.T(key), Tag = value });
-        SelectByTag(onImage, _settings.ImageOnlySpineStyle);
-        onImage.SelectionChanged += (_, _) =>
-        {
-            if (_loading || onImage.SelectedItem is not WpfComboBoxItem { Tag: string value }) return;
-            if (string.Equals(value, _settings.ImageOnlySpineStyle, StringComparison.OrdinalIgnoreCase)) return;
-            _settings.ImageOnlySpineStyle = value;
-            Save();
-        };
+        var onImage = ChoicePicker(WidePickerWidth,
+            [
+                (LocalizationService.T("SettingsTitleBarSpineOnImageGutter"), AppSettings.ImageSpineGutter),
+                (LocalizationService.T("SettingsTitleBarSpineOnImageOverlay"), AppSettings.ImageSpineOverlay),
+                (LocalizationService.T("SettingsTitleBarSpineOnImageHidden"), AppSettings.ImageSpineHidden),
+            ],
+            () => _settings.ImageOnlySpineStyle, v => _settings.ImageOnlySpineStyle = v);
 
-        var toggle = Toggle("SettingsShowTitleBarSpine",
+        var toggle = Switch("SettingsShowTitleBarSpine",
             () => _settings.ShowTitleBarHiddenSpine, v => _settings.ShowTitleBarHiddenSpine = v);
 
         void SyncEnabled()
@@ -572,24 +672,16 @@ public sealed class SettingsWindow : Window
                 && style.SelectedItem is WpfComboBoxItem { Tag: string tag }
                 && !string.Equals(tag, AppSettings.SpineStyleEdge, StringComparison.OrdinalIgnoreCase);
         }
-
-        style.SelectionChanged += (_, _) =>
-        {
-            SyncEnabled();
-            if (_loading || style.SelectedItem is not WpfComboBoxItem { Tag: string value }) return;
-            if (string.Equals(value, _settings.TitleBarHiddenSpineStyle, StringComparison.OrdinalIgnoreCase)) return;
-            _settings.TitleBarHiddenSpineStyle = value;
-            Save();
-        };
+        style.SelectionChanged += (_, _) => SyncEnabled();
         toggle.Checked += (_, _) => SyncEnabled();
         toggle.Unchecked += (_, _) => SyncEnabled();
         SyncEnabled();
 
-        section.Children.Add(LabeledRow("SettingsTitleBarSpine", toggle));
-        section.Children.Add(LabeledRow("SettingsTitleBarSpineStyle", style));
-        section.Children.Add(LabeledRow("SettingsTitleBarSpineWidth", width));
-        section.Children.Add(LabeledRow("SettingsTitleBarSpineInset", inset));
-        section.Children.Add(LabeledRow("SettingsTitleBarSpineOnImage", onImage));
+        return Card("SettingsTitleBarSpine", "SettingsShowTitleBarSpine", toggle, SubRows(
+            SubRow(LocalizationService.T("SettingsTitleBarSpineStyle"), style),
+            SubRow(LocalizationService.T("SettingsTitleBarSpineWidth"), width),
+            SubRow(LocalizationService.T("SettingsTitleBarSpineInset"), inset),
+            SubRow(LocalizationService.T("SettingsTitleBarSpineOnImage"), onImage)));
     }
 
     // ─── 動作 ────────────────────────────────────────────────────
@@ -597,149 +689,96 @@ public sealed class SettingsWindow : Window
     private StackPanel BuildBehaviorSection()
     {
         var panel = new StackPanel();
-        panel.Children.Add(SectionHeader("SettingsBehavior"));
         // スタートアップだけはレジストリ登録を伴うので、App 側の処理を通す。
-        var startup = new StackPanel();
-        startup.Children.Add(Toggle("TrayStartup",
-            () => _settings.StartWithWindows, _app.SetStartWithWindows));
-        startup.Children.Add(Toggle("SettingsStartHidden",
-            () => _settings.StartHidden, v => _settings.StartHidden = v));
-        panel.Children.Add(LabeledRow("SettingsStartup", startup));
-        panel.Children.Add(LabeledRow("SettingsReminder", Toggle("SettingsBringReminderNoteToFront",
-            () => _settings.BringReminderNoteToFront, v => _settings.BringReminderNoteToFront = v)));
-        panel.Children.Add(LabeledRow("SettingsReminderSound", BuildReminderSoundPicker()));
-        var alertLength = new StackPanel();
-        alertLength.Children.Add(NumberBox(
+        panel.Children.Add(Card("SettingsStartup", null, null, SubRows(
+            SwitchRow("TrayStartup", () => _settings.StartWithWindows, _app.SetStartWithWindows),
+            SwitchRow("SettingsStartHidden", () => _settings.StartHidden, v => _settings.StartHidden = v))));
+        panel.Children.Add(SwitchCard("SettingsReminder", "SettingsBringReminderNoteToFront",
+            () => _settings.BringReminderNoteToFront, v => _settings.BringReminderNoteToFront = v));
+        panel.Children.Add(Card("SettingsReminderSound", "SettingsReminderSoundHint", BuildReminderSoundPicker()));
+        panel.Children.Add(Card("SettingsReminderAlertSeconds", "SettingsReminderAlertSecondsHint", NumberBox(
             () => _settings.ReminderAlertSeconds, v => _settings.ReminderAlertSeconds = v,
-            min: 1, max: AppSettings.MaxReminderAlertSeconds));
-        alertLength.Children.Add(new WpfTextBlock
-        {
-            Text = LocalizationService.T("SettingsReminderAlertSecondsHint"),
-            TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 6, 0, 0),
-        });
-        panel.Children.Add(LabeledRow("SettingsReminderAlertSeconds", alertLength));
-        panel.Children.Add(LabeledRow("SettingsTaskbar", Toggle("TrayShowInTaskbar",
-            () => _settings.ShowNotesInTaskbar, v => _settings.ShowNotesInTaskbar = v)));
+            min: 1, max: AppSettings.MaxReminderAlertSeconds)));
+        panel.Children.Add(SwitchCard("SettingsTaskbar", "TrayShowInTaskbar",
+            () => _settings.ShowNotesInTaskbar, v => _settings.ShowNotesInTaskbar = v));
 
-        var trayClick = Picker();
-        trayClick.Items.Add(new WpfComboBoxItem { Content = LocalizationService.T("TrayClickToggleAll"), Tag = "ToggleAll" });
-        trayClick.Items.Add(new WpfComboBoxItem { Content = LocalizationService.T("TrayClickNewNote"), Tag = "NewNote" });
-        SelectByTag(trayClick, _settings.TrayClickAction);
-        trayClick.SelectionChanged += (_, _) =>
-        {
-            if (_loading || trayClick.SelectedItem is not WpfComboBoxItem { Tag: string action }) return;
-            if (string.Equals(action, _settings.TrayClickAction, StringComparison.OrdinalIgnoreCase)) return;
-            _settings.TrayClickAction = action;
-            Save();
-        };
-        panel.Children.Add(LabeledRow("SettingsTrayClick", trayClick));
-        panel.Children.Add(LabeledRow("SettingsNewNoteHotkey", BuildHotkeyEditor(
+        panel.Children.Add(Card("SettingsTrayClick", null, ChoicePicker(WidePickerWidth,
+            [
+                (LocalizationService.T("TrayClickToggleAll"), "ToggleAll"),
+                (LocalizationService.T("TrayClickNewNote"), "NewNote"),
+            ],
+            () => _settings.TrayClickAction, v => _settings.TrayClickAction = v)));
+        panel.Children.Add(BuildHotkeyCard("SettingsNewNoteHotkey", "HotkeyHint",
             s => s.NewNoteHotkey, v => _settings.NewNoteHotkey = v, _app.TrySetNewNoteHotkey,
-            () => _app.NewNoteHotkeyError, GlobalNoteHotkey.DefaultGesture, "HotkeyHint")));
-        panel.Children.Add(LabeledRow("SettingsClipboardNoteHotkey", BuildHotkeyEditor(
+            () => _app.NewNoteHotkeyError, GlobalNoteHotkey.DefaultGesture));
+        panel.Children.Add(BuildHotkeyCard("SettingsClipboardNoteHotkey", "ClipboardHotkeyHint",
             s => s.ClipboardNoteHotkey, v => _settings.ClipboardNoteHotkey = v, _app.TrySetClipboardNoteHotkey,
-            () => _app.ClipboardNoteHotkeyError, GlobalNoteHotkey.DefaultClipboardGesture, "ClipboardHotkeyHint")));
+            () => _app.ClipboardNoteHotkeyError, GlobalNoteHotkey.DefaultClipboardGesture));
 
-        var folding = new StackPanel();
-        folding.Children.Add(Toggle("TrayTitlePreviewTooltip",
-            () => _settings.ShowTitlePreviewTooltip, v => _settings.ShowTitlePreviewTooltip = v));
-        folding.Children.Add(Toggle("TrayFoldAnimation",
-            () => _settings.EnableFoldAnimation, v => _settings.EnableFoldAnimation = v));
-        folding.Children.Add(Toggle("TrayFoldButton",
-            () => _settings.ShowFoldButton, v => _settings.ShowFoldButton = v));
-        folding.Children.Add(Toggle("TrayDoubleClickToToggleView",
-            () => _settings.DoubleClickToToggleView, v => _settings.DoubleClickToToggleView = v));
-        folding.Children.Add(Toggle("SettingsShowFoldedPositionGhost",
-            () => _settings.ShowFoldedPositionGhost, v => _settings.ShowFoldedPositionGhost = v));
-        panel.Children.Add(LabeledRow("SettingsFolding", folding));
+        panel.Children.Add(Card("SettingsFolding", null, null, SubRows(
+            SwitchRow("TrayTitlePreviewTooltip", () => _settings.ShowTitlePreviewTooltip, v => _settings.ShowTitlePreviewTooltip = v),
+            SwitchRow("TrayFoldAnimation", () => _settings.EnableFoldAnimation, v => _settings.EnableFoldAnimation = v),
+            SwitchRow("TrayFoldButton", () => _settings.ShowFoldButton, v => _settings.ShowFoldButton = v),
+            SwitchRow("TrayDoubleClickToToggleView", () => _settings.DoubleClickToToggleView, v => _settings.DoubleClickToToggleView = v),
+            SwitchRow("SettingsShowFoldedPositionGhost", () => _settings.ShowFoldedPositionGhost, v => _settings.ShowFoldedPositionGhost = v))));
 
-        var externalFiles = new StackPanel();
-        externalFiles.Children.Add(LabeledRow("SettingsExternalFileMinRefreshInterval", NumberBox(
-            () => _settings.ExternalFile.MinRefreshIntervalMs,
-            v => _settings.ExternalFile.MinRefreshIntervalMs = v,
-            min: 0, max: 60_000)));
-        externalFiles.Children.Add(LabeledRow("SettingsExternalFileTailLineCount", NumberBox(
-            () => _settings.ExternalFile.TailLineCount,
-            v => _settings.ExternalFile.TailLineCount = v,
-            min: 1, max: 100_000)));
-        externalFiles.Children.Add(LabeledRow("SettingsExternalFileBackgroundCheckInterval", NumberBox(
-            () => _settings.ExternalFile.BackgroundCheckIntervalMs,
-            v => _settings.ExternalFile.BackgroundCheckIntervalMs = v,
-            min: 0, max: 3_600_000)));
-        panel.Children.Add(LabeledRow("SettingsExternalFiles", externalFiles));
+        panel.Children.Add(Card("SettingsExternalFiles", null, null, SubRows(
+            SubRow(LocalizationService.T("SettingsExternalFileMinRefreshInterval"), NumberBox(
+                () => _settings.ExternalFile.MinRefreshIntervalMs,
+                v => _settings.ExternalFile.MinRefreshIntervalMs = v, min: 0, max: 60_000)),
+            SubRow(LocalizationService.T("SettingsExternalFileTailLineCount"), NumberBox(
+                () => _settings.ExternalFile.TailLineCount,
+                v => _settings.ExternalFile.TailLineCount = v, min: 1, max: 100_000)),
+            SubRow(LocalizationService.T("SettingsExternalFileBackgroundCheckInterval"), NumberBox(
+                () => _settings.ExternalFile.BackgroundCheckIntervalMs,
+                v => _settings.ExternalFile.BackgroundCheckIntervalMs = v, min: 0, max: 3_600_000)))));
         return panel;
     }
 
     /// <summary>
     /// リマインダーで鳴らす音の選択欄。選び直すたびに一度鳴らし、試聴ボタンでも確かめられる。
+    /// settings.json に直接書いたパスや、この PC に無い音も、そのまま選ばれた状態で見せる。
     /// </summary>
     private StackPanel BuildReminderSoundPicker()
     {
-        var combo = Picker(240);
-        combo.Name = "ReminderSoundPicker";
-        foreach (var sound in ReminderSound.ListSystemSounds())
-            combo.Items.Add(new WpfComboBoxItem { Content = ReminderSound.DisplayName(sound), Tag = sound });
-        // settings.json に直接書いたパスや、この PC に無い音も、そのまま選ばれた状態で見せる。
-        if (!SelectByTag(combo, _settings.ReminderSound))
-        {
-            combo.Items.Insert(0, new WpfComboBoxItem
+        var combo = ChoicePicker(WidePickerWidth,
+            ReminderSound.ListSystemSounds().Select(sound => (ReminderSound.DisplayName(sound), sound)),
+            () => _settings.ReminderSound, v =>
             {
-                Content = ReminderSound.DisplayName(_settings.ReminderSound), Tag = _settings.ReminderSound,
-            });
-            combo.SelectedIndex = 0;
-        }
-        combo.SelectionChanged += (_, _) =>
-        {
-            if (_loading || combo.SelectedItem is not WpfComboBoxItem { Tag: string sound }) return;
-            if (string.Equals(sound, _settings.ReminderSound, StringComparison.OrdinalIgnoreCase)) return;
-            _settings.ReminderSound = sound;
-            Save();
-            ReminderSound.Play(sound);
-        };
+                _settings.ReminderSound = v;
+                ReminderSound.Play(v);
+            },
+            ReminderSound.DisplayName);
+        combo.Name = "ReminderSoundPicker";
 
         var preview = new WpfButton
         {
             Content = LocalizationService.T("SettingsReminderSoundPreview"),
-            MinHeight = 32,
+            Height = 32,
             Padding = new Thickness(12, 0, 12, 0),
             Margin = new Thickness(8, 0, 0, 0),
         };
         preview.Click += (_, _) => ReminderSound.Play(_settings.ReminderSound);
 
-        // 欄は幅いっぱいまで（上限 240px）、試聴ボタンはそのすぐ右。狭い窓では欄の方が縮む。
-        var row = new WpfGrid();
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1000, GridUnitType.Star), MaxWidth = 240 });
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        Grid.SetColumn(preview, 1);
+        var row = new StackPanel { Orientation = WpfOrientation.Horizontal };
         row.Children.Add(combo);
         row.Children.Add(preview);
-
-        var panel = new StackPanel();
-        panel.Children.Add(row);
-        panel.Children.Add(new WpfTextBlock
-        {
-            Text = LocalizationService.T("SettingsReminderSoundHint"),
-            TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 6, 0, 0),
-        });
-        return panel;
+        return row;
     }
 
     /// <summary>
     /// 数値だけを受け付ける設定欄。チェックボックスと同じく、フォーカスが
     /// 外れた時点（もしくは Enter）で即座に反映して保存する。
     /// </summary>
-    private WpfTextBox NumberBox(Func<int> read, Action<int> write, int min, int max, double width = 100)
+    private WpfTextBox NumberBox(Func<int> read, Action<int> write, int min, int max)
     {
         var box = new WpfTextBox
         {
             Text = read().ToString(System.Globalization.CultureInfo.InvariantCulture),
-            Width = width,
+            Width = NarrowPickerWidth,
             Height = 32,
+            Padding = new Thickness(6, 0, 6, 0),
             VerticalContentAlignment = WpfVerticalAlignment.Center,
-            HorizontalAlignment = WpfHorizontalAlignment.Left,
         };
         void Apply()
         {
@@ -763,61 +802,87 @@ public sealed class SettingsWindow : Window
     }
 
     /// <summary>
-    /// ショートカットの指定欄。新規作成とクリップボードからの作成で同じ部品を使う。
+    /// ショートカットの指定欄。欄を選んでキーを押すと、その場で登録する（ほかの設定と同じく
+    /// 「適用」は無い）。登録できなかったときは前のキーを残し、カードの下に理由を出す。
+    /// 新規作成とクリップボードからの作成で同じ部品を使う。
     /// </summary>
     /// <param name="gesture">設定から今のキーを読む。</param>
     /// <param name="storeGesture">登録できたキーをこの画面の設定へ書く。</param>
-    private StackPanel BuildHotkeyEditor(Func<AppSettings, string> gesture, Action<string> storeGesture,
-        Func<string, bool> trySet, Func<string> error, string defaultGesture, string hintKey)
+    private WpfBorder BuildHotkeyCard(string titleKey, string hintKey, Func<AppSettings, string> gesture,
+        Action<string> storeGesture, Func<string, bool> trySet, Func<string> error, string defaultGesture)
     {
-        var panel = new StackPanel();
-        var hotkeyBox = new WpfTextBox { IsReadOnly = true, MinHeight = 32, VerticalContentAlignment = VerticalAlignment.Center };
+        var hotkeyBox = new WpfTextBox
+        {
+            IsReadOnly = true, Width = 180, Height = 32, Padding = new Thickness(6, 0, 6, 0),
+            VerticalContentAlignment = WpfVerticalAlignment.Center,
+            IsReadOnlyCaretVisible = false, Cursor = System.Windows.Input.Cursors.Hand,
+        };
         _hotkeyBoxes.Add(hotkeyBox);
         hotkeyBox.Text = gesture(_settings);
         hotkeyBox.ToolTip = LocalizationService.T(hintKey);
-        var status = new WpfTextBlock { Text = error(), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0) };
-        status.SetResourceReference(ForegroundProperty, "SettingsText");
-        hotkeyBox.PreviewKeyDown += (sender, e) =>
+        var status = MutedBlock(error());
+        status.Margin = new Thickness(0, 6, 0, 0);
+        status.Visibility = status.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+        status.Tag = "HotkeyStatus";
+
+        void ShowStatus(string text)
         {
-            var key = e.Key == System.Windows.Input.Key.System ? e.SystemKey : e.Key;
-            if (key == System.Windows.Input.Key.Tab) return;
-            e.Handled = true;
-            if (key == System.Windows.Input.Key.Escape) { hotkeyBox.Text = gesture(_settings); return; }
-            if (key is System.Windows.Input.Key.LeftCtrl or System.Windows.Input.Key.RightCtrl or System.Windows.Input.Key.LeftAlt or System.Windows.Input.Key.RightAlt or System.Windows.Input.Key.LeftShift or System.Windows.Input.Key.RightShift) return;
-            var modifiers = System.Windows.Input.Keyboard.Modifiers;
-            var keyName = key is >= System.Windows.Input.Key.D0 and <= System.Windows.Input.Key.D9 ? ((char)('0' + key - System.Windows.Input.Key.D0)).ToString() : key.ToString();
-            var pressed = (modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control) ? "Ctrl+" : "") + (modifiers.HasFlag(System.Windows.Input.ModifierKeys.Alt) ? "Alt+" : "") + (modifiers.HasFlag(System.Windows.Input.ModifierKeys.Shift) ? "Shift+" : "") + keyName;
-            if (modifiers.HasFlag(System.Windows.Input.ModifierKeys.Windows) || !GlobalNoteHotkey.TryParse(pressed, out _, out _, out var normalized))
-                status.Text = LocalizationService.T("HotkeyInvalid");
-            else { hotkeyBox.Text = normalized; status.Text = ""; }
-        };
-        panel.Children.Add(hotkeyBox);
-        var buttons = new WrapPanel { Margin = new Thickness(0, 6, 0, 0) };
+            status.Text = text;
+            status.Visibility = text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+        }
+
         void Apply(string value)
         {
             if (trySet(value))
             {
                 storeGesture(gesture(_app.Settings));
                 hotkeyBox.Text = gesture(_settings);
-                status.Text = LocalizationService.T(hotkeyBox.Text.Length == 0 ? "HotkeyDisabled" : "HotkeyApplied");
+                ShowStatus(LocalizationService.T(hotkeyBox.Text.Length == 0 ? "HotkeyDisabled" : "HotkeyApplied"));
             }
-            else status.Text = error();
+            else
+            {
+                hotkeyBox.Text = gesture(_settings);
+                ShowStatus(error());
+            }
         }
-        foreach (var (label, action) in new (string, Action)[]
+
+        hotkeyBox.PreviewKeyDown += (sender, e) =>
         {
-            ("HotkeyApply", () => Apply(hotkeyBox.Text)),
-            ("HotkeyDefault", () => Apply(defaultGesture)),
-            ("HotkeyDisable", () => Apply("")),
-        })
+            var key = e.Key == System.Windows.Input.Key.System ? e.SystemKey : e.Key;
+            if (key == System.Windows.Input.Key.Tab) return;
+            e.Handled = true;
+            if (key == System.Windows.Input.Key.Escape) { hotkeyBox.Text = gesture(_settings); ShowStatus(""); return; }
+            if (key is System.Windows.Input.Key.LeftCtrl or System.Windows.Input.Key.RightCtrl or System.Windows.Input.Key.LeftAlt or System.Windows.Input.Key.RightAlt or System.Windows.Input.Key.LeftShift or System.Windows.Input.Key.RightShift) return;
+            var modifiers = System.Windows.Input.Keyboard.Modifiers;
+            var keyName = key is >= System.Windows.Input.Key.D0 and <= System.Windows.Input.Key.D9 ? ((char)('0' + key - System.Windows.Input.Key.D0)).ToString() : key.ToString();
+            var pressed = (modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control) ? "Ctrl+" : "") + (modifiers.HasFlag(System.Windows.Input.ModifierKeys.Alt) ? "Alt+" : "") + (modifiers.HasFlag(System.Windows.Input.ModifierKeys.Shift) ? "Shift+" : "") + keyName;
+            if (modifiers.HasFlag(System.Windows.Input.ModifierKeys.Windows) || !GlobalNoteHotkey.TryParse(pressed, out _, out _, out var normalized))
+            {
+                ShowStatus(LocalizationService.T("HotkeyInvalid"));
+                return;
+            }
+            if (normalized == gesture(_settings)) { ShowStatus(""); return; }
+            Apply(normalized);
+        };
+
+        WpfButton IconButton(string glyph, string tooltipKey, Action onClick)
         {
-            var button = new WpfButton { Content = LocalizationService.T(label), Padding = new Thickness(10, 5, 10, 5), Margin = new Thickness(0, 0, 6, 6) };
-            button.Click += (_, _) => action();
-            buttons.Children.Add(button);
+            var button = new WpfButton
+            {
+                Content = new WpfTextBlock { Text = glyph, FontFamily = UiIcons.Font, FontSize = 13 },
+                Width = 32, Height = 32, Margin = new Thickness(6, 0, 0, 0),
+                ToolTip = LocalizationService.T(tooltipKey),
+            };
+            System.Windows.Automation.AutomationProperties.SetName(button, LocalizationService.T(tooltipKey));
+            button.Click += (_, _) => onClick();
+            return button;
         }
-        panel.Children.Add(buttons);
-        panel.Children.Add(new WpfTextBlock { Text = LocalizationService.T(hintKey), TextWrapping = TextWrapping.Wrap });
-        panel.Children.Add(status);
-        return panel;
+
+        var controls = new StackPanel { Orientation = WpfOrientation.Horizontal };
+        controls.Children.Add(hotkeyBox);
+        controls.Children.Add(IconButton(UiIcons.Reset, "HotkeyDefault", () => Apply(defaultGesture)));
+        controls.Children.Add(IconButton(UiIcons.Blocked, "HotkeyDisable", () => Apply("")));
+        return Card(titleKey, hintKey, controls, status);
     }
 
     // ─── データ ──────────────────────────────────────────────────
@@ -825,25 +890,24 @@ public sealed class SettingsWindow : Window
     private StackPanel BuildDataSection()
     {
         var panel = new StackPanel();
-        panel.Children.Add(SectionHeader("SettingsData"));
 
         _notesRootBox.IsReadOnly = true;
-        _notesRootBox.Height = 32;
-        _notesRootBox.Padding = new Thickness(8, 0, 8, 0);
-        _notesRootBox.VerticalContentAlignment = WpfVerticalAlignment.Center;
+        _notesRootBox.BorderThickness = new Thickness(0);
+        _notesRootBox.Background = WpfBrushes.Transparent;
+        _notesRootBox.Padding = new Thickness(0);
+        _notesRootBox.FontSize = 12;
+        _notesRootBox.Margin = new Thickness(-2, 2, 0, 0);
+        _notesRootBox.SetResourceReference(ForegroundProperty, "SettingsMuted");
         _notesRootBox.Text = StorageService.DataRoot;
-        var folder = new StackPanel();
-        folder.Children.Add(_notesRootBox);
         var choose = ActionButton("TraySelectNotesRoot", _app.SelectNotesRootFromSettings);
-        choose.HorizontalAlignment = WpfHorizontalAlignment.Left;
-        choose.Margin = new Thickness(0, 8, 0, 0);
-        folder.Children.Add(choose);
-        panel.Children.Add(LabeledRow("SettingsNotesRoot", folder));
+        panel.Children.Add(Card("SettingsNotesRoot", null, choose, _notesRootBox));
 
-        var buttons = new WrapPanel();
+        var buttons = new StackPanel { Orientation = WpfOrientation.Horizontal };
         buttons.Children.Add(ActionButton("TrayExportNotes", _app.ExportNotesFromSettings));
-        buttons.Children.Add(ActionButton("TrayImportNotes", _app.ImportNotesFromSettings));
-        panel.Children.Add(LabeledRow("SettingsBackup", buttons));
+        var import = ActionButton("TrayImportNotes", _app.ImportNotesFromSettings);
+        import.Margin = new Thickness(8, 0, 0, 0);
+        buttons.Children.Add(import);
+        panel.Children.Add(Card("SettingsBackup", null, buttons));
         return panel;
     }
 
@@ -852,9 +916,8 @@ public sealed class SettingsWindow : Window
         var button = new WpfButton
         {
             Content = LocalizationService.T(labelKey),
-            MinHeight = 32,
+            Height = 32,
             Padding = new Thickness(12, 0, 12, 0),
-            Margin = new Thickness(0, 0, 8, 4),
         };
         button.Click += (_, _) => onClick();
         return button;

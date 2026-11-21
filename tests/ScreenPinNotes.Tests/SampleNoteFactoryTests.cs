@@ -36,9 +36,20 @@ public class SampleNoteFactoryTests
 
         var notes = SampleNoteFactory.CreateInitialNotes(settings, storage);
 
-        Assert.Equal(2, notes.Count);
+        Assert.Equal(3, notes.Count);
 
-        var markdownNote = notes[0];
+        // 初回は小さな「ようこそ」だけを出し、使い方と書式一覧は非表示で置いておく。
+        var welcome = notes[0];
+        Assert.Equal("ようこそ", welcome.Title);
+        Assert.False(welcome.IsHidden);
+        Assert.InRange(welcome.Width, 1, 400);
+        Assert.InRange(welcome.Height, 1, 400);
+        Assert.Contains("非表示の付箋", welcome.Content);
+        Assert.All(notes.Skip(1), note => Assert.True(note.IsHidden));
+        // 操作ヘルプには表を置かない（表は折り返さないので、付箋の幅を超えて横スクロールが出る）。
+        Assert.DoesNotContain(notes[2].Content.Split('\n'), line => line.StartsWith("| "));
+
+        var markdownNote = notes[1];
         Assert.Equal("Markdown 書式一覧", markdownNote.Title);
         Assert.Equal("sky", markdownNote.ColorKey);
         Assert.Equal("📝", markdownNote.Icon);
@@ -49,7 +60,7 @@ public class SampleNoteFactoryTests
         Assert.Contains("## ブロック記法", markdownNote.Content);
         Assert.Contains("タイトルバー上で `Ctrl + マウスホイール`", markdownNote.Content);
 
-        var usageNote = notes[1];
+        var usageNote = notes[2];
         Assert.Equal("操作ヘルプ", usageNote.Title);
         Assert.Equal("yellow", usageNote.ColorKey);
         Assert.Equal("💡", usageNote.Icon);
@@ -77,10 +88,14 @@ public class SampleNoteFactoryTests
 
         var notes = SampleNoteFactory.CreateInitialNotes(settings, storage);
 
-        Assert.Equal(2, notes.Count);
+        Assert.Equal(3, notes.Count);
+        Assert.Equal("Welcome", notes[0].Title);
+        Assert.Contains("Hidden notes", notes[0].Content);
+        notes.RemoveAt(0);
         Assert.Equal("Markdown Syntax List", notes[0].Title);
         Assert.Equal("Usage Help", notes[1].Title);
         Assert.All(notes, note => Assert.True(note.IsReadOnly));
+        Assert.All(notes, note => Assert.True(note.IsHidden));
         Assert.Contains("This note lists the Markdown syntax supported in the body.", notes[0].Content);
         Assert.Contains("Double-click the body", notes[1].Content);
         Assert.Contains("Ctrl + drag", notes[1].Content);
@@ -106,7 +121,9 @@ public class SampleNoteFactoryTests
 
             var notes = SampleNoteFactory.CreateInitialNotes(settings, storage);
 
-            Assert.Equal(2, notes.Count);
+            Assert.Equal(3, notes.Count);
+            Assert.Equal("Welcome", notes[0].Title);
+            notes.RemoveAt(0);
             Assert.Equal("Markdown Syntax List", notes[0].Title);
             Assert.Equal("Usage Help", notes[1].Title);
             Assert.Contains("This note lists the Markdown syntax supported in the body.", notes[0].Content);

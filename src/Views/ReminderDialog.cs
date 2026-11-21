@@ -63,7 +63,7 @@ public sealed class ReminderDialog : Window
         FontFamily = new System.Windows.Media.FontFamily("Yu Gothic UI");
         FontSize = 13;
         _current = current;
-        var dark = string.Equals(App.Current.Settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase);
+        var dark = App.Current.Settings.IsDarkTheme;
         _dark = dark;
         ControlTheme.Apply(this, dark);
         System.Windows.Media.Brush Color(string value) => new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(value));
@@ -185,26 +185,30 @@ public sealed class ReminderDialog : Window
         AddLabeledInput(inputGrid, 1, LocalizationService.T("ReminderTime"), _timeBox);
         root.Children.Add(inputGrid);
 
-        var zeroMinutes = BuildButton(LocalizationService.T("ReminderZeroMinutes"));
-        zeroMinutes.HorizontalAlignment = System.Windows.HorizontalAlignment.Left;
-        zeroMinutes.Margin = new Thickness(104, 0, 0, 12);
-        zeroMinutes.Click += (_, _) => SetZeroMinutes();
-        root.Children.Add(zeroMinutes);
-
-        root.Children.Add(new TextBlock
-        {
-            Text = LocalizationService.T("ReminderAdjustHint"),
-            TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 0, 0, 8),
-        });
-        var presets = new WrapPanel { Margin = new Thickness(0, 0, 0, 10) };
+        // 日時をすばやく変えるボタン。足すボタンは入力中の日時に足すが、それが過去なら
+        // 今から足す（「リセットしてから足す」という手順を覚えなくて済むように）。
+        // 説明の段落は置かず、何をするかはボタンのツールチップで伝える。
+        var presets = new WrapPanel { Margin = new Thickness(104, 0, 0, 10) };
         AddPresetButton(presets, LocalizationService.T("ReminderAdd5"), TimeSpan.FromMinutes(5));
         AddPresetButton(presets, LocalizationService.T("ReminderAdd10"), TimeSpan.FromMinutes(10));
         AddPresetButton(presets, LocalizationService.T("ReminderAdd60"), TimeSpan.FromHours(1));
+        presets.Children.Add(new Border
+        {
+            Width = 1, Height = 18, Margin = new Thickness(2, 0, 8, 6), VerticalAlignment = VerticalAlignment.Center,
+            Background = System.Windows.Media.Brushes.Gray, Opacity = 0.4,
+        });
         var reset = BuildButton(LocalizationService.T("ReminderResetNow"));
         reset.Margin = new Thickness(0, 0, 6, 6);
+        reset.MinWidth = 0;
+        reset.ToolTip = LocalizationService.T("ReminderResetNowTooltip");
         reset.Click += (_, _) => ResetToNow();
         presets.Children.Add(reset);
+        var zeroMinutes = BuildButton(LocalizationService.T("ReminderZeroMinutes"));
+        zeroMinutes.Margin = new Thickness(0, 0, 6, 6);
+        zeroMinutes.MinWidth = 0;
+        zeroMinutes.ToolTip = LocalizationService.T("ReminderZeroMinutesTooltip");
+        zeroMinutes.Click += (_, _) => SetZeroMinutes();
+        presets.Children.Add(zeroMinutes);
         root.Children.Add(presets);
         root.Children.Add(new Separator { Margin = new Thickness(0, 8, 0, 16) });
         root.Children.Add(new TextBlock { Text = LocalizationService.T("ReminderRepeat"), FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 8) });
@@ -351,6 +355,8 @@ public sealed class ReminderDialog : Window
     {
         var button = BuildButton(label);
         button.Margin = new Thickness(0, 0, 6, 6);
+        button.ToolTip = LocalizationService.T("ReminderAddTooltip");
+        button.MinWidth = 56;
         button.Click += (_, _) => AddToSelectedTime(delay);
         panel.Children.Add(button);
     }
@@ -364,9 +370,17 @@ public sealed class ReminderDialog : Window
 
     private void ResetToNow() => SetDateTime(DateTime.Now);
 
-    private void AddToSelectedTime(TimeSpan delay)
+    private void AddToSelectedTime(TimeSpan delay) => AddFromSelectedTime(delay, DateTime.Now);
+
+    /// <summary>
+    /// 入力中の日時に足す。入力中の日時が過去（開いたまま時間が過ぎた、昨日の日付のまま、など）なら、
+    /// 過去に足しても意味がないので今の時刻に足す。
+    /// </summary>
+    internal void AddFromSelectedTime(TimeSpan delay, DateTime now)
     {
         if (!TryReadDateTime(out var selected)) return;
+        var start = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0);
+        if (selected < start) selected = start;
         try { SetDateTime(selected.Add(delay)); }
         catch (ArgumentOutOfRangeException) { _errorText.Text = LocalizationService.T("ReminderInvalid"); }
     }

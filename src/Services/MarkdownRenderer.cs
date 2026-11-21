@@ -401,8 +401,24 @@ public static class MarkdownRenderer
             });
         }
         AddInlineContent(para.Inlines, item.Text, line.Index, line.Offset + item.TextStart, context);
+        if (item.TaskState == true)
+        {
+            // 済んだ項目は薄くして線を引き、まだの項目と見分けやすくする。
+            // 線は文字だけに引く（段落に付けるとチェックボックスの下まで線が伸びる）。
+            var foreground = GetCompletedTaskForeground(context.DarkMode);
+            foreach (var inline in para.Inlines.Where(inline => inline is not InlineUIContainer))
+            {
+                inline.TextDecorations = TextDecorations.Strikethrough;
+                inline.Foreground = foreground;
+            }
+        }
         return para;
     }
+
+    internal static WpfSolidBrush GetCompletedTaskForeground(bool darkMode)
+        => darkMode
+            ? new WpfSolidBrush(WpfColor.FromArgb(130, 255, 255, 255))
+            : new WpfSolidBrush(WpfColor.FromArgb(120, 0, 0, 0));
 
     /// <summary>
     /// 先頭行を描画するときのフォントサイズ。見出しは本文より大きく描かれるので、
@@ -523,6 +539,12 @@ public static class MarkdownRenderer
             ? new WpfSolidBrush(WpfColor.FromArgb(26, 255, 255, 255))
             : new WpfSolidBrush(WpfColor.FromArgb(18, 0, 0, 0));
 
+    /// <summary>表の行の区切り線。縦線は引かず、横線だけを薄く引く。</summary>
+    private static WpfSolidBrush GetTableRuleBrush(bool darkMode, bool isHeader)
+        => darkMode
+            ? new WpfSolidBrush(WpfColor.FromArgb(isHeader ? (byte)110 : (byte)45, 255, 255, 255))
+            : new WpfSolidBrush(WpfColor.FromArgb(isHeader ? (byte)90 : (byte)32, 0, 0, 0));
+
     private static bool TryParseTable(
         string[] lines,
         int start,
@@ -598,11 +620,13 @@ public static class MarkdownRenderer
         if (isHeader)
             paragraph.FontWeight = FontWeights.Bold;
 
+        // 全部のセルを格子で囲むと重く見えるので、見出しの下だけ少し濃い線、
+        // ほかの行は薄い横線だけにする。
         return new TableCell(paragraph)
         {
-            BorderBrush = darkMode ? GetBorderBrush(true) : new WpfSolidBrush(WpfColor.FromArgb(64, 0, 0, 0)),
-            BorderThickness = new Thickness(1),
-            Padding = new Thickness(5, 2, 5, 2),
+            BorderBrush = GetTableRuleBrush(darkMode, isHeader),
+            BorderThickness = new Thickness(0, 0, 0, isHeader ? 1.5 : 1),
+            Padding = new Thickness(8, 3, 8, 3),
             Background = isHeader ? GetTableHeaderBackground(darkMode) : null,
         };
     }

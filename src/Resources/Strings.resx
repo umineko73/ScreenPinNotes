@@ -681,7 +681,7 @@ No: create initial notes in the selected folder. The current notes folder will r
     <value>Delete image file too</value>
   </data>
   <data name="DeleteImageFileConfirmTitle" xml:space="preserve">
-    <value>Confirm</value>
+    <value>Delete image file</value>
   </data>
   <data name="DeleteImageFileConfirmMessage" xml:space="preserve">
     <value>Remove this image from the note and delete the image file?</value>
@@ -711,7 +711,7 @@ No: create initial notes in the selected folder. The current notes folder will r
     <value>Search</value>
   </data>
   <data name="NoteManagerSearchPlaceholder" xml:space="preserve">
-    <value>Search title, body, or path</value>
+    <value>Search titles, text, and paths</value>
   </data>
   <data name="NoteManagerShow" xml:space="preserve">
     <value>Show</value>
@@ -762,7 +762,7 @@ No: create initial notes in the selected folder. The current notes folder will r
     <value>Select a note first.</value>
   </data>
   <data name="DeleteConfirmTitle" xml:space="preserve">
-    <value>Confirm</value>
+    <value>Delete note</value>
   </data>
   <data name="DeleteConfirmMessage" xml:space="preserve">
     <value>Delete this note?</value>
@@ -835,12 +835,12 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="SearchRegex" xml:space="preserve"><value>Regular expression</value></data>
   <data name="SearchInvalid" xml:space="preserve"><value>Invalid pattern or search timed out. Simplify your expression.</value></data>
   <data name="NoteManagerSelectionHint" xml:space="preserve"><value>Ctrl / Shift + click to select multiple notes. Hidden notes also keep their layer order.</value></data>
-  <data name="ReminderZeroMinutes" xml:space="preserve"><value>Set minutes to 00</value></data>
+  <data name="ReminderZeroMinutes" xml:space="preserve"><value>Round to :00</value></data>
   <data name="SearchHistoryHint" xml:space="preserve"><value>Type a search or choose from history. Enter or leaving the field saves it (latest 30).</value></data>
   <data name="ReminderAdd5" xml:space="preserve"><value>+5 min</value></data>
   <data name="ReminderAdd10" xml:space="preserve"><value>+10 min</value></data>
   <data name="ReminderAdd60" xml:space="preserve"><value>+1 hour</value></data>
-  <data name="ReminderResetNow" xml:space="preserve"><value>Reset to now</value></data>
+  <data name="ReminderResetNow" xml:space="preserve"><value>Now</value></data>
   <data name="ReminderAdjustHint" xml:space="preserve"><value>Adds to the date and time above. To start from now, reset first, then add time.</value></data>
   <data name="NoteManagerClearSearch" xml:space="preserve"><value>Clear search</value></data>
   <data name="LayerSort" xml:space="preserve"><value>Order: layers (front first)</value></data>
@@ -855,7 +855,7 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="NoteManagerLocked" xml:space="preserve"><value>Locked</value></data>
   <data name="NoteManagerUnlocked" xml:space="preserve"><value>Unlocked</value></data>
   <data name="SettingsNewNoteHotkey" xml:space="preserve"><value>New note shortcut</value></data>
-  <data name="HotkeyHint" xml:space="preserve"><value>Works while the app is running, even in other apps. Focus the field and press Ctrl or Alt + a letter, digit, or F-key (except F12), then Apply. Shift can be added. Default: Ctrl+Alt+N.</value></data>
+  <data name="HotkeyHint" xml:space="preserve"><value>Press the keys to use them right away (Ctrl or Alt + a letter, digit, or F-key). Default: Ctrl+Alt+N</value></data>
   <data name="HotkeyInvalid" xml:space="preserve"><value>Use Ctrl or Alt with a letter, digit, or F-key, except F12.</value></data>
   <data name="HotkeyUnavailable" xml:space="preserve"><value>Could not register the shortcut. It may be in use by another app. Choose another combination in Settings.</value></data>
   <data name="HotkeyApply" xml:space="preserve"><value>Apply</value></data>
@@ -866,7 +866,7 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="SettingsStartHidden" xml:space="preserve"><value>Start with notes hidden (wait in the tray)</value></data>
   <data name="TrayNewNoteFromClipboard" xml:space="preserve"><value>New note from clipboard</value></data>
   <data name="SettingsClipboardNoteHotkey" xml:space="preserve"><value>New note from clipboard shortcut</value></data>
-  <data name="ClipboardHotkeyHint" xml:space="preserve"><value>Creates a note from the text, image, or image files on the clipboard. Keys are set the same way as above. Default: Ctrl+Alt+Shift+N.</value></data>
+  <data name="ClipboardHotkeyHint" xml:space="preserve"><value>Creates a note from the text or image on the clipboard. Default: Ctrl+Alt+Shift+N</value></data>
   <data name="ClipboardNoteEmpty" xml:space="preserve"><value>The clipboard has no text or image to make a note from.</value></data>
   <data name="ReminderFlashNote" xml:space="preserve"><value>Flash the note for {0} seconds (shows hidden notes)</value></data>
   <data name="ReminderPlaySound" xml:space="preserve"><value>Repeat a sound for {0} seconds (chosen in Settings)</value></data>
@@ -900,4 +900,27 @@ No: create initial notes in the selected folder. The current notes folder will r
   </data>
   <data name="StorageSettingsLoadFailed" xml:space="preserve"><value>Settings could not be read. The original file was backed up before saving defaults. See the application log for details.</value></data>
   <data name="StorageNotesLoadFailed" xml:space="preserve"><value>Some notes could not be read. Their files have been preserved. See the application log for details.</value></data>
+  <data name="SettingsThemeLight" xml:space="preserve"><value>Light</value></data>
+  <data name="SettingsThemeDark" xml:space="preserve"><value>Dark</value></data>
+  <data name="SettingsThemeSystem" xml:space="preserve"><value>Use system setting</value></data>
+  <data name="OK" xml:space="preserve"><value>OK</value></data>
+  <data name="ImportNotesConfirmButton" xml:space="preserve"><value>Import</value></data>
+  <data name="MoveNotesConfirmButton" xml:space="preserve"><value>Move</value></data>
+  <data name="MoveNotesDeclineButton" xml:space="preserve"><value>Don't move</value></data>
+  <data name="FileChipOpenButton" xml:space="preserve"><value>Open</value></data>
+  <data name="DeleteButton" xml:space="preserve"><value>Delete</value></data>
+  <data name="SizeGroupBody" xml:space="preserve"><value>Text</value></data>
+  <data name="SizeGroupTitle" xml:space="preserve"><value>Title</value></data>
+  <data name="NoteDeletedToast" xml:space="preserve"><value>Deleted "{0}"</value></data>
+  <data name="Undo" xml:space="preserve"><value>Undo</value></data>
+  <data name="UntitledNote" xml:space="preserve"><value>Untitled note</value></data>
+  <data name="NoteManagerMore" xml:space="preserve"><value>More actions</value></data>
+  <data name="NoteManagerEmpty" xml:space="preserve"><value>No notes yet. Create one with New note at the top right.</value></data>
+  <data name="NoteManagerNoMatch" xml:space="preserve"><value>No notes match.</value></data>
+  <data name="NoteManagerLayerDisabledHint" xml:space="preserve"><value>Sort by Layer and clear the search to change the order.</value></data>
+  <data name="ReminderSnoozeLabel" xml:space="preserve"><value>Snooze</value></data>
+  <data name="ReminderOpenNote" xml:space="preserve"><value>Open note</value></data>
+  <data name="ReminderResetNowTooltip" xml:space="preserve"><value>Set the date and time to now</value></data>
+  <data name="ReminderZeroMinutesTooltip" xml:space="preserve"><value>Keep the date and hour and set the minutes to 00</value></data>
+  <data name="ReminderAddTooltip" xml:space="preserve"><value>Adds to the date and time above (from now if it is in the past)</value></data>
 </root>

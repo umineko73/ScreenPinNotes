@@ -31,7 +31,7 @@ public sealed class LinkEditDialog : Window
     public LinkEditDialog(Window owner, string label, string url)
     {
         Owner = owner;
-        ControlTheme.Apply(this, App.Current.Settings.Theme == "Dark", dialog: true);
+        ControlTheme.Apply(this, App.Current.Settings.IsDarkTheme, dialog: true);
         Title = LocalizationService.T("EditMarkdownLink");
         Width = 560; Height = 340; MinWidth = 360; MinHeight = 280;
         ShowInTaskbar = false;
@@ -57,7 +57,7 @@ public sealed class LinkEditDialog : Window
         {
             if (string.IsNullOrWhiteSpace(LinkTarget) || LinkTarget.IndexOfAny(['\r', '\n', '<', '>']) >= 0 || !LinkDetector.IsLink(LinkTarget))
             {
-                System.Windows.MessageBox.Show(this, LocalizationService.T("InvalidLinkTarget"), Title);
+                ConfirmationDialog.Inform(this, LocalizationService.T("InvalidLinkTarget"), Title, DialogKind.Warning);
                 _url.Focus();
                 return;
             }

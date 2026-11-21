@@ -681,7 +681,7 @@
     <value>画像ファイルごと削除</value>
   </data>
   <data name="DeleteImageFileConfirmTitle" xml:space="preserve">
-    <value>確認</value>
+    <value>画像ファイルを削除</value>
   </data>
   <data name="DeleteImageFileConfirmMessage" xml:space="preserve">
     <value>この画像を付箋から外し、画像ファイルも削除しますか？</value>
@@ -711,7 +711,7 @@
     <value>検索</value>
   </data>
   <data name="NoteManagerSearchPlaceholder" xml:space="preserve">
-    <value>タイトル、本文、パスを検索</value>
+    <value>タイトル・本文・パスで検索</value>
   </data>
   <data name="NoteManagerShow" xml:space="preserve">
     <value>表示</value>
@@ -762,7 +762,7 @@
     <value>付箋を選択してください。</value>
   </data>
   <data name="DeleteConfirmTitle" xml:space="preserve">
-    <value>確認</value>
+    <value>付箋を削除</value>
   </data>
   <data name="DeleteConfirmMessage" xml:space="preserve">
     <value>この付箋を削除しますか？</value>
@@ -835,12 +835,12 @@
   <data name="SearchRegex" xml:space="preserve"><value>正規表現</value></data>
   <data name="SearchInvalid" xml:space="preserve"><value>検索式が正しくないか、処理時間を超えました。式を簡単にしてください。</value></data>
   <data name="NoteManagerSelectionHint" xml:space="preserve"><value>Ctrl / Shift + クリックで複数選択。非表示の付箋も重なり順を保持します。</value></data>
-  <data name="ReminderZeroMinutes" xml:space="preserve"><value>分を00にする</value></data>
+  <data name="ReminderZeroMinutes" xml:space="preserve"><value>分を00に</value></data>
   <data name="SearchHistoryHint" xml:space="preserve"><value>入力または履歴から選択。Enterまたは入力欄を離れると保存します（最新30件）。</value></data>
   <data name="ReminderAdd5" xml:space="preserve"><value>+5分</value></data>
   <data name="ReminderAdd10" xml:space="preserve"><value>+10分</value></data>
   <data name="ReminderAdd60" xml:space="preserve"><value>+1時間</value></data>
-  <data name="ReminderResetNow" xml:space="preserve"><value>現在時刻にリセット</value></data>
+  <data name="ReminderResetNow" xml:space="preserve"><value>今の時刻</value></data>
   <data name="ReminderAdjustHint" xml:space="preserve"><value>上の日時に加算します。今からの時間を指定するには、リセットしてから加算してください。</value></data>
   <data name="NoteManagerClearSearch" xml:space="preserve"><value>検索解除</value></data>
   <data name="LayerSort" xml:space="preserve"><value>並び順：重なり順（上が手前）</value></data>
@@ -855,7 +855,7 @@
   <data name="NoteManagerLocked" xml:space="preserve"><value>ロック中</value></data>
   <data name="NoteManagerUnlocked" xml:space="preserve"><value>解除</value></data>
   <data name="SettingsNewNoteHotkey" xml:space="preserve"><value>新規付箋のショートカット</value></data>
-  <data name="HotkeyHint" xml:space="preserve"><value>アプリ起動中は他のアプリからも使えます。欄を選んで Ctrl または Alt ＋英数字・Fキー（F12以外）を押し「適用」。Shiftも追加できます。初期値：Ctrl+Alt+N。</value></data>
+  <data name="HotkeyHint" xml:space="preserve"><value>キーを押すとすぐ使えます（Ctrl か Alt ＋ 英数字・Fキー）。初期値: Ctrl+Alt+N</value></data>
   <data name="HotkeyInvalid" xml:space="preserve"><value>Ctrl または Alt と英数字・Fキー（F12以外）を組み合わせてください。</value></data>
   <data name="HotkeyUnavailable" xml:space="preserve"><value>ショートカットを登録できません。他のアプリが使用中の可能性があります。設定で別のキーを指定してください。</value></data>
   <data name="HotkeyApply" xml:space="preserve"><value>適用</value></data>
@@ -866,7 +866,7 @@
   <data name="SettingsStartHidden" xml:space="preserve"><value>起動時に付箋を表示しない（トレイで待機）</value></data>
   <data name="TrayNewNoteFromClipboard" xml:space="preserve"><value>クリップボードから付箋を作成</value></data>
   <data name="SettingsClipboardNoteHotkey" xml:space="preserve"><value>クリップボードから作成するショートカット</value></data>
-  <data name="ClipboardHotkeyHint" xml:space="preserve"><value>クリップボードの文字・画像・画像ファイルから付箋を作ります。キーの指定方法は上と同じです。初期値：Ctrl+Alt+Shift+N。</value></data>
+  <data name="ClipboardHotkeyHint" xml:space="preserve"><value>クリップボードの文字・画像から付箋を作ります。初期値: Ctrl+Alt+Shift+N</value></data>
   <data name="ClipboardNoteEmpty" xml:space="preserve"><value>クリップボードに付箋にできる内容（文字・画像）がありません。</value></data>
   <data name="ReminderFlashNote" xml:space="preserve"><value>付箋を{0}秒間点滅（非表示の付箋も表示）</value></data>
   <data name="ReminderPlaySound" xml:space="preserve"><value>サウンドを{0}秒間繰り返す（音は設定画面で選択）</value></data>
@@ -900,4 +900,27 @@
   </data>
   <data name="StorageSettingsLoadFailed" xml:space="preserve"><value>設定を読み込めませんでした。元のファイルを退避して既定値を保存しました。詳細はアプリのログを確認してください。</value></data>
   <data name="StorageNotesLoadFailed" xml:space="preserve"><value>一部の付箋を読み込めませんでした。元のファイルは保持されています。詳細はアプリのログを確認してください。</value></data>
+  <data name="SettingsThemeLight" xml:space="preserve"><value>ライト</value></data>
+  <data name="SettingsThemeDark" xml:space="preserve"><value>ダーク</value></data>
+  <data name="SettingsThemeSystem" xml:space="preserve"><value>システムに合わせる</value></data>
+  <data name="OK" xml:space="preserve"><value>OK</value></data>
+  <data name="ImportNotesConfirmButton" xml:space="preserve"><value>取り込む</value></data>
+  <data name="MoveNotesConfirmButton" xml:space="preserve"><value>移動する</value></data>
+  <data name="MoveNotesDeclineButton" xml:space="preserve"><value>移動しない</value></data>
+  <data name="FileChipOpenButton" xml:space="preserve"><value>開く</value></data>
+  <data name="DeleteButton" xml:space="preserve"><value>削除</value></data>
+  <data name="SizeGroupBody" xml:space="preserve"><value>本文</value></data>
+  <data name="SizeGroupTitle" xml:space="preserve"><value>タイトル</value></data>
+  <data name="NoteDeletedToast" xml:space="preserve"><value>「{0}」を削除しました</value></data>
+  <data name="Undo" xml:space="preserve"><value>元に戻す</value></data>
+  <data name="UntitledNote" xml:space="preserve"><value>無題の付箋</value></data>
+  <data name="NoteManagerMore" xml:space="preserve"><value>その他の操作</value></data>
+  <data name="NoteManagerEmpty" xml:space="preserve"><value>付箋はまだありません。右上の「新しい付箋を作成」から作れます。</value></data>
+  <data name="NoteManagerNoMatch" xml:space="preserve"><value>一致する付箋はありません。</value></data>
+  <data name="NoteManagerLayerDisabledHint" xml:space="preserve"><value>「重なり順」で並べ、検索を消すと変えられます。</value></data>
+  <data name="ReminderSnoozeLabel" xml:space="preserve"><value>スヌーズ</value></data>
+  <data name="ReminderOpenNote" xml:space="preserve"><value>付箋を開く</value></data>
+  <data name="ReminderResetNowTooltip" xml:space="preserve"><value>日時を今の時刻にします</value></data>
+  <data name="ReminderZeroMinutesTooltip" xml:space="preserve"><value>日付と時はそのままで、分を00にします</value></data>
+  <data name="ReminderAddTooltip" xml:space="preserve"><value>入力中の日時に足します（過去の日時なら今から）</value></data>
 </root>

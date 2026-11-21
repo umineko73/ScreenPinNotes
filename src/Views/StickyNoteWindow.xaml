@@ -547,8 +547,9 @@
 
             <!-- 編集ツールバー。編集モード中は常に表示する -->
             <!-- 編集中であることの唯一の目印。ツールバーはフォーカスが外れると
-                 隠れるので、これが無いと編集中かどうか分からない。付箋の色に
-                 左右されないよう塗りと反対色のフチを持たせ、本文のクリックを
+                 隠れるので、これが無いと編集中かどうか分からない。色はタイトルバーと
+                 同じ（付箋の色から作った淡い塗りと文字色、縁は付箋のアクセント色）。
+                 真っ黒だと本文より目立ってしまうため。本文のクリックを
                  邪魔しないよう当たり判定は持たせない。 -->
             <Border x:Name="EditingBadge"
                     Grid.Row="1"
@@ -560,12 +561,12 @@
                     Margin="6,0,0,6"
                     Padding="7,2,7,2"
                     CornerRadius="4"
-                    Background="Black"
-                    BorderBrush="White"
+                    Background="{Binding TitleBarBrush}"
+                    BorderBrush="{Binding HeaderBrush}"
                     BorderThickness="1">
                 <TextBlock x:Name="EditingBadgeText"
-                           Foreground="White"
-                           FontSize="13"
+                           Foreground="{Binding TitleBarForeground}"
+                           FontSize="12"
                            FontWeight="SemiBold"/>
             </Border>
 
@@ -585,6 +586,9 @@
                     VerticalAlignment="Bottom"
                     Width="36" Height="36" FontSize="16"
                     Margin="0,0,10,10"
+                    Background="{Binding TitleBarBrush}"
+                    BorderBrush="{Binding HeaderBrush}"
+                    Foreground="{Binding TitleBarForeground}"
                     Style="{StaticResource DoneEditingToolbarButton}"
                     ToolTip="編集を確定"
                     Click="DoneEditing_Click"/>
@@ -612,28 +616,33 @@
                                 Command="ApplicationCommands.Undo" CommandTarget="{Binding ElementName=BodyEditBox}"/>
                         <Button x:Name="RedoButton" Content="{x:Static services:UiIcons.Redo}" FontFamily="{x:Static services:UiIcons.Font}" FontSize="16" Style="{StaticResource EditToolbarButton}"
                                 Command="ApplicationCommands.Redo" CommandTarget="{Binding ElementName=BodyEditBox}"/>
-                        <Button x:Name="FontLargerButton" Style="{StaticResource EditToolbarButton}"
-                                ToolTip="{Binding FontSize, StringFormat=本文のフォントを大きく (現在 {0}pt)}"
-                                Click="FontLarger_Click"/>
-                        <TextBlock Text="{Binding FontSize, StringFormat={}{0:0.#}}"
-                                   MinWidth="22" Margin="2,0" FontSize="12" Opacity="0.75"
-                                   VerticalAlignment="Center" TextAlignment="Center"
-                                   IsHitTestVisible="False" Focusable="False"/>
+                        <!-- 文字の大きさは「本文 − 13 ＋」の形。何の大きさかを文字で添える。 -->
+                        <TextBlock x:Name="BodySizeLabel" Margin="6,0,2,0" FontSize="11" Opacity="0.7"
+                                   VerticalAlignment="Center" IsHitTestVisible="False" Focusable="False"/>
                         <Button x:Name="FontSmallerButton" Style="{StaticResource EditToolbarButton}"
                                 ToolTip="{Binding FontSize, StringFormat=本文のフォントを小さく (現在 {0}pt)}"
                                 Click="FontSmaller_Click"/>
-                        <Border Width="1" Height="16" Margin="5,0" VerticalAlignment="Center"
-                                Background="{Binding BorderBrush, ElementName=StatusBar}" IsHitTestVisible="False"/>
-                        <Button x:Name="TitleLargerButton" Style="{StaticResource EditToolbarButton}"
-                                ToolTip="{Binding TitleFontSize, StringFormat=タイトルのフォントを大きく (現在 {0}pt)}"
-                                Click="TitleLarger_Click"/>
-                        <TextBlock Text="{Binding TitleFontSize, StringFormat={}{0:0.#}}"
-                                   MinWidth="22" Margin="2,0" FontSize="12" Opacity="0.75"
+                        <TextBlock Text="{Binding FontSize, StringFormat={}{0:0.#}}"
+                                   MinWidth="20" Margin="0" FontSize="12"
                                    VerticalAlignment="Center" TextAlignment="Center"
                                    IsHitTestVisible="False" Focusable="False"/>
+                        <Button x:Name="FontLargerButton" Style="{StaticResource EditToolbarButton}"
+                                ToolTip="{Binding FontSize, StringFormat=本文のフォントを大きく (現在 {0}pt)}"
+                                Click="FontLarger_Click"/>
+                        <Border Width="1" Height="16" Margin="5,0" VerticalAlignment="Center"
+                                Background="{Binding BorderBrush, ElementName=StatusBar}" IsHitTestVisible="False"/>
+                        <TextBlock x:Name="TitleSizeLabel" Margin="2,0,2,0" FontSize="11" Opacity="0.7"
+                                   VerticalAlignment="Center" IsHitTestVisible="False" Focusable="False"/>
                         <Button x:Name="TitleSmallerButton" Style="{StaticResource EditToolbarButton}"
                                 ToolTip="{Binding TitleFontSize, StringFormat=タイトルのフォントを小さく (現在 {0}pt)}"
                                 Click="TitleSmaller_Click"/>
+                        <TextBlock Text="{Binding TitleFontSize, StringFormat={}{0:0.#}}"
+                                   MinWidth="20" Margin="0" FontSize="12"
+                                   VerticalAlignment="Center" TextAlignment="Center"
+                                   IsHitTestVisible="False" Focusable="False"/>
+                        <Button x:Name="TitleLargerButton" Style="{StaticResource EditToolbarButton}"
+                                ToolTip="{Binding TitleFontSize, StringFormat=タイトルのフォントを大きく (現在 {0}pt)}"
+                                Click="TitleLarger_Click"/>
                         <Border Width="1" Height="16" Margin="5,0" VerticalAlignment="Center"
                                 Background="{Binding BorderBrush, ElementName=StatusBar}" IsHitTestVisible="False"/>
                         <Button x:Name="FontButton" Content="Aa" Width="24"

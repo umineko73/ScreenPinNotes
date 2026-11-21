@@ -76,7 +76,7 @@ public class SettingsWindowTests
     [WpfTheory]
     [InlineData("Light")]
     [InlineData("Dark")]
-    public void SelectedIcon_HasItsOwnRenderedImageBeforeOpeningDropdown(string theme)
+    public void DefaultIcon_ShowsItsRenderedImageOnThePickerButton(string theme)
     {
         var app = (App)WpfApplicationFixture.Ensure();
         var settings = new AppSettings { Theme = theme };
@@ -86,27 +86,109 @@ public class SettingsWindowTests
         {
             window.Show();
             ExpandCategories(window);
-            window.UpdateLayout();
-            var picker = Descendants<ComboBox>(window).Single(c =>
-                c.SelectedItem is ComboBoxItem { Tag: "🦊" });
-            var presenter = (ContentPresenter)picker.Template.FindName("SelectionContent", picker);
-            var image = Assert.Single(Descendants<Image>(presenter));
+            var image = Descendants<Image>(window).Single(i => i.Name == "DefaultIconImage");
             Assert.NotNull(image.Source);
             Assert.True(image.ActualWidth > 0);
             Assert.True(image.ActualHeight > 0);
-            picker.IsDropDownOpen = true;
-            window.UpdateLayout();
-            picker.IsDropDownOpen = false;
-            window.UpdateLayout();
-            Assert.NotNull(Assert.Single(Descendants<Image>(presenter)).Source);
         }
         finally { window.Close(); }
     }
 
+    // 既定の色は付箋のパレットと同じ色見本で選ぶ。内部の名前（yellow など）は画面に出さない。
+    [WpfFact]
+    public void DefaultColor_IsChosenFromSwatchesWithoutInternalNames()
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var settings = new AppSettings();
+        settings.NoteDefaults.ColorKey = "blue";
+        var window = new SettingsWindow(settings, app);
+        try
+        {
+            window.Show();
+            ExpandCategories(window);
+            var swatches = Descendants<StackPanel>(window).Single(p => p.Name == "DefaultColorSwatches");
+            var buttons = Descendants<Button>(swatches).ToArray();
+            Assert.Equal(NoteAppearance.Presets.Count, buttons.Length);
+            var selected = Assert.Single(buttons, b => ((TextBlock)b.Content).Visibility == Visibility.Visible);
+            Assert.Equal("blue", selected.Tag);
+            foreach (var text in Descendants<TextBlock>(window))
+                Assert.DoesNotContain(text.Text, NoteAppearance.Presets.Keys);
+        }
+        finally { window.Close(); }
+    }
+
+    // テーマはライト・ダーク・システムの3択。システムは Windows のアプリ モードに従う。
     [WpfTheory]
-    [InlineData("Light", "ja", 720)]
-    [InlineData("Dark", "ja", 720)]
-    [InlineData("Light", "en", 540)]
+    [InlineData(AppSettings.ThemeLight, false, false)]
+    [InlineData(AppSettings.ThemeDark, false, true)]
+    [InlineData(AppSettings.ThemeSystem, false, false)]
+    [InlineData(AppSettings.ThemeSystem, true, true)]
+    public void ThemePicker_OffersSystemAndFollowsWindows(string theme, bool windowsDark, bool expectedDark)
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        SystemTheme.Override = () => windowsDark;
+        var settings = new AppSettings { Theme = theme };
+        var window = new SettingsWindow(settings, app);
+        try
+        {
+            Assert.Equal(expectedDark, settings.IsDarkTheme);
+            window.Show();
+            ExpandCategories(window);
+            var picker = Descendants<ComboBox>(window).Single(combo =>
+                combo.Items.Cast<object>().Any(item => item is ComboBoxItem { Tag: AppSettings.ThemeSystem }));
+            Assert.Equal(3, picker.Items.Count);
+            Assert.Equal(theme, Assert.IsType<ComboBoxItem>(picker.SelectedItem).Tag);
+            Assert.Equal(expectedDark ? Color.FromRgb(32, 32, 32) : Color.FromRgb(0xF3, 0xF3, 0xF3),
+                ((SolidColorBrush)window.Background).Color);
+        }
+        finally
+        {
+            window.Close();
+            SystemTheme.Override = null;
+        }
+    }
+
+    [Theory]
+    [InlineData("system", AppSettings.ThemeSystem)]
+    [InlineData("DARK", AppSettings.ThemeDark)]
+    [InlineData("blue", AppSettings.ThemeLight)]
+    public void Normalize_KeepsTheThreeThemes(string stored, string expected)
+    {
+        var settings = new AppSettings { Theme = stored };
+        settings.Normalize();
+        Assert.Equal(expected, settings.Theme);
+    }
+
+    // ショートカットは「適用」を押さずにその場で登録する。説明は1行に収まる短さ。
+    [WpfFact]
+    public void HotkeyCards_HaveNoApplyButtonAndShortHints()
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var previousLanguage = app.Settings.Language;
+        app.Settings.Language = "ja";
+        var window = new SettingsWindow(new AppSettings { Language = "ja" }, app);
+        try
+        {
+            window.Show();
+            ExpandCategories(window);
+            Assert.DoesNotContain(Descendants<Button>(window), b => Equals(b.Content, LocalizationService.T("HotkeyApply")));
+            Assert.Contains(Descendants<Button>(window), b => Equals(b.ToolTip, LocalizationService.T("HotkeyDefault")));
+            Assert.Contains(Descendants<Button>(window), b => Equals(b.ToolTip, LocalizationService.T("HotkeyDisable")));
+            foreach (var key in new[] { "HotkeyHint", "ClipboardHotkeyHint" })
+                foreach (var language in new[] { "ja", "en" })
+                    Assert.InRange(LocalizationService.T(key, language).Length, 1, 100);
+        }
+        finally
+        {
+            window.Close();
+            app.Settings.Language = previousLanguage;
+        }
+    }
+
+    [WpfTheory]
+    [InlineData("Light", "ja", 760)]
+    [InlineData("Dark", "ja", 760)]
+    [InlineData("Light", "en", 560)]
     [InlineData("Dark", "en", 1000)]
     public void SettingsControls_AlignAndRemainUsable(string theme, string language, double width)
     {
@@ -121,21 +203,35 @@ public class SettingsWindowTests
             ExpandCategories(window);
             window.UpdateLayout();
             var pickers = Descendants<ComboBox>(window).ToArray();
-            Assert.Equal(13, pickers.Length);
-            var left = pickers[0].TranslatePoint(new Point(), window).X;
+            Assert.Equal(12, pickers.Length);
+
+            // 操作部品はカードの右端にそろう。欄の幅は2種類だけ。
+            double Right(FrameworkElement e) => e.TranslatePoint(new Point(e.ActualWidth, 0), window).X;
+            var right = Right(Descendants<CheckBox>(window).First());
             foreach (var picker in pickers)
             {
-                Assert.Equal(left, picker.TranslatePoint(new Point(), window).X, 1);
-                Assert.InRange(picker.ActualWidth, 80, picker.MaxWidth);
+                Assert.Contains(picker.ActualWidth, new[] { SettingsWindow.WidePickerWidth, SettingsWindow.NarrowPickerWidth });
+                // 試聴ボタンが右に付く音の欄だけは右端より手前
+                if (picker.Name != "ReminderSoundPicker")
+                    Assert.Equal(right, Right(picker), 1);
+                // 選んでいる文字が欄に収まる（切れない）。
+                if (picker.SelectedItem is ComboBoxItem { Content: string text })
+                {
+                    var formatted = new FormattedText(text, System.Globalization.CultureInfo.CurrentUICulture,
+                        FlowDirection.LeftToRight, new Typeface(window.FontFamily, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal),
+                        window.FontSize, Brushes.Black, 1.0);
+                    Assert.True(formatted.Width <= picker.ActualWidth - 40, $"{text} is cut off");
+                }
             }
             foreach (var check in Descendants<CheckBox>(window))
-                Assert.Equal(left, check.TranslatePoint(new Point(), window).X, 1);
+                Assert.Equal(right, Right(check), 1);
 
             foreach (var key in new[]
                      {
                          "SettingsTitleBar", "SettingsTheme", "SettingsStartup", "SettingsTaskbar",
                          "SettingsTrayClick", "SettingsFolding", "SettingsBackup",
                          "SettingsStartHidden", "SettingsClipboardNoteHotkey", "SettingsReminderSound",
+                         "SettingsThemeLight", "SettingsThemeDark", "SettingsThemeSystem",
                      })
                 Assert.NotEqual(key, LocalizationService.T(key, language));
 
@@ -155,7 +251,7 @@ public class SettingsWindowTests
             Assert.IsType<System.Windows.Controls.Primitives.Popup>(pickers[0].Template.FindName("PART_Popup", pickers[0]));
             settings.Theme = theme == "Dark" ? "Light" : "Dark";
             typeof(SettingsWindow).GetMethod("ApplyTheme", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(window, null);
-            Assert.Equal(settings.Theme == "Dark" ? Color.FromRgb(32, 32, 32) : Colors.White,
+            Assert.Equal(settings.Theme == "Dark" ? Color.FromRgb(32, 32, 32) : Color.FromRgb(0xF3, 0xF3, 0xF3),
                 ((SolidColorBrush)window.Background).Color);
         }
         finally
@@ -342,6 +438,35 @@ public class SettingsWindowTests
 
     private static bool HasTag(ComboBox combo, double tag) =>
         combo.Items.Cast<object>().Any(item => item is ComboBoxItem entry && Equals(entry.Tag, tag));
+
+    // 書体の一覧は一度読むと使い回す。2回目に開いた設定でも、今の書体1つだけにならない。
+    [WpfFact]
+    public void DefaultFontPicker_ListsInstalledFontsEveryTimeItOpens()
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        for (var round = 0; round < 2; round++)
+        {
+            var window = new SettingsWindow(new AppSettings(), app);
+            try
+            {
+                window.Show();
+                ExpandCategories(window);
+                var picker = Descendants<ComboBox>(window).Single(c => c.Name == "DefaultFontPicker");
+                var deadline = DateTime.UtcNow.AddSeconds(30);
+                while (picker.Items.Count < 2 && DateTime.UtcNow < deadline)
+                {
+                    var frame = new System.Windows.Threading.DispatcherFrame();
+                    System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvoke(
+                        System.Windows.Threading.DispatcherPriority.Background, () => frame.Continue = false);
+                    System.Windows.Threading.Dispatcher.PushFrame(frame);
+                    Thread.Sleep(20);
+                }
+                Assert.True(picker.Items.Count > 1, $"round {round}: {picker.Items.Count} fonts");
+                Assert.NotNull(picker.SelectedItem);
+            }
+            finally { window.Close(); }
+        }
+    }
 
     private static void ExpandCategories(Window window)
     {

@@ -294,13 +294,81 @@ public class StorageService
 
     // ─── 削除（1件） ─────────────────────────────────────────────
 
-    public void DeleteNote(string id)
+    /// <summary>
+    /// 削除した付箋の置き場。notes の隣（保存ルート直下）の trash に、
+    /// 「削除した日時_付箋のID」のフォルダとして移す。notes の外なので読み込みには出てこない。
+    /// </summary>
+    public string TrashRoot => Path.Combine(Path.GetDirectoryName(_notesRoot) ?? _notesRoot, "trash");
+
+    /// <summary>ごみ箱に置いておく日数。これより古いものは起動時に消す。</summary>
+    public static readonly TimeSpan TrashRetention = TimeSpan.FromDays(7);
+
+    private const string TrashTimestampFormat = "yyyyMMddHHmmss";
+
+    /// <summary>
+    /// 付箋を削除する。フォルダはすぐには消さず、ごみ箱へ移す（元に戻せるように）。
+    /// 移した先のパスを返す。フォルダが無かった（まだ保存前など）ときは null。
+    /// </summary>
+    public string? DeleteNote(string id) => DeleteNote(id, DateTime.Now);
+
+    internal string? DeleteNote(string id, DateTime now)
     {
         if (!TryGetNoteDirectoryPath(id, out var dir))
-            return;
+            return null;
+        string? trashed = null;
         if (Directory.Exists(dir))
-            Directory.Delete(dir, recursive: true);
+        {
+            Directory.CreateDirectory(TrashRoot);
+            var name = $"{now.ToString(TrashTimestampFormat, System.Globalization.CultureInfo.InvariantCulture)}_{id}";
+            trashed = Path.Combine(TrashRoot, name);
+            for (var i = 2; Directory.Exists(trashed); i++)
+                trashed = Path.Combine(TrashRoot, $"{name}-{i}");
+            Directory.Move(dir, trashed);
+        }
         _saves.Forget(id);
+        return trashed;
+    }
+
+    /// <summary>
+    /// ごみ箱へ移した付箋を元の場所へ戻す。同じ ID の付箋がすでにある、
+    /// ごみ箱の外を指している、などのときは何もせず false。
+    /// </summary>
+    public bool RestoreNote(string trashedPath, string id)
+    {
+        if (!TryGetNoteDirectoryPath(id, out var dir) || Directory.Exists(dir))
+            return false;
+        var full = Path.GetFullPath(trashedPath);
+        var trashRoot = Path.GetFullPath(TrashRoot) + Path.DirectorySeparatorChar;
+        if (!full.StartsWith(trashRoot, StringComparison.OrdinalIgnoreCase) || !Directory.Exists(full))
+            return false;
+        Directory.CreateDirectory(_notesRoot);
+        Directory.Move(full, dir);
+        _saves.Forget(id);
+        return true;
+    }
+
+    /// <summary>ごみ箱のうち、<see cref="TrashRetention"/> より前に削除したものを消す。</summary>
+    public void PurgeTrash(DateTime now)
+    {
+        string[] entries;
+        try { entries = Directory.GetDirectories(TrashRoot); }
+        catch (DirectoryNotFoundException) { return; }
+        catch (Exception ex)
+        {
+            ErrorReporter.ReportNonFatal("List trash", ex);
+            return;
+        }
+        foreach (var entry in entries)
+        {
+            var name = Path.GetFileName(entry);
+            if (name.Length < TrashTimestampFormat.Length ||
+                !DateTime.TryParseExact(name[..TrashTimestampFormat.Length], TrashTimestampFormat,
+                    System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var deletedAt) ||
+                now - deletedAt < TrashRetention)
+                continue;
+            try { Directory.Delete(entry, recursive: true); }
+            catch (Exception ex) { ErrorReporter.ReportNonFatal("Purge trash", ex); }
+        }
     }
 
     public void ExportNotesToZip(string zipPath)
