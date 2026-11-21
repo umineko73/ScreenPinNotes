@@ -40,7 +40,7 @@ Title bar visibility and collapse/expand are independent settings.
 
 ## Modifier keys and shortcuts
 
-While the app is running, **Ctrl+Alt+N** creates a new note from other apps, and **Ctrl+Alt+Shift+N** creates one from the clipboard's text, image, or copied image files (changed under New note from clipboard shortcut). In Settings, focus the New note shortcut field, press a key combination, and click Apply. You can also restore the default or disable the shortcut. If another app has registered the combination, the previous shortcut remains active.
+While the app is running, **Ctrl+Alt+N** creates a new note from other apps, and **Ctrl+Alt+Shift+N** creates one from the clipboard's text, image, or copied image files (changed under New note from clipboard shortcut). In Settings, focus the New note shortcut field and press a key combination; it takes effect right away. The buttons next to the field restore the default or disable the shortcut. If another app has registered the combination, the previous shortcut remains active.
 
 | Action | Result |
 | --- | --- |
@@ -101,7 +101,7 @@ Icon and color palettes appear in front of notes. Click the same editing toolbar
 
 Use the mini toolbar for colors, fonts, and icons. Unavailable actions are disabled or hidden.
 
-**Duplicate note** creates a copy with the same body, appearance, and pasted images, slightly offset from the original. Reminders are not copied. **Hide** keeps the note; **Delete** removes it. Edit lock restricts body/title editing and deletion, while appearance, position, and checklist completion remain adjustable.
+**Duplicate note** creates a copy with the same body, appearance, and pasted images, slightly offset from the original. Reminders are not copied. **Hide** keeps the note; **Delete** removes it. After deleting, **Undo** appears at the bottom of the screen for 8 seconds and restores the note with its position, content, and images. Deleted notes stay in the `trash` folder of the storage folder for 7 days. Edit lock restricts body/title editing and deletion, while appearance, position, and checklist completion remain adjustable.
 
 ## Markdown, images, and Excel
 
@@ -134,13 +134,15 @@ Use the mini toolbar for colors, fonts, and icons. Unavailable actions are disab
 
 ![The note list window](note-list-en.png)
 
-Open **Note list** from the tray. Columns show layer order, pin status, visibility, edit lock, title, body excerpt, reminder, update time, and external path.
+Open **Note list** from the tray. Each row starts with the note's color and icon, and the **Status** column shows marks for hidden, always on top, edit lock, reminder, and external file (hidden notes are drawn dimmed). Title, body excerpt, reminder, update time, layer order, and external path are also listed. The list updates on its own when notes change.
+
+Above the list are **Show, Hide, layer moves, and Delete**. Reminder and external-file actions are in the **...** button and the row's context menu. **New note** and **Open external file** sit at the top right. Press Delete to delete the selected note and Enter to show it.
 
 - **Search**: choose plain text, wildcard (`*` for any sequence, `?` for one character), or regular expression. Searches ignore case. Invalid or excessively slow patterns show an error.
-- **History**: Enter or leaving the search field saves the query. The latest 30 entries persist across restarts and can be selected from the field's dropdown. **Clear search** clears the query while keeping history.
+- **History**: Enter or leaving the search field saves the query. The latest 30 entries persist across restarts and can be selected from the field's dropdown. The search box's × button or Esc clears the query while keeping history.
 - **Multiple selection**: Ctrl/Shift-click notes, then use **Show / Hide** for the entire selection. Deletion, reminders, and other individual actions operate on one note at a time.
 - **Layers**: higher rows appear in front. Use **Bring to front, Move up, Move down, Send to back**. The order persists across restarts and includes hidden notes. Always-on-top notes form a separate group above normal notes.
-- **Sorting**: click a column header, then click again to reverse direction (▲/▼). This sorts only the list, leaving the actual stacking order intact. Click **Z-order** to return to layer order. Layer movement is available in layer order with search cleared.
+- **Sorting**: click a column header, then click again to reverse direction (▲/▼). This sorts only the list, leaving the actual stacking order intact. Click **Z-order** to return to layer order. Layer movement is available in layer order with search cleared (the buttons' tooltip says why when they are disabled).
 
 ## Reminders
 
@@ -148,7 +150,7 @@ Open **Note list** from the tray. Columns show layer order, pin status, visibili
 
 Configure a reminder from a note's context menu or the **Note list**. Choose a date from the calendar. The editor appears above pinned notes. **Current setting** at the top of the editor states whether the note has a reminder right now, and when it does, its next time, repeat, and how it notifies - the date and time fields start filled in, so they alone do not tell you.
 
-**+5 min, +10 min, +1 hour** add to the date and time currently entered, including repeated clicks and crossing midnight. Use **Reset to now** then **+10 min** for ten minutes from now. **Set minutes to 00** keeps the date and hour. Choose a future time before saving.
+**+5 min, +10 min, +1 hour** add to the date and time entered, including repeated clicks and crossing midnight. If that time is already in the past they add from now, so **+10 min** alone means ten minutes from now. **Now** sets the current time and **Round to :00** keeps the date and hour. Choose a future time before saving.
 
 | Repeat | Schedule |
 | --- | --- |
@@ -157,7 +159,7 @@ Configure a reminder from a note's context menu or the **Note list**. Choose a d
 | Weekly | Start date, time, one or more weekdays, and optionally the 1st–5th weeks (e.g. 1st and 3rd for every other week); a week is the weekday's occurrence in the month |
 | Monthly | Start date, time, and day 1–31 or **Last day**; shorter months use their last day |
 
-Click a Windows notification to open the note list. Simultaneous reminders share a notification. Optionally enable the alert window for 5-, 15-, or 60-minute snooze. Snoozing preserves the recurring time.
+Click a Windows notification to open the note list. Simultaneous reminders share a notification. Optionally enable the alert window, shown in the note's color and icon, with 5-, 15-, or 60-minute snooze, **Open note**, and **Done**. Snoozing preserves the recurring time.
 
 **Flash the note for 30 seconds** is enabled by default. It shows hidden notes and slowly pulses the whole note in orange (the text stays readable through it). The flashing note comes in front of other apps' windows; turn this off under **Settings → Behavior → Reminders**. Other notes stay where they are. Clicking, typing, or hiding the note stops the effect. Windows notifications, snooze alerts, flashing, and a sound can be combined; flashing alone or a sound alone is also supported.
 
@@ -189,7 +191,7 @@ The default *None* leaves a pale note with almost no visible edge over a white b
 
 Updating from 0.2.0 or earlier changes how notes look on first launch: rounded corners and a gray frame become square corners and no border. For the old look, set corner radius to 6 and border color to gray in **Settings > Appearance**.
 
-Settings save immediately (shortcut changes require Apply). New-note defaults apply to tray- and shortcut-created notes; `＋` on a note copies its appearance.
+Settings save immediately, including shortcuts, which switch as soon as you press the keys. Theme offers Light, Dark, and **Use system setting**, which follows the Windows color setting as it changes. New-note defaults apply to tray- and shortcut-created notes; `＋` on a note copies its appearance.
 
 External notes show `🔗`, and their title bar shows the time the content was last refreshed so you can tell at a glance whether it's current. Hovering the icon or title shows that changes appear automatically, the file path, and the last update time. Their menu can open the file or folder, toggle tail mode, or convert the content into an editable note. Deleting the note or changing image display sizes does not modify the original file.
 
