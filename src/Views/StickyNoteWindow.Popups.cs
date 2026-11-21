@@ -256,17 +256,7 @@ public partial class StickyNoteWindow
             }
         }
         var fontButton = MakeButton("Aa", LocalizationService.T("FontTooltip"),
-            () => RunQuickAction(() =>
-            {
-                if (_fontPopup == null) return;
-                ClosePickerPopups(except: _fontPopup);
-                var (x, y) = PickerOffsetNearNote();
-                _fontPopup.PlacementTarget = RootBorder;
-                _fontPopup.Placement = PlacementMode.Relative;
-                _fontPopup.HorizontalOffset = x;
-                _fontPopup.VerticalOffset = y;
-                _fontPopup.IsOpen = true;
-            }));
+            () => RunQuickAction(() => OpenFontPicker(CursorOnScreen())));
         fontButton.Width = 24;
         panel.Children.Add(fontButton);
         iconButton = MakeButton(UiIcons.Emoji, LocalizationService.T("IconTooltip"),

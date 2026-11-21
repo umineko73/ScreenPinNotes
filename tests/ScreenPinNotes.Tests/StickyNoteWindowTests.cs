@@ -3209,6 +3209,23 @@ public class StickyNoteWindowTests
                 Assert.InRange(popup.VerticalOffset + ShadowMargin, 24 - cardHeight - 0.001, root.ActualHeight - 24 + 0.001);
                 popup.IsOpen = false;
             }
+
+            // フォント一覧（影の余白なし）も同じ。付箋から遠い右下を指しても、付箋に 24 以上重なる。
+            var far = root.PointToScreen(new Point(root.ActualWidth + 2000, root.ActualHeight + 2000));
+            typeof(StickyNoteWindow).GetMethod("OpenFontPicker", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(window, [far]);
+            var font = GetPrivateField<Popup>(window, "_fontPopup");
+            Assert.True(font.IsOpen);
+            Assert.Same(root, font.PlacementTarget);
+            Assert.Equal(PlacementMode.Relative, font.Placement);
+            Assert.Equal(root.ActualWidth - 24, font.HorizontalOffset, 3);
+            Assert.Equal(root.ActualHeight - 24, font.VerticalOffset, 3);
+            // ボタンのすぐ下に出る（付箋の上のほうのボタンなら、下端までは下げない）。
+            font.IsOpen = false;
+            var near = root.PointToScreen(new Point(40, 20));
+            typeof(StickyNoteWindow).GetMethod("OpenFontPicker", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(window, [near]);
+            Assert.Equal(24, font.HorizontalOffset, 3);
+            Assert.Equal(24, font.VerticalOffset, 3);
+            font.IsOpen = false;
         }
         finally
         {

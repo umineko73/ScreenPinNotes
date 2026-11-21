@@ -223,14 +223,25 @@ public partial class StickyNoteWindow
         => Settings.IsDarkTheme;
 
     private void Font_Click(object sender, RoutedEventArgs e)
+        => OpenFontPicker(AnchorBelow((UIElement)sender));
+
+    /// <summary>
+    /// フォント一覧を開く。アイコン・色のピッカーと同じく、マウスや押したボタンのすぐ下に出し、
+    /// 縦・横とも付箋に一部重ねる（<see cref="PickerOrigin"/>）。一覧には影の余白が無い。
+    /// </summary>
+    private void OpenFontPicker(System.Windows.Point anchorOnScreen)
     {
         if (_fontPopup == null) return;
 
         ClosePickerPopups(except: _fontPopup);
-        _fontPopup.PlacementTarget = (UIElement)sender;
-        _fontPopup.Placement = PlacementMode.Bottom;
-        _fontPopup.HorizontalOffset = 0;
-        _fontPopup.VerticalOffset = 0;
+        var anchor = RootBorder.PointFromScreen(anchorOnScreen);
+        var card = _fontPopup.Child as FrameworkElement;
+        card?.Measure(new System.Windows.Size(double.PositiveInfinity, double.PositiveInfinity));
+        var (x, y) = PickerOrigin(anchor, new System.Windows.Size(RootBorder.ActualWidth, RootBorder.ActualHeight), card?.DesiredSize ?? default);
+        _fontPopup.PlacementTarget = RootBorder;
+        _fontPopup.Placement = PlacementMode.Relative;
+        _fontPopup.HorizontalOffset = x;
+        _fontPopup.VerticalOffset = y;
         _fontPopup.IsOpen = true;
     }
 
@@ -246,21 +257,6 @@ public partial class StickyNoteWindow
     /// <summary>押したボタンの下。まだ画面に出ていない（試験などで直接呼ばれた）ときはマウスの位置。</summary>
     private static System.Windows.Point AnchorBelow(UIElement trigger)
         => PresentationSource.FromVisual(trigger) != null ? BottomLeftOnScreen(trigger) : CursorOnScreen();
-
-    /// <summary>
-    /// メニューから開くピッカーの位置（RootBorder 基準）。マウスはメニュー上にあり、
-    /// メニューは付箋から大きく外れて出ることがあるので、そのままマウス位置に出すと
-    /// 付箋から遠く離れてしまう。マウス位置を付箋の範囲に収めてから少しずらす。
-    /// </summary>
-    private (double X, double Y) PickerOffsetNearNote()
-    {
-        const double Offset = 12;
-        var cursor = System.Windows.Forms.Cursor.Position;   // デバイスピクセル
-        var point = RootBorder.PointFromScreen(new System.Windows.Point(cursor.X, cursor.Y));
-        return (
-            Math.Clamp(point.X, 0, Math.Max(0, RootBorder.ActualWidth)) + Offset,
-            Math.Clamp(point.Y, 0, Math.Max(0, RootBorder.ActualHeight)) + Offset);
-    }
 
     private void OpenColorPicker(System.Windows.Point anchorOnScreen, WpfButton? trigger)
     {
