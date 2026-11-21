@@ -909,4 +909,6 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="MoveNotesDeclineButton" xml:space="preserve"><value>Don't move</value></data>
   <data name="FileChipOpenButton" xml:space="preserve"><value>Open</value></data>
   <data name="DeleteButton" xml:space="preserve"><value>Delete</value></data>
+  <data name="SizeGroupBody" xml:space="preserve"><value>Text</value></data>
+  <data name="SizeGroupTitle" xml:space="preserve"><value>Title</value></data>
 </root>

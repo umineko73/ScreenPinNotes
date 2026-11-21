@@ -190,6 +190,7 @@
                     <!-- 角丸を大きめの固定値にしておくと、WPF が辺の半分に切り詰めるので、
                          ボタンの大きさを変えても円のまま。 -->
                     <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1.5"
                             CornerRadius="100" Margin="1">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>

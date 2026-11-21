@@ -474,13 +474,6 @@ public partial class StickyNoteWindow : Window
     private void ApplySettings()
     {
         ControlTheme.Apply(this, IsDarkTheme());
-        var editBackground = IsDarkTheme() ? WpfBrushes.White : WpfBrushes.Black;
-        var editForeground = IsDarkTheme() ? WpfBrushes.Black : WpfBrushes.White;
-        EditingBadge.Background = editBackground;
-        EditingBadge.BorderBrush = editForeground;
-        EditingBadgeText.Foreground = editForeground;
-        DoneEditingButton.Background = editBackground;
-        DoneEditingButton.Foreground = editForeground;
 
         _overlayTimer.Interval = TimeSpan.FromMilliseconds(Settings.Timings.SizeOverlayDurationMs);
         _toolbarHideTimer.Interval = TimeSpan.FromMilliseconds(Settings.Timings.ToolbarHideDelayMs);
@@ -568,6 +561,8 @@ public partial class StickyNoteWindow : Window
         RedoButton.ToolTip = LocalizationService.T("RedoTooltip");
         DoneEditingButton.ToolTip = LocalizationService.T("DoneEditingTooltip");
         EditingBadgeText.Text = LocalizationService.T("EditingBadge");
+        BodySizeLabel.Text = LocalizationService.T("SizeGroupBody");
+        TitleSizeLabel.Text = LocalizationService.T("SizeGroupTitle");
     }
 
     // WPFはSegoe UI Emojiのカラーフォントを直接描画できないため、

@@ -29,6 +29,7 @@ public static class UiIcons
     public static readonly WpfFontFamily Font = new("Segoe Fluent Icons, Segoe MDL2 Assets");
 
     public const string Add = "\uE710";
+    public const string Remove = "\uE738";
     public const string Pin = "\uE718";
     public const string ChevronUp = "\uE70E";
     public const string ChevronDown = "\uE70D";

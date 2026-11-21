@@ -1326,7 +1326,11 @@ public class StickyNoteWindowTests
             buttons[2].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
             Assert.True(menu.IsOpen);
-            var sizes = toolbar.Children.OfType<TextBlock>().ToList();
+            var texts = toolbar.Children.OfType<TextBlock>().ToList();
+            // 何の大きさかを「本文」「タイトル」の文字で添える。
+            Assert.Contains(texts, t => t.Text == LocalizationService.T("SizeGroupBody"));
+            Assert.Contains(texts, t => t.Text == LocalizationService.T("SizeGroupTitle"));
+            var sizes = texts.Where(t => double.TryParse(t.Text, out _)).ToList();
             Assert.Equal(window.ViewModel.FontSize.ToString("0.#"), sizes[0].Text);
             Assert.Equal(window.ViewModel.TitleFontSize.ToString("0.#"), sizes[1].Text);
             Assert.All(sizes, size => Assert.False(size.IsHitTestVisible));

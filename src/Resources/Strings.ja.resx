@@ -909,4 +909,6 @@
   <data name="MoveNotesDeclineButton" xml:space="preserve"><value>移動しない</value></data>
   <data name="FileChipOpenButton" xml:space="preserve"><value>開く</value></data>
   <data name="DeleteButton" xml:space="preserve"><value>削除</value></data>
+  <data name="SizeGroupBody" xml:space="preserve"><value>本文</value></data>
+  <data name="SizeGroupTitle" xml:space="preserve"><value>タイトル</value></data>
 </root>
