@@ -652,6 +652,24 @@ public partial class StickyNoteWindow
         return loaded;
     }
 
+    /// <summary>
+    /// 暗い付箋に貼った、背景の透けた draw.io の図には明るい台紙を敷く（<see cref="DiagramPlate"/>）。
+    /// それ以外の画像はそのまま返す。図かどうかの判定と合成は、元画像と同じく更新日時込みで覚える。
+    /// </summary>
+    private System.Windows.Media.Imaging.BitmapSource GetOrCreateDiagramPlate(
+        string imagePath, System.Windows.Media.Imaging.BitmapSource bitmap)
+    {
+        var writeTimeUtc = File.GetLastWriteTimeUtc(imagePath);
+        if (_diagramPlateCache.TryGetValue(imagePath, out var cached) && cached.WriteTimeUtc == writeTimeUtc)
+            return cached.Bitmap ?? bitmap;
+
+        var plated = DrawioFiles.IsDiagram(imagePath) && DiagramPlate.HasTransparentEdge(bitmap)
+            ? DiagramPlate.Compose(bitmap)
+            : null;
+        _diagramPlateCache[imagePath] = (writeTimeUtc, plated);
+        return plated ?? bitmap;
+    }
+
     private Inline CreateMarkdownImage(MarkdownRenderer.MarkdownImage markdownImage)
     {
         var fallback = CreateMarkdownImageFallback(markdownImage);
@@ -673,6 +691,8 @@ public partial class StickyNoteWindow
             if (!File.Exists(imagePath))
                 return fallback;
             bitmap = GetOrLoadNormalizedImage(imagePath);
+            if (ViewModel.UsesDarkNoteColors)
+                bitmap = GetOrCreateDiagramPlate(imagePath, bitmap);
         }
         catch (Exception ex)
         {

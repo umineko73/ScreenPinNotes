@@ -90,6 +90,7 @@ public partial class StickyNoteWindow
         if (_isClosed) return;
         // 同じ更新日時で置換された画像も、変更通知が来たら読み直す。
         _normalizedImageCache.Clear();
+        _diagramPlateCache.Clear();
         if (_isEditMode || ViewModel.IsFolded) return;
         var x = ContentBox.HorizontalOffset;
         var y = ContentBox.VerticalOffset;

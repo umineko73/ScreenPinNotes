@@ -117,6 +117,8 @@ public partial class StickyNoteWindow : Window
     private double     _paneScrollStartVerticalOffset;
     private readonly Dictionary<WpfImage, MarkdownImageContext> _markdownImageContexts = [];
     private readonly Dictionary<string, (DateTime WriteTimeUtc, System.Windows.Media.Imaging.BitmapSource Bitmap)> _normalizedImageCache = [];
+    // 暗い付箋で draw.io の図に台紙を敷いた画像。図でない・透けていない画像は null（台紙なし）として覚える。
+    private readonly Dictionary<string, (DateTime WriteTimeUtc, System.Windows.Media.Imaging.BitmapSource? Bitmap)> _diagramPlateCache = [];
     private readonly Stack<ContentUndoEntry> _contentUndoStack = [];
     private WrapPanel? _colorPanel;
 
