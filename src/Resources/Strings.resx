@@ -911,4 +911,7 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="DeleteButton" xml:space="preserve"><value>Delete</value></data>
   <data name="SizeGroupBody" xml:space="preserve"><value>Text</value></data>
   <data name="SizeGroupTitle" xml:space="preserve"><value>Title</value></data>
+  <data name="NoteDeletedToast" xml:space="preserve"><value>Deleted "{0}"</value></data>
+  <data name="Undo" xml:space="preserve"><value>Undo</value></data>
+  <data name="UntitledNote" xml:space="preserve"><value>Untitled note</value></data>
 </root>

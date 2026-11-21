@@ -911,4 +911,7 @@
   <data name="DeleteButton" xml:space="preserve"><value>削除</value></data>
   <data name="SizeGroupBody" xml:space="preserve"><value>本文</value></data>
   <data name="SizeGroupTitle" xml:space="preserve"><value>タイトル</value></data>
+  <data name="NoteDeletedToast" xml:space="preserve"><value>「{0}」を削除しました</value></data>
+  <data name="Undo" xml:space="preserve"><value>元に戻す</value></data>
+  <data name="UntitledNote" xml:space="preserve"><value>無題の付箋</value></data>
 </root>

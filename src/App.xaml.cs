@@ -159,6 +159,8 @@ public partial class App : System.Windows.Application, INoteWindowHost
         EnsureStorageRootSelected();
         _storage = _storage.WithStorageRoot(_settings.StorageRoot);
         _storage.SaveSettings(_settings);
+        // 削除してから日が経った付箋をごみ箱から消す。
+        _storage.PurgeTrash(DateTime.Now);
 
         InitIpcWindow();
         InitTrayIcon();
@@ -1264,10 +1266,42 @@ public partial class App : System.Windows.Application, INoteWindowHost
 
     private bool RemoveNoteCore(string id, bool closeWindow)
     {
-        if (!Workspace.Remove(id, closeWindow)) return false;
+        if (!Workspace.Remove(id, closeWindow, out var removed)) return false;
         SaveAll();
         _noteManagerWindow?.RefreshNotes();
+        if (removed != null)
+            UndoToast.Show(string.Format(LocalizationService.T("NoteDeletedToast"), DescribeForToast(removed.Note)),
+                LocalizationService.T("Undo"), () => RestoreRemovedNote(removed), _settings.IsDarkTheme);
         return true;
+    }
+
+    /// <summary>トーストに出す付箋の名前。タイトルが無ければ本文の1行目を短くして使う。</summary>
+    private static string DescribeForToast(StickyNote note)
+    {
+        var text = !string.IsNullOrWhiteSpace(note.Title) ? note.Title!.Trim()
+            : note.Content.Replace("\r", "").Split('\n').Select(l => l.Trim().TrimStart('#', '-', '*', '>', ' '))
+                .FirstOrDefault(l => l.Length > 0) ?? "";
+        if (text.Length == 0) return LocalizationService.T("UntitledNote");
+        return text.Length > 24 ? text[..24] + "…" : text;
+    }
+
+    /// <summary>削除した付箋をごみ箱から戻し、同じ位置・中身で開き直す。</summary>
+    private void RestoreRemovedNote(RemovedNote removed)
+    {
+        if (_shuttingDown || Workspace.Find(removed.Note.Id) != null) return;
+        try
+        {
+            if (!_storage.RestoreNote(removed.TrashedPath, removed.Note.Id)) return;
+        }
+        catch (Exception ex)
+        {
+            ErrorReporter.ReportNonFatal("Restore deleted note", ex);
+            return;
+        }
+        var window = OpenNoteWindow(removed.Note);
+        window.Activate();
+        _storage.SaveNote(removed.Note);
+        _noteManagerWindow?.RefreshNotes();
     }
 
     public void RememberNoteSearch(string query)
