@@ -456,7 +456,10 @@ public sealed class SettingsWindow : Window
         // 一覧の取得は時間がかかる。開いた直後は今の設定だけ見せ、揃ったら差し替える。
         combo.Items.Add(new WpfComboBoxItem { Content = defaults.FontFamily, Tag = defaults.FontFamily });
         combo.SelectedIndex = 0;
-        _ = LoadFontsAsync(combo, defaults);
+        combo.Name = "DefaultFontPicker";
+        // 一覧は一度読むと使い回すので、2回目以降はここで同期的に揃ってしまう。
+        // 窓が出る前だと閉じた窓と区別できずに捨てていたため、出てから詰める。
+        Loaded += (_, _) => _ = LoadFontsAsync(combo, defaults);
         combo.SelectionChanged += (_, _) =>
         {
             if (_loading || combo.SelectedItem is not WpfComboBoxItem { Tag: string source }) return;
@@ -475,7 +478,7 @@ public sealed class SettingsWindow : Window
             ErrorReporter.ReportNonFatal("Load fonts for the settings window", ex);
             return;
         }
-        if (!IsLoaded && !IsVisible) return;
+        if (!IsLoaded) return; // 読み終える前に閉じた
 
         var wasLoading = _loading;
         _loading = true;

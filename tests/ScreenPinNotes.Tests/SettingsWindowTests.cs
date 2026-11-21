@@ -439,6 +439,35 @@ public class SettingsWindowTests
     private static bool HasTag(ComboBox combo, double tag) =>
         combo.Items.Cast<object>().Any(item => item is ComboBoxItem entry && Equals(entry.Tag, tag));
 
+    // 書体の一覧は一度読むと使い回す。2回目に開いた設定でも、今の書体1つだけにならない。
+    [WpfFact]
+    public void DefaultFontPicker_ListsInstalledFontsEveryTimeItOpens()
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        for (var round = 0; round < 2; round++)
+        {
+            var window = new SettingsWindow(new AppSettings(), app);
+            try
+            {
+                window.Show();
+                ExpandCategories(window);
+                var picker = Descendants<ComboBox>(window).Single(c => c.Name == "DefaultFontPicker");
+                var deadline = DateTime.UtcNow.AddSeconds(30);
+                while (picker.Items.Count < 2 && DateTime.UtcNow < deadline)
+                {
+                    var frame = new System.Windows.Threading.DispatcherFrame();
+                    System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvoke(
+                        System.Windows.Threading.DispatcherPriority.Background, () => frame.Continue = false);
+                    System.Windows.Threading.Dispatcher.PushFrame(frame);
+                    Thread.Sleep(20);
+                }
+                Assert.True(picker.Items.Count > 1, $"round {round}: {picker.Items.Count} fonts");
+                Assert.NotNull(picker.SelectedItem);
+            }
+            finally { window.Close(); }
+        }
+    }
+
     private static void ExpandCategories(Window window)
     {
         window.UpdateLayout();

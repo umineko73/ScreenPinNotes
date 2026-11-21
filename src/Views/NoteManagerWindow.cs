@@ -513,6 +513,10 @@ public sealed class NoteManagerWindow : Window
             else App.Current.HideNote(id);
         }
         RefreshNotes();
+        // 付箋を出すと付箋の重なりを並べ直し、隠すと Windows が次の窓を前へ出すので、
+        // 一覧が付箋や他のアプリの後ろへ回ってしまう。続けて操作できるよう一覧を前へ戻す。
+        Activate();
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, () => { if (IsVisible) Activate(); });
     }
 
     private bool CanChangeLayers() => _sortProperty == nameof(NoteRow.Layer) && string.IsNullOrEmpty(_searchBox.Text);

@@ -170,6 +170,65 @@ public class NoteManagerWindowTests
         }
     }
 
+    // 一覧から表示・非表示を切り替えても、一覧は付箋の後ろへ回らない。
+    [WpfFact]
+    public void ShowingAndHidingFromTheList_KeepsTheListInFront()
+    {
+        var app = (App)WpfApplicationFixture.Ensure();
+        var field = typeof(App).GetField("_windows", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        var windows = (List<StickyNoteWindow>)field.GetValue(app)!;
+        var previous = windows.ToList();
+        var tempRoot = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ScreenPinNotes.Tests", Guid.NewGuid().ToString());
+        var storage = new ScreenPinNotes.Services.StorageService(tempRoot);
+        var note = new StickyNoteWindow(new ScreenPinNotes.ViewModels.StickyNoteViewModel(new ScreenPinNotes.Models.StickyNote { Title = "N", IsHidden = true }, app.Settings), storage);
+        NoteManagerWindow? manager = null;
+        try
+        {
+            windows.Clear();
+            windows.Add(note);
+            manager = new NoteManagerWindow();
+            manager.Show();
+            manager.UpdateLayout();
+            var list = Descendants(manager).OfType<ListView>().Single();
+            list.SelectedItem = list.Items[0];
+            var toggle = typeof(NoteManagerWindow).GetMethod("SetSelectedVisibility", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+            void Pump()
+            {
+                var frame = new System.Windows.Threading.DispatcherFrame();
+                manager.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, () => frame.Continue = false);
+                System.Windows.Threading.Dispatcher.PushFrame(frame);
+            }
+
+            toggle.Invoke(manager, [true]);
+            Pump();
+            Assert.True(note.IsVisible);
+            var noteHandle = new System.Windows.Interop.WindowInteropHelper(note).Handle;
+            var managerHandle = new System.Windows.Interop.WindowInteropHelper(manager).Handle;
+            bool ManagerIsAboveNote()
+            {
+                for (var h = GetWindow(noteHandle, 3); h != IntPtr.Zero; h = GetWindow(h, 3))
+                    if (h == managerHandle) return true;
+                return false;
+            }
+            Assert.True(ManagerIsAboveNote());
+            Assert.True(manager.IsActive);
+
+            list.SelectedItem = list.Items[0];
+            toggle.Invoke(manager, [false]);
+            Pump();
+            Assert.False(note.IsVisible);
+            Assert.True(manager.IsActive);
+        }
+        finally
+        {
+            manager?.Close();
+            windows.Clear();
+            note.Close();
+            windows.AddRange(previous);
+            if (System.IO.Directory.Exists(tempRoot)) System.IO.Directory.Delete(tempRoot, true);
+        }
+    }
+
     private static IEnumerable<DependencyObject> Descendants(DependencyObject root)
     {
         for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
