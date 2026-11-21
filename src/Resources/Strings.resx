@@ -535,6 +535,9 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="SettingsNotesRoot" xml:space="preserve">
     <value>Save location</value>
   </data>
+  <data name="SpineHandleTooltip" xml:space="preserve">
+    <value>Title bar hidden. Drag here to move the note</value>
+  </data>
   <data name="MoveNoteTooltip" xml:space="preserve">
     <value>Drag to move the note</value>
   </data>

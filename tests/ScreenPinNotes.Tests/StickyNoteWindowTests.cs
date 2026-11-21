@@ -3708,6 +3708,42 @@ public class StickyNoteWindowTests
         finally { window.Close(); }
     }
 
+    // 帯にはふだん持ち手を出さない。持ち手は帯の中心に重なり、帯の上の当たり判定には
+    // 「タイトルバーを隠している」「ここで動かせる」と分かるツールチップが付く。
+    [WpfTheory]
+    [InlineData("Inset", 3, 3)]
+    [InlineData("Inset", 6, 0)]
+    [InlineData("Edge", 3, 3)]
+    public void TitleBarHiddenSpineGrip_IsCenteredOnTheSpineAndHiddenAtRest(string style, double width, double inset)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var settings = new AppSettings { TitleBarHiddenSpineStyle = style };
+        settings.Layout.TitleBarHiddenSpineWidth = width;
+        settings.Layout.TitleBarHiddenSpineInset = inset;
+        var note = new StickyNote { IsTitleBarHidden = true, Content = "body", Width = 240, Height = 160 };
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, settings), new StorageService(temp.Path));
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var spine = Assert.IsType<System.Windows.Shapes.Rectangle>(window.FindName("TitleBarHiddenSpine"));
+            var grip = Assert.IsType<Border>(window.FindName("TitleBarHiddenSpineGrip"));
+            var handle = Assert.IsType<Border>(window.FindName("TitleBarHiddenSpineHandle"));
+            Assert.Equal(Visibility.Collapsed, grip.Visibility);
+            Assert.False(grip.IsHitTestVisible);
+            var spineCenter = spine.Margin.Left + (spine.ActualWidth / 2);
+            var gripCenter = grip.Margin.Left + (StickyNoteViewModel.SpineGripWidth / 2);
+            if (spineCenter >= StickyNoteViewModel.SpineGripWidth / 2)
+                Assert.Equal(spineCenter, gripCenter, 3);
+            else
+                Assert.Equal(0, grip.Margin.Left);
+            Assert.Equal(StickyNoteViewModel.SpineGripWidth, grip.Width);
+            Assert.Equal(LocalizationService.T("SpineHandleTooltip"), handle.ToolTip);
+        }
+        finally { window.Close(); }
+    }
+
     [WpfFact]
     public void TitleBarHiddenSpine_FollowsTheTitleBarToggle()
     {
@@ -3836,7 +3872,7 @@ public class StickyNoteWindowTests
             window.Show();
             window.UpdateLayout();
             var root = Assert.IsType<Border>(window.FindName("RootBorder"));
-            Assert.Equal(0, Assert.IsType<RectangleGeometry>(root.Clip).RadiusX);
+            Assert.Equal(8, Assert.IsType<RectangleGeometry>(root.Clip).RadiusX);
 
             settings.Layout.NoteCornerRadius = 12;
             window.RefreshSettings();

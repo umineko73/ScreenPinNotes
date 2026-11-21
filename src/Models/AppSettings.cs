@@ -441,8 +441,11 @@ public sealed class LayoutSettings
     /// <see cref="AppSettings.SpineStyleInset"/> のときだけ使う。
     /// </summary>
     public double TitleBarHiddenSpineInset { get; set; } = 3;
-    /// <summary>付箋の四隅の丸み。0 なら角のままにする。</summary>
-    public double NoteCornerRadius { get; set; }
+    /// <summary>
+    /// 付箋の四隅の丸み。0 なら角のままにする。既定は Windows 11 の窓に合わせて 8。
+    /// 透明な窓なので DWM の角丸と影は使えず、RootBorder の角丸で描く。
+    /// </summary>
+    public double NoteCornerRadius { get; set; } = 8;
     public double NewNoteBaseX { get; set; } = 150;
     public double NewNoteBaseY { get; set; } = 150;
     public double NewNoteCascadeStep { get; set; } = 20;

@@ -389,6 +389,24 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         }
     }
 
+    /// <summary>帯に重ねる持ち手（つまみ）の幅。XAML の TitleBarHiddenSpineGrip と合わせてある。</summary>
+    public const double SpineGripWidth = 8;
+
+    /// <summary>
+    /// 帯にマウスが乗ったときに出す持ち手の置き場所。帯の中心に合わせ、上下は帯と同じだけ空ける。
+    /// 帯だけでは「掴める所」に見えないので、点を並べたつまみで示す。
+    /// </summary>
+    public Thickness TitleSpineGripMargin
+    {
+        get
+        {
+            var spine = TitleSpineMargin;
+            var center = SpineInset + (_settings.Layout.TitleBarHiddenSpineWidth / 2);
+            var vertical = Math.Max(spine.Top, 3);
+            return new Thickness(Math.Max(0, center - (SpineGripWidth / 2)), vertical, 0, vertical);
+        }
+    }
+
     /// <summary>本文の手前まで、帯と左右の余白をまとめて持ち手にする。</summary>
     public double TitleSpineHandleWidth =>
         Math.Max(SpineExtent, UsesTightImageLayout ? NoteContentPadding.Left : NoteTextPadding.Left);
@@ -696,6 +714,7 @@ public class StickyNoteViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(TitleSpineWidth));
         OnPropertyChanged(nameof(TitleSpineCornerRadius));
         OnPropertyChanged(nameof(TitleSpineMargin));
+        OnPropertyChanged(nameof(TitleSpineGripMargin));
         OnPropertyChanged(nameof(TitleSpineHandleWidth));
         OnPropertyChanged(nameof(NoteContentPadding));
         OnPropertyChanged(nameof(NoteEditorPadding));
