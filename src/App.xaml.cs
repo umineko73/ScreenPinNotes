@@ -179,7 +179,6 @@ public partial class App : System.Windows.Application, INoteWindowHost
             OpenNoteWindow(note, show: !_settings.StartHidden);
         ForgetLastActiveNote();
 
-        RefreshTrayMenu();
         StartReminderTimer();
     }
 
@@ -313,8 +312,13 @@ public partial class App : System.Windows.Application, INoteWindowHost
             Text = "ScreenPinNotes",
             Visible = true,
         };
-        _trayIcon.ContextMenuStrip = BuildTrayMenu();
         _trayIcon.BalloonTipClicked += (_, _) => Dispatcher.BeginInvoke(ShowNoteManager);
+        // 右クリックのメニューは付箋と同じ WPF のメニューで開く（Views/TrayMenu.cs）。
+        _trayIcon.MouseUp += (_, e) =>
+        {
+            if (e.Button == MouseButtons.Right)
+                Dispatcher.BeginInvoke(() => TrayMenu.Show(BuildTrayMenuEntries(), _settings.IsDarkTheme));
+        };
 
         // 左クリック時の動作は設定で選べる（既定は全表示トグル）。
         _trayIcon.MouseClick += (_, e) =>
@@ -324,50 +328,46 @@ public partial class App : System.Windows.Application, INoteWindowHost
         };
     }
 
-    private ContextMenuStrip BuildTrayMenu()
-    {
-        var menu = new ContextMenuStrip();
-        menu.Items.Add(LocalizationService.T("TrayShowAll"), null, (_, _) => ShowAllNotes());
-        menu.Items.Add(LocalizationService.T("TrayHideAll"), null, (_, _) => HideAllNotes());
-        menu.Items.Add(BuildHiddenNotesMenu());
-        menu.Items.Add("-");
-        menu.Items.Add(LocalizationService.T("TrayNewNote"), null, (_, _) => AddNewNote());
-        menu.Items.Add(LocalizationService.T("TrayNewNoteFromClipboard"), null, (_, _) => AddNewNoteFromClipboard());
-        menu.Items.Add(LocalizationService.T("TrayOpenExternalNote"), null, (_, _) => AddExternalFileNoteFromDialog());
-        menu.Items.Add(LocalizationService.T("TrayNoteManager"), null, (_, _) => ShowNoteManager());
-        menu.Items.Add("-");
-        menu.Items.Add(LocalizationService.T("TraySettings"), null, (_, _) => ShowSettingsWindow());
-        menu.Items.Add("-");
-        menu.Items.Add(LocalizationService.T("TrayAbout"), null, (_, _) => ShowAboutWindow());
-        menu.Items.Add(LocalizationService.T("TrayExit"), null, (_, _) => ExitApp());
-        return menu;
-    }
+    internal IReadOnlyList<TrayMenuEntry> BuildTrayMenuEntries() =>
+    [
+        new(LocalizationService.T("TrayShowAll"), ShowAllNotes, UiIcons.View),
+        new(LocalizationService.T("TrayHideAll"), HideAllNotes, UiIcons.Hide),
+        BuildHiddenNotesEntry(),
+        TrayMenuEntry.Separator,
+        new(LocalizationService.T("TrayNewNote"), () => AddNewNote(), UiIcons.Add),
+        new(LocalizationService.T("TrayNewNoteFromClipboard"), AddNewNoteFromClipboard, UiIcons.Paste),
+        new(LocalizationService.T("TrayOpenExternalNote"), AddExternalFileNoteFromDialog, UiIcons.OpenFile),
+        new(LocalizationService.T("TrayNoteManager"), ShowNoteManager, UiIcons.List),
+        TrayMenuEntry.Separator,
+        new(LocalizationService.T("TraySettings"), ShowSettingsWindow, UiIcons.Settings),
+        TrayMenuEntry.Separator,
+        new(LocalizationService.T("TrayAbout"), ShowAboutWindow, UiIcons.Info),
+        new(LocalizationService.T("TrayExit"), ExitApp, UiIcons.Power),
+    ];
 
-    private ToolStripMenuItem BuildHiddenNotesMenu()
+    private TrayMenuEntry BuildHiddenNotesEntry()
     {
-        var hiddenNotesItem = new ToolStripMenuItem(LocalizationService.T("TrayHiddenNotes"));
         var hiddenWindows = _windows
             .Where(w => w.ViewModel.Model.IsHidden)
             .OrderBy(w => w.ViewModel.Model.CreatedAt)
             .ToList();
 
         if (hiddenWindows.Count == 0)
+            return new(LocalizationService.T("TrayHiddenNotes"), Enabled: false,
+                Children: [new(LocalizationService.T("TrayNoHiddenNotes"), Enabled: false)]);
+
+        var children = new List<TrayMenuEntry>
         {
-            hiddenNotesItem.Enabled = false;
-            hiddenNotesItem.DropDownItems.Add(LocalizationService.T("TrayNoHiddenNotes"));
-            return hiddenNotesItem;
-        }
-
-        hiddenNotesItem.DropDownItems.Add(LocalizationService.T("TrayShowAllHiddenNotes"), null, (_, _) => ShowAllHiddenNotes());
-        hiddenNotesItem.DropDownItems.Add("-");
-
+            new(LocalizationService.T("TrayShowAllHiddenNotes"), ShowAllHiddenNotes, UiIcons.View),
+            TrayMenuEntry.Separator,
+        };
         foreach (var win in hiddenWindows)
         {
             var noteId = win.ViewModel.Model.Id;
-            hiddenNotesItem.DropDownItems.Add(win.ViewModel.DisplayTitle, null, (_, _) => ShowHiddenNote(noteId));
+            var icon = string.IsNullOrEmpty(win.ViewModel.Icon) ? null : EmojiRenderer.Render(win.ViewModel.Icon, _settings.MonochromeIcons);
+            children.Add(new(win.ViewModel.DisplayTitle, () => ShowHiddenNote(noteId), Image: icon));
         }
-
-        return hiddenNotesItem;
+        return new(LocalizationService.T("TrayHiddenNotes"), Children: children);
     }
 
     private async void ExportNotesFromTray()
@@ -441,7 +441,6 @@ public partial class App : System.Windows.Application, INoteWindowHost
                     return conflict.Action;
                 })));
             ReloadNoteWindowsFromStorage(showEmptyStorageMessage: false);
-            RefreshTrayMenu();
 
             ConfirmationDialog.Inform(DialogOwner,
                 string.Format(
@@ -495,7 +494,6 @@ public partial class App : System.Windows.Application, INoteWindowHost
             ShowEmptyStorageInitializationMessage();
 
         ReloadNoteWindowsFromStorage(showEmptyStorageMessage: !targetNotesMissing || movedNotes);
-        RefreshTrayMenu();
 
         ConfirmationDialog.Inform(DialogOwner,
             LocalizationService.T("SelectNotesRootChangedMessage"),
@@ -617,7 +615,6 @@ public partial class App : System.Windows.Application, INoteWindowHost
         _settings.Normalize();
         SwitchNoteColorsForTheme();
         _storage.SaveSettings(_settings);
-        RefreshTrayMenu();
         RefreshSettingsWindowNotesRoot();
         if (_trayIcon != null)
         {
@@ -641,15 +638,6 @@ public partial class App : System.Windows.Application, INoteWindowHost
         _settings.NoteDefaults.ColorKey = NoteAppearance.ColorKeyForTheme(_settings.NoteDefaults.ColorKey, dark);
         foreach (var win in _windows)
             win.SwitchColorForTheme(dark);
-    }
-
-    private void RefreshTrayMenu()
-    {
-        if (_trayIcon == null) return;
-
-        var oldMenu = _trayIcon.ContextMenuStrip;
-        _trayIcon.ContextMenuStrip = BuildTrayMenu();
-        oldMenu?.Dispose();
     }
 
     // ─── アイコン ────────────────────────────────────────────────
@@ -984,7 +972,6 @@ public partial class App : System.Windows.Application, INoteWindowHost
         var window = OpenNoteWindow(note);
         window.RevealNewNote();
         SaveAll();
-        RefreshTrayMenu();
         _noteManagerWindow?.RefreshNotes();
     }
 
@@ -1015,7 +1002,6 @@ public partial class App : System.Windows.Application, INoteWindowHost
         var window = OpenNoteWindow(copy);
         window.RevealNewNote();
         SaveAll();
-        RefreshTrayMenu();
         _noteManagerWindow?.RefreshNotes();
         return window;
     }
@@ -1122,7 +1108,6 @@ public partial class App : System.Windows.Application, INoteWindowHost
         note.LayerOrder = _windows.Select(w => w.ViewModel.Model.LayerOrder).DefaultIfEmpty(0).Min() - 1;
         OpenNoteWindow(note);
         SaveAll();
-        RefreshTrayMenu();
         _noteManagerWindow?.RefreshNotes();
     }
 
@@ -1168,7 +1153,6 @@ public partial class App : System.Windows.Application, INoteWindowHost
     {
         if (!Workspace.Hide(id)) return;
         SaveAll();
-        RefreshTrayMenu();
         _noteManagerWindow?.RefreshNotes();
     }
 
@@ -1180,7 +1164,6 @@ public partial class App : System.Windows.Application, INoteWindowHost
         if (!Workspace.Show(id)) return;
         ApplyLayerOrder(bringToFront: true);
         SaveAll();
-        RefreshTrayMenu();
         _noteManagerWindow?.RefreshNotes();
     }
 
@@ -1209,7 +1192,6 @@ public partial class App : System.Windows.Application, INoteWindowHost
         }
 
         SaveAll();
-        RefreshTrayMenu();
         _noteManagerWindow?.RefreshNotes();
     }
 
@@ -1284,7 +1266,6 @@ public partial class App : System.Windows.Application, INoteWindowHost
     {
         if (!Workspace.Remove(id, closeWindow)) return false;
         SaveAll();
-        RefreshTrayMenu();
         _noteManagerWindow?.RefreshNotes();
         return true;
     }
@@ -1387,7 +1368,6 @@ public partial class App : System.Windows.Application, INoteWindowHost
         {
             win.ViewModel.Model.IsHidden = false;
             win.Show();
-            RefreshTrayMenu();
             _noteManagerWindow?.RefreshNotes();
         }
         if (bringToFront)
