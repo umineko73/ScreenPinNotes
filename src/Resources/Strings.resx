@@ -417,6 +417,11 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="ColorTooltip" xml:space="preserve">
     <value>Change color</value>
   </data>
+  <data name="SettingsColorPalette" xml:space="preserve"><value>Color palette</value></data>
+  <data name="SettingsColorPaletteHint" xml:space="preserve"><value>The set of colors offered in the note color picker. Notes already painted keep their colors.</value></data>
+  <data name="ColorPaletteClassic" xml:space="preserve"><value>Sticky</value></data>
+  <data name="ColorPaletteModern" xml:space="preserve"><value>Modern</value></data>
+  <data name="ColorPaletteSoft" xml:space="preserve"><value>Soft</value></data>
   <data name="ColorPaletteCustom" xml:space="preserve"><value>Custom</value></data>
   <data name="CustomColorTooltip" xml:space="preserve"><value>Custom colors (the title bar is the background made slightly darker)</value></data>
   <data name="CustomBackgroundColor" xml:space="preserve"><value>Background</value></data>

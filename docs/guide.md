@@ -185,7 +185,7 @@ The app must be running in the tray. Missed reminders are delivered once on rest
 
 ![The settings window](settings-en.png)
 
-**Settings > Appearance** collects how notes look: corner radius (0-16px, 8px by default), border color (none by default; gray and the note's own color are also available), icon color (color or monochrome), and the hidden title bar marker. Changes reach open notes right away.
+**Settings > Appearance** collects how notes look. **Color palette** picks the set of colors in the note color picker: *Sticky* (tinted paper), *Modern* (near-white with a vivid spine), or *Soft* (off-white with muted tones); notes already painted keep their colors. Also there: corner radius (0-16px, 8px by default), border color (none by default; gray and the note's own color are also available), icon color (color or monochrome), and the hidden title bar marker. Changes reach open notes right away.
 
 The default *None* leaves a pale note with almost no visible edge over a white background. Set the border color to gray or the note's own color to keep one.
 

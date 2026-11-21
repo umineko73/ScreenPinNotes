@@ -378,12 +378,13 @@ public sealed class SettingsWindow : Window
 
     /// <summary>
     /// 付箋の色パレットと同じ色見本。ライト11色とダーク11色を2段に並べ、選んだ色に印を付ける。
-    /// 内部の名前（yellow など）は画面に出さない。
+    /// 内部の名前（yellow など）は画面に出さない。パレットを切り替えたら並べ直す。
     /// </summary>
     private FrameworkElement BuildColorSwatches(NoteDefaultSettings defaults)
     {
         var panel = new StackPanel { Margin = new Thickness(0, 8, 0, 0), Name = "DefaultColorSwatches" };
         var swatches = new List<WpfButton>();
+        _rebuildColorSwatches = Fill;
 
         void Refresh()
         {
@@ -405,7 +406,8 @@ public sealed class SettingsWindow : Window
                 {
                     Template = SwatchTemplate,
                     Width = 30, Height = 30, Margin = new Thickness(0, 0, 6, 6),
-                    Background = Brush(bg), BorderBrush = Brush(header),
+                    Background = NoteAppearance.SwatchBrush(Brush(bg).Color, Brush(header).Color),
+                    BorderBrush = Brush(header),
                     Content = new WpfTextBlock
                     {
                         Text = UiIcons.CheckMark, FontFamily = UiIcons.Font, FontSize = 13, Foreground = Brush(header),
@@ -427,10 +429,38 @@ public sealed class SettingsWindow : Window
             return row;
         }
 
-        panel.Children.Add(Row(NoteAppearance.LightPresetKeys));
-        panel.Children.Add(Row(NoteAppearance.DarkPresetKeys));
-        Refresh();
+        void Fill()
+        {
+            panel.Children.Clear();
+            swatches.Clear();
+            panel.Children.Add(Row(NoteAppearance.LightPresetKeys(_settings.ColorPalette)));
+            panel.Children.Add(Row(NoteAppearance.DarkPresetKeys(_settings.ColorPalette)));
+            Refresh();
+        }
+
+        Fill();
         return panel;
+    }
+
+    private Action? _rebuildColorSwatches;
+
+    /// <summary>
+    /// 色のパレット。切り替えると付箋の色ピッカーと既定色の見本が入れ替わる。既定色は
+    /// 切り替え先の同じ色相の色にする。すでに塗った付箋の色はそのまま。
+    /// </summary>
+    private WpfBorder BuildColorPaletteCard()
+    {
+        var picker = ChoicePicker(WidePickerWidth,
+            NoteAppearance.Palettes.Select(p => (LocalizationService.T(p.NameKey), p.Id)),
+            () => _settings.ColorPalette,
+            v =>
+            {
+                _settings.ColorPalette = v;
+                _settings.NoteDefaults.ColorKey = NoteAppearance.ColorKeyForPalette(_settings.NoteDefaults.ColorKey, v);
+                _rebuildColorSwatches?.Invoke();
+            });
+        picker.Name = "ColorPalettePicker";
+        return Card("SettingsColorPalette", "SettingsColorPaletteHint", picker);
     }
 
     private static ControlTemplate? _swatchTemplate;
@@ -609,6 +639,8 @@ public sealed class SettingsWindow : Window
             () => _settings.Language, v => _settings.Language = v)));
 
         // 0 は数字より「角のまま」と書いたほうが伝わる。
+        panel.Children.Add(BuildColorPaletteCard());
+
         panel.Children.Add(Card("SettingsNoteCorner", null, ChoicePicker(NarrowPickerWidth,
             new[] { 0, 2, 4, 6, 8, 12, 16 }.Select(r =>
                 (r == 0 ? LocalizationService.T("SettingsNoteCornerSquare") : r.ToString(), (double)r)),

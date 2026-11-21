@@ -56,10 +56,10 @@ public partial class StickyNoteWindow
         var panel = new WrapPanel { Width = ColorColumns * (PickerCell + PickerCellGap * 2) };
         _colorPanel = panel;
 
-        // 1行目がライト、2行目がダーク。アプリのテーマに関係なく同じ11色ずつを並べる。
-        // 同じ列の色がテーマ切り替えで入れ替わる対（NoteAppearance.ThemeCounterpart）。
-        foreach (var key in NoteAppearance.LightPresetKeys) panel.Children.Add(BuildColorSwatch(key));
-        foreach (var key in NoteAppearance.DarkPresetKeys) panel.Children.Add(BuildColorSwatch(key));
+        // 設定で選んだパレットの色。1行目がライト、2行目がダーク。アプリのテーマに関係なく
+        // 同じ11色ずつを並べる。同じ列の色がテーマ切り替えで入れ替わる対（NoteAppearance.ThemeCounterpart）。
+        foreach (var key in NoteAppearance.LightPresetKeys(Settings.ColorPalette)) panel.Children.Add(BuildColorSwatch(key));
+        foreach (var key in NoteAppearance.DarkPresetKeys(Settings.ColorPalette)) panel.Children.Add(BuildColorSwatch(key));
 
         var heading = PickerHeading(LocalizationService.T("ColorPaletteCustom"), first: false);
         heading.Width = panel.Width - heading.Margin.Left;
@@ -100,8 +100,10 @@ public partial class StickyNoteWindow
     {
         note.OpacityPercent = 100;
         var preview = new NoteAppearance(note, Settings);
-        button.Background  = preview.BackgroundBrush;
-        button.BorderBrush = preview.HeaderBrush;      // 枠線でヘッダー色も判るようにする
+        // 左に帯の色を入れ、付箋の見た目を縮めて見せる。枠線もヘッダー色にする。
+        button.Background  = NoteAppearance.SwatchBrush(
+            ((WpfSolidBrush)preview.BackgroundBrush).Color, ((WpfSolidBrush)preview.HeaderBrush).Color);
+        button.BorderBrush = preview.HeaderBrush;
         button.Foreground  = preview.TextForeground;   // 配色に合わせてチェックのコントラストを確保
     }
 

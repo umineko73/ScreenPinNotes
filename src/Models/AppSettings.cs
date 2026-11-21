@@ -120,6 +120,12 @@ public sealed class AppSettings
     /// <summary>"Light"・"Dark"・"System"（Windows のアプリの色に合わせる）。</summary>
     public string Theme { get; set; } = "Light";
 
+    /// <summary>
+    /// 色のパレット（<see cref="ScreenPinNotes.Services.NoteAppearance.Palettes"/> の Id）。
+    /// 付箋の色ピッカーと新しい付箋の既定色の見本に、このパレットの色を並べる。
+    /// </summary>
+    public string ColorPalette { get; set; } = ScreenPinNotes.Services.NoteAppearance.PaletteClassic;
+
     public const string ThemeLight = "Light";
     public const string ThemeDark = "Dark";
     public const string ThemeSystem = "System";
@@ -232,6 +238,7 @@ public sealed class AppSettings
     public void Normalize()
     {
         Language = ScreenPinNotes.Services.LocalizationService.ResolveLanguage(Language, "ja");
+        ColorPalette = ScreenPinNotes.Services.NoteAppearance.PaletteFor(ColorPalette).Id;
         Theme = string.Equals(Theme, ThemeDark, StringComparison.OrdinalIgnoreCase) ? ThemeDark
             : string.Equals(Theme, ThemeSystem, StringComparison.OrdinalIgnoreCase) ? ThemeSystem
             : ThemeLight;
