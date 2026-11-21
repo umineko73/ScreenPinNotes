@@ -33,7 +33,7 @@ public partial class StickyNoteWindow
     // ─── ピッカーの共通部品（アイコン・色） ────────────────────────
     //
     // 2つのピッカーを同じ見た目にそろえる。角の丸いカードに影を付け、
-    // セルも角を丸めてマウスが乗ると薄く色を敷く。開く位置は付箋の上に寄せる。
+    // セルも角を丸めてマウスが乗ると薄く色を敷く。開く位置はマウスの近くで、付箋から離さない。
 
     private const double PickerCell = 32;
     private const double PickerCellGap = 2;
@@ -144,23 +144,18 @@ public partial class StickyNoteWindow
     };
 
     /// <summary>
-    /// ピッカーを付箋の下端にまたがるように開く。カードの上側 <see cref="PickerOverlap"/> だけを
-    /// 付箋に重ね、残りは下へ出す。付箋の中身を大きく隠さず、それでいて付箋から
-    /// 離れた場所には出ない。横は <paramref name="anchorOnScreen"/>（押したボタンの下端や
-    /// マウスの位置、デバイスピクセル）の近くに出し、付箋の幅に収まるなら収める。
-    /// 画面の下に入りきらないときは WPF がポップアップを上へずらす。押したボタンは
-    /// <see cref="Popup.Tag"/> に覚え、そのボタンをもう一度押したときは閉じるだけにする。
+    /// ピッカーをマウスや押したボタンの近くに開く。位置は <see cref="PickerOrigin"/> で決め、
+    /// 付箋から離れた場所には出さない。画面の下に入りきらないときは WPF がポップアップを
+    /// 上へずらす。押したボタンは <see cref="Popup.Tag"/> に覚え、そのボタンをもう一度
+    /// 押したときは閉じるだけにする。
     /// </summary>
     private void OpenPickerOverNote(Popup popup, System.Windows.Point anchorOnScreen, WpfButton? trigger)
     {
-        const double Inset = 8;
         var anchor = RootBorder.PointFromScreen(anchorOnScreen);
         var card = PickerCard(popup);
         card?.Measure(new System.Windows.Size(double.PositiveInfinity, double.PositiveInfinity));
         var size = card?.DesiredSize ?? default;
-        var maxX = Math.Max(Inset, RootBorder.ActualWidth - size.Width - Inset);
-        var x = Math.Clamp(anchor.X - 16, Inset, maxX);
-        var y = Math.Max(Inset, RootBorder.ActualHeight - PickerOverlap);
+        var (x, y) = PickerOrigin(anchor, new System.Windows.Size(RootBorder.ActualWidth, RootBorder.ActualHeight), size);
 
         popup.Tag = trigger;
         popup.PlacementTarget = RootBorder;
@@ -168,6 +163,23 @@ public partial class StickyNoteWindow
         popup.HorizontalOffset = x - PickerShadowMargin;
         popup.VerticalOffset = y - PickerShadowMargin;
         popup.IsOpen = true;
+    }
+
+    /// <summary>
+    /// カードの左上（付箋の座標）。マウスや押したボタンのすぐ下に出す。ただし付箋から
+    /// 離れないよう、縦・横とも付箋に <see cref="PickerOverlap"/> 以上は重ねる（付箋の幅や
+    /// 高さに収める必要はない）。付箋の外でメニューを押したときは、重なるところまで寄せる。
+    /// </summary>
+    private static (double X, double Y) PickerOrigin(System.Windows.Point anchor, System.Windows.Size note, System.Windows.Size card)
+    {
+        const double Gap = 4;
+        static double Near(double wanted, double noteLength, double cardLength)
+        {
+            var min = PickerOverlap - cardLength;
+            var max = Math.Max(min, noteLength - PickerOverlap);
+            return Math.Clamp(wanted, min, max);
+        }
+        return (Near(anchor.X - 16, note.Width, card.Width), Near(anchor.Y + Gap, note.Height, card.Height));
     }
 
     /// <summary>ボタンの左下（画面座標）。ツールバーのボタンは別のポップアップの中にあるので、画面座標で受け渡す。</summary>

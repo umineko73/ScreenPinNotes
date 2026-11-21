@@ -3202,10 +3202,11 @@ public class StickyNoteWindowTests
                 Assert.True(popup.IsOpen);
                 Assert.Same(root, popup.PlacementTarget);
                 Assert.Equal(PlacementMode.Relative, popup.Placement);
-                // マウスが付箋から離れていても、カード（影の余白の内側）は付箋の下端に
-                // 上側だけ重ねて出る。左端は付箋の内側に来る。
-                Assert.InRange(popup.HorizontalOffset + ShadowMargin, 8, root.ActualWidth);
-                Assert.Equal(root.ActualHeight - 24, popup.VerticalOffset + ShadowMargin, 3);
+                // マウスが付箋から離れていても、カード（影の余白の内側）は縦・横とも付箋に 24 以上重なる。
+                var card = ((FrameworkElement)popup.Child).DesiredSize;
+                var (cardWidth, cardHeight) = (card.Width - 2 * ShadowMargin, card.Height - 2 * ShadowMargin);
+                Assert.InRange(popup.HorizontalOffset + ShadowMargin, 24 - cardWidth - 0.001, root.ActualWidth - 24 + 0.001);
+                Assert.InRange(popup.VerticalOffset + ShadowMargin, 24 - cardHeight - 0.001, root.ActualHeight - 24 + 0.001);
                 popup.IsOpen = false;
             }
         }
@@ -3213,6 +3214,25 @@ public class StickyNoteWindowTests
         {
             window.Close();
         }
+    }
+
+    // パレットはマウスのすぐ下に出る。付箋の幅に収めず、付箋に 24 以上重なればよい。
+    [Theory]
+    [InlineData(100, 50, 84, 54)]       // 付箋の中: マウスの少し左下
+    [InlineData(100, 500, 84, 276)]     // 付箋より下: 下端に 24 重なるところで止まる
+    [InlineData(100, -80, 84, -76)]     // 付箋より上でも、重なっていればそのまま
+    [InlineData(100, -500, 84, -156)]   // 遠く上: カードの下端が付箋に 24 重なる
+    [InlineData(370, 50, 354, 54)]      // 右端の近く: 付箋からはみ出してよい
+    [InlineData(900, 50, 376, 54)]      // 遠く右: カードの左端が付箋に 24 重なる
+    [InlineData(-500, 50, -196, 54)]    // 遠く左: カードの右端が付箋に 24 重なる
+    public void PickerOrigin_FollowsTheMouseButStaysOnTheNote(double ax, double ay, double x, double y)
+    {
+        var method = typeof(StickyNoteWindow).GetMethod("PickerOrigin",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+        var origin = ((double X, double Y))method.Invoke(null,
+            [new Point(ax, ay), new Size(400, 300), new Size(220, 180)])!;
+        Assert.Equal(x, origin.X, 3);
+        Assert.Equal(y, origin.Y, 3);
     }
 
     [WpfFact]
