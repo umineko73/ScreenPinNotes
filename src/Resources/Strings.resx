@@ -855,7 +855,7 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="NoteManagerLocked" xml:space="preserve"><value>Locked</value></data>
   <data name="NoteManagerUnlocked" xml:space="preserve"><value>Unlocked</value></data>
   <data name="SettingsNewNoteHotkey" xml:space="preserve"><value>New note shortcut</value></data>
-  <data name="HotkeyHint" xml:space="preserve"><value>Click the field and press Ctrl or Alt + a letter, digit, or F-key. It takes effect right away.</value></data>
+  <data name="HotkeyHint" xml:space="preserve"><value>Press the keys to use them right away (Ctrl or Alt + a letter, digit, or F-key). Default: Ctrl+Alt+N</value></data>
   <data name="HotkeyInvalid" xml:space="preserve"><value>Use Ctrl or Alt with a letter, digit, or F-key, except F12.</value></data>
   <data name="HotkeyUnavailable" xml:space="preserve"><value>Could not register the shortcut. It may be in use by another app. Choose another combination in Settings.</value></data>
   <data name="HotkeyApply" xml:space="preserve"><value>Apply</value></data>
@@ -866,7 +866,7 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="SettingsStartHidden" xml:space="preserve"><value>Start with notes hidden (wait in the tray)</value></data>
   <data name="TrayNewNoteFromClipboard" xml:space="preserve"><value>New note from clipboard</value></data>
   <data name="SettingsClipboardNoteHotkey" xml:space="preserve"><value>New note from clipboard shortcut</value></data>
-  <data name="ClipboardHotkeyHint" xml:space="preserve"><value>Creates a note from the text or image on the clipboard.</value></data>
+  <data name="ClipboardHotkeyHint" xml:space="preserve"><value>Creates a note from the text or image on the clipboard. Default: Ctrl+Alt+Shift+N</value></data>
   <data name="ClipboardNoteEmpty" xml:space="preserve"><value>The clipboard has no text or image to make a note from.</value></data>
   <data name="ReminderFlashNote" xml:space="preserve"><value>Flash the note for {0} seconds (shows hidden notes)</value></data>
   <data name="ReminderPlaySound" xml:space="preserve"><value>Repeat a sound for {0} seconds (chosen in Settings)</value></data>

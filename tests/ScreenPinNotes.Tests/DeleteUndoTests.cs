@@ -119,19 +119,19 @@ public class DeleteUndoTests
             Assert.Empty(windows);
             Assert.Empty(storage.Load());
 
-            var toast = Application.Current.Windows.OfType<UndoToast>().Single();
+            var toast = Assert.IsType<UndoToast>(UndoToast.Current);
             Assert.Contains("undo me", Descendants<TextBlock>(toast).First().Text);
             toast.ActionButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
             var reopened = Assert.Single(windows);
             Assert.Equal(note.Id, reopened.ViewModel.Model.Id);
             Assert.Equal("body", Assert.Single(storage.Load()).Content);
-            Assert.Empty(Application.Current.Windows.OfType<UndoToast>());
+            Assert.Null(UndoToast.Current);
         }
         finally
         {
             foreach (var w in windows.ToList()) w.Close();
-            foreach (var t in Application.Current.Windows.OfType<UndoToast>().ToList()) t.Close();
+            UndoToast.Current?.Close();
             windows.Clear();
             windows.AddRange(previous);
             storageField.SetValue(app, previousStorage);

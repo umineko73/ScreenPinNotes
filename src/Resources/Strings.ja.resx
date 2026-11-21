@@ -855,7 +855,7 @@
   <data name="NoteManagerLocked" xml:space="preserve"><value>ロック中</value></data>
   <data name="NoteManagerUnlocked" xml:space="preserve"><value>解除</value></data>
   <data name="SettingsNewNoteHotkey" xml:space="preserve"><value>新規付箋のショートカット</value></data>
-  <data name="HotkeyHint" xml:space="preserve"><value>欄を選んで Ctrl または Alt ＋ 英数字・Fキーを押すと、すぐに使えます。</value></data>
+  <data name="HotkeyHint" xml:space="preserve"><value>キーを押すとすぐ使えます（Ctrl か Alt ＋ 英数字・Fキー）。初期値: Ctrl+Alt+N</value></data>
   <data name="HotkeyInvalid" xml:space="preserve"><value>Ctrl または Alt と英数字・Fキー（F12以外）を組み合わせてください。</value></data>
   <data name="HotkeyUnavailable" xml:space="preserve"><value>ショートカットを登録できません。他のアプリが使用中の可能性があります。設定で別のキーを指定してください。</value></data>
   <data name="HotkeyApply" xml:space="preserve"><value>適用</value></data>
@@ -866,7 +866,7 @@
   <data name="SettingsStartHidden" xml:space="preserve"><value>起動時に付箋を表示しない（トレイで待機）</value></data>
   <data name="TrayNewNoteFromClipboard" xml:space="preserve"><value>クリップボードから付箋を作成</value></data>
   <data name="SettingsClipboardNoteHotkey" xml:space="preserve"><value>クリップボードから作成するショートカット</value></data>
-  <data name="ClipboardHotkeyHint" xml:space="preserve"><value>クリップボードの文字・画像から付箋を作ります。</value></data>
+  <data name="ClipboardHotkeyHint" xml:space="preserve"><value>クリップボードの文字・画像から付箋を作ります。初期値: Ctrl+Alt+Shift+N</value></data>
   <data name="ClipboardNoteEmpty" xml:space="preserve"><value>クリップボードに付箋にできる内容（文字・画像）がありません。</value></data>
   <data name="ReminderFlashNote" xml:space="preserve"><value>付箋を{0}秒間点滅（非表示の付箋も表示）</value></data>
   <data name="ReminderPlaySound" xml:space="preserve"><value>サウンドを{0}秒間繰り返す（音は設定画面で選択）</value></data>

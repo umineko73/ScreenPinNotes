@@ -37,6 +37,9 @@ public sealed class UndoToast : Window
     public static readonly TimeSpan Duration = TimeSpan.FromSeconds(8);
 
     private static UndoToast? _current;
+
+    /// <summary>いま出ている通知。無ければ null。</summary>
+    internal static UndoToast? Current => _current;
     private readonly DispatcherTimer _timer = new() { Interval = Duration };
 
     internal WpfButton ActionButton { get; }
@@ -108,7 +111,12 @@ public sealed class UndoToast : Window
     /// <summary>通知を出す。前の通知は閉じる。</summary>
     public static UndoToast Show(string message, string actionLabel, Action action, bool dark)
     {
-        _current?.Close();
+        // 前の通知は、それを作ったスレッドで閉じる（テストではスレッドが分かれることがある）。
+        if (_current is { } previous)
+        {
+            if (previous.Dispatcher.CheckAccess()) previous.Close();
+            else previous.Dispatcher.BeginInvoke(previous.Close);
+        }
         var toast = new UndoToast(message, actionLabel, action, dark);
         _current = toast;
         toast.Show();
