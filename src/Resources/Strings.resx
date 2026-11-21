@@ -711,7 +711,7 @@ No: create initial notes in the selected folder. The current notes folder will r
     <value>Search</value>
   </data>
   <data name="NoteManagerSearchPlaceholder" xml:space="preserve">
-    <value>Search title, body, or path</value>
+    <value>Search titles, text, and paths</value>
   </data>
   <data name="NoteManagerShow" xml:space="preserve">
     <value>Show</value>
@@ -914,4 +914,8 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="NoteDeletedToast" xml:space="preserve"><value>Deleted "{0}"</value></data>
   <data name="Undo" xml:space="preserve"><value>Undo</value></data>
   <data name="UntitledNote" xml:space="preserve"><value>Untitled note</value></data>
+  <data name="NoteManagerMore" xml:space="preserve"><value>More actions</value></data>
+  <data name="NoteManagerEmpty" xml:space="preserve"><value>No notes yet. Create one with New note at the top right.</value></data>
+  <data name="NoteManagerNoMatch" xml:space="preserve"><value>No notes match.</value></data>
+  <data name="NoteManagerLayerDisabledHint" xml:space="preserve"><value>Sort by Layer and clear the search to change the order.</value></data>
 </root>

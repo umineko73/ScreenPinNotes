@@ -711,7 +711,7 @@
     <value>検索</value>
   </data>
   <data name="NoteManagerSearchPlaceholder" xml:space="preserve">
-    <value>タイトル、本文、パスを検索</value>
+    <value>タイトル・本文・パスで検索</value>
   </data>
   <data name="NoteManagerShow" xml:space="preserve">
     <value>表示</value>
@@ -914,4 +914,8 @@
   <data name="NoteDeletedToast" xml:space="preserve"><value>「{0}」を削除しました</value></data>
   <data name="Undo" xml:space="preserve"><value>元に戻す</value></data>
   <data name="UntitledNote" xml:space="preserve"><value>無題の付箋</value></data>
+  <data name="NoteManagerMore" xml:space="preserve"><value>その他の操作</value></data>
+  <data name="NoteManagerEmpty" xml:space="preserve"><value>付箋はまだありません。右上の「新しい付箋を作成」から作れます。</value></data>
+  <data name="NoteManagerNoMatch" xml:space="preserve"><value>一致する付箋はありません。</value></data>
+  <data name="NoteManagerLayerDisabledHint" xml:space="preserve"><value>「重なり順」で並べ、検索を消すと変えられます。</value></data>
 </root>
