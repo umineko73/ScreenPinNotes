@@ -835,12 +835,12 @@
   <data name="SearchRegex" xml:space="preserve"><value>正規表現</value></data>
   <data name="SearchInvalid" xml:space="preserve"><value>検索式が正しくないか、処理時間を超えました。式を簡単にしてください。</value></data>
   <data name="NoteManagerSelectionHint" xml:space="preserve"><value>Ctrl / Shift + クリックで複数選択。非表示の付箋も重なり順を保持します。</value></data>
-  <data name="ReminderZeroMinutes" xml:space="preserve"><value>分を00にする</value></data>
+  <data name="ReminderZeroMinutes" xml:space="preserve"><value>分を00に</value></data>
   <data name="SearchHistoryHint" xml:space="preserve"><value>入力または履歴から選択。Enterまたは入力欄を離れると保存します（最新30件）。</value></data>
   <data name="ReminderAdd5" xml:space="preserve"><value>+5分</value></data>
   <data name="ReminderAdd10" xml:space="preserve"><value>+10分</value></data>
   <data name="ReminderAdd60" xml:space="preserve"><value>+1時間</value></data>
-  <data name="ReminderResetNow" xml:space="preserve"><value>現在時刻にリセット</value></data>
+  <data name="ReminderResetNow" xml:space="preserve"><value>今の時刻</value></data>
   <data name="ReminderAdjustHint" xml:space="preserve"><value>上の日時に加算します。今からの時間を指定するには、リセットしてから加算してください。</value></data>
   <data name="NoteManagerClearSearch" xml:space="preserve"><value>検索解除</value></data>
   <data name="LayerSort" xml:space="preserve"><value>並び順：重なり順（上が手前）</value></data>
@@ -918,4 +918,9 @@
   <data name="NoteManagerEmpty" xml:space="preserve"><value>付箋はまだありません。右上の「新しい付箋を作成」から作れます。</value></data>
   <data name="NoteManagerNoMatch" xml:space="preserve"><value>一致する付箋はありません。</value></data>
   <data name="NoteManagerLayerDisabledHint" xml:space="preserve"><value>「重なり順」で並べ、検索を消すと変えられます。</value></data>
+  <data name="ReminderSnoozeLabel" xml:space="preserve"><value>スヌーズ</value></data>
+  <data name="ReminderOpenNote" xml:space="preserve"><value>付箋を開く</value></data>
+  <data name="ReminderResetNowTooltip" xml:space="preserve"><value>日時を今の時刻にします</value></data>
+  <data name="ReminderZeroMinutesTooltip" xml:space="preserve"><value>日付と時はそのままで、分を00にします</value></data>
+  <data name="ReminderAddTooltip" xml:space="preserve"><value>入力中の日時に足します（過去の日時なら今から）</value></data>
 </root>

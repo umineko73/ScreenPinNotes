@@ -115,14 +115,14 @@ Open **Note list** from the tray. Columns show layer order, pin status, visibili
 
 Configure a reminder from a note's context menu or the **Note list**. Choose a date from the calendar. The editor appears above pinned notes.
 
-**+5 min, +10 min, +1 hour** add to the date and time currently entered, including repeated clicks and crossing midnight. Use **Reset to now** then **+10 min** for ten minutes from now. **Set minutes to 00** keeps the date and hour. Choose a future time before saving.
+**+5 min, +10 min, +1 hour** add to the date and time entered, including repeated clicks and crossing midnight. If that time is already in the past they add from now, so **+10 min** alone means ten minutes from now. **Now** sets the current time and **Round to :00** keeps the date and hour. Choose a future time before saving.
 
 - **Once**: Date and time
 - **Daily**: Start date and daily time
 - **Weekly**: Start date, time, one or more weekdays, and optionally the 1st–5th weeks (e.g. 1st and 3rd for every other week); a week is the weekday's occurrence in the month
 - **Monthly**: Start date, time, and day 1–31 or **Last day**; shorter months use their last day
 
-Click a Windows notification to open the note list. Simultaneous reminders share a notification. Optionally enable the alert window for 5-, 15-, or 60-minute snooze. Snoozing preserves the recurring time.
+Click a Windows notification to open the note list. Simultaneous reminders share a notification. Optionally enable the alert window, shown in the note's color and icon, with 5-, 15-, or 60-minute snooze, **Open note**, and **Done**. Snoozing preserves the recurring time.
 
 **Flash the note for 30 seconds** is enabled by default. It shows hidden notes and slowly pulses the whole note in orange (the text stays readable through it). Clicking, typing, or hiding the note stops the effect. **Repeat a sound for 30 seconds** plays the Windows sound chosen under **Settings → Behavior → Reminder sound**, and clicking the note stops it too. The length is set under **Flash and sound length (seconds)**. Windows notifications, snooze alerts, flashing, and a sound can be combined; flashing alone or a sound alone is also supported.
 

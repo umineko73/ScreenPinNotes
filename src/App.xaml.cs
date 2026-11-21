@@ -1379,7 +1379,7 @@ public partial class App : System.Windows.Application, INoteWindowHost
             // 通知ウィンドウを出すときは、どの付箋の知らせか分かるよう常にその付箋を前に出す。
             RevealForReminder(win, bringToFront: true);
 
-            var result = ReminderAlertWindow.ShowFor(win, win.ViewModel.DisplayTitle, dueAt);
+            var result = ReminderAlertWindow.ShowFor(win, dueAt);
             // 通知ウィンドウの間は付箋を押せないので、閉じた時点で音を止める。
             ReminderSound.StopFor(win);
             if (result.Snoozed && result.SnoozeDelay is TimeSpan delay)
@@ -1389,6 +1389,12 @@ public partial class App : System.Windows.Application, INoteWindowHost
             }
             SaveAll();
             _noteManagerWindow?.RefreshNotes();
+            // 「付箋を開く」: その付箋だけを前に出して操作できるようにする（他の付箋までは上げない）。
+            if (result.OpenNote)
+            {
+                if (win.ViewModel.Model.IsHidden) ShowNote(win.ViewModel.Model.Id);
+                else win.Activate();
+            }
         });
     }
 

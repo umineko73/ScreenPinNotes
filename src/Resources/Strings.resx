@@ -835,12 +835,12 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="SearchRegex" xml:space="preserve"><value>Regular expression</value></data>
   <data name="SearchInvalid" xml:space="preserve"><value>Invalid pattern or search timed out. Simplify your expression.</value></data>
   <data name="NoteManagerSelectionHint" xml:space="preserve"><value>Ctrl / Shift + click to select multiple notes. Hidden notes also keep their layer order.</value></data>
-  <data name="ReminderZeroMinutes" xml:space="preserve"><value>Set minutes to 00</value></data>
+  <data name="ReminderZeroMinutes" xml:space="preserve"><value>Round to :00</value></data>
   <data name="SearchHistoryHint" xml:space="preserve"><value>Type a search or choose from history. Enter or leaving the field saves it (latest 30).</value></data>
   <data name="ReminderAdd5" xml:space="preserve"><value>+5 min</value></data>
   <data name="ReminderAdd10" xml:space="preserve"><value>+10 min</value></data>
   <data name="ReminderAdd60" xml:space="preserve"><value>+1 hour</value></data>
-  <data name="ReminderResetNow" xml:space="preserve"><value>Reset to now</value></data>
+  <data name="ReminderResetNow" xml:space="preserve"><value>Now</value></data>
   <data name="ReminderAdjustHint" xml:space="preserve"><value>Adds to the date and time above. To start from now, reset first, then add time.</value></data>
   <data name="NoteManagerClearSearch" xml:space="preserve"><value>Clear search</value></data>
   <data name="LayerSort" xml:space="preserve"><value>Order: layers (front first)</value></data>
@@ -918,4 +918,9 @@ No: create initial notes in the selected folder. The current notes folder will r
   <data name="NoteManagerEmpty" xml:space="preserve"><value>No notes yet. Create one with New note at the top right.</value></data>
   <data name="NoteManagerNoMatch" xml:space="preserve"><value>No notes match.</value></data>
   <data name="NoteManagerLayerDisabledHint" xml:space="preserve"><value>Sort by Layer and clear the search to change the order.</value></data>
+  <data name="ReminderSnoozeLabel" xml:space="preserve"><value>Snooze</value></data>
+  <data name="ReminderOpenNote" xml:space="preserve"><value>Open note</value></data>
+  <data name="ReminderResetNowTooltip" xml:space="preserve"><value>Set the date and time to now</value></data>
+  <data name="ReminderZeroMinutesTooltip" xml:space="preserve"><value>Keep the date and hour and set the minutes to 00</value></data>
+  <data name="ReminderAddTooltip" xml:space="preserve"><value>Adds to the date and time above (from now if it is in the past)</value></data>
 </root>

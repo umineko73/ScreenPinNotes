@@ -108,6 +108,29 @@ public class ReminderDialogTests
         finally { dialog.Close(); }
     }
 
+    // 入力中の日時が過去なら、+5分などは今の時刻から足す（「リセットしてから足す」は要らない）。
+    [WpfFact]
+    public void AddTime_StartsFromNowWhenTheEnteredTimeIsPast()
+    {
+        WpfApplicationFixture.Ensure();
+        var dialog = new ReminderDialog(new DateTime(2030, 1, 1));
+        try
+        {
+            var date = Field<DatePicker>(dialog, "_dateBox");
+            var time = Field<TextBox>(dialog, "_timeBox");
+            date.SelectedDate = new DateTime(2026, 11, 20);
+            time.Text = "09:00";
+            var now = new DateTime(2026, 11, 21, 18, 37, 42);
+            dialog.AddFromSelectedTime(TimeSpan.FromMinutes(10), now);
+            Assert.Equal(new DateTime(2026, 11, 21), date.SelectedDate);
+            Assert.Equal("18:47", time.Text);
+            // 未来の日時には、これまでどおりその日時に足す。
+            dialog.AddFromSelectedTime(TimeSpan.FromMinutes(10), now);
+            Assert.Equal("18:57", time.Text);
+        }
+        finally { dialog.Close(); }
+    }
+
     [WpfFact]
     public void InvalidTimeIsPreservedAndResetRecoversToCurrentTime()
     {
