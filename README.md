@@ -18,9 +18,9 @@ A Markdown note, a checklist with attached files, photos, a draw.io diagram, and
 
 ### Dark mode
 
-A darker palette for your desktop, including notes that display only an image. Notes switch to their paired dark colors, while the draw.io diagram keeps a light color so the drawing stays readable. Change the theme and interface language in Settings.
+A darker palette for your desktop, including notes that display only an image. Notes switch to their paired dark colors, and a draw.io diagram with a transparent background sits on a light plate so the drawing stays readable. Change the theme and interface language in Settings.
 
-![English dark mode showing the same notes in dark colors with light text, and the draw.io diagram note kept light](docs/note_dark_en.png)
+![English dark mode showing the same notes in dark colors with light text, with the draw.io diagram on a light plate](docs/note_dark_en.png)
 
 ## Features
 

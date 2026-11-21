@@ -5740,6 +5740,50 @@ public class StickyNoteWindowTests
         }
     }
 
+    /// <summary>
+    /// 暗い付箋では、背景の透けた draw.io の図にだけ明るい台紙を敷く（台紙の分だけ画像が大きくなる）。
+    /// ふつうの画像と、明るい付箋の図はそのまま。
+    /// </summary>
+    [WpfTheory]
+    [InlineData("dark-charcoal", true)]
+    [InlineData("yellow", false)]
+    public void DrawioDiagram_GetsALightPlateOnlyOnDarkNotes(string colorKey, bool plated)
+    {
+        EnsureApplication();
+        using var temp = new TempDataDirectory();
+        var storage = new StorageService(temp.Path);
+        var note = new StickyNote
+        {
+            ColorKey = colorKey, Width = 400, Height = 300,
+            Content = "![zu](assets/zu.png)\n\n![photo](assets/photo.png)",
+        };
+        var assetsDir = storage.GetNoteAssetsDirectoryPath(note.Id);
+        Directory.CreateDirectory(assetsDir);
+        SaveDrawioPng(System.IO.Path.Combine(assetsDir, "zu.png"), TransparentBitmap(120, 60));
+        SavePng(System.IO.Path.Combine(assetsDir, "photo.png"), TransparentBitmap(80, 40));
+        var window = new StickyNoteWindow(new StickyNoteViewModel(note, new AppSettings()), storage);
+        try
+        {
+            window.Show();
+            InvokePrivate(window, "LoadContent", note.Content);
+            var contentBox = Assert.IsType<RichTextBox>(window.FindName("ContentBox"));
+            var widths = EnumerateImages(contentBox.Document)
+                .Select(image => ((System.Windows.Media.Imaging.BitmapSource)image.Source).PixelWidth).ToList();
+
+            var pad = DiagramPlate.PaddingFor(120, 60);
+            Assert.Equal(plated ? 120 + pad * 2 : 120, widths[0]);
+            Assert.Equal(80, widths[1]);
+        }
+        finally
+        {
+            window.Close();
+        }
+
+        static System.Windows.Media.Imaging.BitmapSource TransparentBitmap(int width, int height)
+            => System.Windows.Media.Imaging.BitmapSource.Create(width, height, 96, 96,
+                System.Windows.Media.PixelFormats.Bgra32, null, new byte[width * height * 4], width * 4);
+    }
+
     /// <summary>draw.io が書き出すのと同じく、IHDR の直後に図の入った tEXt を挟んだ PNG を書く。</summary>
     private static void SaveDrawioPng(string path, System.Windows.Media.Imaging.BitmapSource bitmap)
     {
