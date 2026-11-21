@@ -156,7 +156,7 @@ public partial class StickyNoteWindow : Window
     public StickyNoteViewModel ViewModel => (StickyNoteViewModel)DataContext;
 
     public System.Windows.Media.Brush ToolbarBackground =>
-        string.Equals(Settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase)
+        Settings.IsDarkTheme
             ? new WpfSolidBrush(WpfColor.FromRgb(31, 41, 55))
             : new WpfSolidBrush(WpfColor.FromRgb(255, 255, 255));
 

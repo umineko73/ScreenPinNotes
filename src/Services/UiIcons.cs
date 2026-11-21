@@ -50,4 +50,20 @@ public static class UiIcons
     public const string Cancel = "\uE711";
     /// <summary>\u925B\u7B46\u3002\u30AB\u30B9\u30BF\u30E0\u914D\u8272\u306E\u7DE8\u96C6\u306A\u3069\u3002</summary>
     public const string Edit = "\uE70F";
+    public const string Reset = "\uE777";       // UpdateRestore: back to the default
+    public const string Blocked = "";     // disable
+    public const string Delete = "\uE74D";
+    public const string View = "\uE890";
+    public const string Hide = "\uED1A";
+    public const string Settings = "\uE713";
+    public const string Info = "\uE946";
+    public const string Power = "\uE7E8";
+    public const string Folder = "\uE838";
+    public const string OpenFile = "\uE8E5";
+    public const string List = "\uE8FD";
+    public const string NewNote = "\uE70B";     // QuickNote
+    public const string ArrowUp = "\uE74A";
+    public const string ArrowDown = "\uE74B";
+    public const string Ringer = "";      // reminders
+    public const string More = "\uE712";
 }

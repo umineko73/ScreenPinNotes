@@ -77,6 +77,43 @@
             </Setter.Value>
         </Setter>
     </Style>
+    <!-- Windows 11 の設定と同じオン・オフのスイッチ。文字（Content）は読み上げ用に持つだけで、
+         見出しはカードの左側に出すので、ここでは描かない。 -->
+    <Style x:Key="SettingsSwitch" TargetType="CheckBox">
+        <Setter Property="Focusable" Value="True"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="AutomationProperties.Name" Value="{Binding Content.Text, RelativeSource={RelativeSource Self}}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <Grid Background="Transparent" Width="44" Height="24">
+                        <Border x:Name="Track" CornerRadius="10" Width="40" Height="20"
+                                Background="Transparent" BorderBrush="{DynamicResource SettingsSwitchOff}" BorderThickness="1"/>
+                        <Ellipse x:Name="Knob" Width="12" Height="12" Fill="{DynamicResource SettingsSwitchOff}"
+                                 HorizontalAlignment="Left" Margin="8,0,0,0"/>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Track" Property="Background" Value="{DynamicResource SettingsAccent}"/>
+                            <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource SettingsAccent}"/>
+                            <Setter TargetName="Knob" Property="Fill" Value="{DynamicResource SettingsOnAccent}"/>
+                            <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right"/>
+                            <Setter TargetName="Knob" Property="Margin" Value="0,0,8,0"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Knob" Property="Width" Value="14"/>
+                            <Setter TargetName="Knob" Property="Height" Value="14"/>
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Track" Property="BorderThickness" Value="2"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4"/></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
     <Style TargetType="ComboBoxItem">
         <Setter Property="Foreground" Value="{DynamicResource SettingsText}"/>
         <Setter Property="Padding" Value="8,5"/>

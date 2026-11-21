@@ -117,7 +117,24 @@ public sealed class AppSettings
     public string StorageRoot { get; set; } = "";
     public string NotesRoot { get; set; } = "";
     public string Language { get; set; } = "ja";
+    /// <summary>"Light"・"Dark"・"System"（Windows のアプリの色に合わせる）。</summary>
     public string Theme { get; set; } = "Light";
+
+    public const string ThemeLight = "Light";
+    public const string ThemeDark = "Dark";
+    public const string ThemeSystem = "System";
+
+    /// <summary>
+    /// いま暗い配色で描くか。"System" のときは Windows の「アプリ モード」を読む。
+    /// 画面を描くところはどこもここを見る（Theme の文字列を直接比べない）。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsDarkTheme => Theme switch
+    {
+        ThemeDark => true,
+        ThemeSystem => ScreenPinNotes.Services.SystemTheme.AppsUseDarkTheme(),
+        _ => false,
+    };
     public string NewNoteHotkey { get; set; } = ScreenPinNotes.Services.GlobalNoteHotkey.DefaultGesture;
     /// <summary>クリップボードの内容から付箋を作るショートカット。空なら無効。</summary>
     public string ClipboardNoteHotkey { get; set; } = ScreenPinNotes.Services.GlobalNoteHotkey.DefaultClipboardGesture;
@@ -215,7 +232,9 @@ public sealed class AppSettings
     public void Normalize()
     {
         Language = ScreenPinNotes.Services.LocalizationService.ResolveLanguage(Language, "ja");
-        Theme = string.Equals(Theme, "Dark", StringComparison.OrdinalIgnoreCase) ? "Dark" : "Light";
+        Theme = string.Equals(Theme, ThemeDark, StringComparison.OrdinalIgnoreCase) ? ThemeDark
+            : string.Equals(Theme, ThemeSystem, StringComparison.OrdinalIgnoreCase) ? ThemeSystem
+            : ThemeLight;
         TrayClickAction = string.Equals(TrayClickAction, "NewNote", StringComparison.OrdinalIgnoreCase) ? "NewNote" : "ToggleAll";
         ColorDialogCustomColors ??= [];
         StorageRoot = StorageRoot?.Trim() ?? "";

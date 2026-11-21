@@ -33,7 +33,7 @@ public sealed class ImportConflictDialog : Window
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         ShowInTaskbar = false;
         Topmost = true;
-        ControlTheme.Apply(this, App.Current.Settings.Theme == "Dark", dialog: true);
+        ControlTheme.Apply(this, App.Current.Settings.IsDarkTheme, dialog: true);
         var panel = new StackPanel { Margin = new Thickness(20) };
         panel.Children.Add(new TextBlock
         {

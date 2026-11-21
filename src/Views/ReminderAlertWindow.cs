@@ -20,7 +20,7 @@ public sealed class ReminderAlertWindow : Window
     public ReminderAlertWindow(string title, DateTime dueAt)
     {
         Title = LocalizationService.T("ReminderDueTitle");
-        ControlTheme.Apply(this, App.Current.Settings.Theme == "Dark", dialog: true);
+        ControlTheme.Apply(this, App.Current.Settings.IsDarkTheme, dialog: true);
         Width = 360;
         MinWidth = 340;
         SizeToContent = SizeToContent.Height;

@@ -54,7 +54,7 @@ public sealed class NoteManagerWindow : Window
 
         FontFamily = new System.Windows.Media.FontFamily("Yu Gothic UI");
         FontSize = 13;
-        var dark = App.Current.Settings.Theme == "Dark";
+        var dark = App.Current.Settings.IsDarkTheme;
         System.Windows.Media.Brush Brush(string color) => new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(color));
         Background = Brush(dark ? "#202020" : "#F5F7FA");
         Foreground = Brush(dark ? "#EEEEEE" : "#242424");

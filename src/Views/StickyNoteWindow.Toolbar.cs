@@ -220,7 +220,7 @@ public partial class StickyNoteWindow
             : new WpfSolidBrush(WpfColor.FromRgb(0, 0, 0));
 
     private bool IsDarkTheme()
-        => string.Equals(Settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase);
+        => Settings.IsDarkTheme;
 
     private void Font_Click(object sender, RoutedEventArgs e)
     {

@@ -1,4 +1,4 @@
-// ScreenPinNotes - a desktop sticky notes app for Windows 11
+﻿// ScreenPinNotes - a desktop sticky notes app for Windows 11
 // Copyright (C) 2026 umineko73
 //
 // This program is free software: you can redistribute it and/or modify
@@ -150,7 +150,7 @@ public partial class App : System.Windows.Application, INoteWindowHost
 
         var settingsLoad = _storage.LoadSettingsWithDiagnostics();
         _settings = settingsLoad.Value;
-        _appliedDarkTheme = string.Equals(_settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase);
+        _appliedDarkTheme = _settings.IsDarkTheme;
         DiagnosticTrace.Enabled = _settings.EnableDiagnosticTrace ||
             Environment.GetEnvironmentVariable(DiagnosticTrace.EnvVar) == "1";
         TraceEnvironment();
@@ -309,7 +309,7 @@ public partial class App : System.Windows.Application, INoteWindowHost
     {
         _trayIcon = new NotifyIcon
         {
-            Icon = TryLoadTrayIconResource(_settings.Theme == "Dark") ?? LoadTrayIcon(),
+            Icon = TryLoadTrayIconResource(_settings.IsDarkTheme) ?? LoadTrayIcon(),
             Text = "ScreenPinNotes",
             Visible = true,
         };
@@ -634,7 +634,7 @@ public partial class App : System.Windows.Application, INoteWindowHost
         if (_trayIcon != null)
         {
             var oldIcon = _trayIcon.Icon;
-            _trayIcon.Icon = TryLoadTrayIconResource(_settings.Theme == "Dark") ?? LoadTrayIcon();
+            _trayIcon.Icon = TryLoadTrayIconResource(_settings.IsDarkTheme) ?? LoadTrayIcon();
             oldIcon?.Dispose();
         }
         foreach (var win in _windows)
@@ -646,7 +646,7 @@ public partial class App : System.Windows.Application, INoteWindowHost
     /// </summary>
     private void SwitchNoteColorsForTheme()
     {
-        var dark = _settings.Theme == "Dark";
+        var dark = _settings.IsDarkTheme;
         if (dark == _appliedDarkTheme) return;
         _appliedDarkTheme = dark;
 
@@ -757,6 +757,21 @@ public partial class App : System.Windows.Application, INoteWindowHost
             ReconcileNoteScreenPlacement();
         };
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
+        Microsoft.Win32.SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
+    }
+
+    // テーマを「システムに合わせる」にしているとき、Windows のアプリ モードの切り替えに追従する。
+    // 色の設定を変えると General の通知が来る（AppsUseLightTheme も同じ通知で変わる）。
+    private void OnUserPreferenceChanged(object? sender, Microsoft.Win32.UserPreferenceChangedEventArgs e)
+    {
+        if (e.Category != Microsoft.Win32.UserPreferenceCategory.General) return;
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (_shuttingDown || _settings.Theme != AppSettings.ThemeSystem) return;
+            if (_settings.IsDarkTheme == _appliedDarkTheme) return;
+            ApplySettingsChange();
+            _settingsWindow?.RefreshTheme();
+        });
     }
 
     // SystemEvents は専用スレッドで上がるので UI スレッドへ渡す。
@@ -1418,6 +1433,7 @@ public partial class App : System.Windows.Application, INoteWindowHost
         _reminderTimer.Stop();
         _screenLayoutTimer.Stop();
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
+        Microsoft.Win32.SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
 
         // Mutex を持つ本来のインスタンスのときだけ保存する。
         // 二重起動をブロックされた側は _instanceMutex が null で、
