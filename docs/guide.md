@@ -75,11 +75,11 @@ Normal dragging links expanded and collapsed positions. Use **Align to collapsed
 | Padlock | Editing is locked |
 | Link with a slash | Expanded and collapsed positions are separate |
 | Clock | Reminder set; hover anywhere on the note for its next time, repeat, and how it notifies |
-| `A−` / `A＋` | Body font size |
-| `T−` / `T＋` | Title and single-line font size |
+| Text `−` / `＋` | Body font size (the number between shows the current size) |
+| Title `−` / `＋` | Title and single-line font size |
 | `Aa` / smiley / palette (mini toolbar) | Font / icon / color picker |
 | Curved arrows left / right (editing toolbar) | Undo / redo |
-| Round `✓` (bottom right of the note) | Finish editing; black in light mode, white in dark mode. It stays in place while editing, opposite the "Editing" label, even when the toolbar hides |
+| Round `✓` (bottom right of the note) | Finish editing; a round button outlined in the note's color. It stays in place while editing, opposite the "Editing" label, even when the toolbar hides |
 
 The mini toolbar appears above context menus and below the note while editing. When there is no room below, such as near the taskbar, the editing toolbar appears above the note and stays within the screen's working area. The padlock, the slashed link and the clock are status indicators. Buttons and indicators are drawn as line icons; emoji are used only for the icons you choose for notes.
 
