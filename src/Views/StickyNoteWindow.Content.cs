@@ -443,7 +443,7 @@ public partial class StickyNoteWindow
                     System.Globalization.CultureInfo.CurrentCulture, System.Windows.FlowDirection.LeftToRight,
                     new Typeface(new WpfFontFamily(ViewModel.FontFamily), paragraph.FontStyle, paragraph.FontWeight, paragraph.FontStretch),
                     ViewModel.ContentFontSize, ViewModel.TextForeground, VisualTreeHelper.GetDpi(this).PixelsPerDip);
-                width = Math.Max(width, measured.WidthIncludingTrailingWhitespace + 12);
+                width = Math.Max(width, measured.WidthIncludingTrailingWhitespace + cell.Padding.Left + cell.Padding.Right + 4);
             }
             table.Columns[column].Width = new GridLength(Math.Max(12, width));
         }
@@ -537,11 +537,52 @@ public partial class StickyNoteWindow
             IsHitTestVisible = true,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 2, 0),
-            Foreground = ViewModel.TextForeground,
+            Template = TaskCheckboxTemplate,
+            // 枠は本文の色を薄めた線、済んだら付箋のアクセント色で塗って印を付箋の地の色で抜く。
+            BorderBrush = TaskCheckboxOutline(),
+            Background = ViewModel.HeaderBrush,
+            Foreground = ViewModel.BackgroundBrush,
+            Cursor = System.Windows.Input.Cursors.Hand,
         };
         checkbox.PreviewMouseLeftButtonDown += TaskCheckbox_PreviewMouseLeftButtonDown;
         return checkbox;
     }
+
+    private System.Windows.Media.Brush TaskCheckboxOutline()
+    {
+        var brush = ViewModel.TextForeground.Clone();
+        brush.Opacity = 0.5;
+        brush.Freeze();
+        return brush;
+    }
+
+    private static ControlTemplate? _taskCheckboxTemplate;
+
+    /// <summary>
+    /// 本文のチェックボックス。WPF 標準の白い四角は付箋の色から浮くので、角の丸い線の枠にし、
+    /// チェックすると付箋のアクセント色で塗る。
+    /// </summary>
+    private static ControlTemplate TaskCheckboxTemplate => _taskCheckboxTemplate ??= (ControlTemplate)System.Windows.Markup.XamlReader.Parse("""
+        <ControlTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" TargetType="CheckBox">
+          <Grid Background="Transparent" Width="18" Height="18">
+            <Border x:Name="Box" Width="14" Height="14" CornerRadius="3" BorderThickness="1.5"
+                    BorderBrush="{TemplateBinding BorderBrush}" Background="Transparent">
+              <Path x:Name="Check" Visibility="Collapsed" Data="M 2.5,6.5 L 5.2,9.2 L 10.2,3.6"
+                    Stroke="{TemplateBinding Foreground}" StrokeThickness="1.8"
+                    StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+            </Border>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Box" Property="Background" Value="{Binding Background, RelativeSource={RelativeSource TemplatedParent}}"/>
+              <Setter TargetName="Box" Property="BorderBrush" Value="{Binding Background, RelativeSource={RelativeSource TemplatedParent}}"/>
+              <Setter TargetName="Check" Property="Visibility" Value="Visible"/>
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Box" Property="Opacity" Value="0.75"/></Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+        """);
 
     private void TaskCheckbox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {

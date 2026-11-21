@@ -456,6 +456,38 @@ public class MarkdownRendererTests
         Assert.Contains((1, false), calls);
     }
 
+    // 済んだ項目は文字だけに取り消し線を引いて薄くする（チェックボックスには線を引かない）。
+    [WpfFact]
+    public void Render_CompletedTask_StrikesAndDimsOnlyTheText()
+    {
+        var blocks = MarkdownRenderer.Render("- [x] done\n- [ ] todo", 13, CreateHyperlink,
+            createTaskCheckbox: (_, isChecked) => new CheckBox { IsChecked = isChecked }).ToList();
+        var items = Assert.IsType<List>(Assert.Single(blocks)).ListItems.ToList();
+        Inline[] Inlines(int index) => ((Paragraph)items[index].Blocks.FirstBlock).Inlines.ToArray();
+
+        var done = Inlines(0);
+        Assert.IsType<InlineUIContainer>(done[0]);
+        Assert.Null(done[0].TextDecorations is { Count: > 0 } ? done[0].TextDecorations : null);
+        Assert.All(done.Skip(1), inline => Assert.Contains(TextDecorations.Strikethrough[0], inline.TextDecorations));
+        Assert.All(Inlines(1), inline => Assert.True(inline.TextDecorations is null || inline.TextDecorations.Count == 0));
+    }
+
+    // 表は格子ではなく横線だけ。見出しの下は少し濃い線。
+    [Fact]
+    public void Render_Table_UsesHorizontalRulesOnly()
+    {
+        var table = Assert.IsType<Table>(Assert.Single(MarkdownRenderer.Render(
+            "| a | b |\n| --- | --- |\n| 1 | 2 |", 13, CreateHyperlink)));
+        var rows = table.RowGroups[0].Rows;
+        foreach (var cell in rows.SelectMany(row => row.Cells))
+        {
+            Assert.Equal(0, cell.BorderThickness.Left);
+            Assert.Equal(0, cell.BorderThickness.Right);
+            Assert.Equal(0, cell.BorderThickness.Top);
+        }
+        Assert.True(rows[0].Cells[0].BorderThickness.Bottom > rows[1].Cells[0].BorderThickness.Bottom);
+    }
+
     // チェックボックスは文書に入って初めてテンプレートが当たり幅が決まるので、
     // 実際にウィンドウへ配置してから文字位置を比べる。
     [WpfFact]
